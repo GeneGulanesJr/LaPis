@@ -1910,7 +1910,7 @@ function archiveWorkspace(name) {
 /**
  * _dispatch(repoName, fn) — DRY repo lookup for analysis subcommands.
  * Resolves repo name → repoRow (with id, path, head_commit), calls fn(repoRow).
- * Returns fn's result or throws via jsonErr if repo not found.
+ * Returns fn's result or returns an error object via jsonErrNoExit if repo not found.
  */
 function _dispatch(repoName, fn) {
   if (!repoName) {return jsonErrNoExit('Missing --repo');}
