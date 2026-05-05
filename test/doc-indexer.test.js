@@ -22,11 +22,8 @@ function run(cmd) {
 
 // Ensure docs are indexed before all test groups
 beforeAll(() => {
-  const existing = run('list-code-repos');
-  // Only reindex if already exists, otherwise do fresh index
-  try {
-    run(`reindex-docs --repo ${DOC_REPO} --mode full`);
-  } catch {
+  const r = run(`reindex-docs --repo ${DOC_REPO} --mode full`);
+  if (r.error) {
     run(`index-docs --path "${DOC_PATH}" --name ${DOC_REPO}`);
   }
 });
