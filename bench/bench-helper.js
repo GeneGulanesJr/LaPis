@@ -102,30 +102,30 @@ function findSymbolWithCallers(repo) {
       timeout: 10000,
     }).trim();
     const data = JSON.parse(stdout);
-    // Unwrap _meta envelope if present
     const payload = data.data || data;
     const files = payload.hotspots || payload.files || [];
     if (files.length === 0) {return null;}
-    // Get symbols from the hottest file
     const hotFile = files[0].file_path || files[0].path;
-    const outlineOut = execSync(`node memory-store.js outline --repo ${repo} --file "${hotFile}"`, {
-      cwd: path.resolve(__dirname, '..'),
-      encoding: 'utf-8',
-      timeout: 10000,
-    }).trim();
-    const outlineRaw = JSON.parse(outlineOut);
-    const outline = outlineRaw.data || outlineRaw;
-    // Gather symbols from standalone + class methods
-    const syms = [
-      ...(outline.standalone || []),
-      ...(outline.symbols || []),
-      ...(outline.classes || []).flatMap(c => c.methods || []),
-    ];
-    // Find a function with non-trivial name
-    return syms.find(s => s.kind === 'function' && s.name.length > 3)?.name || syms[0]?.name || null;
+    return _pickCallSymbolFromOutline(repo, hotFile);
   } catch (_) {
     return null;
   }
+}
+
+function _pickCallSymbolFromOutline(repo, hotFile) {
+  const outlineOut = execSync(`node memory-store.js outline --repo ${repo} --file "${hotFile}"`, {
+    cwd: path.resolve(__dirname, '..'),
+    encoding: 'utf-8',
+    timeout: 10000,
+  }).trim();
+  const outlineRaw = JSON.parse(outlineOut);
+  const outline = outlineRaw.data || outlineRaw;
+  const syms = [
+    ...(outline.standalone || []),
+    ...(outline.symbols || []),
+    ...(outline.classes || []).flatMap(c => c.methods || []),
+  ];
+  return syms.find(s => s.kind === 'function' && s.name.length > 3)?.name || syms[0]?.name || null;
 }
 
 module.exports = {

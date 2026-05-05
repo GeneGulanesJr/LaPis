@@ -46,12 +46,13 @@ function clearFreshnessCache() {
  * Strategy: git state first, filesystem metadata fallback for non-git repos.
  */
 function checkFreshness(repoPath, storedHeadCommit) {
-  // Non-git repos: fall back to filesystem mtime comparison
   if (!fs.existsSync(path.join(repoPath, '.git'))) {
     return _filesystemFreshness(repoPath);
   }
+  return _gitFreshness(repoPath, storedHeadCommit);
+}
 
-  // Git repos: compare HEAD commit
+function _gitFreshness(repoPath, storedHeadCommit) {
   try {
     const currentHead = execSync('git rev-parse HEAD', {
       cwd: repoPath,
@@ -60,27 +61,25 @@ function checkFreshness(repoPath, storedHeadCommit) {
     }).trim();
 
     if (!currentHead) {return 'stale_index';}
-
-    // If no stored head_commit, assume stale until reindex
     if (!storedHeadCommit) {return 'stale_index';}
 
-    // Commit matches — check for uncommitted changes
     if (currentHead === storedHeadCommit) {
-      const status = execSync('git status --porcelain', {
-        cwd: repoPath,
-        encoding: 'utf-8',
-        timeout: 5000,
-      }).trim();
-
-      return status.length > 0 ? 'edited_uncommitted' : 'fresh';
+      return _checkUncommittedChanges(repoPath);
     }
 
-    // Commit differs — index is stale
     return 'stale_index';
   } catch (_) {
-    // Git command failed — conservative: assume stale
     return 'stale_index';
   }
+}
+
+function _checkUncommittedChanges(repoPath) {
+  const status = execSync('git status --porcelain', {
+    cwd: repoPath,
+    encoding: 'utf-8',
+    timeout: 5000,
+  }).trim();
+  return status.length > 0 ? 'edited_uncommitted' : 'fresh';
 }
 
 /**
