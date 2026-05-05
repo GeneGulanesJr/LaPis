@@ -295,7 +295,12 @@ function runMigrations() {
 /* ── utilities ────────────────────────────────────────────── */
 
 function jsonOut(obj) { console.log(JSON.stringify(obj, null, 2)); }
-function jsonErr(msg) { process.stderr.write(`${JSON.stringify({ error: msg })  }\n`); process.exit(1); }
+function jsonErrNoExit(msg) { return { error: msg }; }
+function jsonErr(msg) {
+  const obj = jsonErrNoExit(msg);
+  process.stderr.write(`${JSON.stringify(obj)}\n`);
+  process.exit(1);
+}
 
 function parseArgs(argv) {
   const args = {};
@@ -313,5 +318,5 @@ module.exports = {
   getDb, getEngine,
   sqlJson, sqlRun, sqlRaw,
   ensureDb, withTransaction,
-  jsonOut, jsonErr, parseArgs,
+  jsonOut, jsonErr, jsonErrNoExit, parseArgs,
 };

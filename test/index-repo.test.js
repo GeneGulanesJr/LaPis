@@ -74,13 +74,18 @@ describe('index-repo (WASM)', () => {
     });
 
     it('should not mention Python in error messages', () => {
-      const out = execSync(`node "${STORE}" index-repo --path /nonexistent/path/abc123 --name nope`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
-      expect(out).not.toContain('Python');
-      expect(out).not.toContain('pip');
-      expect(out).not.toContain('venv');
+      let stderr = '';
+      try {
+        execSync(`node "${STORE}" index-repo --path /nonexistent/path/abc123 --name nope`, {
+          encoding: 'utf8',
+          timeout: 10000,
+        });
+      } catch (err) {
+        stderr = err.stderr || '';
+      }
+      expect(stderr).not.toContain('Python');
+      expect(stderr).not.toContain('pip');
+      expect(stderr).not.toContain('venv');
     });
   });
 

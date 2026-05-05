@@ -16,7 +16,7 @@ const {
   DB_PATH, HOME,
   sqlJson, sqlRun, sqlRaw, ensureDb,
   getDb, getEngine,
-  jsonOut, jsonErr, parseArgs,
+  jsonOut, jsonErrNoExit, parseArgs,
 } = require('./db');
 
 // Lazily resolve db handle (available after ensureDb())
@@ -57,7 +57,7 @@ function _readTierConfig() {
 
 function sessionStart(args) {
   const project = args.project;
-  if (!project) {return jsonErr('Missing --project');}
+  if (!project) {return jsonErrNoExit('Missing --project');}
 
   const sessionRows = sqlJson('INSERT INTO session_log (project) VALUES (?) RETURNING id, started_at', [project]);
   const sessionId = sessionRows[0].id;
@@ -125,7 +125,7 @@ function sessionEnd(args) {
   const id = args.id;
   const memories = parseInt(args.memories || '0', 10);
   const auto = args.auto === 'true' || args.auto === true;
-  if (!id) {return jsonErr('Missing --id');}
+  if (!id) {return jsonErrNoExit('Missing --id');}
 
   let trustRecoveryResult = null;
   if (auto) {trustRecoveryResult = trustRecovery({ session: id });}
@@ -151,7 +151,7 @@ function save(args) {
   const sessionId = args['session-id'] || findLatestSession(project);
   const force = args.force === 'true' || args.force === true;
 
-  if (!title || !content) {return jsonErr('Missing --title and --content');}
+  if (!title || !content) {return jsonErrNoExit('Missing --title and --content');}
 
   // Dedup check (skip if forced)
   if (!force) {
@@ -261,7 +261,7 @@ function search(args) {
   const limit = parseInt(args.limit || '10', 10);
   const sessionId = args['session-id'] ? parseInt(args['session-id'], 10) : null;
   const includeCode = args['include-code'] === 'true' || args['include-code'] === true;
-  if (!query) {return jsonErr('Missing --query');}
+  if (!query) {return jsonErrNoExit('Missing --query');}
 
   const isFtsSpecial = /[*"\-]|\b(AND|OR|NOT)\b/i.test(query);
   const needsFallback = query === '*' || query === '' || isFtsSpecial;
@@ -376,7 +376,7 @@ function context(args) {
   const topicQuery = args.query || null;
   const deep = args.deep === 'true' || args.deep === true;
   const crossProject = !project || args['all-projects'] === 'true' || args['all-projects'] === true;
-  if (!project && !crossProject) {return jsonErr('Missing --project');}
+  if (!project && !crossProject) {return jsonErrNoExit('Missing --project');}
 
   // Active sessions
   const sessions = project
@@ -578,7 +578,7 @@ function context(args) {
 
 function get(args) {
   const id = args.id;
-  if (!id) {return jsonErr('Missing --id');}
+  if (!id) {return jsonErrNoExit('Missing --id');}
   const rows = sqlJson(
     `
     SELECT id, title, content, type, project, scope, topic_key,
@@ -605,7 +605,7 @@ function get(args) {
 
 function update(args) {
   const id = args.id;
-  if (!id) {return jsonErr('Missing --id');}
+  if (!id) {return jsonErrNoExit('Missing --id');}
   const sets = [];
   const params = [];
   if (args.title) {
@@ -632,7 +632,7 @@ function update(args) {
     sets.push('topic_key = ?');
     params.push(args['topic-key']);
   }
-  if (sets.length === 0) {return jsonErr('Nothing to update');}
+  if (sets.length === 0) {return jsonErrNoExit('Nothing to update');}
 
   params.push(parseInt(id, 10));
   sqlRun(`UPDATE observations SET ${sets.join(', ')}, updated_at = datetime('now') WHERE id = ?`, params);
@@ -651,7 +651,7 @@ function update(args) {
 function del(args) {
   const id = args.id;
   const hard = args.hard === 'true' || args.hard === true;
-  if (!id) {return jsonErr('Missing --id');}
+  if (!id) {return jsonErrNoExit('Missing --id');}
 
   if (hard) {
     sqlRun('DELETE FROM observations WHERE id = ?', [parseInt(id, 10)]);
@@ -665,7 +665,7 @@ function timeline(args) {
   const id = parseInt(args.id);
   const before = parseInt(args.before || '5', 10);
   const after = parseInt(args.after || '5', 10);
-  if (isNaN(id)) {return jsonErr('Missing --id');}
+  if (isNaN(id)) {return jsonErrNoExit('Missing --id');}
 
   return sqlJson(
     `
@@ -695,7 +695,7 @@ function savePrompt(args) {
   const content = args.content;
   const project = args.project || null;
   const sessionId = args['session-id'] || findLatestSession(project);
-  if (!content) {return jsonErr('Missing --content');}
+  if (!content) {return jsonErrNoExit('Missing --content');}
 
   const rows = sqlJson(
     `
@@ -710,7 +710,7 @@ function savePrompt(args) {
 
 function capturePassive(args) {
   const content = args.content;
-  if (!content) {return jsonErr('Missing --content');}
+  if (!content) {return jsonErrNoExit('Missing --content');}
 
   const match = content.match(/##\s*Key\s*Learnings?:\s*([\s\S]*)/i);
   if (!match) {return { extracted: 0, items: [] };}
@@ -759,7 +759,7 @@ function sessionSummary(args) {
   const content = args.content;
   const project = args.project || null;
   const sessionId = args['session-id'] || findLatestSession(project);
-  if (!content) {return jsonErr('Missing --content');}
+  if (!content) {return jsonErrNoExit('Missing --content');}
 
   const rows = sqlJson(
     `
@@ -780,7 +780,7 @@ function linkSymbol(args) {
   const repo = args.repo;
   const trust = parseFloat(args.trust || (symbolId ? '1.0' : '0.7'));
 
-  if (!memoryId || !repo) {return jsonErr('Missing --memory and --repo');}
+  if (!memoryId || !repo) {return jsonErrNoExit('Missing --memory and --repo');}
   const symVal = symbolId || '__unlinked__';
 
   sqlRun('INSERT OR REPLACE INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)', [
@@ -794,7 +794,7 @@ function linkSymbol(args) {
 
 function autoLink(args) {
   const project = args.project;
-  if (!project) {return jsonErr('Missing --project');}
+  if (!project) {return jsonErrNoExit('Missing --project');}
 
   const unlinked = sqlJson(
     `
@@ -822,7 +822,7 @@ function adjustTrust(args) {
   const memoryId = args.memory;
   const reason = args.reason;
   const delta = parseFloat(args.delta);
-  if (!memoryId || !reason || isNaN(delta)) {return jsonErr('Missing --memory, --reason, --delta');}
+  if (!memoryId || !reason || isNaN(delta)) {return jsonErrNoExit('Missing --memory, --reason, --delta');}
 
   sqlRun('UPDATE symbol_links SET trust_score = MAX(0.0, trust_score + ?) WHERE memory_id = ?', [delta, memoryId]);
   sqlRun('INSERT INTO trust_adjustments (memory_id, reason, delta) VALUES (?, ?, ?)', [memoryId, reason, delta]);
@@ -834,14 +834,14 @@ function adjustTrust(args) {
 function recordRecall(args) {
   const sessionId = parseInt(args.session);
   const memoryId = args.memory;
-  if (!sessionId || !memoryId) {return jsonErr('Missing --session and --memory');}
+  if (!sessionId || !memoryId) {return jsonErrNoExit('Missing --session and --memory');}
   sqlRun('INSERT OR IGNORE INTO session_recalls (session_id, memory_id) VALUES (?, ?)', [sessionId, memoryId]);
   return { ok: true };
 }
 
 function staleLinks(args) {
   const project = args.project;
-  if (!project) {return jsonErr('Missing --project');}
+  if (!project) {return jsonErrNoExit('Missing --project');}
   return sqlJson(
     `SELECT memory_id, symbol_id, repo, trust_score, last_verified
      FROM symbol_links
@@ -877,13 +877,13 @@ function listProjects() {
 function syncCodeTrust(args) {
   const repo = args.repo;
   const changedJson = args['changed-symbols-json'] || args['changed-symbols'];
-  if (!repo || !changedJson) {return jsonErr('Missing --repo and --changed-symbols-json');}
+  if (!repo || !changedJson) {return jsonErrNoExit('Missing --repo and --changed-symbols-json');}
 
   let changedData;
   try {
     changedData = JSON.parse(changedJson);
   } catch (_) {
-    return jsonErr('Invalid JSON for --changed-symbols-json');
+    return jsonErrNoExit('Invalid JSON for --changed-symbols-json');
   }
 
   // Normalise to a flat set of changed symbol IDs/names
@@ -905,7 +905,7 @@ function syncCodeTrust(args) {
       }
     }
   }
-  if (changedSet.size === 0) {return jsonErr('No changed symbols found in input');}
+  if (changedSet.size === 0) {return jsonErrNoExit('No changed symbols found in input');}
 
   // Get all anchored links for this repo
   const allLinks = sqlJson(
@@ -970,7 +970,7 @@ function syncCodeTrust(args) {
 function symbolCluster(args) {
   const symbolId = args.symbol;
   const repo = args.repo || null;
-  if (!symbolId) {return jsonErr('Missing --symbol');}
+  if (!symbolId) {return jsonErrNoExit('Missing --symbol');}
 
   let q = `
     SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
@@ -992,7 +992,7 @@ function symbolCluster(args) {
 
 function related(args) {
   const id = parseInt(args.id);
-  if (isNaN(id)) {return jsonErr('Missing --id');}
+  if (isNaN(id)) {return jsonErrNoExit('Missing --id');}
 
   const symbols = sqlJson('SELECT symbol_id, repo FROM symbol_links WHERE memory_id = ? AND symbol_id != ?', [
     String(id),
@@ -1081,7 +1081,7 @@ function markDuplicate(args) {
   const source = parseInt(args.source);
   const target = parseInt(args.target);
   const confidence = parseFloat(args.confidence || '0.9');
-  if (!source || !target) {return jsonErr('Missing --source and --target');}
+  if (!source || !target) {return jsonErrNoExit('Missing --source and --target');}
 
   sqlRun(
     'INSERT OR REPLACE INTO observation_relations (source_id, target_id, relation, confidence) VALUES (?, ?, ?, ?)',
@@ -1152,7 +1152,7 @@ function autoRecoverInternal(sessionId) {
 
 function autoRecover(args) {
   const sessionId = args.session;
-  if (!sessionId) {return jsonErr('Missing --session');}
+  if (!sessionId) {return jsonErrNoExit('Missing --session');}
   const result = autoRecoverInternal(sessionId);
   if (!result) {return { status: 'nothing_to_recover' };}
   return result;
@@ -1222,7 +1222,7 @@ function saveWorkflow(args) {
   const name = args.name;
   const project = args.project || null;
   const stepsRaw = args.steps || null;
-  if (!id || !name) {return jsonErr('Missing --id and --name');}
+  if (!id || !name) {return jsonErrNoExit('Missing --id and --name');}
 
   sqlRun('INSERT OR IGNORE INTO procedural_memory (id, name, project) VALUES (?, ?, ?)', [id, name, project]);
 
@@ -1247,7 +1247,7 @@ function recordStep(args) {
   const workflow = args.workflow;
   const step = parseInt(args.step);
   const command = args.command;
-  if (!workflow || isNaN(step) || !command) {return jsonErr('Missing --workflow, --step, --command');}
+  if (!workflow || isNaN(step) || !command) {return jsonErrNoExit('Missing --workflow, --step, --command');}
   sqlRun(
     'INSERT OR REPLACE INTO procedural_steps (workflow, step_num, command, success, attempts) VALUES (?, ?, ?, 1.0, 1)',
     [workflow, step, command],
@@ -1260,7 +1260,7 @@ function stepOutcome(args) {
   const step = parseInt(args.step);
   const success = args.success === 'true';
   const workaround = args.workaround || null;
-  if (!workflow || isNaN(step)) {return jsonErr('Missing --workflow and --step');}
+  if (!workflow || isNaN(step)) {return jsonErrNoExit('Missing --workflow and --step');}
 
   if (success) {
     sqlRun(
@@ -1282,7 +1282,7 @@ function stepOutcome(args) {
 
 function getWorkflow(args) {
   const id = args.id;
-  if (!id) {return jsonErr('Missing --id');}
+  if (!id) {return jsonErrNoExit('Missing --id');}
   const meta = sqlJson('SELECT * FROM procedural_memory WHERE id = ? LIMIT 1', [id]);
   if (meta.length === 0) {return { error: 'Workflow not found' };}
   const steps = sqlJson('SELECT * FROM procedural_steps WHERE workflow = ? ORDER BY step_num', [id]);
@@ -1372,7 +1372,7 @@ function initDb() {
 
 function trustRecovery(args) {
   const sessionId = parseInt(args.session);
-  if (!sessionId) {return jsonErr('Missing --session');}
+  if (!sessionId) {return jsonErrNoExit('Missing --session');}
 
   const recalled = sqlJson('SELECT memory_id FROM session_recalls WHERE session_id = ?', [sessionId]);
   let recovered = 0;
@@ -1913,9 +1913,9 @@ function archiveWorkspace(name) {
  * Returns fn's result or throws via jsonErr if repo not found.
  */
 function _dispatch(repoName, fn) {
-  if (!repoName) {jsonErr('Missing --repo');}
+  if (!repoName) {return jsonErrNoExit('Missing --repo');}
   const repoRow = sqlJson('SELECT id, path, head_commit FROM code_repos WHERE name = ?', [repoName]);
-  if (!repoRow.length) {jsonErr(`Repo "${repoName}" not found. Run index-repo first.`);}
+  if (!repoRow.length) {return jsonErrNoExit(`Repo "${repoName}" not found. Run index-repo first.`);}
   return fn(repoRow[0]);
 }
 
@@ -2018,19 +2018,19 @@ const commands = {
   // ── v3 code indexing commands ──
   'index-repo': (args) => {
     const repoPath = args.path;
-    if (!repoPath) {jsonErr('Usage: node memory-store.js index-repo --path <path> [--name NAME]');}
+    if (!repoPath) {return jsonErrNoExit('Usage: node memory-store.js index-repo --path <path> [--name NAME]');}
     const repoName = args.name || path.basename(repoPath);
     return indexRepoInternal(repoPath, repoName);
   },
   'reindex-repo': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js reindex-repo --repo <repo-name> [--mode full|incremental]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js reindex-repo --repo <repo-name> [--mode full|incremental]');}
     return reindexRepoInternal(repo, args.mode || 'incremental');
   },
   'search-code': (args) => {
     const query = args.query;
     if (!query)
-      {jsonErr('Usage: node memory-store.js search-code --query <text> [--repo NAME] [--kind TYPE] [--max-results N]');}
+      {return jsonErrNoExit('Usage: node memory-store.js search-code --query <text> [--repo NAME] [--kind TYPE] [--max-results N]');}
     return searchCode(query, args.repo || null, args.kind || null, parseInt(args['max-results'] || '20', 10));
   },
   'get-code-source': (args) => {
@@ -2038,13 +2038,13 @@ const commands = {
     const file = args.file;
     const name = args.name;
     if (!repo || !file || !name)
-      {jsonErr('Usage: node memory-store.js get-code-source --repo NAME --file PATH --name SYMBOL');}
+      {return jsonErrNoExit('Usage: node memory-store.js get-code-source --repo NAME --file PATH --name SYMBOL');}
     return getCodeSource(repo, file, name);
   },
   'list-code-repos': () => listCodeReposInternal(),
   'remove-code-repo': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js remove-code-repo --repo <repo-name>');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js remove-code-repo --repo <repo-name>');}
     return removeCodeRepoInternal(repo);
   },
 
@@ -2053,11 +2053,11 @@ const commands = {
   'import-graph': (args) => {
     const repo = args.repo;
     if (!repo)
-      {jsonErr(
+      {return jsonErrNoExit(
         'Usage: node memory-store.js import-graph --repo X [--file F] [--direction imports|importers|both] [--depth N]',
       );}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found. Run index-repo first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     return codeAnalysis.getImportGraph(db, repoRow[0].id, {
       file: args.file || null,
       direction: args.direction || 'both',
@@ -2069,11 +2069,11 @@ const commands = {
     const repo = args.repo;
     const symbol = args.symbol;
     if (!repo || !symbol)
-      {jsonErr(
+      {return jsonErrNoExit(
         'Usage: node memory-store.js call-hierarchy --symbol S --repo X [--direction callers|callees] [--depth N]',
       );}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
     return codeAnalysis.getCallHierarchy(db, repoRow[0].id, {
       symbol,
       direction: args.direction || 'callers',
@@ -2084,9 +2084,9 @@ const commands = {
   'blast-radius': (args) => {
     const repo = args.repo;
     const symbol = args.symbol;
-    if (!repo || !symbol) {jsonErr('Usage: node memory-store.js blast-radius --symbol S --repo X [--depth N]');}
+    if (!repo || !symbol) {return jsonErrNoExit('Usage: node memory-store.js blast-radius --symbol S --repo X [--depth N]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
     return codeAnalysis.getBlastRadius(db, repoRow[0].id, {
       symbol,
       depth: parseInt(args.depth || '3'),
@@ -2095,9 +2095,9 @@ const commands = {
 
   'dead-code': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js dead-code --repo X [--min-confidence 0.5]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js dead-code --repo X [--min-confidence 0.5]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
     return codeAnalysis.getDeadCode(db, repoRow[0].id, {
       minConfidence: parseFloat(args['min-confidence'] || '0.5'),
       includeTests: args['include-tests'] === 'true',
@@ -2106,9 +2106,9 @@ const commands = {
 
   complexity: (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js complexity --repo X [--symbol S | --file F]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js complexity --repo X [--symbol S | --file F]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
     const symbolId = args.symbol
       ? db.prepare('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?').get(repoRow[0].id, args.symbol)?.id
       : null;
@@ -2118,17 +2118,17 @@ const commands = {
   outline: (args) => {
     const repo = args.repo;
     const file = args.file;
-    if (!repo || !file) {jsonErr('Usage: node memory-store.js outline --file F --repo X');}
+    if (!repo || !file) {return jsonErrNoExit('Usage: node memory-store.js outline --file F --repo X');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
     return codeAnalysis.getFileOutline(db, repoRow[0].id, file);
   },
 
   churn: (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js churn --repo X [--file F] [--days 90] [--refresh]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js churn --repo X [--file F] [--days 90] [--refresh]');}
     const repoRow = sqlJson('SELECT id, path FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
     return gitAnalysis.getChurn(
       db,
       repoRow[0].id,
@@ -2140,9 +2140,9 @@ const commands = {
 
   hotspots: (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js hotspots --repo X [--top N] [--days N]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js hotspots --repo X [--top N] [--days N]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found. Run index-repo first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     return codeAnalysis.getHotspots(db, repoRow[0].id, {
       top: args.top ? parseInt(args.top) : 20,
       days: args.days ? parseInt(args.days) : 90,
@@ -2151,17 +2151,17 @@ const commands = {
 
   cycles: (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js cycles --repo X');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js cycles --repo X');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found. Run index-repo first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     return codeAnalysis.getDependencyCycles(db, repoRow[0].id);
   },
 
   importance: (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js importance --repo X [--top N] [--scope dir/]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js importance --repo X [--top N] [--scope dir/]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found. Run index-repo first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     return codeAnalysis.getSymbolImportance(db, repoRow[0].id, {
       top: args.top ? parseInt(args.top) : 20,
       scope: args.scope || null,
@@ -2171,9 +2171,9 @@ const commands = {
   coupling: (args) => {
     const repo = args.repo;
     if (!repo)
-      {jsonErr('Usage: node memory-store.js coupling --repo X [--file F] [--sort-by instability|afferent|efferent]');}
+      {return jsonErrNoExit('Usage: node memory-store.js coupling --repo X [--file F] [--sort-by instability|afferent|efferent]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found. Run index-repo first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     return codeAnalysis.getCouplingMetrics(db, repoRow[0].id, {
       file: args.file || null,
       minCa: args['min-ca'] ? parseInt(args['min-ca']) : 0,
@@ -2184,9 +2184,9 @@ const commands = {
   extractable: (args) => {
     const repo = args.repo;
     if (!repo)
-      {jsonErr('Usage: node memory-store.js extractable --repo X [--min-complexity N] [--min-callers N] [--top N]');}
+      {return jsonErrNoExit('Usage: node memory-store.js extractable --repo X [--min-complexity N] [--min-callers N] [--top N]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found. Run index-repo first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     return codeAnalysis.getExtractionCandidates(db, repoRow[0].id, {
       minComplexity: args['min-complexity'] ? parseInt(args['min-complexity']) : 5,
       minCallers: args['min-callers'] ? parseInt(args['min-callers']) : 2,
@@ -2198,9 +2198,9 @@ const commands = {
     const repo = args.repo;
     const symbol = args.symbol || args.class;
     if (!repo)
-      {jsonErr('Usage: node memory-store.js hierarchy --repo X --symbol S [--direction both|ancestors|descendants]');}
+      {return jsonErrNoExit('Usage: node memory-store.js hierarchy --repo X --symbol S [--direction both|ancestors|descendants]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found. Run index-repo first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     return codeAnalysis.getClassHierarchy(db, repoRow[0].id, {
       class: args.class,
       symbol: args.symbol,
@@ -2211,9 +2211,9 @@ const commands = {
   'signal-chains': (args) => {
     const repo = args.repo;
     if (!repo)
-      {jsonErr('Usage: node memory-store.js signal-chains --repo X [--kind http|cli] [--symbol S] [--max-depth N]');}
+      {return jsonErrNoExit('Usage: node memory-store.js signal-chains --repo X [--kind http|cli] [--symbol S] [--max-depth N]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found. Run index-repo first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     return codeAnalysis.getSignalChains(db, repoRow[0].id, {
       kind: args.kind || null,
       symbol: args.symbol || null,
@@ -2223,15 +2223,15 @@ const commands = {
 
   'layer-violations': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js layer-violations --repo X [--rules JSON]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js layer-violations --repo X [--rules JSON]');}
     const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Repo "${repo}" not found. Run index-repo first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     let rules = null;
     if (args.rules) {
       try {
         rules = JSON.parse(args.rules);
       } catch (e) {
-        jsonErr(`Invalid rules JSON: ${e.message}`);
+        return jsonErrNoExit(`Invalid rules JSON: ${e.message}`);
       }
     }
     return codeAnalysis.getLayerViolations(db, repoRow[0].id, { rules });
@@ -2289,9 +2289,9 @@ const commands = {
 
   'doc-orphans': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js doc-orphans --repo X [--include-same-doc]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js doc-orphans --repo X [--include-same-doc]');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
     return docIndexer.getOrphanSections(db, repoRow[0].id, {
       includeSameDoc: args['include-same-doc'] === 'true',
     });
@@ -2300,27 +2300,27 @@ const commands = {
   'doc-coverage': (args) => {
     const codeRepo = args.repo;
     const docRepo = args['doc-repo'] || codeRepo;
-    if (!codeRepo) {jsonErr('Usage: node memory-store.js doc-coverage --repo X [--doc-repo Y]');}
+    if (!codeRepo) {return jsonErrNoExit('Usage: node memory-store.js doc-coverage --repo X [--doc-repo Y]');}
     const codeRepoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [codeRepo]);
-    if (!codeRepoRow.length) {jsonErr(`Code repo "${codeRepo}" not found. Run index-repo first.`);}
+    if (!codeRepoRow.length) {return jsonErrNoExit(`Code repo "${codeRepo}" not found. Run index-repo first.`);}
     const docRepoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [docRepo]);
-    if (!docRepoRow.length) {jsonErr(`Doc repo "${docRepo}" not found. Run index-docs first.`);}
+    if (!docRepoRow.length) {return jsonErrNoExit(`Doc repo "${docRepo}" not found. Run index-docs first.`);}
     return docIndexer.getDocCoverage(db, codeRepoRow[0].id, docRepoRow[0].id);
   },
 
   'stale-pages': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js stale-pages --repo X');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js stale-pages --repo X');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found. Run index-docs first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found. Run index-docs first.`);}
     return docIndexer.getStalePages(db, repoRow[0].id);
   },
 
   'doc-duplicates': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js doc-duplicates --repo X');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js doc-duplicates --repo X');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found. Run index-docs first.`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found. Run index-docs first.`);}
     return docIndexer.getDuplicateSections(db, repoRow[0].id);
   },
 
@@ -2329,24 +2329,24 @@ const commands = {
   'index-docs': (args) => {
     const docPath = args.path;
     const name = args.name;
-    if (!docPath || !name) {jsonErr('Usage: node memory-store.js index-docs --path P --name X [--ignore GLOB]');}
+    if (!docPath || !name) {return jsonErrNoExit('Usage: node memory-store.js index-docs --path P --name X [--ignore GLOB]');}
     return docIndexer.indexDocs(db, path.resolve(docPath), name, args.ignore || null);
   },
 
   'reindex-docs': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js reindex-docs --repo X [--mode full|incremental] [--ignore GLOB]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js reindex-docs --repo X [--mode full|incremental] [--ignore GLOB]');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
     return docIndexer.reindexDocs(db, repoRow[0].id, args.mode || 'full', args.ignore || null);
   },
 
   'doc-search': (args) => {
     const repo = args.repo;
     const query = args.query;
-    if (!repo || !query) {jsonErr('Usage: node memory-store.js doc-search --query Q --repo X [--level N] [--role TYPE]');}
+    if (!repo || !query) {return jsonErrNoExit('Usage: node memory-store.js doc-search --query Q --repo X [--level N] [--role TYPE]');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
     return docIndexer.searchDocs(db, repoRow[0].id, query, {
       level: args.level ? parseInt(args.level) : null,
       role: args.role || null,
@@ -2355,52 +2355,52 @@ const commands = {
 
   'doc-outline': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js doc-outline --repo X [--file F]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js doc-outline --repo X [--file F]');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
     return docIndexer.getDocOutline(db, repoRow[0].id, args.file || null);
   },
 
   backlinks: (args) => {
     const repo = args.repo;
     const filePath = args.path;
-    if (!repo || !filePath) {jsonErr('Usage: node memory-store.js backlinks --repo X --path F');}
+    if (!repo || !filePath) {return jsonErrNoExit('Usage: node memory-store.js backlinks --repo X --path F');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
     return docIndexer.getBacklinks(db, repoRow[0].id, filePath);
   },
 
   'broken-links': (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js broken-links --repo X');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js broken-links --repo X');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
     return { broken_links: docIndexer.getBrokenLinks(db, repoRow[0].id) };
   },
 
   glossary: (args) => {
     const repo = args.repo;
-    if (!repo) {jsonErr('Usage: node memory-store.js glossary --repo X [--term T]');}
+    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js glossary --repo X [--term T]');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
     return docIndexer.lookupTerm(db, repoRow[0].id, args.term || null);
   },
 
   'tutorial-path': (args) => {
     const repo = args.repo;
     const section = args.section;
-    if (!repo || !section) {jsonErr('Usage: node memory-store.js tutorial-path --section S --repo X');}
+    if (!repo || !section) {return jsonErrNoExit('Usage: node memory-store.js tutorial-path --section S --repo X');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
     return docIndexer.getTutorialPath(db, repoRow[0].id, parseInt(section));
   },
 
   'code-examples': (args) => {
     const repo = args.repo;
     const query = args.query;
-    if (!repo || !query) {jsonErr('Usage: node memory-store.js code-examples --query Q --repo X [--lang X]');}
+    if (!repo || !query) {return jsonErrNoExit('Usage: node memory-store.js code-examples --query Q --repo X [--lang X]');}
     const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {jsonErr(`Doc repo "${repo}" not found`);}
+    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
     return docIndexer.findCodeExamples(db, repoRow[0].id, query, args.lang || null);
   },
 };
@@ -2423,6 +2423,11 @@ const _ANALYSIS_TOOLS = new Set([
   if (cmd && commands[cmd]) {
     const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const result = await commands[cmd](args);
+
+    if (result && result.error) {
+      process.stderr.write(`${JSON.stringify(result)}\n`);
+      process.exit(1);
+    }
 
     // Wrap code analysis results with _meta envelope
     if (_ANALYSIS_TOOLS.has(cmd) && !result.error) {
