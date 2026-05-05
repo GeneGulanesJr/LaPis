@@ -11,7 +11,7 @@ const os = require('os');
 
 /* ── paths ────────────────────────────────────────────────── */
 const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
-const DB_PATH = path.join(HOME, '.pi', 'memory', 'memory.db');
+let DB_PATH = process.env.PI_MEMORY_DB_PATH || path.join(HOME, '.pi', 'memory', 'memory.db');
 const SCHEMA_PATH = path.resolve(__dirname, 'schema.sql');
 
 /* ── module state ─────────────────────────────────────────── */
@@ -20,6 +20,21 @@ let _engine = null; // 'node-sqlite' | 'better-sqlite3'
 
 function getDb() { return _db; }
 function getEngine() { return _engine; }
+function getDbPath() { return DB_PATH; }
+
+function resetDb(customPath) {
+  if (_db) {
+    try { _db.close(); } catch { }
+  }
+  _db = null;
+  _engine = null;
+  if (customPath) {
+    DB_PATH = customPath;
+    process.env.PI_MEMORY_DB_PATH = customPath;
+  } else {
+    DB_PATH = process.env.PI_MEMORY_DB_PATH || path.join(HOME, '.pi', 'memory', 'memory.db');
+  }
+}
 
 /* ── backend detection ────────────────────────────────────── */
 
@@ -310,8 +325,9 @@ function parseArgs(argv) {
 /* ── exports ───────────────────────────────────────────────── */
 module.exports = {
   DB_PATH, SCHEMA_PATH, HOME,
-  getDb, getEngine,
+  getDb, getEngine, getDbPath,
   sqlJson, sqlRun, sqlRaw,
   ensureDb, withTransaction,
+  resetDb,
   jsonOut, jsonErr, parseArgs,
 };

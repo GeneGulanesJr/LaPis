@@ -1,184 +1,119 @@
-// Integration tests for index-repo (WASM-based)
 const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process');
+const { createIsolatedTestDb, writeTmpRepo } = require('./helpers/isolated-db');
 
-const STORE = path.resolve(__dirname, '..', 'memory-store.js');
-
-function writeTmpRepo(repoPath, files) {
-  fs.mkdirSync(repoPath, { recursive: true });
-  for (const [name, content] of Object.entries(files)) {
-    fs.writeFileSync(path.join(repoPath, name), content);
-  }
-}
-
-// Clean up any leftover test repos from previous runs
-function cleanupRepo(name) {
-  try {
-    execSync(`node "${STORE}" remove-code-repo --repo ${name}`, {
-      encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'],
-    });
-  } catch (_) { /* Not found — fine */ }
-}
+let ctx;
 
 beforeAll(() => {
-  cleanupRepo('test-wasm-integ');
-  cleanupRepo('test-mixed-repo');
-  cleanupRepo('test-bad-repo-2');
+  ctx = createIsolatedTestDb();
 });
 
 afterAll(() => {
-  cleanupRepo('test-wasm-integ');
-  cleanupRepo('test-mixed-repo');
-  cleanupRepo('test-bad-repo-2');
+  ctx.cleanup();
 });
 
 describe('index-repo (WASM)', () => {
   describe('basic indexing', () => {
     it('should index a small repo without Python', () => {
-      const tmpRepo = path.join('/tmp', 'test-wasm-integ-repo');
-      fs.mkdirSync(tmpRepo, { recursive: true });
-      fs.writeFileSync(path.join(tmpRepo, 'app.js'),
-        '/** App entry */\nfunction main() {\n  console.log("hello");\n}\n\nclass Server {\n  start() {\n    return 42;\n  }\n}');
-
-      const out = execSync(`node "${STORE}" index-repo --path "${tmpRepo}" --name test-wasm-integ`, {
-        encoding: 'utf8',
-        timeout: 30000,
+      const tmpRepo = writeTmpRepo(path.join(ctx.tmpDir, 'wasm-test'), {
+        'app.js': '/** App entry */\nfunction main() {\n  console.log("hello");\n}\n\nclass Server {\n  start() {\n    return 42;\n  }\n}',
       });
-      const result = JSON.parse(out);
 
-      expect(result.success).toBe(true);
-      expect(result.files_indexed).toBe(1);
-      expect(result.symbols_extracted).toBeGreaterThanOrEqual(3);
+      const r = ctx.run(`index-repo --path "${tmpRepo}" --name test-wasm-integ`);
+      expect(r.success).toBe(true);
+      expect(r.files_indexed).toBe(1);
+      expect(r.symbols_extracted).toBeGreaterThanOrEqual(3);
     });
 
     it('should search indexed code after indexing', () => {
-      const out = execSync(`node "${STORE}" search-code --query main --repo test-wasm-integ`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
-      const result = JSON.parse(out);
-      expect(result.results.length).toBeGreaterThanOrEqual(1);
-      expect(result.results[0].symbol).toBe('main');
+      const r = ctx.run(`search-code --query main --repo test-wasm-integ`);
+      expect(r.error).toBeUndefined();
+      expect(r.results.length).toBeGreaterThanOrEqual(1);
+      expect(r.results[0].symbol).toBe('main');
     });
 
     it('should retrieve source code for indexed symbols', () => {
-      const out = execSync(`node "${STORE}" get-code-source --repo test-wasm-integ --file /tmp/test-wasm-integ-repo/app.js --name main`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
-      const result = JSON.parse(out);
-      expect(result.success).toBe(true);
-      expect(result.symbol).toBe('main');
-      expect(result.source).toContain('main');
+      const tmpRepo = path.join(ctx.tmpDir, 'wasm-test');
+      const r = ctx.run(`get-code-source --repo test-wasm-integ --file ${tmpRepo}/app.js --name main`);
+      expect(r.error).toBeUndefined();
+      expect(r.success).toBe(true);
+      expect(r.symbol).toBe('main');
+      expect(r.source).toContain('main');
     });
 
     it('should not mention Python in error messages', () => {
-      const out = execSync(`node "${STORE}" index-repo --path /nonexistent/path/abc123 --name nope`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
-      expect(out).not.toContain('Python');
-      expect(out).not.toContain('pip');
-      expect(out).not.toContain('venv');
+      const r = ctx.run(`index-repo --path /nonexistent/path/abc123 --name nope`);
+      expect(typeof r).toBe('object');
+      const output = JSON.stringify(r);
+      expect(output).not.toContain('Python');
+      expect(output).not.toContain('pip');
+      expect(output).not.toContain('venv');
     });
   });
 
   describe('multi-language indexing', () => {
     it('should index a mixed-language repo (JS + TS + TSX)', () => {
-      const tmpRepo = path.join('/tmp', 'test-mixed-repo-dir');
-      writeTmpRepo(tmpRepo, {
+      const tmpRepo = writeTmpRepo(path.join(ctx.tmpDir, 'mixed-test'), {
         'utils.js': 'function helper(x) {\n  return x * 2;\n}',
         'types.ts': 'interface Config {\n  port: number;\n}\n\nfunction parseConfig(): Config {\n  return { port: 3000 };\n}',
         'Component.tsx': 'export function Button({ label }: { label: string }) {\n  return <button>{label}</button>;\n}',
       });
 
-      const out = execSync(`node "${STORE}" index-repo --path "${tmpRepo}" --name test-mixed-repo`, {
-        encoding: 'utf8',
-        timeout: 30000,
-      });
-      const result = JSON.parse(out);
-
-      expect(result.success).toBe(true);
-      expect(result.files_indexed).toBe(3);
-      expect(result.symbols_extracted).toBeGreaterThanOrEqual(4);
+      const r = ctx.run(`index-repo --path "${tmpRepo}" --name test-mixed-repo`);
+      expect(r.success).toBe(true);
+      expect(r.files_indexed).toBe(3);
+      expect(r.symbols_extracted).toBeGreaterThanOrEqual(4);
     });
 
     it('should handle repos with only unsupported file types gracefully', () => {
-      const tmpRepo = path.join('/tmp', 'test-bad-repo-dir');
-      writeTmpRepo(tmpRepo, { 'README.txt': 'Hello' });
-
-      const out = execSync(`node "${STORE}" index-repo --path "${tmpRepo}" --name test-bad-repo-2`, {
-        encoding: 'utf8',
-        timeout: 10000,
+      const tmpRepo = writeTmpRepo(path.join(ctx.tmpDir, 'bad-test'), {
+        'README.txt': 'Hello',
       });
-      const result = JSON.parse(out);
-      expect(result.files_indexed).toBe(0);
-      expect(result.success).toBe(true);
+
+      const r = ctx.run(`index-repo --path "${tmpRepo}" --name test-bad-repo`);
+      expect(r.files_indexed).toBe(0);
+      expect(r.success).toBe(true);
     });
   });
 
   describe('repo management', () => {
     it('should list code repos', () => {
-      const out = execSync(`node "${STORE}" list-code-repos`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
-      const result = JSON.parse(out);
-      expect(result.total).toBeGreaterThanOrEqual(1);
-      expect(Array.isArray(result.repos)).toBe(true);
+      const r = ctx.run('list-code-repos');
+      expect(r.error).toBeUndefined();
+      expect(r.total).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(r.repos)).toBe(true);
     });
 
     it('should reindex an existing repo in full mode', () => {
-      const out = execSync(`node "${STORE}" reindex-repo --repo test-wasm-integ --mode full`, {
-        encoding: 'utf8',
-        timeout: 30000,
-      });
-      const result = JSON.parse(out);
-      expect(result.success).toBe(true);
-      // Full mode calls indexRepoInternal which returns files_indexed
-      expect(typeof (result.files_indexed || result.files_reindexed)).toBe('number');
-      expect(typeof (result.symbols_extracted)).toBe('number');
+      const r = ctx.run(`reindex-repo --repo test-wasm-integ --mode full`);
+      expect(r.error).toBeUndefined();
+      expect(r.success).toBe(true);
+      expect(typeof (r.files_indexed || r.files_reindexed)).toBe('number');
+      expect(typeof (r.symbols_extracted)).toBe('number');
     });
 
     it('should return repos with name and numeric counts', () => {
-      const out = execSync(`node "${STORE}" list-code-repos`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
-      const result = JSON.parse(out);
-      expect(result.repos.length).toBeGreaterThanOrEqual(1);
-      const first = result.repos[0];
+      const r = ctx.run('list-code-repos');
+      expect(r.error).toBeUndefined();
+      expect(r.repos.length).toBeGreaterThanOrEqual(1);
+      const first = r.repos[0];
       expect(first.name).toBeTruthy();
       expect(typeof first.file_count).toBe('number');
       expect(typeof first.symbol_count).toBe('number');
     });
 
     it('should remove code repos cleanly', () => {
-      const out = execSync(`node "${STORE}" remove-code-repo --repo test-mixed-repo`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
-      const result = JSON.parse(out);
-      expect(result.success).toBe(true);
+      const r = ctx.run(`remove-code-repo --repo test-mixed-repo`);
+      expect(r.success).toBe(true);
 
-      execSync(`node "${STORE}" remove-code-repo --repo test-bad-repo-2`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
+      ctx.run(`remove-code-repo --repo test-bad-repo`);
     });
 
     it('should report churn metrics with git data', () => {
-      // Only test that the command produces parseable JSON — churn depends on git history
       try {
-        const out = execSync(`node "${STORE}" churn --repo test-wasm-integ`, {
-          encoding: 'utf8',
-          timeout: 30000,
-        });
-        expect(() => JSON.parse(out.trim())).not.toThrow();
+        const r = ctx.run(`churn --repo test-wasm-integ`);
+        expect(typeof r).toBe('object');
       } catch (e) {
-        // Churn may fail if git history unavailable — that's expected
-        expect(e.stderr || e.message).toBeTruthy();
+        expect(e.message).toBeTruthy();
       }
     });
   });

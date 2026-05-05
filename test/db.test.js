@@ -1,17 +1,23 @@
-// Test coverage for db.js database layer
 const fs = require('fs');
+const { createIsolatedTestDb } = require('./helpers/isolated-db');
 
 const dbModule = require('../db');
 
-describe('db.js (database layer)', () => {
-  beforeAll(() => {
-    dbModule.ensureDb();
-  });
+let ctx;
 
+beforeAll(() => {
+  ctx = createIsolatedTestDb();
+  dbModule.ensureDb();
+});
+
+afterAll(() => {
+  ctx.cleanup();
+});
+
+describe('db.js (database layer)', () => {
   describe('exports and paths', () => {
     it('should have DB_PATH accessible', () => {
       expect(dbModule.DB_PATH).toBeTruthy();
-      expect(dbModule.DB_PATH).toContain('.pi');
       expect(dbModule.DB_PATH).toContain('memory.db');
     });
 
@@ -19,7 +25,7 @@ describe('db.js (database layer)', () => {
       expect(fs.existsSync(dbModule.SCHEMA_PATH)).toBe(true);
     });
 
-    it('HOME should be a real directory', () => {
+    it('should have HOME as a real directory', () => {
       expect(fs.existsSync(dbModule.HOME)).toBe(true);
     });
 
@@ -59,7 +65,6 @@ describe('db.js (database layer)', () => {
 
     it('runMigrations should not throw on version 5 schema', () => {
       const db = dbModule.getDb();
-      // Force version to 5
       db.exec('PRAGMA user_version = 5');
       const result = dbModule.ensureDb();
       expect(result.ok).toBe(true);
@@ -122,19 +127,16 @@ describe('db.js (database layer)', () => {
           throw new Error('forced error');
         });
       }).toThrow('forced error');
-      // Table should not exist after rollback
       expect(() => dbModule.sqlJson('SELECT 1 FROM _txn_test2')).toThrow();
     });
   });
 
   describe('utilities', () => {
     it('jsonOut() should not throw on valid object', () => {
-      // JsonOut writes to stdout — just verify it doesn't throw
       expect(() => dbModule.jsonOut({ test: 1 })).not.toThrow();
     });
 
     it('parseArgs() should parse CLI arguments', () => {
-      // Simulate node memory-store.js subcommand with repo and path flags
       const args = dbModule.parseArgs(['node', 'memory-store.js', 'index-repo', '--repo', 'test', '--path', '/tmp', '--force']);
       expect(args.repo).toBe('test');
       expect(args.path).toBe('/tmp');
