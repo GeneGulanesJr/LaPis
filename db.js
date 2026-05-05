@@ -104,7 +104,7 @@ function withTransaction(fn, onRollbackError) {
   } catch (e) {
     try { _db.exec('ROLLBACK'); } catch (rollbackErr) {
       console.error('[db] ROLLBACK failed:', rollbackErr.message);
-      if (typeof onRollbackError === 'function') { onRollbackError(rollbackErr); }
+      try { if (typeof onRollbackError === 'function') { onRollbackError(rollbackErr); } } catch (_) {}
     }
     throw e;
   }
