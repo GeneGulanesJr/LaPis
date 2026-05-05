@@ -1672,7 +1672,7 @@ async function reindexRepoInternal(repo, mode) {
         symbolCount++;
       }
       reindexed++;
-    } catch (_) {}
+    } catch (e) { console.error(`[memory-store] skipping file ${filePath}:`, e.message); }
   }
 
   sqlRun(
@@ -1680,22 +1680,22 @@ async function reindexRepoInternal(repo, mode) {
     [repoId, symbolCount, repoId],
   );
 
-  // Build import graph, call graph, and complexity
+  // Build import graph, call graph, and complexity (non-fatal; log failures)
   let importEdges = 0,
     callEdges = 0,
     complexityCount = 0;
   try {
     const ig = codeAnalysis.buildImportGraph(db, repoId);
     if (ig.success) {importEdges = ig.edges;}
-  } catch (_) {}
+  } catch (e) { console.error(`[memory-store] import graph build failed for repo ${repoId}:`, e.message); }
   try {
     const cg = codeAnalysis.buildCallGraph(db, repoId);
     if (cg.success) {callEdges = cg.calls;}
-  } catch (_) {}
+  } catch (e) { console.error(`[memory-store] call graph build failed for repo ${repoId}:`, e.message); }
   try {
     const cc = codeAnalysis.buildComplexity(db, repoId);
     if (cc.success) {complexityCount = cc.symbols;}
-  } catch (_) {}
+  } catch (e) { console.error(`[memory-store] complexity build failed for repo ${repoId}:`, e.message); }
   return {
     success: true,
     repo,
@@ -1766,12 +1766,15 @@ function searchCode(query, repoName, kind, maxResults) {
       try {
         sqlRaw(`CREATE VIRTUAL TABLE IF NOT EXISTS code_symbols_fts USING fts5(
           name, kind, signature, docstring, file_path, body_preview, content=code_symbols, content_rowid=id)`);
-      } catch (_) {
-        // FTS5 not available — fall back to LIKE-based search
+      } catch (e) {
+        // FTS5 extension not available in this SQLite build — intentional fallback to LIKE
+        console.error(`[memory-store] FTS5 not available, falling back to LIKE search:`, e.message);
         return searchCodeLike(query, repoName, kind, maxResults);
       }
     }
-  } catch (_) {
+  } catch (e) {
+    // FTS5 table check failed — intentional fallback to LIKE
+    console.error(`[memory-store] FTS5 check failed, falling back to LIKE search:`, e.message);
     return searchCodeLike(query, repoName, kind, maxResults);
   }
 
@@ -1892,7 +1895,7 @@ function createWorkspace(name) {
     const row = sqlJson('SELECT id, name, created_at FROM workspaces WHERE name = ?', [name]);
     return { success: true, workspace: row[0] };
   } catch (e) {
-    return { error: `Workspace already exists: ${name}` };
+    return { error: `Failed to create workspace '${name}': ${e.message}` };
   }
 }
 
