@@ -111,7 +111,6 @@ function getFreshness(db, repoId, repoPath, storedHeadCommit) {
  *
  * @param {string} toolName — subcommand name
  * @param {object} data — result data payload
- * @param {object} db — SQLite db handle (for some tools that need queries)
  * @returns {number} 0.0–1.0 confidence
  */
 function computeConfidence(toolName, data) {
@@ -151,12 +150,6 @@ const _confidenceCalculators = {
     if (edges.length === 0) {return 1.0;}
     const resolved = edges.filter(e => e.resolved !== false).length;
     return parseFloat((resolved / edges.length).toFixed(2));
-  },
-  callHierarchy(data) {
-    const edges = data?.edges || [];
-    if (edges.length === 0) {return 1.0;}
-    const sum = edges.reduce((s, e) => s + (e.confidence || 1.0), 0);
-    return parseFloat((sum / edges.length).toFixed(2));
   },
   getExtractionCandidates(data) {
     const candidates = data?.candidates || [];
