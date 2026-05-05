@@ -8,10 +8,10 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { getConfig } = require('./config');
 
 /* ── paths ────────────────────────────────────────────────── */
 const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
-const DB_PATH = path.join(HOME, '.pi', 'memory', 'memory.db');
 const SCHEMA_PATH = path.resolve(__dirname, 'schema.sql');
 
 /* ── module state ─────────────────────────────────────────── */
@@ -20,27 +20,35 @@ let _engine = null; // 'node-sqlite' | 'better-sqlite3'
 
 function getDb() { return _db; }
 function getEngine() { return _engine; }
+function getDbPath() { return getConfig().db_path; }
 
 /* ── backend detection ────────────────────────────────────── */
 
+function safeInt(val, fallback) {
+  const n = Number(val);
+  return Number.isFinite(n) && n === Math.floor(n) ? n : fallback;
+}
+
 function tryNodeSqlite() {
   try {
+    const cfg = getConfig();
     const mod = require('node:sqlite');
-    const d = new mod.DatabaseSync(DB_PATH);
+    const d = new mod.DatabaseSync(cfg.db_path);
     d.exec('PRAGMA journal_mode=WAL;');
-    d.exec('PRAGMA busy_timeout=5000;');
-    d.exec('PRAGMA wal_autocheckpoint=1000;');
+    d.exec(`PRAGMA busy_timeout=${safeInt(cfg.busy_timeout_ms, 5000)};`);
+    d.exec(`PRAGMA wal_autocheckpoint=${safeInt(cfg.wal_autocheckpoint, 1000)};`);
     return d;
   } catch (_) { return null; }
 }
 
 function tryBetterSqlite3() {
   try {
+    const cfg = getConfig();
     const Database = require('better-sqlite3');
-    const d = new Database(DB_PATH);
+    const d = new Database(cfg.db_path);
     d.pragma('journal_mode = WAL');
-    d.pragma('busy_timeout = 5000');
-    d.pragma('wal_autocheckpoint = 1000');
+    d.pragma(`busy_timeout = ${safeInt(cfg.busy_timeout_ms, 5000)}`);
+    d.pragma(`wal_autocheckpoint = ${safeInt(cfg.wal_autocheckpoint, 1000)}`);
     return d;
   } catch (_) { return null; }
 }
@@ -91,7 +99,7 @@ const sqlRaw = _sqlExec;
 
 /* ── transaction helper ───────────────────────────────────── */
 
-function withTransaction(fn) {
+function withTransaction(fn, onRollbackError) {
   if (!_db) {throw new Error('Database not initialized. Call ensureDb() first.');}
   if (typeof _db.transaction === 'function') {
     return _db.transaction(fn)();
@@ -102,7 +110,10 @@ function withTransaction(fn) {
     _db.exec('COMMIT');
     return result;
   } catch (e) {
-    try { _db.exec('ROLLBACK'); } catch (_) {}
+    try { _db.exec('ROLLBACK'); } catch (rollbackErr) {
+      console.error('[db] ROLLBACK failed:', rollbackErr.message);
+      try { if (typeof onRollbackError === 'function') { onRollbackError(rollbackErr); } } catch (_) {}
+    }
     throw e;
   }
 }
@@ -110,12 +121,13 @@ function withTransaction(fn) {
 /* ── ensureDb ─────────────────────────────────────────────── */
 
 function ensureDb() {
-  const dir = path.dirname(DB_PATH);
+  const dbPath = getDbPath();
+  const dir = path.dirname(dbPath);
   if (!fs.existsSync(dir)) {fs.mkdirSync(dir, { recursive: true });}
 
   if (!_db) {openDb();}
 
-  if (!fs.existsSync(DB_PATH) || fs.statSync(DB_PATH).size === 0) {
+  if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
     const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
     const statements = schema
       .split(';')
@@ -128,10 +140,9 @@ function ensureDb() {
 
   runMigrations();
 
-  // Ensure critical v3+ tables exist (schema.sql may fail silently on some Node versions)
   ensureCriticalTables();
 
-  return { ok: true, db: DB_PATH, engine: _engine };
+  return { ok: true, db: dbPath, engine: _engine };
 }
 
 // Critical tables that must exist for code analysis + doc indexing
@@ -295,7 +306,12 @@ function runMigrations() {
 /* ── utilities ────────────────────────────────────────────── */
 
 function jsonOut(obj) { console.log(JSON.stringify(obj, null, 2)); }
-function jsonErr(msg) { process.stderr.write(`${JSON.stringify({ error: msg })  }\n`); process.exit(1); }
+function jsonErrNoExit(msg) { return { error: msg }; }
+function jsonErr(msg) {
+  const obj = jsonErrNoExit(msg);
+  process.stderr.write(`${JSON.stringify(obj)}\n`);
+  process.exit(1);
+}
 
 function parseArgs(argv) {
   const args = {};
@@ -309,9 +325,10 @@ function parseArgs(argv) {
 
 /* ── exports ───────────────────────────────────────────────── */
 module.exports = {
-  DB_PATH, SCHEMA_PATH, HOME,
-  getDb, getEngine,
+  get DB_PATH() { return getConfig().db_path; },
+  SCHEMA_PATH, HOME,
+  getDb, getEngine, getDbPath,
   sqlJson, sqlRun, sqlRaw,
   ensureDb, withTransaction,
-  jsonOut, jsonErr, parseArgs,
+  jsonOut, jsonErr, jsonErrNoExit, parseArgs,
 };
