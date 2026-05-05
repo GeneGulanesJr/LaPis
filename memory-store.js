@@ -66,7 +66,8 @@ function sessionStart(args) {
 
   const countRows = sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [project]);
   const sessionCount = countRows[0].cnt;
-  const consolidateDue = sessionCount > 0 && sessionCount % getConfig().compact_every_n_sessions === 0;
+  const compactInterval = getConfig().compact_every_n_sessions || 5;
+  const consolidateDue = sessionCount > 0 && sessionCount % compactInterval === 0;
 
   const archiveCandidates = sqlJson(
     `
@@ -1067,8 +1068,8 @@ function checkDuplicate(title, type, project, topicKey) {
   const candidates = sqlJson(q, params);
 
   const duplicates = [];
-    const warningThreshold = getConfig().dedup.warning_threshold;
-    for (const c of candidates) {
+  const warningThreshold = getConfig().dedup.warning_threshold;
+  for (const c of candidates) {
     const score = trigramOverlap(title, c.title);
     if (score >= warningThreshold) {
       duplicates.push({

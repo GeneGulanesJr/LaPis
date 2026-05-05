@@ -24,14 +24,19 @@ function getDbPath() { return getConfig().db_path; }
 
 /* ── backend detection ────────────────────────────────────── */
 
+function safeInt(val, fallback) {
+  const n = Number(val);
+  return Number.isFinite(n) && n === Math.floor(n) ? n : fallback;
+}
+
 function tryNodeSqlite() {
   try {
     const cfg = getConfig();
     const mod = require('node:sqlite');
     const d = new mod.DatabaseSync(cfg.db_path);
     d.exec('PRAGMA journal_mode=WAL;');
-    d.exec(`PRAGMA busy_timeout=${cfg.busy_timeout_ms};`);
-    d.exec(`PRAGMA wal_autocheckpoint=${cfg.wal_autocheckpoint};`);
+    d.exec(`PRAGMA busy_timeout=${safeInt(cfg.busy_timeout_ms, 5000)};`);
+    d.exec(`PRAGMA wal_autocheckpoint=${safeInt(cfg.wal_autocheckpoint, 1000)};`);
     return d;
   } catch (_) { return null; }
 }
@@ -42,8 +47,8 @@ function tryBetterSqlite3() {
     const Database = require('better-sqlite3');
     const d = new Database(cfg.db_path);
     d.pragma('journal_mode = WAL');
-    d.pragma(`busy_timeout = ${cfg.busy_timeout_ms}`);
-    d.pragma(`wal_autocheckpoint = ${cfg.wal_autocheckpoint}`);
+    d.pragma(`busy_timeout = ${safeInt(cfg.busy_timeout_ms, 5000)}`);
+    d.pragma(`wal_autocheckpoint = ${safeInt(cfg.wal_autocheckpoint, 1000)}`);
     return d;
   } catch (_) { return null; }
 }

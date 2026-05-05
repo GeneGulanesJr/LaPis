@@ -37,13 +37,54 @@ function deepMerge(target, source) {
   return result;
 }
 
+function stripJsoncComments(raw) {
+  let result = '';
+  let i = 0;
+  while (i < raw.length) {
+    if (raw[i] === '"') {
+      let j = i + 1;
+      while (j < raw.length && raw[j] !== '"') {
+        if (raw[j] === '\\') j++;
+        j++;
+      }
+      result += raw.slice(i, j + 1);
+      i = j + 1;
+    } else if (raw[i] === '/' && raw[i + 1] === '/') {
+      while (i < raw.length && raw[i] !== '\n') i++;
+    } else if (raw[i] === '/' && raw[i + 1] === '*') {
+      i += 2;
+      while (i < raw.length && !(raw[i] === '*' && raw[i + 1] === '/')) i++;
+      i += 2;
+    } else {
+      result += raw[i];
+      i++;
+    }
+  }
+  return result;
+}
+
+function expandTilde(p) {
+  if (typeof p === 'string' && (p === '~' || p.startsWith('~/'))) {
+    return path.join(HOME, p.slice(1));
+  }
+  return p;
+}
+
 function loadConfig() {
   try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
-    const cleaned = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const cleaned = stripJsoncComments(raw);
     const userConfig = JSON.parse(cleaned);
-    return deepMerge(DEFAULTS, userConfig);
-  } catch {
+    const merged = deepMerge(DEFAULTS, userConfig);
+    merged.db_path = expandTilde(merged.db_path);
+    merged.tier_config_path = expandTilde(merged.tier_config_path);
+    return merged;
+  } catch (e) {
+    if (e instanceof SyntaxError) {
+      console.error(`[config] Invalid JSON in ${CONFIG_PATH}: ${e.message}`);
+    } else if (e.code !== 'ENOENT') {
+      console.error(`[config] Error reading ${CONFIG_PATH}: ${e.message}`);
+    }
     return { ...DEFAULTS };
   }
 }
@@ -59,4 +100,4 @@ function resetConfigCache() {
   getConfig._cached = null;
 }
 
-module.exports = { getConfig, loadConfig, resetConfigCache, DEFAULTS, CONFIG_PATH };
+module.exports = { getConfig, loadConfig, resetConfigCache, stripJsoncComments, expandTilde, deepMerge, DEFAULTS, CONFIG_PATH };
