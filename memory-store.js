@@ -24,6 +24,24 @@ const { getConfig } = require('./config');
 // Lazily resolve db handle (available after ensureDb())
 let db = null;
 
+const TRUST_RECALL_JOINS = `
+LEFT JOIN (
+  SELECT memory_id, MAX(trust_score) as trust_score
+  FROM symbol_links GROUP BY memory_id
+) sl ON sl.memory_id = CAST(o.id AS TEXT)
+LEFT JOIN (
+  SELECT memory_id, COUNT(*) as recall_count
+  FROM recall_log GROUP BY memory_id
+) rl ON rl.memory_id = o.id`;
+
+const TYPE_PRIORITY_CASE = `CASE o.type
+  WHEN 'decision' THEN 3 WHEN 'architecture' THEN 3
+  WHEN 'bugfix' THEN 2 WHEN 'pattern' THEN 2
+  WHEN 'preference' THEN 2 WHEN 'config' THEN 1
+  WHEN 'discovery' THEN 1 WHEN 'learning' THEN 1
+  ELSE 0
+END`;
+
 
 
 /* ── subcommands ───────────────────────────────────────────── */
@@ -282,14 +300,7 @@ function search(args) {
                COALESCE(rl.recall_count, 0) as recall_count
         FROM observations o
         JOIN observations_fts fts ON o.id = fts.rowid
-        LEFT JOIN (
-          SELECT memory_id, MAX(trust_score) as trust_score
-          FROM symbol_links GROUP BY memory_id
-        ) sl ON sl.memory_id = CAST(o.id AS TEXT)
-        LEFT JOIN (
-          SELECT memory_id, COUNT(*) as recall_count
-          FROM recall_log GROUP BY memory_id
-        ) rl ON rl.memory_id = o.id
+        ${TRUST_RECALL_JOINS}
         WHERE observations_fts MATCH ?
           AND o.deleted_at IS NULL
       `;
@@ -321,14 +332,7 @@ function search(args) {
              sl.trust_score,
              COALESCE(rl.recall_count, 0) as recall_count
       FROM observations o
-      LEFT JOIN (
-        SELECT memory_id, MAX(trust_score) as trust_score
-        FROM symbol_links GROUP BY memory_id
-      ) sl ON sl.memory_id = CAST(o.id AS TEXT)
-      LEFT JOIN (
-        SELECT memory_id, COUNT(*) as recall_count
-        FROM recall_log GROUP BY memory_id
-      ) rl ON rl.memory_id = o.id
+      ${TRUST_RECALL_JOINS}
       WHERE (o.title LIKE ? OR o.content LIKE ?)
         AND o.deleted_at IS NULL
     `;
@@ -409,38 +413,22 @@ function context(args) {
   // Topic-aware, cross-project, or standard observations
   let obsQuery, obsParams;
   if (crossProject) {
-    // Load from all known projects, grouped by project
     const crossLimit = deep ? limit * 2 : limit;
     obsQuery = `
       SELECT o.id, o.title, o.type, o.scope, o.topic_key, o.project, o.created_at,
              COALESCE(sl.trust_score, 0.7) as trust_score,
              COALESCE(rl.recall_count, 0) as recall_count,
-             CASE o.type
-               WHEN 'decision' THEN 3 WHEN 'architecture' THEN 3
-               WHEN 'bugfix' THEN 2 WHEN 'pattern' THEN 2
-               WHEN 'preference' THEN 2 WHEN 'config' THEN 1
-               WHEN 'discovery' THEN 1 WHEN 'learning' THEN 1
-               ELSE 0
-             END as type_priority
+             ${TYPE_PRIORITY_CASE} as type_priority
       FROM observations o
-      LEFT JOIN (
-        SELECT memory_id, MAX(trust_score) as trust_score
-        FROM symbol_links GROUP BY memory_id
-      ) sl ON sl.memory_id = CAST(o.id AS TEXT)
-      LEFT JOIN (
-        SELECT memory_id, COUNT(*) as recall_count
-        FROM recall_log GROUP BY memory_id
-      ) rl ON rl.memory_id = o.id
+      ${TRUST_RECALL_JOINS}
       WHERE o.deleted_at IS NULL AND o.type != 'skill' AND o.scope = 'project'
       ORDER BY type_priority DESC, trust_score DESC, o.created_at DESC
       LIMIT ?
     `;
     obsParams = [crossLimit];
   } else if (topicKey || topicQuery) {
-    // Load deeper context for a specific topic
     const topicLimit = deep ? Math.min(limit * 3, 100) : Math.min(limit * 2, 50);
     if (topicQuery) {
-      // Search by content first, then union with topic_key matches
       obsQuery = `
         WITH topic_matches AS (
           SELECT id FROM observations
@@ -452,29 +440,15 @@ function context(args) {
         SELECT o.id, o.title, o.type, o.scope, o.topic_key, o.created_at,
                COALESCE(sl.trust_score, 0.7) as trust_score,
                COALESCE(rl.recall_count, 0) as recall_count,
-               CASE o.type
-                 WHEN 'decision' THEN 3 WHEN 'architecture' THEN 3
-                 WHEN 'bugfix' THEN 2 WHEN 'pattern' THEN 2
-                 WHEN 'preference' THEN 2 WHEN 'config' THEN 1
-                 WHEN 'discovery' THEN 1 WHEN 'learning' THEN 1
-                 ELSE 0
-               END as type_priority
+               ${TYPE_PRIORITY_CASE} as type_priority
         FROM observations o
         JOIN topic_matches tm ON o.id = tm.id
-        LEFT JOIN (
-          SELECT memory_id, MAX(trust_score) as trust_score
-          FROM symbol_links GROUP BY memory_id
-        ) sl ON sl.memory_id = CAST(o.id AS TEXT)
-        LEFT JOIN (
-          SELECT memory_id, COUNT(*) as recall_count
-          FROM recall_log GROUP BY memory_id
-        ) rl ON rl.memory_id = o.id
+        ${TRUST_RECALL_JOINS}
         ORDER BY type_priority DESC, trust_score DESC, o.created_at DESC
       `;
       const like = `%${topicQuery.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
       obsParams = [project, like, like, like, topicLimit];
     } else {
-      // Topic key filter — boost matches, still show other project memories
       obsQuery = `
         SELECT o.id, o.title, o.type, o.scope, o.topic_key, o.created_at,
                COALESCE(sl.trust_score, 0.7) as trust_score,
@@ -488,14 +462,7 @@ function context(args) {
                  ELSE 0
                END as type_priority
         FROM observations o
-        LEFT JOIN (
-          SELECT memory_id, MAX(trust_score) as trust_score
-          FROM symbol_links GROUP BY memory_id
-        ) sl ON sl.memory_id = CAST(o.id AS TEXT)
-        LEFT JOIN (
-          SELECT memory_id, COUNT(*) as recall_count
-          FROM recall_log GROUP BY memory_id
-        ) rl ON rl.memory_id = o.id
+        ${TRUST_RECALL_JOINS}
         WHERE o.project = ? AND o.deleted_at IS NULL AND o.type != 'skill'
         ORDER BY type_priority DESC, trust_score DESC, o.created_at DESC
         LIMIT ?
@@ -503,27 +470,13 @@ function context(args) {
       obsParams = [topicKey, project, topicLimit];
     }
   } else {
-    // Standard priority-weighted project observations (excludes skills)
     obsQuery = `
       SELECT o.id, o.title, o.type, o.scope, o.topic_key, o.created_at,
              COALESCE(sl.trust_score, 0.7) as trust_score,
              COALESCE(rl.recall_count, 0) as recall_count,
-             CASE o.type
-               WHEN 'decision' THEN 3 WHEN 'architecture' THEN 3
-               WHEN 'bugfix' THEN 2 WHEN 'pattern' THEN 2
-               WHEN 'preference' THEN 2 WHEN 'config' THEN 1
-               WHEN 'discovery' THEN 1 WHEN 'learning' THEN 1
-               ELSE 0
-             END as type_priority
+             ${TYPE_PRIORITY_CASE} as type_priority
       FROM observations o
-      LEFT JOIN (
-        SELECT memory_id, MAX(trust_score) as trust_score
-        FROM symbol_links GROUP BY memory_id
-      ) sl ON sl.memory_id = CAST(o.id AS TEXT)
-      LEFT JOIN (
-        SELECT memory_id, COUNT(*) as recall_count
-        FROM recall_log GROUP BY memory_id
-      ) rl ON rl.memory_id = o.id
+      ${TRUST_RECALL_JOINS}
       WHERE o.project = ? AND o.deleted_at IS NULL AND o.type != 'skill'
       ORDER BY type_priority DESC, trust_score DESC, o.created_at DESC
       LIMIT ?
@@ -1925,6 +1878,13 @@ function _dispatch(repoName, fn) {
   return fn(repoRow[0]);
 }
 
+function _dispatchDoc(repoName, fn) {
+  if (!repoName) {return jsonErrNoExit('Missing --repo');}
+  const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repoName]);
+  if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repoName}" not found`);}
+  return fn(repoRow[0]);
+}
+
 /**
  * _wrapAnalysis(toolName, data, repoRow, startTime) — wrap analysis result
  * with _meta envelope and optional format conversion.
@@ -2056,191 +2016,105 @@ const commands = {
 
   // ── v5: Code analysis subcommands ──
 
-  'import-graph': (args) => {
-    const repo = args.repo;
-    if (!repo)
-      {return jsonErrNoExit(
-        'Usage: node memory-store.js import-graph --repo X [--file F] [--direction imports|importers|both] [--depth N]',
-      );}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
-    return codeAnalysis.getImportGraph(db, repoRow[0].id, {
-      file: args.file || null,
-      direction: args.direction || 'both',
-      depth: parseInt(args.depth || '1'),
-    });
-  },
+  'import-graph': (args) => _dispatch(args.repo, (r) =>
+      codeAnalysis.getImportGraph(db, r.id, {
+        file: args.file || null,
+        direction: args.direction || 'both',
+        depth: parseInt(args.depth || '1'),
+      })),
 
   'call-hierarchy': (args) => {
-    const repo = args.repo;
-    const symbol = args.symbol;
-    if (!repo || !symbol)
-      {return jsonErrNoExit(
-        'Usage: node memory-store.js call-hierarchy --symbol S --repo X [--direction callers|callees] [--depth N]',
-      );}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
-    return codeAnalysis.getCallHierarchy(db, repoRow[0].id, {
-      symbol,
-      direction: args.direction || 'callers',
-      depth: parseInt(args.depth || '3'),
-    });
+    if (!args.symbol) {return jsonErrNoExit('Missing --symbol');}
+    return _dispatch(args.repo, (r) =>
+      codeAnalysis.getCallHierarchy(db, r.id, {
+        symbol: args.symbol,
+        direction: args.direction || 'callers',
+        depth: parseInt(args.depth || '3'),
+      }));
   },
 
   'blast-radius': (args) => {
-    const repo = args.repo;
-    const symbol = args.symbol;
-    if (!repo || !symbol) {return jsonErrNoExit('Usage: node memory-store.js blast-radius --symbol S --repo X [--depth N]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
-    return codeAnalysis.getBlastRadius(db, repoRow[0].id, {
-      symbol,
-      depth: parseInt(args.depth || '3'),
-    });
+    if (!args.symbol) {return jsonErrNoExit('Missing --symbol');}
+    return _dispatch(args.repo, (r) =>
+      codeAnalysis.getBlastRadius(db, r.id, {
+        symbol: args.symbol,
+        depth: parseInt(args.depth || '3'),
+      }));
   },
 
-  'dead-code': (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js dead-code --repo X [--min-confidence 0.5]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
-    return codeAnalysis.getDeadCode(db, repoRow[0].id, {
-      minConfidence: parseFloat(args['min-confidence'] || '0.5'),
-      includeTests: args['include-tests'] === 'true',
-    });
-  },
+  'dead-code': (args) => _dispatch(args.repo, (r) =>
+      codeAnalysis.getDeadCode(db, r.id, {
+        minConfidence: parseFloat(args['min-confidence'] || '0.5'),
+        includeTests: args['include-tests'] === 'true',
+      })),
 
-  complexity: (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js complexity --repo X [--symbol S | --file F]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
-    const symbolId = args.symbol
-      ? db.prepare('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?').get(repoRow[0].id, args.symbol)?.id
-      : null;
-    return codeAnalysis.getComplexity(db, repoRow[0].id, symbolId);
-  },
+  complexity: (args) => _dispatch(args.repo, (r) => {
+      const symbolId = args.symbol
+        ? db.prepare('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?').get(r.id, args.symbol)?.id
+        : null;
+      return codeAnalysis.getComplexity(db, r.id, symbolId);
+    }),
 
   outline: (args) => {
-    const repo = args.repo;
-    const file = args.file;
-    if (!repo || !file) {return jsonErrNoExit('Usage: node memory-store.js outline --file F --repo X');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
-    return codeAnalysis.getFileOutline(db, repoRow[0].id, file);
+    if (!args.file) {return jsonErrNoExit('Missing --file');}
+    return _dispatch(args.repo, (r) =>
+      codeAnalysis.getFileOutline(db, r.id, args.file));
   },
 
-  churn: (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js churn --repo X [--file F] [--days 90] [--refresh]');}
-    const repoRow = sqlJson('SELECT id, path FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found`);}
-    return gitAnalysis.getChurn(
-      db,
-      repoRow[0].id,
-      args.file || '__all__',
-      parseInt(args.days || '90'),
-      args.refresh === 'true',
-    );
-  },
+  churn: (args) => _dispatch(args.repo, (r) =>
+      gitAnalysis.getChurn(db, r.id, args.file || '__all__', parseInt(args.days || '90'), args.refresh === 'true')),
 
-  hotspots: (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js hotspots --repo X [--top N] [--days N]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
-    return codeAnalysis.getHotspots(db, repoRow[0].id, {
-      top: args.top ? parseInt(args.top) : 20,
-      days: args.days ? parseInt(args.days) : 90,
-    });
-  },
+  hotspots: (args) => _dispatch(args.repo, (r) =>
+      codeAnalysis.getHotspots(db, r.id, {
+        top: args.top ? parseInt(args.top) : 20,
+        days: args.days ? parseInt(args.days) : 90,
+      })),
 
-  cycles: (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js cycles --repo X');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
-    return codeAnalysis.getDependencyCycles(db, repoRow[0].id);
-  },
+  cycles: (args) => _dispatch(args.repo, (r) =>
+      codeAnalysis.getDependencyCycles(db, r.id)),
 
-  importance: (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js importance --repo X [--top N] [--scope dir/]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
-    return codeAnalysis.getSymbolImportance(db, repoRow[0].id, {
-      top: args.top ? parseInt(args.top) : 20,
-      scope: args.scope || null,
-    });
-  },
+  importance: (args) => _dispatch(args.repo, (r) =>
+      codeAnalysis.getSymbolImportance(db, r.id, {
+        top: args.top ? parseInt(args.top) : 20,
+        scope: args.scope || null,
+      })),
 
-  coupling: (args) => {
-    const repo = args.repo;
-    if (!repo)
-      {return jsonErrNoExit('Usage: node memory-store.js coupling --repo X [--file F] [--sort-by instability|afferent|efferent]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
-    return codeAnalysis.getCouplingMetrics(db, repoRow[0].id, {
-      file: args.file || null,
-      minCa: args['min-ca'] ? parseInt(args['min-ca']) : 0,
-      sortBy: args['sort-by'] || 'instability',
-    });
-  },
+  coupling: (args) => _dispatch(args.repo, (r) =>
+      codeAnalysis.getCouplingMetrics(db, r.id, {
+        file: args.file || null,
+        minCa: args['min-ca'] ? parseInt(args['min-ca']) : 0,
+        sortBy: args['sort-by'] || 'instability',
+      })),
 
-  extractable: (args) => {
-    const repo = args.repo;
-    if (!repo)
-      {return jsonErrNoExit('Usage: node memory-store.js extractable --repo X [--min-complexity N] [--min-callers N] [--top N]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
-    return codeAnalysis.getExtractionCandidates(db, repoRow[0].id, {
-      minComplexity: args['min-complexity'] ? parseInt(args['min-complexity']) : 5,
-      minCallers: args['min-callers'] ? parseInt(args['min-callers']) : 2,
-      top: args.top ? parseInt(args.top) : 20,
-    });
-  },
+  extractable: (args) => _dispatch(args.repo, (r) =>
+      codeAnalysis.getExtractionCandidates(db, r.id, {
+        minComplexity: args['min-complexity'] ? parseInt(args['min-complexity']) : 5,
+        minCallers: args['min-callers'] ? parseInt(args['min-callers']) : 2,
+        top: args.top ? parseInt(args.top) : 20,
+      })),
 
-  hierarchy: (args) => {
-    const repo = args.repo;
-    const symbol = args.symbol || args.class;
-    if (!repo)
-      {return jsonErrNoExit('Usage: node memory-store.js hierarchy --repo X --symbol S [--direction both|ancestors|descendants]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
-    return codeAnalysis.getClassHierarchy(db, repoRow[0].id, {
-      class: args.class,
-      symbol: args.symbol,
-      direction: args.direction || 'both',
-    });
-  },
+  hierarchy: (args) => _dispatch(args.repo, (r) =>
+      codeAnalysis.getClassHierarchy(db, r.id, {
+        class: args.class,
+        symbol: args.symbol,
+        direction: args.direction || 'both',
+      })),
 
-  'signal-chains': (args) => {
-    const repo = args.repo;
-    if (!repo)
-      {return jsonErrNoExit('Usage: node memory-store.js signal-chains --repo X [--kind http|cli] [--symbol S] [--max-depth N]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
-    return codeAnalysis.getSignalChains(db, repoRow[0].id, {
-      kind: args.kind || null,
-      symbol: args.symbol || null,
-      maxDepth: args['max-depth'] ? parseInt(args['max-depth']) : 5,
-    });
-  },
+  'signal-chains': (args) => _dispatch(args.repo, (r) =>
+      codeAnalysis.getSignalChains(db, r.id, {
+        kind: args.kind || null,
+        symbol: args.symbol || null,
+        maxDepth: args['max-depth'] ? parseInt(args['max-depth']) : 5,
+      })),
 
   'layer-violations': (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js layer-violations --repo X [--rules JSON]');}
-    const repoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Repo "${repo}" not found. Run index-repo first.`);}
     let rules = null;
     if (args.rules) {
-      try {
-        rules = JSON.parse(args.rules);
-      } catch (e) {
-        return jsonErrNoExit(`Invalid rules JSON: ${e.message}`);
-      }
+      try { rules = JSON.parse(args.rules); }
+      catch (e) { return jsonErrNoExit(`Invalid rules JSON: ${e.message}`); }
     }
-    return codeAnalysis.getLayerViolations(db, repoRow[0].id, { rules });
+    return _dispatch(args.repo, (r) =>
+      codeAnalysis.getLayerViolations(db, r.id, { rules }));
   },
 
   // ── v6: Winnow multi-axis query ──
@@ -2293,20 +2167,15 @@ const commands = {
 
   // ── v5.2: Doc analytics subcommands ──
 
-  'doc-orphans': (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js doc-orphans --repo X [--include-same-doc]');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
-    return docIndexer.getOrphanSections(db, repoRow[0].id, {
-      includeSameDoc: args['include-same-doc'] === 'true',
-    });
-  },
+  'doc-orphans': (args) => _dispatchDoc(args.repo, (r) =>
+      docIndexer.getOrphanSections(db, r.id, {
+        includeSameDoc: args['include-same-doc'] === 'true',
+      })),
 
   'doc-coverage': (args) => {
     const codeRepo = args.repo;
     const docRepo = args['doc-repo'] || codeRepo;
-    if (!codeRepo) {return jsonErrNoExit('Usage: node memory-store.js doc-coverage --repo X [--doc-repo Y]');}
+    if (!codeRepo) {return jsonErrNoExit('Missing --repo');}
     const codeRepoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [codeRepo]);
     if (!codeRepoRow.length) {return jsonErrNoExit(`Code repo "${codeRepo}" not found. Run index-repo first.`);}
     const docRepoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [docRepo]);
@@ -2314,21 +2183,11 @@ const commands = {
     return docIndexer.getDocCoverage(db, codeRepoRow[0].id, docRepoRow[0].id);
   },
 
-  'stale-pages': (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js stale-pages --repo X');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found. Run index-docs first.`);}
-    return docIndexer.getStalePages(db, repoRow[0].id);
-  },
+  'stale-pages': (args) => _dispatchDoc(args.repo, (r) =>
+      docIndexer.getStalePages(db, r.id)),
 
-  'doc-duplicates': (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js doc-duplicates --repo X');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found. Run index-docs first.`);}
-    return docIndexer.getDuplicateSections(db, repoRow[0].id);
-  },
+  'doc-duplicates': (args) => _dispatchDoc(args.repo, (r) =>
+      docIndexer.getDuplicateSections(db, r.id)),
 
   // ── v5: Doc indexing subcommands ──
 
@@ -2339,75 +2198,43 @@ const commands = {
     return docIndexer.indexDocs(db, path.resolve(docPath), name, args.ignore || null);
   },
 
-  'reindex-docs': (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js reindex-docs --repo X [--mode full|incremental] [--ignore GLOB]');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
-    return docIndexer.reindexDocs(db, repoRow[0].id, args.mode || 'full', args.ignore || null);
-  },
+  'reindex-docs': (args) => _dispatchDoc(args.repo, (r) =>
+      docIndexer.reindexDocs(db, r.id, args.mode || 'full', args.ignore || null)),
 
   'doc-search': (args) => {
-    const repo = args.repo;
-    const query = args.query;
-    if (!repo || !query) {return jsonErrNoExit('Usage: node memory-store.js doc-search --query Q --repo X [--level N] [--role TYPE]');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
-    return docIndexer.searchDocs(db, repoRow[0].id, query, {
-      level: args.level ? parseInt(args.level) : null,
-      role: args.role || null,
-    });
+    if (!args.query) {return jsonErrNoExit('Missing --query');}
+    return _dispatchDoc(args.repo, (r) =>
+      docIndexer.searchDocs(db, r.id, args.query, {
+        level: args.level ? parseInt(args.level) : null,
+        role: args.role || null,
+      }));
   },
 
-  'doc-outline': (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js doc-outline --repo X [--file F]');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
-    return docIndexer.getDocOutline(db, repoRow[0].id, args.file || null);
-  },
+  'doc-outline': (args) => _dispatchDoc(args.repo, (r) =>
+      docIndexer.getDocOutline(db, r.id, args.file || null)),
 
   backlinks: (args) => {
-    const repo = args.repo;
-    const filePath = args.path;
-    if (!repo || !filePath) {return jsonErrNoExit('Usage: node memory-store.js backlinks --repo X --path F');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
-    return docIndexer.getBacklinks(db, repoRow[0].id, filePath);
+    if (!args.path) {return jsonErrNoExit('Missing --path');}
+    return _dispatchDoc(args.repo, (r) =>
+      docIndexer.getBacklinks(db, r.id, args.path));
   },
 
-  'broken-links': (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js broken-links --repo X');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
-    return { broken_links: docIndexer.getBrokenLinks(db, repoRow[0].id) };
-  },
+  'broken-links': (args) => _dispatchDoc(args.repo, (r) =>
+      ({ broken_links: docIndexer.getBrokenLinks(db, r.id) })),
 
-  glossary: (args) => {
-    const repo = args.repo;
-    if (!repo) {return jsonErrNoExit('Usage: node memory-store.js glossary --repo X [--term T]');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
-    return docIndexer.lookupTerm(db, repoRow[0].id, args.term || null);
-  },
+  glossary: (args) => _dispatchDoc(args.repo, (r) =>
+      docIndexer.lookupTerm(db, r.id, args.term || null)),
 
   'tutorial-path': (args) => {
-    const repo = args.repo;
-    const section = args.section;
-    if (!repo || !section) {return jsonErrNoExit('Usage: node memory-store.js tutorial-path --section S --repo X');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
-    return docIndexer.getTutorialPath(db, repoRow[0].id, parseInt(section));
+    if (!args.section) {return jsonErrNoExit('Missing --section');}
+    return _dispatchDoc(args.repo, (r) =>
+      docIndexer.getTutorialPath(db, r.id, parseInt(args.section)));
   },
 
   'code-examples': (args) => {
-    const repo = args.repo;
-    const query = args.query;
-    if (!repo || !query) {return jsonErrNoExit('Usage: node memory-store.js code-examples --query Q --repo X [--lang X]');}
-    const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repo]);
-    if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repo}" not found`);}
-    return docIndexer.findCodeExamples(db, repoRow[0].id, query, args.lang || null);
+    if (!args.query) {return jsonErrNoExit('Missing --query');}
+    return _dispatchDoc(args.repo, (r) =>
+      docIndexer.findCodeExamples(db, r.id, args.query, args.lang || null));
   },
 };
 
