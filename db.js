@@ -91,7 +91,7 @@ const sqlRaw = _sqlExec;
 
 /* ── transaction helper ───────────────────────────────────── */
 
-function withTransaction(fn) {
+function withTransaction(fn, onRollbackError) {
   if (!_db) {throw new Error('Database not initialized. Call ensureDb() first.');}
   if (typeof _db.transaction === 'function') {
     return _db.transaction(fn)();
@@ -102,7 +102,10 @@ function withTransaction(fn) {
     _db.exec('COMMIT');
     return result;
   } catch (e) {
-    try { _db.exec('ROLLBACK'); } catch (_) {}
+    try { _db.exec('ROLLBACK'); } catch (rollbackErr) {
+      console.error('[db] ROLLBACK failed:', rollbackErr.message);
+      if (typeof onRollbackError === 'function') { onRollbackError(rollbackErr); }
+    }
     throw e;
   }
 }
