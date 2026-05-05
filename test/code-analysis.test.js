@@ -22,10 +22,8 @@ function run(cmd) {
 
 // Ensure code is indexed before all test groups
 beforeAll(() => {
-  // Force full reindex to ensure import/call graphs are rebuilt
-  try {
-    run(`reindex-repo --repo ${REPO} --mode full`);
-  } catch {
+  const result = run(`reindex-repo --repo ${REPO} --mode full`);
+  if (result.error) {
     run(`index-repo --path . --name ${REPO}`);
   }
 });
