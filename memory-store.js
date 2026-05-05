@@ -1672,7 +1672,7 @@ async function reindexRepoInternal(repo, mode) {
         symbolCount++;
       }
       reindexed++;
-    } catch (e) { console.error(`[memory-store] skipping file ${filePath}:`, e.message); }
+    } catch (e) { console.error(`[memory-store] skipping file ${filePath}:`, e?.message ?? String(e)); }
   }
 
   sqlRun(
@@ -1687,15 +1687,15 @@ async function reindexRepoInternal(repo, mode) {
   try {
     const ig = codeAnalysis.buildImportGraph(db, repoId);
     if (ig.success) {importEdges = ig.edges;}
-  } catch (e) { console.error(`[memory-store] import graph build failed for repo ${repoId}:`, e.message); }
+  } catch (e) { console.error(`[memory-store] import graph build failed for repo ${repoId}:`, e?.message ?? String(e)); }
   try {
     const cg = codeAnalysis.buildCallGraph(db, repoId);
     if (cg.success) {callEdges = cg.calls;}
-  } catch (e) { console.error(`[memory-store] call graph build failed for repo ${repoId}:`, e.message); }
+  } catch (e) { console.error(`[memory-store] call graph build failed for repo ${repoId}:`, e?.message ?? String(e)); }
   try {
     const cc = codeAnalysis.buildComplexity(db, repoId);
     if (cc.success) {complexityCount = cc.symbols;}
-  } catch (e) { console.error(`[memory-store] complexity build failed for repo ${repoId}:`, e.message); }
+  } catch (e) { console.error(`[memory-store] complexity build failed for repo ${repoId}:`, e?.message ?? String(e)); }
   return {
     success: true,
     repo,
@@ -1768,13 +1768,13 @@ function searchCode(query, repoName, kind, maxResults) {
           name, kind, signature, docstring, file_path, body_preview, content=code_symbols, content_rowid=id)`);
       } catch (e) {
         // FTS5 extension not available in this SQLite build — intentional fallback to LIKE
-        console.error(`[memory-store] FTS5 not available, falling back to LIKE search:`, e.message);
+        console.error(`[memory-store] FTS5 not available, falling back to LIKE search:`, e?.message ?? String(e));
         return searchCodeLike(query, repoName, kind, maxResults);
       }
     }
   } catch (e) {
     // FTS5 table check failed — intentional fallback to LIKE
-    console.error(`[memory-store] FTS5 check failed, falling back to LIKE search:`, e.message);
+    console.error(`[memory-store] FTS5 check failed, falling back to LIKE search:`, e?.message ?? String(e));
     return searchCodeLike(query, repoName, kind, maxResults);
   }
 
@@ -1895,7 +1895,7 @@ function createWorkspace(name) {
     const row = sqlJson('SELECT id, name, created_at FROM workspaces WHERE name = ?', [name]);
     return { success: true, workspace: row[0] };
   } catch (e) {
-    return { error: `Failed to create workspace '${name}': ${e.message}` };
+    return { error: `Failed to create workspace '${name}': ${e?.message ?? String(e)}` };
   }
 }
 
