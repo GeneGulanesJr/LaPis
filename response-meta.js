@@ -46,41 +46,34 @@ function clearFreshnessCache() {
  * Strategy: git state first, filesystem metadata fallback for non-git repos.
  */
 function checkFreshness(repoPath, storedHeadCommit) {
-  // Non-git repos: fall back to filesystem mtime comparison
   if (!fs.existsSync(path.join(repoPath, '.git'))) {
     return _filesystemFreshness(repoPath);
   }
+  return _gitFreshness(repoPath, storedHeadCommit);
+}
 
-  // Git repos: compare HEAD commit
+function _gitFreshness(repoPath, storedHeadCommit) {
   try {
-    const currentHead = execSync('git rev-parse HEAD', {
-      cwd: repoPath,
-      encoding: 'utf-8',
-      timeout: 5000,
-    }).trim();
-
-    if (!currentHead) {return 'stale_index';}
-
-    // If no stored head_commit, assume stale until reindex
-    if (!storedHeadCommit) {return 'stale_index';}
-
-    // Commit matches — check for uncommitted changes
-    if (currentHead === storedHeadCommit) {
-      const status = execSync('git status --porcelain', {
-        cwd: repoPath,
-        encoding: 'utf-8',
-        timeout: 5000,
-      }).trim();
-
-      return status.length > 0 ? 'edited_uncommitted' : 'fresh';
-    }
-
-    // Commit differs — index is stale
-    return 'stale_index';
+    const currentHead = _resolveHead(repoPath);
+    if (!currentHead || !storedHeadCommit) {return 'stale_index';}
+    if (currentHead !== storedHeadCommit) {return 'stale_index';}
+    return _checkUncommittedChanges(repoPath);
   } catch (_) {
-    // Git command failed — conservative: assume stale
     return 'stale_index';
   }
+}
+
+function _resolveHead(repoPath) {
+  return execSync('git rev-parse HEAD', {
+    cwd: repoPath, encoding: 'utf-8', timeout: 5000,
+  }).trim();
+}
+
+function _checkUncommittedChanges(repoPath) {
+  const status = execSync('git status --porcelain', {
+    cwd: repoPath, encoding: 'utf-8', timeout: 5000,
+  }).trim();
+  return status.length > 0 ? 'edited_uncommitted' : 'fresh';
 }
 
 /**
@@ -121,135 +114,105 @@ function getFreshness(db, repoId, repoPath, storedHeadCommit) {
  * @param {object} db — SQLite db handle (for some tools that need queries)
  * @returns {number} 0.0–1.0 confidence
  */
-function computeConfidence(toolName, data, db) {
-  switch (toolName) {
-    // Deterministic tools — always 1.0
-    case 'getCouplingMetrics':
-    case 'getComplexity':
-    case 'getLayerViolations':
-    case 'getFileOutline':
-    case 'getDependencyCycles':
-    case 'getImportGraph':
-    case 'getCallHierarchy':
-    case 'getClassHierarchy':
-      return 1.0;
-
-    // Symbol Importance — gap between top-1 and top-2 PageRank
-    case 'getSymbolImportance': {
-      const nodes = data?.nodes || [];
-      if (nodes.length < 2) {return nodes.length === 1 ? 1.0 : 0.0;}
-      const gap = nodes[0].pagerank - nodes[1].pagerank;
-      // Normalize: 0 → 0.5, large gap → close to 1.0
-      return Math.min(1.0, 0.5 + gap * 20);
-    }
-
-    // Dead Code — average confidence of returned symbols
-    case 'getDeadCode': {
-      const symbols = data?.symbols || data?.results || [];
-      if (symbols.length === 0) {return 1.0;}
-      const sum = symbols.reduce((s, sym) => s + (sym.confidence || 0.5), 0);
-      return parseFloat((sum / symbols.length).toFixed(2));
-    }
-
-    // Hotspots — ratio of symbols with churn data vs total
-    case 'getHotspots': {
-      const files = data?.files || [];
-      if (files.length === 0) {return 1.0;}
-      const withChurn = files.filter(f => (f.commits || 0) > 0).length;
-      return parseFloat((withChurn / files.length).toFixed(2));
-    }
-
-    // Blast Radius — ratio of resolved vs unresolved callers
-    case 'getBlastRadius': {
-      const edges = data?.edges || [];
-      if (edges.length === 0) {return 1.0;}
-      const resolved = edges.filter(e => e.resolved !== false).length;
-      return parseFloat((resolved / edges.length).toFixed(2));
-    }
-
-    // Call Hierarchy (depth walk) — average confidence across chain
-    case 'callHierarchy': {
-      const edges = data?.edges || [];
-      if (edges.length === 0) {return 1.0;}
-      const sum = edges.reduce((s, e) => s + (e.confidence || 1.0), 0);
-      return parseFloat((sum / edges.length).toFixed(2));
-    }
-
-    // Extraction Candidates — extraction_score normalized
-    case 'getExtractionCandidates': {
-      const candidates = data?.candidates || [];
-      if (candidates.length === 0) {return 1.0;}
-      const maxScore = Math.max(...candidates.map(c => c.extraction_score || 0));
-      return maxScore <= 0 ? 0.0 : parseFloat(maxScore.toFixed(2));
-    }
-
-    // Signal Chains — ratio of resolved vs unresolved callees
-    case 'getSignalChains': {
-      const chains = data?.chains || [];
-      if (chains.length === 0) {return 1.0;}
-      let total = 0, resolved = 0;
-      for (const chain of chains) {
-        const steps = chain?.steps || [];
-        total += steps.length;
-        resolved += steps.filter(s => s.resolved !== false).length;
-      }
-      return total === 0 ? 1.0 : parseFloat((resolved / total).toFixed(2));
-    }
-
-    // Winnow — ratio of requested axes that had data
-    case 'winnow': {
-      const results = data?.results || [];
-      if (results.length === 0) {return 1.0;}
-      // Each result has per-axis flags; count how many axes had hits
-      let totalAxes = 0, axesWithData = 0;
-      for (const r of results) {
-        if (r._axes) {
-          totalAxes += r._axes.total || 0;
-          axesWithData += r._axes.with_data || 0;
-        }
-      }
-      return totalAxes === 0 ? 1.0 : parseFloat((axesWithData / totalAxes).toFixed(2));
-    }
-
-    // AST Patterns — ratio of symbols with body data vs total
-    case 'astPatterns': {
-      const matches = data?.matches || [];
-      const allSymbols = data?.symbols_scanned || 0;
-      if (allSymbols === 0) {return 1.0;}
-      const withBody = matches.reduce((s, m) => s + (m.has_body ? 1 : 0), 0);
-      return parseFloat((withBody / allSymbols).toFixed(2));
-    }
-
-    // Provenance — ratio of classified vs total commits
-    case 'getProvenance': {
-      const commits = data?.commits || [];
-      if (commits.length === 0) {return 1.0;}
-      const classified = commits.filter(c => c.classification !== 'unknown').length;
-      return parseFloat((classified / commits.length).toFixed(2));
-    }
-
-    // Untested Symbols — ratio of test files found vs total files
-    case 'getUntestedSymbols': {
-      const untested = data?.untested || [];
-      const testFiles = data?.test_files_found || 0;
-      const totalFiles = data?.total_files || 1;
-      return testFiles === 0 ? 0.0 : parseFloat((testFiles / totalFiles).toFixed(2));
-    }
-
-    // PR Risk Profile — ratio of signals that had data
-    case 'getPrRiskProfile': {
-      const signals = data?.signals || {};
-      const signalKeys = Object.keys(signals).filter(k => k !== 'composite');
-      if (signalKeys.length === 0) {return 0.0;}
-      const hasData = signalKeys.filter(k => signals[k] != null).length;
-      return parseFloat((hasData / signalKeys.length).toFixed(2));
-    }
-
-    // Fallback for unknown tools
-    default:
-      return 0.5;
-  }
+function computeConfidence(toolName, data) {
+  const calc = _confidenceCalculators[toolName];
+  if (calc) {return calc(data);}
+  return 0.5;
 }
+
+const _confidenceCalculators = {
+  getCouplingMetrics: () => 1.0,
+  getComplexity: () => 1.0,
+  getLayerViolations: () => 1.0,
+  getFileOutline: () => 1.0,
+  getDependencyCycles: () => 1.0,
+  getImportGraph: () => 1.0,
+  getCallHierarchy: () => 1.0,
+  getClassHierarchy: () => 1.0,
+  getSymbolImportance(data) {
+    const nodes = data?.nodes || [];
+    if (nodes.length < 2) {return nodes.length === 1 ? 1.0 : 0.0;}
+    return Math.min(1.0, 0.5 + (nodes[0].pagerank - nodes[1].pagerank) * 20);
+  },
+  getDeadCode(data) {
+    const symbols = data?.symbols || data?.results || [];
+    if (symbols.length === 0) {return 1.0;}
+    const sum = symbols.reduce((s, sym) => s + (sym.confidence || 0.5), 0);
+    return parseFloat((sum / symbols.length).toFixed(2));
+  },
+  getHotspots(data) {
+    const files = data?.files || [];
+    if (files.length === 0) {return 1.0;}
+    const withChurn = files.filter(f => (f.commits || 0) > 0).length;
+    return parseFloat((withChurn / files.length).toFixed(2));
+  },
+  getBlastRadius(data) {
+    const edges = data?.edges || [];
+    if (edges.length === 0) {return 1.0;}
+    const resolved = edges.filter(e => e.resolved !== false).length;
+    return parseFloat((resolved / edges.length).toFixed(2));
+  },
+  callHierarchy(data) {
+    const edges = data?.edges || [];
+    if (edges.length === 0) {return 1.0;}
+    const sum = edges.reduce((s, e) => s + (e.confidence || 1.0), 0);
+    return parseFloat((sum / edges.length).toFixed(2));
+  },
+  getExtractionCandidates(data) {
+    const candidates = data?.candidates || [];
+    if (candidates.length === 0) {return 1.0;}
+    const maxScore = Math.max(...candidates.map(c => c.extraction_score || 0));
+    return maxScore <= 0 ? 0.0 : parseFloat(maxScore.toFixed(2));
+  },
+  getSignalChains(data) {
+    const chains = data?.chains || [];
+    if (chains.length === 0) {return 1.0;}
+    let total = 0, resolved = 0;
+    for (const chain of chains) {
+      const steps = chain?.steps || [];
+      total += steps.length;
+      resolved += steps.filter(s => s.resolved !== false).length;
+    }
+    return total === 0 ? 1.0 : parseFloat((resolved / total).toFixed(2));
+  },
+  winnow(data) {
+    const results = data?.results || [];
+    if (results.length === 0) {return 1.0;}
+    let totalAxes = 0, axesWithData = 0;
+    for (const r of results) {
+      if (r._axes) {
+        totalAxes += r._axes.total || 0;
+        axesWithData += r._axes.with_data || 0;
+      }
+    }
+    return totalAxes === 0 ? 1.0 : parseFloat((axesWithData / totalAxes).toFixed(2));
+  },
+  astPatterns(data) {
+    const matches = data?.matches || [];
+    const allSymbols = data?.symbols_scanned || 0;
+    if (allSymbols === 0) {return 1.0;}
+    const withBody = matches.reduce((s, m) => s + (m.has_body ? 1 : 0), 0);
+    return parseFloat((withBody / allSymbols).toFixed(2));
+  },
+  getProvenance(data) {
+    const commits = data?.commits || [];
+    if (commits.length === 0) {return 1.0;}
+    const classified = commits.filter(c => c.classification !== 'unknown').length;
+    return parseFloat((classified / commits.length).toFixed(2));
+  },
+  getUntestedSymbols(data) {
+    const testFiles = data?.test_files_found || 0;
+    const totalFiles = data?.total_files || 1;
+    return testFiles === 0 ? 0.0 : parseFloat((testFiles / totalFiles).toFixed(2));
+  },
+  getPrRiskProfile(data) {
+    const signals = data?.signals || {};
+    const signalKeys = Object.keys(signals).filter(k => k !== 'composite');
+    if (signalKeys.length === 0) {return 0.0;}
+    const hasData = signalKeys.filter(k => signals[k] != null).length;
+    return parseFloat((hasData / signalKeys.length).toFixed(2));
+  },
+};
 
 // ══════════════════════════════════════════════════════════
 // RESULT COUNT EXTRACTION
@@ -320,7 +283,7 @@ function buildEnvelope({ toolName, data, db, repoId, repoPath, storedHeadCommit,
   const timingMs = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime);
 
   const freshness = getFreshness(db, repoId, repoPath, storedHeadCommit);
-  const confidence = computeConfidence(toolName, data, db);
+  const confidence = computeConfidence(toolName, data);
   const resultCount = extractResultCount(toolName, data);
 
   // Resolve repo_rev: current HEAD if available, stored otherwise
