@@ -1881,7 +1881,7 @@ function _dispatch(repoName, fn) {
 function _dispatchDoc(repoName, fn) {
   if (!repoName) {return jsonErrNoExit('Missing --repo');}
   const repoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [repoName]);
-  if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repoName}" not found`);}
+  if (!repoRow.length) {return jsonErrNoExit(`Doc repo "${repoName}" not found. Run index-docs first.`);}
   return fn(repoRow[0]);
 }
 
