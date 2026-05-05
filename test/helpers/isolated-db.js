@@ -32,9 +32,7 @@ function createIsolatedTestDb() {
   }
 
   function cleanup() {
-    try {
-      if (_db) { _db.close(); }
-    } catch { }
+    delete process.env.PI_MEMORY_DB_PATH;
     dbModule.resetDb();
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });

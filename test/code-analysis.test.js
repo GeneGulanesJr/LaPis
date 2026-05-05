@@ -55,19 +55,15 @@ describe('code-analysis: call-hierarchy', () => {
   it('should find callers of a known symbol', () => {
     const r = ctx.run(`call-hierarchy --symbol add --repo ${REPO} --direction callers --depth 2`);
     expect(r.error).toBeUndefined();
-    if (!r.error) {
-      expect(r.symbol).toBe('add');
-      expect(Array.isArray(r.callers)).toBe(true);
-    }
+    expect(r.symbol).toBe('add');
+    expect(Array.isArray(r.callers)).toBe(true);
   });
 
   it('should find callees of a known symbol', () => {
     const r = ctx.run(`call-hierarchy --symbol compute --repo ${REPO} --direction callees --depth 2`);
     expect(r.error).toBeUndefined();
-    if (!r.error) {
-      expect(r.symbol).toBe('compute');
-      expect(Array.isArray(r.callees)).toBe(true);
-    }
+    expect(r.symbol).toBe('compute');
+    expect(Array.isArray(r.callees)).toBe(true);
   });
 });
 

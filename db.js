@@ -324,7 +324,8 @@ function parseArgs(argv) {
 
 /* ── exports ───────────────────────────────────────────────── */
 module.exports = {
-  DB_PATH, SCHEMA_PATH, HOME,
+  get DB_PATH() { return DB_PATH; },
+  SCHEMA_PATH, HOME,
   getDb, getEngine, getDbPath,
   sqlJson, sqlRun, sqlRaw,
   ensureDb, withTransaction,

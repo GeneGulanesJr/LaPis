@@ -3,6 +3,8 @@ const {
   createIsolatedTestDb,
   writeTmpRepo,
   FIXTURE_MARKDOWN,
+  FIXTURE_JS,
+  FIXTURE_JS2,
 } = require('./helpers/isolated-db');
 
 const DOC_REPO = 'test-docs';
@@ -149,7 +151,11 @@ describe('doc-indexer: doc-orphans', () => {
 
 describe('doc-indexer: doc-coverage', () => {
   it('should compute coverage between code and doc repos', () => {
-    ctx.run(`index-repo --path "${ctx.tmpDir}/code" --name test-coverage-repo`);
+    const codeDir = writeTmpRepo(path.join(ctx.tmpDir, 'coverage-code'), {
+      'utils.js': FIXTURE_JS,
+      'index.js': FIXTURE_JS2,
+    });
+    ctx.run(`index-repo --path "${codeDir}" --name test-coverage-repo`);
     const r = ctx.run(`doc-coverage --repo test-coverage-repo --doc-repo ${DOC_REPO}`);
     if (r.error) {
       expect(typeof r.error).toBe('string');
