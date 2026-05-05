@@ -19,6 +19,8 @@ const {
   jsonOut, jsonErr, parseArgs,
 } = require('./db');
 
+const { getConfig } = require('./config');
+
 // Lazily resolve db handle (available after ensureDb())
 let db = null;
 
@@ -42,7 +44,7 @@ const TOOL_TIERS = {
 };
 
 function _readTierConfig() {
-  const configPath = path.join(HOME, '.pi', 'memory', 'tier.jsonc');
+  const configPath = getConfig().tier_config_path;
   try {
     const raw = fs.readFileSync(configPath, 'utf-8');
     // Strip comments (//-style) for JSON parsing
@@ -64,7 +66,7 @@ function sessionStart(args) {
 
   const countRows = sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [project]);
   const sessionCount = countRows[0].cnt;
-  const consolidateDue = sessionCount > 0 && sessionCount % 5 === 0;
+  const consolidateDue = sessionCount > 0 && sessionCount % getConfig().compact_every_n_sessions === 0;
 
   const archiveCandidates = sqlJson(
     `
@@ -159,7 +161,8 @@ function save(args) {
     if (dupes.potential_duplicates.length > 0) {
       const bestMatch = dupes.potential_duplicates[0];
       // Auto-merge at high confidence (≥85% trigram overlap)
-      if (bestMatch.similarity >= 0.85) {
+      const dedupCfg = getConfig().dedup;
+      if (bestMatch.similarity >= dedupCfg.auto_merge_threshold) {
         const keptId = bestMatch.id;
         const rows = sqlJson(
           `
@@ -247,7 +250,8 @@ function rankObservations(rows, query = '') {
           session_summary: 0.7,
           skill: 0.5,
         }[row.type] || 1.0;
-      const composite = (ftsScore * 0.4 + recencyScore * 0.3 + trustScore * 0.15 + recallScore * 0.15) * typeBoost;
+      const ranking = getConfig().ranking;
+      const composite = (ftsScore * ranking.fts_relevance + recencyScore * ranking.recency + trustScore * ranking.trust + recallScore * ranking.recall) * typeBoost;
       return { ...row, _score: composite };
     })
     .sort((a, b) => b._score - a._score);
@@ -1063,9 +1067,10 @@ function checkDuplicate(title, type, project, topicKey) {
   const candidates = sqlJson(q, params);
 
   const duplicates = [];
-  for (const c of candidates) {
+    const warningThreshold = getConfig().dedup.warning_threshold;
+    for (const c of candidates) {
     const score = trigramOverlap(title, c.title);
-    if (score >= 0.6) {
+    if (score >= warningThreshold) {
       duplicates.push({
         id: c.id,
         title: c.title,

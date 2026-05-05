@@ -107,6 +107,47 @@ Restart Pi and memory auto-wires on session start.
 | `stats`                                | Database statistics                                    |
 | `list-projects`                        | List all known project names                           |
 
+## Configuration
+
+Create `~/.pi/memory/config.jsonc` to override defaults. The file supports JSONC (JSON with `//` and `/* */` comments).
+
+```jsonc
+{
+  // Database file path (default: ~/.pi/memory/memory.db)
+  "db_path": "~/.pi/memory/memory.db",
+
+  // SQLite WAL autocheckpoint threshold (default: 1000)
+  "wal_autocheckpoint": 1000,
+
+  // SQLite busy timeout in milliseconds (default: 5000)
+  "busy_timeout_ms": 5000,
+
+  // Search ranking weights (must sum to 1.0)
+  "ranking": {
+    "fts_relevance": 0.4,
+    "recency": 0.3,
+    "trust": 0.15,
+    "recall": 0.15
+  },
+
+  // Deduplication thresholds (0.0 - 1.0)
+  "dedup": {
+    // Auto-merge duplicates at or above this similarity
+    "auto_merge_threshold": 0.85,
+    // Flag potential duplicates at or above this similarity
+    "warning_threshold": 0.60
+  },
+
+  // Run compaction every N sessions for a project (default: 5)
+  "compact_every_n_sessions": 5,
+
+  // Path to tier config file (default: ~/.pi/memory/tier.jsonc)
+  "tier_config_path": "~/.pi/memory/tier.jsonc"
+}
+```
+
+All options are optional — only include the ones you want to change. Missing values use built-in defaults.
+
 ## Requirements
 
 - **Node.js ≥ 22.5** (built-in `node:sqlite`) or Node.js with `better-sqlite3`

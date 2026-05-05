@@ -8,10 +8,10 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { getConfig } = require('./config');
 
 /* ── paths ────────────────────────────────────────────────── */
 const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
-const DB_PATH = path.join(HOME, '.pi', 'memory', 'memory.db');
 const SCHEMA_PATH = path.resolve(__dirname, 'schema.sql');
 
 /* ── module state ─────────────────────────────────────────── */
@@ -20,27 +20,30 @@ let _engine = null; // 'node-sqlite' | 'better-sqlite3'
 
 function getDb() { return _db; }
 function getEngine() { return _engine; }
+function getDbPath() { return getConfig().db_path; }
 
 /* ── backend detection ────────────────────────────────────── */
 
 function tryNodeSqlite() {
   try {
+    const cfg = getConfig();
     const mod = require('node:sqlite');
-    const d = new mod.DatabaseSync(DB_PATH);
+    const d = new mod.DatabaseSync(cfg.db_path);
     d.exec('PRAGMA journal_mode=WAL;');
-    d.exec('PRAGMA busy_timeout=5000;');
-    d.exec('PRAGMA wal_autocheckpoint=1000;');
+    d.exec(`PRAGMA busy_timeout=${cfg.busy_timeout_ms};`);
+    d.exec(`PRAGMA wal_autocheckpoint=${cfg.wal_autocheckpoint};`);
     return d;
   } catch (_) { return null; }
 }
 
 function tryBetterSqlite3() {
   try {
+    const cfg = getConfig();
     const Database = require('better-sqlite3');
-    const d = new Database(DB_PATH);
+    const d = new Database(cfg.db_path);
     d.pragma('journal_mode = WAL');
-    d.pragma('busy_timeout = 5000');
-    d.pragma('wal_autocheckpoint = 1000');
+    d.pragma(`busy_timeout = ${cfg.busy_timeout_ms}`);
+    d.pragma(`wal_autocheckpoint = ${cfg.wal_autocheckpoint}`);
     return d;
   } catch (_) { return null; }
 }
@@ -110,12 +113,13 @@ function withTransaction(fn) {
 /* ── ensureDb ─────────────────────────────────────────────── */
 
 function ensureDb() {
-  const dir = path.dirname(DB_PATH);
+  const dbPath = getDbPath();
+  const dir = path.dirname(dbPath);
   if (!fs.existsSync(dir)) {fs.mkdirSync(dir, { recursive: true });}
 
   if (!_db) {openDb();}
 
-  if (!fs.existsSync(DB_PATH) || fs.statSync(DB_PATH).size === 0) {
+  if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
     const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
     const statements = schema
       .split(';')
@@ -128,10 +132,9 @@ function ensureDb() {
 
   runMigrations();
 
-  // Ensure critical v3+ tables exist (schema.sql may fail silently on some Node versions)
   ensureCriticalTables();
 
-  return { ok: true, db: DB_PATH, engine: _engine };
+  return { ok: true, db: dbPath, engine: _engine };
 }
 
 // Critical tables that must exist for code analysis + doc indexing
@@ -309,8 +312,9 @@ function parseArgs(argv) {
 
 /* ── exports ───────────────────────────────────────────────── */
 module.exports = {
-  DB_PATH, SCHEMA_PATH, HOME,
-  getDb, getEngine,
+  get DB_PATH() { return getConfig().db_path; },
+  SCHEMA_PATH, HOME,
+  getDb, getEngine, getDbPath,
   sqlJson, sqlRun, sqlRaw,
   ensureDb, withTransaction,
   jsonOut, jsonErr, parseArgs,
