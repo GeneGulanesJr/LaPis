@@ -1994,7 +1994,7 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   }
 
   if (changedSymbolIds.size === 0) {
-    return { signals: { changed_files: changedFiles.length }, risk_level: 'low', composite: 0.1 };
+    return { signals: {}, risk_level: 'low', composite: 0.1, changed_files: changedFiles.length };
   }
 
   // Signal 1: Blast radius (30%) — batch computation for >20 symbols

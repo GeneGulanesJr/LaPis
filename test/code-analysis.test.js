@@ -368,8 +368,8 @@ describe('code-analysis: pr-risk (v6)', () => {
   it('should report changed files and symbols count', () => {
     const r = run(`pr-risk --repo ${REPO}`);
     expect(r.error).toBeUndefined();
-    // pr-risk returns { signals: { changed_files }, risk_level, composite }
-    // changed_files may be nested inside signals
+    // pr-risk returns { signals: {}, risk_level, composite, changed_files }
+    // changed_files is a top-level field
     const changedFiles = r.changed_files ?? r.signals?.changed_files;
     expect(changedFiles !== undefined || r.note !== undefined).toBe(true);
   });
