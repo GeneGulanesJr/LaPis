@@ -6,9 +6,23 @@ const fs = require('fs');
 
 const dbModule = require('../db');
 const { MemoryError } = dbModule;
+const { resetConfigCache } = require('../config');
 
 describe('Error patterns and DB isolation', () => {
   beforeAll(() => {
+    dbModule.ensureDb();
+  });
+
+  afterEach(() => {
+    resetConfigCache();
+    if (!dbModule.getDb()) {
+      dbModule.ensureDb();
+    }
+  });
+
+  afterAll(() => {
+    resetConfigCache();
+    dbModule.resetDb();
     dbModule.ensureDb();
   });
 
@@ -76,11 +90,11 @@ describe('Error patterns and DB isolation', () => {
       try { fs.unlinkSync(`${tmpPath}-shm`); } catch (_) {}
 
       // Restore global singleton
+      resetConfigCache();
       dbModule.ensureDb();
     });
 
     it('createDb should not corrupt the global singleton', () => {
-      const { resetConfigCache } = require('../config');
       const globalPath = dbModule.DB_PATH;
       const globalEngine = dbModule.getEngine();
 
