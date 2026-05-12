@@ -15,6 +15,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const _wtsPath = path.resolve(__dirname, 'node_modules', 'web-tree-sitter', 'web-tree-sitter.cjs');
 
 const GRAMMAR_DIR = path.resolve(__dirname, 'grammars');
 
@@ -53,7 +54,7 @@ async function init() {
 
   _initPromise = (async () => {
     try {
-      const mod = require('web-tree-sitter');
+      const mod = require(_wtsPath);
       _ParserClass = mod.Parser;
       _LanguageClass = mod.Language;
       await _ParserClass.init();
