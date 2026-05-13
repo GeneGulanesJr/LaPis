@@ -1,7 +1,7 @@
 -- @genegulanesjr/memory-layer — Unified Schema v4
 -- Single database: ~/.pi/memory/memory.db
 -- Zero external dependencies. FTS5 search, trust scoring, dedup, recall ranking.
-PRAGMA user_version = 6;
+PRAGMA user_version = 7;
 
 -- ═══════════════════════════════════════════════════════════
 -- WORKSPACES  (v4 — formal project isolation)
@@ -321,7 +321,7 @@ CREATE TABLE IF NOT EXISTS code_calls (
   callee_symbol_id  INTEGER REFERENCES code_symbols(id) ON DELETE SET NULL,
   confidence        REAL NOT NULL DEFAULT 1.0,
   line_number       INTEGER,
-  UNIQUE(repo_id, caller_symbol_id, callee_name, line_number)
+  UNIQUE(repo_id, caller_symbol_id, callee_name)
 );
 CREATE INDEX IF NOT EXISTS idx_cc_caller ON code_calls(caller_symbol_id);
 CREATE INDEX IF NOT EXISTS idx_cc_callee_name ON code_calls(repo_id, callee_name);
