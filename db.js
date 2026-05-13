@@ -11,6 +11,8 @@ const os = require('os');
 const { getConfig } = require('./config');
 
 /* ── custom error ─────────────────────────────────────────── */
+// MemoryError is used by memory-store.js CLI dispatch for typed error handling.
+// Do NOT replace with generic Error (PR22 deferred) — downstream catches instanceof.
 class MemoryError extends Error {
   constructor(message, context = {}) {
     super(message);
@@ -31,6 +33,8 @@ function getDb() { return _db; }
 function getEngine() { return _engine; }
 function getDbPath() { return getConfig().db_path; }
 
+// resetDb/createDb are public API needed for test isolation (Issue #36).
+// Do NOT remove — PR22 deferred this change incorrectly.
 function resetDb() {
   if (_db) {
     try { _db.close(); } catch (_) {}

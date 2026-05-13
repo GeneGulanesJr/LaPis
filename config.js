@@ -21,7 +21,7 @@ const DEFAULTS = {
     warning_threshold: 0.60,
   },
   compact_every_n_sessions: 5,
-  context_limit: 5,
+  context_limit: 5, // Used by memory-store.js context command — do not remove
   tier_config_path: path.join(HOME, '.pi', 'memory', 'tier.jsonc'),
 };
 
