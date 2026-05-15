@@ -223,6 +223,25 @@ Run it yourself:
 node bench/bench-tokens.js
 ```
 
+## Development
+
+Contributor-facing architecture and module ownership docs live in:
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — local setup, testing expectations, dependency rules, and where new changes belong
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — stable architecture overview for the modular monolith
+- [`docs/MODULE_MAP.md`](docs/MODULE_MAP.md) — quick reference for module purpose, entry points, allowed dependencies, and forbidden dependencies
+- [`docs/ARCHITECTURE_MODULARIZATION.md`](docs/ARCHITECTURE_MODULARIZATION.md) — detailed modularization rationale and extraction plan
+
+Common development commands:
+
+```bash
+npm test
+npm run check
+npm run format:check
+```
+
+The active repo still includes legacy-compatible root modules such as `commands/`, `services/`, `data-access/`, and `memory-store.js` while the backend is modularized. New feature work should follow the ownership boundaries in `docs/MODULE_MAP.md` and prefer finalized `src/` feature modules when they exist.
+
 ## License
 
 MIT
