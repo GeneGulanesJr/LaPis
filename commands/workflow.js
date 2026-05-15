@@ -1,7 +1,15 @@
-const workflowDA = require('../data-access/workflows');
+const workflowMemory = require('../src/workflow-memory');
+const { createWorkflowRepository } = require('../src/platform/storage/repositories/workflow');
+
+function getWorkflowServiceDeps(deps) {
+  return {
+    jsonErrNoExit: deps.jsonErrNoExit,
+    workflowRepository: deps.workflowRepository || createWorkflowRepository(deps),
+  };
+}
 
 function saveWorkflow(deps, args) {
-  return workflowDA.saveWorkflow(deps, {
+  return workflowMemory.saveWorkflow(getWorkflowServiceDeps(deps), {
     id: args.id,
     name: args.name,
     project: args.project || null,
@@ -10,24 +18,24 @@ function saveWorkflow(deps, args) {
 }
 
 function recordStep(deps, args) {
-  return workflowDA.recordStep(deps, {
+  return workflowMemory.recordStep(getWorkflowServiceDeps(deps), {
     workflow: args.workflow,
-    step: parseInt(args.step),
+    step: parseInt(args.step, 10),
     command: args.command,
   });
 }
 
 function stepOutcome(deps, args) {
-  return workflowDA.stepOutcome(deps, {
+  return workflowMemory.stepOutcome(getWorkflowServiceDeps(deps), {
     workflow: args.workflow,
-    step: parseInt(args.step),
+    step: parseInt(args.step, 10),
     success: args.success === 'true',
     workaround: args.workaround || null,
   });
 }
 
 function getWorkflow(deps, args) {
-  return workflowDA.getWorkflow(deps, { id: args.id });
+  return workflowMemory.getWorkflow(getWorkflowServiceDeps(deps), { id: args.id });
 }
 
-module.exports = { saveWorkflow, recordStep, stepOutcome, getWorkflow };
+module.exports = { saveWorkflow, recordStep, stepOutcome, getWorkflow, getWorkflowServiceDeps };

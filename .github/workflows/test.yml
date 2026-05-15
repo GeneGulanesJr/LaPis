@@ -20,14 +20,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Index repo
-        run: node memory-store.js index-repo --path . --name PiMemoryExtension
-
-      - name: Index docs
-        run: node memory-store.js index-docs --path docs --name pi-docs
-
       - name: Lint
         run: npm run lint
 
-      - name: Test
+      - name: Test suite
         run: npm test
+
+      - name: Smoke CLI tests
+        run: node test/smoke-cli.js
+
+      - name: Index repo (post-smoke verification)
+        run: node memory-store.js index-repo --path . --name PiMemoryExtension
+
+      - name: Index docs (post-smoke verification)
+        run: node memory-store.js index-docs --path docs --name pi-docs

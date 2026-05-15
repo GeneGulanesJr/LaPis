@@ -3,16 +3,40 @@ const obsDA = require('../data-access/observations');
 const dedupService = require('../services/dedup');
 const sessionsService = require('../services/sessions');
 
-function save(deps, args) {
-  const { jsonErrNoExit } = deps;
-  return obsService.save({
-    ...deps,
+function getMemoryRepository(deps) {
+  if (deps.memoryRepository) {
+    return deps.memoryRepository;
+  }
+  return {
     insertObservation: (params) => obsDA.insertObservation(deps, params),
     insertObservationRelation: (params) => obsDA.insertObservationRelation(deps, params),
     softDeleteObservation: (id) => obsDA.softDeleteObservation(deps, id),
-    checkDuplicate: (title, type, project, topicKey) => dedupService.checkDuplicate({ sqlJson: deps.sqlJson }, title, type, project, topicKey),
-    findLatestSession: sessionsService.findLatestSession,
-  }, args);
+    hardDeleteObservation: (id) => obsDA.hardDeleteObservation(deps, id),
+    getObservation: (id) => obsDA.getObservation(deps, id),
+    getSymbolLinksForMemory: (memoryId) => obsDA.getSymbolLinksForMemory(deps, memoryId),
+    getRecallCountForMemory: (memoryId) => obsDA.getRecallCountForMemory(deps, memoryId),
+    updateObservation: (params) => obsDA.updateObservation(deps, params),
+    getTimeline: (params) => obsDA.getTimeline(deps, params),
+    insertUserPrompt: (params) => obsDA.insertUserPrompt(deps, params),
+    insertCapturePassiveObservation: (params) => obsDA.insertCapturePassiveObservation(deps, params),
+    getObservationStats: () => obsDA.getObservationStats(deps),
+  };
+}
+
+function save(deps, args) {
+  const memoryRepository = getMemoryRepository(deps);
+  return obsService.save(
+    {
+      ...deps,
+      insertObservation: (params) => memoryRepository.insertObservation(params),
+      insertObservationRelation: (params) => memoryRepository.insertObservationRelation(params),
+      softDeleteObservation: (id) => memoryRepository.softDeleteObservation(id),
+      checkDuplicate: (title, type, project, topicKey) =>
+        dedupService.checkDuplicate({ sqlJson: deps.sqlJson }, title, type, project, topicKey),
+      findLatestSession: sessionsService.findLatestSession,
+    },
+    args,
+  );
 }
 
 function get(deps, args) {
@@ -21,17 +45,18 @@ function get(deps, args) {
   if (!id) {
     return jsonErrNoExit('Missing --id');
   }
-  const rows = obsDA.getObservation(deps, id);
+  const memoryRepository = getMemoryRepository(deps);
+  const rows = memoryRepository.getObservation(id);
   if (rows.length === 0) {
     return { error: 'Observation not found' };
   }
 
   const obs = rows[0];
-  const links = obsDA.getSymbolLinksForMemory(deps, id);
+  const links = memoryRepository.getSymbolLinksForMemory(id);
   if (links.length > 0) {
     obs.symbols = links;
   }
-  const recallResult = obsDA.getRecallCountForMemory(deps, id);
+  const recallResult = memoryRepository.getRecallCountForMemory(id);
   obs.recall_count = recallResult[0].cnt;
   return obs;
 }
@@ -42,7 +67,8 @@ function update(deps, args) {
   if (!id) {
     return jsonErrNoExit('Missing --id');
   }
-  const result = obsDA.updateObservation(deps, {
+  const memoryRepository = getMemoryRepository(deps);
+  const result = memoryRepository.updateObservation({
     id,
     title: args.title,
     content: args.content,
@@ -63,15 +89,16 @@ function del(deps, args) {
   if (!id) {
     return deps.jsonErrNoExit('Missing --id');
   }
-  const existing = obsDA.getObservation(deps, id);
+  const memoryRepository = getMemoryRepository(deps);
+  const existing = memoryRepository.getObservation(id);
   if (!existing || existing.length === 0) {
     return deps.jsonErrNoExit('Observation not found');
   }
   if (hard) {
-    obsDA.hardDeleteObservation(deps, id);
+    memoryRepository.hardDeleteObservation(id);
     return { ok: true, hardDeleted: true };
   }
-  obsDA.softDeleteObservation(deps, id);
+  memoryRepository.softDeleteObservation(id);
   return { ok: true, hardDeleted: false };
 }
 
@@ -82,7 +109,8 @@ function timeline(deps, args) {
   if (isNaN(id)) {
     return deps.jsonErrNoExit('Missing --id');
   }
-  return obsDA.getTimeline(deps, { id, before, after });
+  const memoryRepository = getMemoryRepository(deps);
+  return memoryRepository.getTimeline({ id, before, after });
 }
 
 function suggestTopicKey(args) {
@@ -97,20 +125,26 @@ function savePrompt(deps, args) {
   if (!content) {
     return jsonErrNoExit('Missing --content');
   }
-  const rows = obsDA.insertUserPrompt(deps, { sessionId, content, project });
+  const memoryRepository = getMemoryRepository(deps);
+  const rows = memoryRepository.insertUserPrompt({ sessionId, content, project });
   return { id: rows[0].id, created_at: rows[0].created_at };
 }
 
 function capturePassive(deps, args) {
-  return obsService.capturePassive({
-    ...deps,
-    insertCapturePassiveObservation: (params) => obsDA.insertCapturePassiveObservation(deps, params),
-    findLatestSession: sessionsService.findLatestSession,
-  }, args);
+  const memoryRepository = getMemoryRepository(deps);
+  return obsService.capturePassive(
+    {
+      ...deps,
+      insertCapturePassiveObservation: (params) => memoryRepository.insertCapturePassiveObservation(params),
+      findLatestSession: sessionsService.findLatestSession,
+    },
+    args,
+  );
 }
 
 function getStats(deps) {
-  return obsDA.getObservationStats(deps);
+  const memoryRepository = getMemoryRepository(deps);
+  return memoryRepository.getObservationStats();
 }
 
 module.exports = { save, get, update, del, timeline, suggestTopicKey, savePrompt, capturePassive, getStats };

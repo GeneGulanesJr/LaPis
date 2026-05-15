@@ -1,0 +1,305 @@
+const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../constants');
+const { createTrustSyncRepository } = require('../platform/storage/repositories/trust-sync');
+const trustSync = require('../trust-sync');
+
+function runCompact(deps) {
+  const { sqlRun, sqlRaw } = deps;
+  const startedAt = new Date().toISOString();
+  const report = { startedAt, steps: {} };
+
+  try {
+    sqlRun(
+      'DELETE FROM symbol_links WHERE memory_id NOT IN (SELECT CAST(id AS TEXT) FROM observations WHERE deleted_at IS NULL)',
+    );
+    report.steps.deadLinksCleaned = true;
+
+    sqlRun(
+      `DELETE FROM observations WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-${TIME_WINDOWS.PURGE_SOFT_DELETED_DAYS} days')`,
+    );
+    report.steps.purgedSoftDeleted = true;
+
+    sqlRun(`DELETE FROM observations WHERE id IN (
+      SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
+        FROM observations WHERE type = 'session_summary' AND deleted_at IS NULL
+      ) WHERE rn > ${RESULT_LIMITS.SUMMARIES_PER_PROJECT}
+    )`);
+    report.steps.oldSummariesPruned = true;
+
+    sqlRun(`DELETE FROM user_prompts WHERE id IN (
+      SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
+        FROM user_prompts
+      ) WHERE rn > ${RESULT_LIMITS.PROMPTS_PER_PROJECT}
+    )`);
+    report.steps.oldPromptsPruned = true;
+
+    sqlRun(`DELETE FROM session_log WHERE id NOT IN (
+      SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY started_at DESC) AS rn
+        FROM session_log
+      ) WHERE rn <= ${RESULT_LIMITS.SESSIONS_PER_PROJECT}
+    )`);
+    report.steps.sessionLogPruned = true;
+
+    sqlRun(
+      `DELETE FROM trust_adjustments WHERE timestamp < datetime('now', '-${TIME_WINDOWS.TRUST_ADJUSTMENTS_RETENTION_DAYS} days')`,
+    );
+    report.steps.trustAdjustmentsPruned = true;
+
+    sqlRun('DELETE FROM session_recalls WHERE session_id NOT IN (SELECT id FROM session_log)');
+    report.steps.recallsPruned = true;
+
+    sqlRun(
+      `DELETE FROM procedural_memory WHERE updated_at < datetime('now', '-${TIME_WINDOWS.WORKFLOW_RETENTION_DAYS} days')`,
+    );
+    report.steps.oldWorkflowsPruned = true;
+
+    deps.sqlRun(`UPDATE symbol_links SET trust_score = MAX(${TRUST_DELTA.TRUST_FLOOR}, trust_score - ${Math.abs(TRUST_DELTA.STALE_TRUST_DECAY)})
+      WHERE memory_id IN (
+        SELECT CAST(id AS TEXT) FROM observations WHERE updated_at < datetime('now', '-${TIME_WINDOWS.ARCHIVE_INACTIVE_DAYS} days')
+      ) AND trust_score > ${TRUST_DELTA.TRUST_FLOOR}`);
+    report.steps.staleTrustDecayed = true;
+
+    sqlRaw('VACUUM;');
+    report.steps.vacuumed = true;
+
+    sqlRaw("INSERT INTO observations_fts(observations_fts) VALUES('optimize')");
+    sqlRaw("INSERT INTO prompts_fts(prompts_fts) VALUES('optimize')");
+    report.steps.ftsOptimized = true;
+
+    report.completedAt = new Date().toISOString();
+    report.ok = true;
+  } catch (e) {
+    report.error = e.message;
+    report.ok = false;
+  }
+  return report;
+}
+
+function compact(deps) {
+  return runCompact(deps);
+}
+
+function dream(deps) {
+  const startedAt = new Date().toISOString();
+  const report = { startedAt, phases: {} };
+  let totalCleaned = 0;
+  const cleanedIds = [];
+
+  // Phase 1: Superseded memories
+  const superseded = deps.sqlJson(`
+    SELECT o.id, o.title, o.type, o.project,
+           r.source_id AS newer_id, r.relation, r.confidence
+    FROM observations o
+    JOIN observation_relations r ON r.target_id = o.id
+    WHERE r.relation IN ('duplicate', 'supersedes')
+      AND o.deleted_at IS NULL
+      AND r.confidence >= ${DEDUP.DREAM_SUPERSEDED_CONFIDENCE}
+  `);
+  for (const row of superseded) {
+    deps.softDeleteObservation(row.id);
+    cleanedIds.push({
+      id: row.id,
+      title: row.title,
+      reason: `superseded by #${row.newer_id} (${row.relation}, ${Math.round(row.confidence * 100)}%)`,
+    });
+  }
+  report.phases.superseded = { count: superseded.length };
+  totalCleaned += superseded.length;
+
+  // Phase 2: Stale auto-progress memories
+  const staleAutoTypes = ['progress', 'accomplished'];
+  for (const type of staleAutoTypes) {
+    const rows = deps.sqlJson(
+      `
+      SELECT o.id, o.title, o.project
+      FROM observations o
+      LEFT JOIN (
+        SELECT memory_id, COUNT(*) as recall_count
+        FROM recall_log GROUP BY memory_id
+      ) rl ON rl.memory_id = o.id
+      WHERE o.type = ? AND o.deleted_at IS NULL
+        AND (rl.recall_count IS NULL OR rl.recall_count = 0)
+    `,
+      [type],
+    );
+    for (const row of rows) {
+      deps.softDeleteObservation(row.id);
+      cleanedIds.push({ id: row.id, title: row.title, reason: `${type} type, never recalled` });
+    }
+    report.phases[`stale_${type}`] = { count: rows.length };
+    totalCleaned += rows.length;
+  }
+
+  // Phase 3: Never-recalled auto-detected decisions with low trust
+  const autoDetectedTypes = ['decision', 'bugfix', 'discovery'];
+  for (const type of autoDetectedTypes) {
+    const rows = deps.sqlJson(
+      `
+      SELECT o.id, o.title, o.project
+      FROM observations o
+      LEFT JOIN (
+        SELECT memory_id, COUNT(*) as recall_count
+        FROM recall_log GROUP BY memory_id
+      ) rl ON rl.memory_id = o.id
+      LEFT JOIN (
+        SELECT memory_id, MAX(trust_score) as trust_score
+        FROM symbol_links GROUP BY memory_id
+      ) sl ON sl.memory_id = CAST(o.id AS TEXT)
+      WHERE o.type = ? AND o.deleted_at IS NULL
+        AND (rl.recall_count IS NULL OR rl.recall_count = 0)
+        AND o.content LIKE '%Auto-detected%'
+        AND (sl.trust_score IS NULL OR sl.trust_score < ${DEDUP.DREAM_LOW_TRUST_THRESHOLD})
+        AND o.created_at < datetime('now', '-${TIME_WINDOWS.DREAM_AUTO_DETECTED_MIN_AGE_DAYS} days')
+    `,
+      [type],
+    );
+    for (const row of rows) {
+      deps.softDeleteObservation(row.id);
+      cleanedIds.push({ id: row.id, title: row.title, reason: `auto-detected ${type}, never recalled in 7+ days` });
+    }
+    report.phases[`staleAuto_${type}`] = { count: rows.length };
+    totalCleaned += rows.length;
+  }
+
+  // Phase 4: Correction entry cleanup
+  const corrections = deps.sqlJson(`
+    SELECT id, title, content, project
+    FROM observations
+    WHERE (title LIKE 'CORRECTION:%' OR title LIKE 'Correction:%')
+      AND deleted_at IS NULL
+  `);
+  for (const row of corrections) {
+    const refMatch = row.content.match(/#(\d+)/);
+    const refNote = refMatch ? ` (referenced #${refMatch[1]} — ensure it was updated)` : '';
+    deps.softDeleteObservation(row.id);
+    cleanedIds.push({
+      id: row.id,
+      title: row.title,
+      reason: `correction entry${refNote} — should use memory-update instead`,
+    });
+  }
+  report.phases.staleCorrections = { count: corrections.length };
+  totalCleaned += corrections.length;
+
+  // Phase 5: Obsolete setup/config states
+  const obsoleteConfigs = deps.sqlJson(`
+    SELECT o1.id, o1.title, o1.project, o1.type,
+           o2.id AS newer_id, o2.title AS newer_title
+    FROM observations o1
+    JOIN observations o2 ON o1.project = o2.project
+      AND o1.id < o2.id
+      AND o2.deleted_at IS NULL
+      AND o1.type IN ('decision', 'config', 'architecture')
+      AND o2.type IN ('decision', 'config', 'architecture')
+    WHERE o1.deleted_at IS NULL
+      AND (
+        (o1.content LIKE '%replaced%' AND o2.content LIKE '%replacing%')
+        OR (o1.content LIKE '%setup%' AND o2.content LIKE '%replaced%')
+        OR (o1.title LIKE '%setup%' AND o2.title LIKE '%overhaul%')
+        OR (o1.title LIKE '%setup%' AND o2.title LIKE '%complete%')
+      )
+      AND o1.created_at < o2.created_at
+  `);
+  for (const row of obsoleteConfigs) {
+    deps.softDeleteObservation(row.id);
+    cleanedIds.push({
+      id: row.id,
+      title: row.title,
+      reason: `replaced config — superseded by #${row.newer_id} "${row.newer_title}"`,
+    });
+  }
+  report.phases.replacedConfigs = { count: obsoleteConfigs.length };
+  totalCleaned += obsoleteConfigs.length;
+
+  // Phase 6: Low-value titled decisions (noise cleanup)
+  const noiseTitlePatterns = [
+    /^Architecture choice:\s*(Done!|OK|Now I|Here's what|All \d+ |The complex|The symlink|Good concern|You're right|Approved)/i,
+    /^Constraint identified:\s*(Here's my review|Two issues|All errors)/i,
+  ];
+  const allDecisions = deps.sqlJson(`
+    SELECT id, title, type, project, content, created_at
+    FROM observations
+    WHERE type = 'decision' AND deleted_at IS NULL
+    ORDER BY created_at DESC
+  `);
+  let noiseCleaned = 0;
+  for (const row of allDecisions) {
+    if (noiseTitlePatterns.some((p) => p.test(row.title))) {
+      deps.softDeleteObservation(row.id);
+      cleanedIds.push({
+        id: row.id,
+        title: row.title,
+        reason: 'low-value noise title — session progress, not a real decision',
+      });
+      noiseCleaned++;
+    }
+  }
+  report.phases.noiseTitles = { count: noiseCleaned };
+  totalCleaned += noiseCleaned;
+
+  // Phase 7: Consolidate related memories on the same topic
+  const topicGroups = deps.sqlJson(`
+    SELECT topic_key, project, COUNT(*) as cnt, MIN(id) as keep_id,
+           GROUP_CONCAT(id) as ids, GROUP_CONCAT(title, '\n') as titles
+    FROM observations
+    WHERE topic_key IS NOT NULL AND topic_key != ''
+      AND deleted_at IS NULL
+      AND type NOT IN ('skill', 'session_summary')
+    GROUP BY topic_key, project
+    HAVING COUNT(*) >= 3
+  `);
+  let consolidated = 0;
+  for (const group of topicGroups) {
+    const ids = group.ids.split(',').map(Number);
+    const keepId = Math.min(...ids);
+    const otherIds = ids.filter((id) => id !== keepId);
+
+    const entries = deps.sqlJson(
+      `SELECT id, title, content, type, created_at FROM observations WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY created_at ASC`,
+      ids,
+    );
+
+    if (entries.length >= 3) {
+      const mergedContent = entries.map((e) => `**${e.title}** (${e.created_at}):\n${e.content}`).join('\n\n---\n\n');
+      const mergedTitle = `${group.topic_key} — consolidated (${entries.length} entries)`;
+
+      deps.sqlRun('UPDATE observations SET content = ?, title = ?, type = ? WHERE id = ?', [
+        mergedContent,
+        mergedTitle,
+        'decision',
+        keepId,
+      ]);
+
+      for (const otherId of otherIds) {
+        deps.softDeleteObservation(otherId);
+        cleanedIds.push({
+          id: otherId,
+          title: entries.find((e) => e.id === otherId)?.title || '',
+          reason: `consolidated into #${keepId} (topic: ${group.topic_key})`,
+        });
+      }
+      consolidated += otherIds.length;
+    }
+  }
+  report.phases.consolidated = { count: consolidated };
+  totalCleaned += consolidated;
+
+  // Run compact as final step
+  const compactResult = runCompact(deps);
+  report.phases.compact = compactResult;
+
+  report.completedAt = new Date().toISOString();
+  report.ok = true;
+  report.totalCleaned = totalCleaned;
+  report.cleaned = cleanedIds;
+  return report;
+}
+
+function trustRecovery(deps, args) {
+  const trustSyncRepository = deps.trustSyncRepository || createTrustSyncRepository(deps);
+  return trustSync.trustRecovery({ jsonErrNoExit: deps.jsonErrNoExit, trustSyncRepository }, args);
+}
+
+module.exports = { runCompact, compact, dream, trustRecovery };

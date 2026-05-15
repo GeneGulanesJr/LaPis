@@ -276,6 +276,13 @@ describe('edge cases: trust system', () => {
 // Code Analysis Edge Cases
 // ═══════════════════════════════════════════
 describe('edge cases: code analysis', () => {
+  beforeAll(() => {
+    const result = run('reindex-repo --repo PiMemoryExtension --mode full');
+    if (result.error) {
+      run('index-repo --path . --name PiMemoryExtension');
+    }
+  }, 60000);
+
   it('should error on outline for nonexistent repo', () => {
     const result = runFail('outline --repo nonexistent-xyz --file cli.js');
     expect(result.error).toContain('not found');

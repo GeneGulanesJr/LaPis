@@ -431,6 +431,11 @@ async fn index_one_repo(
         let Some(language) = detect_language(&file)? else {
             continue;
         };
+        // Skip languages that don't support entity extraction
+        if matches!(language, Language::Html | Language::Css | Language::Unknown) {
+            skipped_files += 1;
+            continue;
+        }
         let parsed = parser.parse_file(&file, language)?;
         let entities = extract_for_language(
             language,

@@ -103,14 +103,16 @@ pub fn parse_source(source: &str, language: Language) -> Result<Tree> {
         Language::Cpp => parser.set_language(&tree_sitter_cpp::language()),
         Language::CSharp => parser.set_language(&tree_sitter_c_sharp::language()),
         Language::Ruby => parser.set_language(&tree_sitter_ruby::language()),
-        Language::Php => parser.set_language(&tree_sitter_php::language()),
-        Language::Swift => parser.set_language(&tree_sitter_swift::language()),
+        Language::Swift | Language::Dart | Language::Zig => {
+            return Err(CoreError::UnsupportedLanguage(format!(
+                "{language:?} grammar crate is incompatible with tree-sitter 0.22"
+            )))
+        }
+        Language::Php => parser.set_language(&tree_sitter_php::language_php()),
         Language::Kotlin => parser.set_language(&tree_sitter_kotlin::language()),
         Language::Scala => parser.set_language(&tree_sitter_scala::language()),
         Language::Elixir => parser.set_language(&tree_sitter_elixir::language()),
-        Language::Dart => parser.set_language(&tree_sitter_dart::language()),
-        Language::Ocaml => parser.set_language(&tree_sitter_ocaml::language()),
-        Language::Zig => parser.set_language(&tree_sitter_zig::language()),
+        Language::Ocaml => parser.set_language(&tree_sitter_ocaml::language_ocaml()),
         Language::Bash => parser.set_language(&tree_sitter_bash::language()),
         Language::Html | Language::Css => {
             return Err(CoreError::UnsupportedLanguage(format!(
@@ -198,21 +200,5 @@ mod tests {
             .unwrap();
         assert_eq!(parsed.len(), 2);
         assert!(parsed.iter().any(|f| f.has_error));
-    }
-}
-
-    #[test]
-    fn parse_repo_skips_unknown_and_returns_partial_error_trees() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::create_dir_all(dir.path().join("src")).unwrap();
-        fs::write(dir.path().join("src/lib.rs"), "fn ok() {}").unwrap();
-        fs::write(dir.path().join("src/bad.py"), "def broken(:\n").unwrap();
-        fs::write(dir.path().join("README.md"), "skip").unwrap();
-
-        let parsed = ParserEngine::new(ParserConfig::default())
-            .parse_repo(dir.path())
-            .unwrap();
-        assert_eq!(parsed.len(), 2);
-        assert!(parsed.iter().any(|file| file.has_error));
     }
 }

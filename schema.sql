@@ -1,10 +1,19 @@
 -- @genegulanesjr/memory-layer — Unified Schema v4
 -- Single database: ~/.pi/memory/memory.db
 -- Zero external dependencies. FTS5 search, trust scoring, dedup, recall ranking.
+--
+-- Feature ownership map (Issue #77):
+--   platform/storage: database lifecycle, PRAGMAs, migration user_version.
+--   memory repository: workspaces, observations, observation FTS, prompts, sessions, relations, recall_log.
+--   workflow repository: procedural_memory, procedural_steps.
+--   code-index repository: code_repos, code_files, code_symbols, code FTS, imports, calls, complexity.
+--   doc-index repository: doc_repos, doc_files, doc_sections, doc FTS, links, terms, code blocks.
+--   trust-sync repository: symbol_links and trust_adjustments because they bridge memories and code symbols.
+--   analytics repository: read-only aggregate queries across feature-owned tables.
 PRAGMA user_version = 7;
 
 -- ═══════════════════════════════════════════════════════════
--- WORKSPACES  (v4 — formal project isolation)
+-- MEMORY REPOSITORY: WORKSPACES  (v4 — formal project isolation)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS workspaces (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,7 +24,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
 CREATE INDEX IF NOT EXISTS idx_ws_active ON workspaces(archived_at) WHERE archived_at IS NULL;
 
 -- ═══════════════════════════════════════════════════════════
--- OBSERVATIONS
+-- MEMORY REPOSITORY: OBSERVATIONS
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS observations (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +76,7 @@ CREATE TRIGGER IF NOT EXISTS obs_fts_update AFTER UPDATE ON observations BEGIN
 END;
 
 -- ═══════════════════════════════════════════════════════════
--- USER PROMPTS
+-- MEMORY REPOSITORY: USER PROMPTS
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS user_prompts (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,7 +115,7 @@ CREATE TRIGGER IF NOT EXISTS prompts_fts_update AFTER UPDATE ON user_prompts BEG
 END;
 
 -- ═══════════════════════════════════════════════════════════
--- SYMBOL LINKS  (existing bridge table)
+-- TRUST-SYNC REPOSITORY: SYMBOL LINKS  (existing bridge table)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS symbol_links (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,7 +130,7 @@ CREATE INDEX IF NOT EXISTS idx_symbol_links_repo    ON symbol_links(repo);
 CREATE INDEX IF NOT EXISTS idx_symbol_links_memory  ON symbol_links(memory_id);
 
 -- ═══════════════════════════════════════════════════════════
--- TRUST ADJUSTMENTS  (existing bridge table)
+-- TRUST-SYNC REPOSITORY: TRUST ADJUSTMENTS  (existing bridge table)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS trust_adjustments (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,7 +142,7 @@ CREATE TABLE IF NOT EXISTS trust_adjustments (
 CREATE INDEX IF NOT EXISTS idx_trust_adj_memory ON trust_adjustments(memory_id);
 
 -- ═══════════════════════════════════════════════════════════
--- PROCEDURAL MEMORY  (existing bridge table)
+-- WORKFLOW REPOSITORY: PROCEDURAL MEMORY  (existing bridge table)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS procedural_memory (
   id         TEXT PRIMARY KEY,
@@ -157,7 +166,7 @@ CREATE TABLE IF NOT EXISTS procedural_steps (
 );
 
 -- ═══════════════════════════════════════════════════════════
--- SESSION LOG
+-- MEMORY REPOSITORY: SESSION LOG
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS session_log (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -169,7 +178,7 @@ CREATE TABLE IF NOT EXISTS session_log (
 CREATE INDEX IF NOT EXISTS idx_session_log_project ON session_log(project);
 
 -- ═══════════════════════════════════════════════════════════
--- SESSION RECALLS  (existing bridge table)
+-- MEMORY/TRUST-SYNC REPOSITORY: SESSION RECALLS  (existing bridge table)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS session_recalls (
   session_id  INTEGER NOT NULL REFERENCES session_log(id) ON DELETE CASCADE,
@@ -179,7 +188,7 @@ CREATE TABLE IF NOT EXISTS session_recalls (
 );
 
 -- ═══════════════════════════════════════════════════════════
--- OBSERVATION RELATIONS  (v2 — dedup/merge tracking)
+-- MEMORY REPOSITORY: OBSERVATION RELATIONS  (v2 — dedup/merge tracking)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS observation_relations (
   source_id     INTEGER NOT NULL REFERENCES observations(id) ON DELETE CASCADE,
@@ -193,7 +202,7 @@ CREATE INDEX IF NOT EXISTS idx_obs_rel_source ON observation_relations(source_id
 CREATE INDEX IF NOT EXISTS idx_obs_rel_target ON observation_relations(target_id);
 
 -- ═══════════════════════════════════════════════════════════
--- RECALL LOG  (v2 — tracks which memories were useful, for ranking)
+-- MEMORY/ANALYTICS REPOSITORY: RECALL LOG  (v2 — tracks which memories were useful, for ranking)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS recall_log (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -207,7 +216,7 @@ CREATE INDEX IF NOT EXISTS idx_recall_memory ON recall_log(memory_id);
 CREATE INDEX IF NOT EXISTS idx_recall_session ON recall_log(session_id);
 
 -- ═══════════════════════════════════════════════════════════
--- CODE REPOS  (v3 — code indexing upgrade)
+-- CODE-INDEX REPOSITORY: CODE REPOS  (v3 — code indexing upgrade)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS code_repos (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -221,7 +230,7 @@ CREATE TABLE IF NOT EXISTS code_repos (
 );
 
 -- ═══════════════════════════════════════════════════════════
--- CODE FILES  (v3 — raw content + mtime tracking)
+-- CODE-INDEX REPOSITORY: CODE FILES  (v3 — raw content + mtime tracking)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS code_files (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -237,7 +246,7 @@ CREATE TABLE IF NOT EXISTS code_files (
 );
 
 -- ═══════════════════════════════════════════════════════════
--- CODE SYMBOLS  (v3 — extracted by tree-sitter AST)
+-- CODE-INDEX REPOSITORY: CODE SYMBOLS  (v3 — extracted by tree-sitter AST)
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS code_symbols (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -328,7 +337,7 @@ CREATE INDEX IF NOT EXISTS idx_cc_callee_name ON code_calls(repo_id, callee_name
 CREATE INDEX IF NOT EXISTS idx_cc_callee ON code_calls(callee_symbol_id);
 
 -- ═══════════════════════════════════════════════════════════
--- DOC REPOS
+-- DOC-INDEX REPOSITORY: DOC REPOS
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS doc_repos (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -341,7 +350,7 @@ CREATE TABLE IF NOT EXISTS doc_repos (
 );
 
 -- ═══════════════════════════════════════════════════════════
--- DOC FILES
+-- DOC-INDEX REPOSITORY: DOC FILES
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS doc_files (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -354,7 +363,7 @@ CREATE TABLE IF NOT EXISTS doc_files (
 );
 
 -- ═══════════════════════════════════════════════════════════
--- DOC SECTIONS
+-- DOC-INDEX REPOSITORY: DOC SECTIONS
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS doc_sections (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -400,7 +409,7 @@ CREATE TRIGGER IF NOT EXISTS ds_fts_update AFTER UPDATE ON doc_sections BEGIN
 END;
 
 -- ═══════════════════════════════════════════════════════════
--- DOC LINKS
+-- DOC-INDEX REPOSITORY: DOC LINKS
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS doc_links (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -415,7 +424,7 @@ CREATE INDEX IF NOT EXISTS idx_dl_target ON doc_links(target_section_id);
 CREATE INDEX IF NOT EXISTS idx_dl_broken ON doc_links(is_broken);
 
 -- ═══════════════════════════════════════════════════════════
--- DOC GLOSSARY TERMS
+-- DOC-INDEX REPOSITORY: DOC GLOSSARY TERMS
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS doc_terms (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -429,7 +438,7 @@ CREATE INDEX IF NOT EXISTS idx_dt_term ON doc_terms(term);
 CREATE INDEX IF NOT EXISTS idx_dt_repo ON doc_terms(repo_id);
 
 -- ═══════════════════════════════════════════════════════════
--- DOC CODE BLOCKS
+-- DOC-INDEX REPOSITORY: DOC CODE BLOCKS
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS doc_code_blocks (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -443,7 +452,7 @@ CREATE INDEX IF NOT EXISTS idx_dcb_section ON doc_code_blocks(section_id);
 CREATE INDEX IF NOT EXISTS idx_dcb_lang ON doc_code_blocks(lang);
 
 -- ═══════════════════════════════════════════════════════════
--- CHURN METRICS
+-- CODE-INDEX/ANALYTICS REPOSITORY: CHURN METRICS
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS churn_metrics (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -460,7 +469,7 @@ CREATE TABLE IF NOT EXISTS churn_metrics (
 CREATE INDEX IF NOT EXISTS idx_cm_repo ON churn_metrics(repo_id);
 
 -- ═══════════════════════════════════════════════════════════
--- SYMBOL COMPLEXITY
+-- CODE-INDEX/ANALYTICS REPOSITORY: SYMBOL COMPLEXITY
 -- ═══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS symbol_complexity (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -5,9 +5,9 @@ const path = require('path');
 const STORE = path.resolve(__dirname, '..', 'memory-store.js');
 const REPO = 'PiMemoryExtension';
 
-function run(cmd) {
+function run(cmd, timeout = 15000) {
   try {
-    const out = execSync(`node "${STORE}" ${cmd}`, { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] });
+    const out = execSync(`node "${STORE}" ${cmd}`, { encoding: 'utf8', timeout, stdio: ['pipe', 'pipe', 'pipe'] });
     const result = JSON.parse(out.trim());
     // Unwrap _meta envelope (v6) for backward-compatible test assertions
     return result.data || result;
@@ -22,11 +22,12 @@ function run(cmd) {
 
 // Ensure code is indexed before all test groups
 beforeAll(() => {
-  const result = run(`reindex-repo --repo ${REPO} --mode full`);
+  const indexingTimeoutMs = 45000;
+  const result = run(`reindex-repo --repo ${REPO} --mode full`, indexingTimeoutMs);
   if (result.error) {
-    run(`index-repo --path . --name ${REPO}`);
+    run(`index-repo --path . --name ${REPO}`, indexingTimeoutMs);
   }
-});
+}, 60000);
 
 describe('code-analysis: import-graph', () => {
   it('should return import edges for a specific file', () => {
@@ -125,7 +126,7 @@ describe('code-analysis: complexity', () => {
     const r = run(`complexity --repo ${REPO}`);
     expect(r.error).toBeUndefined();
     const list = Array.isArray(r) ? r : [r];
-    const assessments = list.map(x => x.assessment).filter(Boolean);
+    const assessments = list.map((x) => x.assessment).filter(Boolean);
     expect(assessments.length).toBeGreaterThan(0);
     for (const a of assessments) {
       expect(['low', 'medium', 'high']).toContain(a);
@@ -193,7 +194,7 @@ describe('code-analysis: coupling', () => {
     const r = run(`coupling --repo ${REPO}`);
     expect(r.error).toBeUndefined();
     expect(r.metrics.length).toBeGreaterThan(0);
-    const categories = new Set(r.metrics.map(m => m.category));
+    const categories = new Set(r.metrics.map((m) => m.category));
     for (const c of categories) {
       expect(['stable', 'balanced', 'unstable']).toContain(c);
     }
@@ -249,8 +250,12 @@ describe('code-analysis: layer-violations', () => {
     expect(r.error).toBeUndefined();
     // Without a .pimemory-layers.jsonc file, returns a note
     expect(r.violations !== undefined || r.note !== undefined).toBe(true);
-    if (r.violations) {expect(Array.isArray(r.violations)).toBe(true);}
-    if (r.note) {expect(typeof r.note).toBe('string');}
+    if (r.violations) {
+      expect(Array.isArray(r.violations)).toBe(true);
+    }
+    if (r.note) {
+      expect(typeof r.note).toBe('string');
+    }
   });
 });
 
@@ -263,7 +268,9 @@ describe('code-analysis: search-code and get-code-source', () => {
   });
 
   it('should retrieve source code for a known symbol', () => {
-    const r = run(`get-code-source --repo ${REPO} --file ${__dirname}/../code-analysis.js --name extractImportsFromSource`);
+    const r = run(
+      `get-code-source --repo ${REPO} --file ${__dirname}/../code-analysis.js --name extractImportsFromSource`,
+    );
     if (r.error) {
       expect(typeof r.error).toBe('string');
     } else {
@@ -331,7 +338,7 @@ describe('code-analysis: untested (v6)', () => {
   it('should exclude private symbols by default', () => {
     const r = run(`untested --repo ${REPO} --min-confidence 0.3`);
     expect(r.error).toBeUndefined();
-    const privateSyms = (r.untested || []).filter(s => s.name.startsWith('_'));
+    const privateSyms = (r.untested || []).filter((s) => s.name.startsWith('_'));
     expect(privateSyms.length).toBe(0);
   });
 
