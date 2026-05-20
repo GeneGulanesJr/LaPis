@@ -145,6 +145,58 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
   });
 
+  describe('parse-code: deep indexing', () => {
+    it('should extract nested function declarations with parent_name', () => {
+      const tmpFile = path.join('/tmp', 'test-nested-fn.js');
+      fs.writeFileSync(
+        tmpFile,
+        'function outer() {\n  function inner() {\n    return 1;\n  }\n  return inner();\n}',
+      );
+      const symbols = codeParser.parseFile(tmpFile);
+      fs.unlinkSync(tmpFile);
+
+      const outer = symbols.find((s) => s.name === 'outer');
+      expect(outer).toBeDefined();
+
+      const inner = symbols.find((s) => s.name === 'inner');
+      expect(inner).toBeDefined();
+      expect(inner.kind).toBe('function');
+      expect(inner.parent_name).toBe('outer');
+    });
+
+    it('should extract nested arrow functions with parent_name', () => {
+      const tmpFile = path.join('/tmp', 'test-nested-arrow.js');
+      fs.writeFileSync(
+        tmpFile,
+        'function outer() {\n  const fn = () => 2;\n  return fn();\n}',
+      );
+      const symbols = codeParser.parseFile(tmpFile);
+      fs.unlinkSync(tmpFile);
+
+      const outer = symbols.find((s) => s.name === 'outer');
+      expect(outer).toBeDefined();
+
+      const fn = symbols.find((s) => s.name === 'fn' && s.kind === 'function');
+      expect(fn).toBeDefined();
+      expect(fn.parent_name).toBe('outer');
+    });
+
+    it('should extract nested variables with parent_name', () => {
+      const tmpFile = path.join('/tmp', 'test-nested-vars.js');
+      fs.writeFileSync(
+        tmpFile,
+        'function setup() {\n  const config = {};\n  return config;\n}',
+      );
+      const symbols = codeParser.parseFile(tmpFile);
+      fs.unlinkSync(tmpFile);
+
+      const config = symbols.find((s) => s.name === 'config');
+      expect(config).toBeDefined();
+      expect(config.kind).toBe('constant');
+      expect(config.parent_name).toBe('setup');
+    });
+  });
+
   describe('parse-code: edge cases', () => {
     it('should return empty array for unsupported file types', () => {
       const symbols = codeParser.parseFile('/tmp/test.rb');

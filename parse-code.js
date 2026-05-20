@@ -492,6 +492,33 @@ function _getEndLineNumber(node) {
 function _getContextName(node) {
   let current = node.parent;
   while (current) {
+    if (current.type === 'function_declaration' || current.type === 'generator_function_declaration') {
+      for (const child of current.children) {
+        if (child.type === 'identifier') {
+          return child.text;
+        }
+      }
+    }
+    if (current.type === 'method_definition') {
+      for (const child of current.children) {
+        if (child.type === 'property_identifier') {
+          return child.text;
+        }
+      }
+    }
+    if (
+      current.type === 'arrow_function' ||
+      current.type === 'function_expression'
+    ) {
+      const vdParent = current.parent;
+      if (vdParent && vdParent.type === 'variable_declarator') {
+        for (const child of vdParent.children) {
+          if (child.type === 'identifier') {
+            return child.text;
+          }
+        }
+      }
+    }
     if (current.type === 'class_declaration') {
       for (const child of current.children) {
         if (child.type === 'identifier' || child.type === 'type_identifier') {
@@ -568,6 +595,8 @@ function _extractJsTsSymbols(filePath, sourceStr, parser, languageName) {
             if (extendsClass) {
               parentName = extendsClass;
             }
+          } else if (depth > 0) {
+            parentName = _getContextName(node);
           }
           const qualified = parentName ? `${parentName}.${name}` : name;
           symbols.push({
@@ -587,7 +616,7 @@ function _extractJsTsSymbols(filePath, sourceStr, parser, languageName) {
           });
         }
       }
-    } else if (_VARIABLE_FUNCTION_NODES.has(node.type) && depth === 0) {
+    } else if (_VARIABLE_FUNCTION_NODES.has(node.type)) {
       const parent = node.parent;
       if (parent && parent.type === 'variable_declarator') {
         let name = null;
@@ -601,7 +630,7 @@ function _extractJsTsSymbols(filePath, sourceStr, parser, languageName) {
           const key = `${name}:function:${parent.startIndex}`;
           if (!seen.has(key)) {
             seen.add(key);
-            const parentName = _getParentClassName(node);
+            const parentName = _getParentClassName(node) || _getContextName(node);
             const qualified = parentName ? `${parentName}.${name}` : name;
             symbols.push({
               name,
@@ -621,7 +650,7 @@ function _extractJsTsSymbols(filePath, sourceStr, parser, languageName) {
           }
         }
       }
-    } else if (node.type === 'variable_declarator' && depth === 0) {
+    } else if (node.type === 'variable_declarator' && depth <= 3) {
       let name = null;
       let kind = 'constant';
       for (const child of node.children) {
@@ -651,7 +680,7 @@ function _extractJsTsSymbols(filePath, sourceStr, parser, languageName) {
         const key = `${name}:${kind}:${node.startIndex}`;
         if (!seen.has(key)) {
           seen.add(key);
-          const parentName = _getParentClassName(node);
+          const parentName = _getParentClassName(node) || _getContextName(node);
           const lineText = sourceStr
             .substring(node.startIndex, Math.min(node.startIndex + 200, sourceStr.length))
             .split('\n')[0];
