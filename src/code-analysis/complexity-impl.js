@@ -1,7 +1,7 @@
 // Cyclomatic complexity computation and file outline extraction.
 
 // oxlint-disable-next-line no-unused-vars
-const { codeParser, _requireNativeDb, COMPLEXITY } = require('./shared-deps');
+const { codeParser, _requireNativeDb, COMPLEXITY, computeNestingDepth } = require('./shared-deps');
 
 // Escape SQL LIKE wildcard characters.
 function _likeEscape(str) {
@@ -68,57 +68,7 @@ function buildComplexity(db, repoId) {
       cyclomatic++;
     }
 
-    // V5.1: String-aware brace counting for nesting depth
-    let maxDepth = 0,
-      currentDepth = 0;
-    let inString = false,
-      stringChar = '',
-      templateDepth = 0;
-    for (let i = 0; i < body.length; i++) {
-      const ch = body[i];
-      const prev = i > 0 ? body[i - 1] : '';
-
-      // Handle string literals (skip braces inside them)
-      if (!inString && templateDepth === 0 && (ch === '"' || ch === "'")) {
-        inString = true;
-        stringChar = ch;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      if (inString && ch === stringChar && prev !== '\\') {
-        inString = false;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      // Handle template literals (${...} inside backtick strings)
-      if (!inString && ch === '`') {
-        templateDepth++;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      if (templateDepth === 1 && ch === '`') {
-        templateDepth--;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-
-      if (!inString || templateDepth > 0) {
-        if (ch === '{') {
-          currentDepth++;
-          maxDepth = Math.max(maxDepth, currentDepth);
-        }
-        if (ch === '}') {
-          if (templateDepth > 0 && body.substring(i - 1, i + 1) === '}') {
-            // Template expression ${...}
-            currentDepth++;
-            maxDepth = Math.max(maxDepth, currentDepth);
-          }
-          if (currentDepth > 0) {
-            currentDepth--;
-          }
-        }
-      }
-    }
+    const maxDepth = computeNestingDepth(body);
 
     const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null;
     const paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0;

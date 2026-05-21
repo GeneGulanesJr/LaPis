@@ -1,6 +1,6 @@
 // Incremental builders for import graph, call graph, and complexity.
 
-const { _requireNativeDb, CALL_GRAPH, COMPLEXITY } = require('./shared-deps');
+const { _requireNativeDb, CALL_GRAPH, COMPLEXITY, computeNestingDepth } = require('./shared-deps');
 const { extractImportBindings, extractImportsFromSource, resolveImportTarget } = require('./import-graph-impl');
 
 function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = []) {
@@ -472,49 +472,7 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
     let __ternaryMatch;
     while ((_ternaryMatch = ternaryRe.exec(body)) !== null) {cyclomatic++;}
 
-    let maxDepth = 0,
-      currentDepth = 0;
-    let inString = false,
-      stringChar = '',
-      templateDepth = 0;
-    for (let i = 0; i < body.length; i++) {
-      const ch = body[i];
-      const prev = i > 0 ? body[i - 1] : '';
-      if (!inString && templateDepth === 0 && (ch === '"' || ch === "'")) {
-        inString = true;
-        stringChar = ch;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      if (inString && ch === stringChar && prev !== '\\') {
-        inString = false;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      if (!inString && ch === '`') {
-        templateDepth++;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      if (templateDepth === 1 && ch === '`') {
-        templateDepth--;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      if (!inString || templateDepth > 0) {
-        if (ch === '{') {
-          currentDepth++;
-          maxDepth = Math.max(maxDepth, currentDepth);
-        }
-        if (ch === '}') {
-          if (templateDepth > 0 && body.substring(i - 1, i + 1) === '}') {
-            currentDepth++;
-            maxDepth = Math.max(maxDepth, currentDepth);
-          }
-          if (currentDepth > 0) {currentDepth--;}
-        }
-      }
-    }
+    const maxDepth = computeNestingDepth(body);
 
     const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null;
     const paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0;
