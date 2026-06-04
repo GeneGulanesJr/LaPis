@@ -33,6 +33,7 @@ function checkDuplicate(deps, title, type, project, topicKey) {
     SELECT id, title, topic_key, created_at
     FROM observations
     WHERE type = ? AND deleted_at IS NULL
+      AND (expires_at IS NULL OR expires_at > datetime('now'))
   `;
   const params = [type];
   if (project) {

@@ -232,6 +232,7 @@ function search(deps, args) {
         ${TRUST_RECALL_JOINS}
         WHERE observations_fts MATCH ?
           AND o.deleted_at IS NULL
+          AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
       `;
       const params = [_extractFtsTerms(query)];
       if (project) {
@@ -265,6 +266,7 @@ function search(deps, args) {
       ${TRUST_RECALL_JOINS}
       WHERE (o.title LIKE ? OR o.content LIKE ?)
         AND o.deleted_at IS NULL
+        AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
     `;
     const like = `%${query.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
     const params = [like, like];

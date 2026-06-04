@@ -38,6 +38,11 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
         }),
       ),
       force: Type.Optional(Type.Boolean({ description: 'Bypass duplicate warning', default: false })),
+      expires_in: Type.Optional(
+        Type.String({
+          description: 'Optional TTL duration (e.g., "7d", "2w", "1m", "12h"). Memory auto-expires after this period.',
+        }),
+      ),
     }),
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
@@ -51,6 +56,7 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           scope: params.scope || 'project',
           ...(params.topic_key ? { 'topic-key': params.topic_key } : {}),
           ...(params.force ? { force: 'true' } : {}),
+          ...(params.expires_in ? { 'expires-in': params.expires_in } : {}),
         });
 
         if (!result) {
@@ -63,7 +69,10 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
             content: [
               {
                 type: 'text',
-                text: `✅ Memory saved [#${result.id}] ${result.title}\n🔄 Auto-merged: superseded older [#${result.superseded_id}] "${result.superseded_title ?? ''}" (${sim}% similar)`,
+                text:
+                  `✅ Memory saved [#${result.id}] ${result.title}\n` +
+                  `🔄 Auto-merged: superseded older [#${result.superseded_id}] "${result.superseded_title ?? ''}" (${sim}% similar)` +
+                  (result.expires_at ? `\n⏰ Expires: ${result.expires_at}` : ''),
               },
             ],
             details: result ?? {},
@@ -85,7 +94,14 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
         }
 
         return {
-          content: [{ type: 'text', text: `✅ Memory saved: [#${result.id}] ${result.title}` }],
+          content: [
+            {
+              type: 'text',
+              text:
+                `✅ Memory saved: [#${result.id}] ${result.title}` +
+                (result.expires_at ? `\n⏰ Expires: ${result.expires_at}` : ''),
+            },
+          ],
           details: result ?? {},
         };
       } catch (err) {
@@ -232,6 +248,24 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           '',
           result.content,
         ];
+        if (result.expires_at) {
+          const expMs = Date.parse(String(result.expires_at).replace(' ', 'T') + 'Z');
+          if (Number.isFinite(expMs)) {
+            const msLeft = expMs - Date.now();
+            if (msLeft <= 0) {
+              lines.push('', `⏰ Status: EXPIRED (${result.expires_at})`);
+            } else {
+              const days = Math.floor(msLeft / 86400000);
+              const hours = Math.floor((msLeft % 86400000) / 3600000);
+              const countdown =
+                days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h` : `${Math.floor(msLeft / 60000)}m`;
+              const icon = days < 3 ? '⏰' : '🕒';
+              lines.push('', `${icon} Expires: ${result.expires_at} (in ${countdown})`);
+            }
+          } else {
+            lines.push('', `⏰ Expires: ${result.expires_at}`);
+          }
+        }
         const versions = (result.versions as any[]) || [];
         if (versions.length > 0) {
           lines.push('', '## Edit History');
@@ -284,6 +318,17 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
       ),
       scope: Type.Optional(Type.String({ description: 'New scope' })),
       topic_key: Type.Optional(Type.String({ description: 'New topic key' })),
+      expires_in: Type.Optional(
+        Type.String({
+          description: 'Set or change TTL duration (e.g., "7d", "2w", "1m", "12h"). Replaces any existing expiry.',
+        }),
+      ),
+      clear_expiry: Type.Optional(
+        Type.Boolean({
+          description: 'Remove any existing expiry (make memory permanent).',
+          default: false,
+        }),
+      ),
     }),
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
@@ -303,6 +348,12 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
         }
         if (params.topic_key) {
           args['topic-key'] = params.topic_key;
+        }
+        if (params.expires_in) {
+          args['expires-in'] = params.expires_in;
+        }
+        if (params.clear_expiry) {
+          args['clear-expiry'] = 'true';
         }
 
         const result = await deps.mem('update', args);

@@ -101,9 +101,10 @@ function context(deps, args) {
     : [];
 
   const personal = sqlJson(`
-    SELECT id, title, type, scope, topic_key, created_at
+    SELECT id, title, type, scope, topic_key, expires_at, created_at
     FROM observations
     WHERE scope = 'personal' AND deleted_at IS NULL
+      AND (expires_at IS NULL OR expires_at > datetime('now'))
     ORDER BY created_at DESC
     LIMIT ${RESULT_LIMITS.PERSONAL_OBSERVATIONS}
   `);
@@ -121,6 +122,7 @@ function context(deps, args) {
       FROM observations o
       ${TRUST_RECALL_JOINS}
       WHERE o.deleted_at IS NULL AND o.type != 'skill' AND o.scope = 'project'
+        AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
       ORDER BY recall_count DESC, trust_score DESC, type_priority DESC, o.created_at DESC
       LIMIT ?
     `;
@@ -136,6 +138,7 @@ function context(deps, args) {
           SELECT id, ${match.scoreSql} as match_score
           FROM observations o
           WHERE project = ? AND deleted_at IS NULL AND type != 'skill'
+            AND (expires_at IS NULL OR expires_at > datetime('now'))
             AND (${match.whereSql})
           ORDER BY match_score DESC, created_at DESC
           LIMIT ?
@@ -165,7 +168,9 @@ function context(deps, args) {
                  END as type_priority
         FROM observations o
         ${TRUST_RECALL_JOINS}
-        WHERE o.project = ? AND o.deleted_at IS NULL AND o.type != 'skill'
+      WHERE o.project = ? AND o.deleted_at IS NULL AND o.type != 'skill'
+        AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
+          AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
         ORDER BY recall_count DESC, CASE WHEN o.topic_key = ? THEN ${CONTEXT.TOPIC_MATCH_BOOST} ELSE type_priority END DESC, trust_score DESC, o.created_at DESC
         LIMIT ?
       `;
@@ -218,6 +223,7 @@ function context(deps, args) {
         LEFT JOIN symbol_links sl ON sl.memory_id = o.id
         WHERE o.deleted_at IS NULL AND o.type != 'skill'
           AND o.scope = 'project' AND o.project != ?
+          AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
           AND (${match.whereSql})
         GROUP BY o.id
         ORDER BY match_score DESC, trust_score DESC, o.created_at DESC

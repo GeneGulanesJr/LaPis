@@ -1,12 +1,12 @@
 const { RESULT_LIMITS: _RESULT_LIMITS } = require('../constants');
 const { getConfig: _getConfig } = require('../config');
 
-function insertObservation(deps, { sessionId, type, title, content, project, scope, topicKey }) {
+function insertObservation(deps, { sessionId, type, title, content, project, scope, topicKey, expiresAt }) {
   const { sqlJson } = deps;
   return sqlJson(
-    `INSERT INTO observations (session_id, type, title, content, project, scope, topic_key)
-     VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, created_at`,
-    [String(sessionId), type, title, content, project, scope, topicKey],
+    `INSERT INTO observations (session_id, type, title, content, project, scope, topic_key, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, created_at, expires_at`,
+    [String(sessionId), type, title, content, project, scope, topicKey, expiresAt || null],
   );
 }
 
@@ -37,7 +37,7 @@ function hardDeleteObservation(deps, id) {
 function getObservation(deps, id) {
   const { sqlJson } = deps;
   return sqlJson(
-    `SELECT id, title, content, type, project, scope, topic_key, created_at, updated_at, deleted_at
+    `SELECT id, title, content, type, project, scope, topic_key, expires_at, created_at, updated_at, deleted_at
      FROM observations WHERE id = ?`,
     [parseInt(id, 10)],
   );
@@ -71,10 +71,10 @@ function getObservationRelations(deps, id) {
   );
 }
 
-function updateObservation(deps, { id, title, content, type, project, scope, topicKey }) {
+function updateObservation(deps, { id, title, content, type, project, scope, topicKey, expiresAt, clearExpiry }) {
   const { sqlJson, sqlRun } = deps;
   const parsedId = parseInt(id, 10);
-  const current = sqlJson('SELECT title, content, type, scope FROM observations WHERE id = ?', [parsedId]);
+  const current = sqlJson('SELECT title, content, type, scope, expires_at FROM observations WHERE id = ?', [parsedId]);
   if (!current || current.length === 0) {
     return null;
   }
@@ -86,6 +86,9 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
     if (newVal !== undefined && newVal !== null && String(newVal) !== String(before[field] || '')) {
       versionEntries.push([parsedId, field, String(before[field] || ''), String(newVal)]);
     }
+  }
+  if (expiresAt !== undefined && String(expiresAt || '') !== String(before.expires_at || '')) {
+    versionEntries.push([parsedId, 'expires_at', String(before.expires_at || ''), String(expiresAt || '')]);
   }
 
   const setFields = [
@@ -104,6 +107,13 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
       params.push(f.value);
     }
   }
+  if (clearExpiry === true) {
+    sets.push('expires_at = ?');
+    params.push(null);
+  } else if (expiresAt !== undefined) {
+    sets.push('expires_at = ?');
+    params.push(expiresAt || null);
+  }
   if (sets.length === 0) {
     return null;
   }
@@ -113,7 +123,7 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
     sqlRun('INSERT INTO observation_versions (memory_id, field, old_value, new_value) VALUES (?, ?, ?, ?)', entry);
   }
   return sqlJson(
-    `SELECT id, title, content, type, project, scope, topic_key, created_at, updated_at
+    `SELECT id, title, content, type, project, scope, topic_key, expires_at, created_at, updated_at
      FROM observations WHERE id = ?`,
     [parsedId],
   );
@@ -122,8 +132,11 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
 function getTimeline(deps, { id, before, after }) {
   const { sqlJson } = deps;
   return sqlJson(
-    `SELECT id, title, type, project, scope, created_at
-     FROM observations WHERE id BETWEEN ? AND ? AND deleted_at IS NULL ORDER BY id`,
+    `SELECT id, title, type, project, scope, expires_at, created_at
+     FROM observations
+     WHERE id BETWEEN ? AND ? AND deleted_at IS NULL
+       AND (expires_at IS NULL OR expires_at > datetime('now'))
+     ORDER BY id`,
     [id - before, id + after],
   );
 }

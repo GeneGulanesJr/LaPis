@@ -1,5 +1,6 @@
 const { getConfig } = require('../../config');
 const { CAPTURE_PASSIVE } = require('../../constants');
+const { parseExpiresIn } = require('./ttl');
 
 function save(deps, args) {
   const {
@@ -20,6 +21,15 @@ function save(deps, args) {
   const sessionId = args['session-id'] || findLatestSession(project);
   const force = args.force === 'true' || args.force === true;
 
+  const expiresIn = args['expires-in'] || args.expiresIn || null;
+  let expiresAt = null;
+  if (expiresIn !== null && expiresIn !== undefined && expiresIn !== '') {
+    expiresAt = parseExpiresIn(expiresIn);
+    if (expiresAt === null) {
+      return jsonErrNoExit(`Invalid --expires-in value: ${expiresIn}. Use formats like "7d", "2w", "1m", "12h".`);
+    }
+  }
+
   if (!title || !content) {
     return jsonErrNoExit('Missing --title and --content');
   }
@@ -30,7 +40,7 @@ function save(deps, args) {
       const bestMatch = dupes.potential_duplicates[0];
       const dedupCfg = getConfig().dedup;
       if (bestMatch.similarity >= dedupCfg.auto_merge_threshold) {
-        const rows = insertObservation({ sessionId, type, title, content, project, scope, topicKey });
+        const rows = insertObservation({ sessionId, type, title, content, project, scope, topicKey, expiresAt });
         const newId = rows[0].id;
         insertObservationRelation({
           sourceId: newId,
@@ -43,6 +53,7 @@ function save(deps, args) {
           id: newId,
           title,
           created_at: rows[0].created_at,
+          expires_at: rows[0].expires_at,
           auto_merged: true,
           superseded_id: bestMatch.id,
           superseded_title: bestMatch.title,
@@ -58,8 +69,8 @@ function save(deps, args) {
     }
   }
 
-  const rows = insertObservation({ sessionId, type, title, content, project, scope, topicKey });
-  return { id: rows[0].id, title, created_at: rows[0].created_at };
+  const rows = insertObservation({ sessionId, type, title, content, project, scope, topicKey, expiresAt });
+  return { id: rows[0].id, title, created_at: rows[0].created_at, expires_at: rows[0].expires_at };
 }
 
 function capturePassive(deps, args) {

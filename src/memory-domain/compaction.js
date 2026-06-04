@@ -8,6 +8,9 @@ function runCompact(deps) {
   const report = { startedAt, steps: {} };
 
   try {
+    sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
+    report.steps.expiredPurged = true;
+
     sqlRun(
       'DELETE FROM symbol_links WHERE memory_id NOT IN (SELECT CAST(id AS TEXT) FROM observations WHERE deleted_at IS NULL)',
     );

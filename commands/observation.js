@@ -2,6 +2,7 @@ const obsService = require('../services/observations');
 const obsDA = require('../data-access/observations');
 const dedupService = require('../services/dedup');
 const sessionsService = require('../services/sessions');
+const { parseExpiresIn } = require('../src/memory-domain/ttl');
 
 function getMemoryRepository(deps) {
   if (deps.memoryRepository) {
@@ -72,6 +73,20 @@ function update(deps, args) {
     return jsonErrNoExit('Missing --id');
   }
   const memoryRepository = getMemoryRepository(deps);
+
+  let expiresAt;
+  let clearExpiry = false;
+  if (args['clear-expiry'] === 'true' || args['clear-expiry'] === true) {
+    clearExpiry = true;
+  } else if (args['expires-in']) {
+    expiresAt = parseExpiresIn(args['expires-in']);
+    if (expiresAt === null) {
+      return jsonErrNoExit(`Invalid --expires-in value: ${args['expires-in']}. Use formats like "7d", "2w", "1m", "12h".`);
+    }
+  } else if (args['expires-at']) {
+    expiresAt = String(args['expires-at']);
+  }
+
   const result = memoryRepository.updateObservation({
     id,
     title: args.title,
@@ -80,6 +95,8 @@ function update(deps, args) {
     project: args.project,
     scope: args.scope,
     topicKey: args['topic-key'],
+    expiresAt,
+    clearExpiry,
   });
   if (result === null) {
     return jsonErrNoExit('Nothing to update');
