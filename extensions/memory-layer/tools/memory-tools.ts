@@ -408,6 +408,7 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
     parameters: Type.Object({
       query: Type.String({ description: 'Topic or keyword' }),
       deep: Type.Optional(Type.Boolean({ description: 'More results', default: false })),
+      'token-budget': Type.Optional(Type.Number({ description: 'Max tokens to use (default: 2000)', default: 2000 })),
     }),
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
@@ -419,10 +420,12 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
             isError: true,
           };
         }
+        const tokenBudget = params['token-budget'] || 2000;
         const result = await deps.mem('context', {
           project: deps.state.currentProject,
           query: params.query,
-          limit: '30',
+          limit: '50',
+          'token-budget': String(tokenBudget),
           deep: params.deep ? 'true' : 'false',
           ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
         });
@@ -441,15 +444,19 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
 
         const lines = observations.map((o: any) => {
           const trust = deps.trustIcon(o.trust_score);
-          return `- [#${o.id}] [${o.type}] ${o.title}${trust}`;
+          const trunc = o._truncated ? '…' : '';
+          return `- [#${o.id}] [${o.type}] ${o.title}${trust}${trunc}`;
         });
 
         const totalMemories = result.stats?.total_memories ?? observations.length;
+        const budgetStats = result.stats?.budget_tokens
+          ? `\n📊 Budget: ${result.stats.budget_used}/${result.stats.budget_tokens} tokens used | ${observations.length} memories${result.stats.truncated_count > 0 ? ` (${result.stats.truncated_count} truncated)` : ''}`
+          : '';
         return {
           content: [
             {
               type: 'text',
-              text: `## Topic Context: "${params.query}"\n**${totalMemories}** total memories in **${deps.state.currentProject}**, showing ${observations.length} matching "${params.query}":\n\n${lines.join('\n')}`,
+              text: `## Topic Context: "${params.query}"\n**${totalMemories}** total memories in **${deps.state.currentProject}**, showing ${observations.length} matching "${params.query}":\n\n${lines.join('\n')}${budgetStats}`,
             },
           ],
           details: result ?? {},

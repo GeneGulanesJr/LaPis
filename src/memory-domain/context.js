@@ -1,5 +1,6 @@
 const { getConfig } = require('../../config');
 const { RESULT_LIMITS, RANKING, CONTEXT } = require('../../constants');
+const { estimateTokens } = require('../../utils');
 const { TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE } = require('./search');
 
 const TOPIC_QUERY_STOP_WORDS = new Set([
@@ -74,6 +75,9 @@ function context(deps, args) {
 
   const project = args.project || null;
   const limit = parseInt(args.limit || String(getConfig().context_limit), 10);
+  const rawBudget = parseInt(args['token-budget'], 10);
+  const tokenBudget = Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : 0;
+  const fetchCeiling = tokenBudget > 0 ? Math.max(limit, limit * 3) : limit;
   const sessionId = args['session-id'] ? parseInt(args['session-id'], 10) : null;
   const topicKey = args['topic-key'] || null;
   const topicQuery = args.query || null;
@@ -107,8 +111,8 @@ function context(deps, args) {
   let obsQuery, obsParams;
   if (crossProject) {
     const crossLimit = deep
-      ? Math.min(limit * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
-      : limit;
+      ? Math.min(fetchCeiling * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
+      : fetchCeiling;
     obsQuery = `
       SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.project, o.created_at,
              COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
@@ -123,8 +127,8 @@ function context(deps, args) {
     obsParams = [crossLimit];
   } else if (topicKey || topicQuery) {
     const topicLimit = deep
-      ? Math.min(limit * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
-      : limit;
+      ? Math.min(fetchCeiling * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
+      : fetchCeiling;
     if (topicQuery) {
       const match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
       obsQuery = `
@@ -179,16 +183,19 @@ function context(deps, args) {
       ORDER BY recall_count DESC, type_priority DESC, trust_score DESC, o.created_at DESC
       LIMIT ?
     `;
-    obsParams = [project, limit];
+    obsParams = [project, fetchCeiling];
   }
   const observations = sqlJson(obsQuery, obsParams);
 
   const excludedSet = new Set(CONTEXT.EXCLUDED_TYPES);
   const filtered = observations.filter((o) => !excludedSet.has(o.type));
 
-  if (sessionId && filtered.length > 0) {
+  const budgeted = tokenBudget > 0 ? applyTokenBudget(filtered, tokenBudget) : filtered;
+  const truncatedCount = budgeted.filter((o) => o._truncated).length;
+
+  if (sessionId && budgeted.length > 0) {
     const recallQuery = topicQuery || topicKey || 'context-auto';
-    const entries = filtered.map((o) => ({
+    const entries = budgeted.map((o) => ({
       memoryId: o.id,
       sessionId: String(sessionId),
       query: recallQuery,
@@ -224,7 +231,7 @@ function context(deps, args) {
   return {
     sessions,
     personal,
-    observations: filtered,
+    observations: budgeted,
     cross_project_suggestions: crossProjectSuggestions,
     project: project || null,
     cross_project: crossProject,
@@ -233,8 +240,70 @@ function context(deps, args) {
       total_memories: totalAll,
       total_personal: personal.length,
       cross_project_suggestions: crossProjectSuggestions.length,
+      ...(tokenBudget > 0
+        ? {
+            budget_used: budgeted.reduce((sum, o) => sum + (o._tokens || 0), 0),
+            budget_tokens: tokenBudget,
+            truncated_count: truncatedCount,
+            total_count: filtered.length,
+          }
+        : {}),
     },
   };
+}
+
+function applyTokenBudget(observations, budget) {
+  const neverTruncate = new Set(CONTEXT.NEVER_TRUNCATE_TYPES || []);
+  const result = [];
+  let used = 0;
+
+  if (budget < (CONTEXT.TOKEN_BUDGET_MIN || 500)) {
+    const limit = CONTEXT.HEADERS_ONLY_LIMIT || 3;
+    for (const obs of observations.slice(0, limit)) {
+      const header = `[#${obs.id}] [${obs.type}] ${obs.title} trust=${obs.trust_score}`;
+      const tokens = estimateTokens(header);
+      result.push({ ...obs, content: '', _truncated: true, _tokens: tokens });
+      used += tokens;
+    }
+    return result;
+  }
+
+  for (const obs of observations) {
+    const fullText = `${obs.title}\n${obs.content || ''}`;
+    const fullTokens = estimateTokens(fullText);
+
+    if (used + fullTokens <= budget || neverTruncate.has(obs.type)) {
+      result.push(neverTruncate.has(obs.type) && used + fullTokens > budget
+        ? { ...obs, _tokens: fullTokens, _truncated: false }
+        : { ...obs, _tokens: fullTokens });
+      used += fullTokens;
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
+
+    const truncChars = CONTEXT.TRUNCATE_CONTENT_CHARS || 100;
+    const truncContent = (obs.content || '').slice(0, truncChars);
+    const truncText = `${obs.title}\n${truncContent}…`;
+    const truncTokens = estimateTokens(truncText);
+
+    if (used + truncTokens <= budget) {
+      result.push({ ...obs, content: `${truncContent}…`, _truncated: true, _tokens: truncTokens });
+      used += truncTokens;
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
+
+    const header = `[#${obs.id}] [${obs.type}] ${obs.title} trust=${obs.trust_score}`;
+    const headerTokens = estimateTokens(header);
+    if (used + headerTokens <= budget) {
+      result.push({ ...obs, content: '', _truncated: true, _tokens: headerTokens });
+      used += headerTokens;
+    }
+
+    break;
+  }
+
+  return result;
 }
 
 module.exports = { context };

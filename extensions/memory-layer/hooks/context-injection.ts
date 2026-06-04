@@ -45,6 +45,7 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
     const contextResult = await deps.mem('context', {
       project: deps.state.currentProject,
       limit: String(contextLimit),
+      'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
       ...(promptQuery ? { query: promptQuery } : {}),
       ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
     });
@@ -55,6 +56,7 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
       crossProjectResult = await deps.mem('context', {
         'all-projects': 'true',
         limit: String(CONTEXT.PROJECT_SUMMARY_LIMIT),
+        'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
         ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
       });
     }
@@ -225,7 +227,7 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
     return {
       message: {
         customType: 'memory-context',
-        content: capInjectedContext(lines.join('\n')),
+        content: lines.join('\n'),
         display: false,
       },
     };
@@ -326,15 +328,6 @@ export function isNavigationPrompt(prompt: string | null): boolean {
     /\b(where|module|file|hook|wired|location|path|lives|implemented|implementation|identify)\b/.test(normalized) ||
     /\bcurrent\s+\w*\s*module\b/.test(normalized)
   );
-}
-
-function capInjectedContext(content: string): string {
-  const limit = CONTEXT.MAX_INJECTED_CONTEXT_CHARS || 1800;
-  if (content.length <= limit) {
-    return content;
-  }
-
-  return `${content.slice(0, limit - 1).trimEnd()}…`;
 }
 
 function truncateText(text: string, limit: number): string {
