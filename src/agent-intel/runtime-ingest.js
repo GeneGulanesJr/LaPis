@@ -65,26 +65,56 @@ function ingestCoverage(db, repoId, coveragePath, sourceFile = '') {
   const coverageData = parseCoverageFile(coveragePath);
   const functions = extractFunctionHits(coverageData);
 
+  // Pre-fetch symbol_id mapping for this repo to link runtime data to code symbols
+  const symbolLookup = new Map();
+  try {
+    const symbols = db.prepare(`
+      SELECT id, name, qualified_name, file_path
+      FROM code_symbols
+      WHERE repo_id = ?
+    `).all(repoId);
+    for (const sym of symbols) {
+      const key = `${sym.file_path}:${sym.name}`;
+      symbolLookup.set(key, sym.id);
+      // Also index by qualified name
+      if (sym.qualified_name) {
+        symbolLookup.set(`${sym.file_path}:${sym.qualified_name}`, sym.id);
+      }
+    }
+  } catch {
+    // code_symbols table may not exist yet - continue without linking
+  }
+
   const insertStmt = db.prepare(`
-    INSERT OR REPLACE INTO runtime_symbols 
-      (repo_id, file_path, function_name, line_start, hit_count, traffic, last_seen, source_file)
-    VALUES 
-      (?, ?, ?, ?, ?, ?, datetime('now'), ?)
+    INSERT OR REPLACE INTO runtime_symbols
+      (repo_id, symbol_id, file_path, function_name, line_start, hit_count, traffic, last_seen, source_file)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
   `);
 
   const upsert = db.transaction((fnList) => {
     let inserted = 0;
+    let linked = 0;
     for (const fn of fnList) {
-      insertStmt.run(repoId, fn.filePath, fn.functionName, fn.lineStart, fn.hitCount, fn.traffic, sourceFile);
+      // Look up symbol_id from code_symbols
+      let symbolId = null;
+      const key = `${fn.filePath}:${fn.functionName}`;
+      if (symbolLookup.has(key)) {
+        symbolId = symbolLookup.get(key);
+        linked++;
+      }
+
+      insertStmt.run(repoId, symbolId, fn.filePath, fn.functionName, fn.lineStart, fn.hitCount, fn.traffic, sourceFile);
       inserted++;
     }
-    return inserted;
+    return { inserted, linked };
   });
 
-  const inserted = upsert(functions);
+  const result = upsert(functions);
 
   return {
-    functions_ingested: inserted,
+    functions_ingested: result.inserted,
+    symbols_linked: result.linked,
     traffic_breakdown: {
       hot: functions.filter(f => f.traffic === 'hot').length,
       warm: functions.filter(f => f.traffic === 'warm').length,
