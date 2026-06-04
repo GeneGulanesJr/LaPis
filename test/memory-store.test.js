@@ -81,6 +81,30 @@ describe('memory-store: save', () => {
     expect(result.id).toBeDefined();
   });
 
+  it('should save with --expires-in TTL and surface expires_at', () => {
+    const result = run(
+      `save --title "TTL test obs" --content "Time-bound content" --project ${testProject} ` +
+        `--type manual --expires-in 7d`,
+    );
+    expect(result.id).toBeDefined();
+    expect(result.expires_at).toBeTruthy();
+    // SQLite format: "YYYY-MM-DD HH:MM:SS"
+    expect(result.expires_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    // Should be roughly 7 days from now (within ±2 hours to account for clock skew)
+    const expMs = Date.parse(result.expires_at.replace(' ', 'T') + 'Z');
+    const days = (expMs - Date.now()) / 86400000;
+    expect(days).toBeGreaterThan(6.9);
+    expect(days).toBeLessThan(7.1);
+  });
+
+  it('should reject invalid --expires-in values', () => {
+    const result = runFail(
+      `save --title "Bad TTL" --content "x" --project ${testProject} --expires-in "not-a-duration"`,
+    );
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain('Invalid --expires-in');
+  });
+
   it('should save with --force bypassing dedup', () => {
     const r1 = run(`save --title "Force test" --content "v1" --project ${testProject}`);
     const r2 = run(`save --title "Force test" --content "v1" --project ${testProject} --force`);
@@ -280,6 +304,33 @@ describe('memory-store: update', () => {
   it('should return error for non-existent id', () => {
     const result = runFail(`update --id 999999999 --title "Ghost"`);
     expect(result.error).toBeDefined();
+  });
+
+  it('should set expiry with --expires-in', () => {
+    const saved = run(
+      `save --title "Will get a TTL" --content "x" --project ${testProject} --force`,
+    );
+    const result = run(`update --id ${saved.id} --expires-in 3d`);
+    expect(result.expires_at).toBeTruthy();
+    expect(result.expires_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+  });
+
+  it('should clear expiry with --clear-expiry', () => {
+    const saved = run(
+      `save --title "Will lose its TTL" --content "x" --project ${testProject} --expires-in 5d`,
+    );
+    expect(saved.expires_at).toBeTruthy();
+    const result = run(`update --id ${saved.id} --clear-expiry true`);
+    expect(result.expires_at).toBeNull();
+  });
+
+  it('should reject invalid --expires-in on update', () => {
+    const saved = run(
+      `save --title "TTL reject target" --content "x" --project ${testProject} --force`,
+    );
+    const result = runFail(`update --id ${saved.id} --expires-in "garbage"`);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain('Invalid --expires-in');
   });
 });
 

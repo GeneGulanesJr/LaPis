@@ -87,8 +87,22 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
       versionEntries.push([parsedId, field, String(before[field] || ''), String(newVal)]);
     }
   }
-  if (expiresAt !== undefined && String(expiresAt || '') !== String(before.expires_at || '')) {
-    versionEntries.push([parsedId, 'expires_at', String(before.expires_at || ''), String(expiresAt || '')]);
+  // Resolve the post-update expires_at value up-front so both the version
+  // history row and the actual UPDATE agree on what the new value is.
+  // observation_versions.new_value is NOT NULL, so we stringify null as ''
+  // (matching the convention used by other fields in this table).
+  const nextExpiresAt =
+    clearExpiry === true ? null : expiresAt !== undefined ? expiresAt || null : undefined;
+  if (
+    nextExpiresAt !== undefined &&
+    String(nextExpiresAt || '') !== String(before.expires_at || '')
+  ) {
+    versionEntries.push([
+      parsedId,
+      'expires_at',
+      String(before.expires_at || ''),
+      nextExpiresAt === null ? '' : String(nextExpiresAt),
+    ]);
   }
 
   const setFields = [
@@ -107,12 +121,9 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
       params.push(f.value);
     }
   }
-  if (clearExpiry === true) {
+  if (nextExpiresAt !== undefined) {
     sets.push('expires_at = ?');
-    params.push(null);
-  } else if (expiresAt !== undefined) {
-    sets.push('expires_at = ?');
-    params.push(expiresAt || null);
+    params.push(nextExpiresAt);
   }
   if (sets.length === 0) {
     return null;

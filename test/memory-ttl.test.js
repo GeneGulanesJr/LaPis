@@ -226,6 +226,21 @@ describe('data-access/observations: updateObservation with expiry', () => {
     expect(versionCall).toBeDefined();
     expect(versionCall[1]).toContain('expires_at');
   });
+
+  it('records clearExpiry as an expires_at version row', () => {
+    const deps = mockDeps();
+    deps.sqlJson
+      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2026-12-31 00:00:00' }])
+      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', expires_at: null }]);
+    obsDA.updateObservation(deps, { id: 1, clearExpiry: true });
+    const versionCall = deps.sqlRun.mock.calls.find((c) => c[0].includes('observation_versions'));
+    expect(versionCall).toBeDefined();
+    expect(versionCall[1]).toContain('expires_at');
+    // old_value is the prior date; new_value uses '' (NOT NULL convention)
+    // because observation_versions.new_value is TEXT NOT NULL.
+    expect(versionCall[1]).toContain('2026-12-31 00:00:00');
+    expect(versionCall[1]).toContain('');
+  });
 });
 
 describe('compaction: runCompact expires expired observations', () => {

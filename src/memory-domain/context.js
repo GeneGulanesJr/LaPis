@@ -168,8 +168,7 @@ function context(deps, args) {
                  END as type_priority
         FROM observations o
         ${TRUST_RECALL_JOINS}
-      WHERE o.project = ? AND o.deleted_at IS NULL AND o.type != 'skill'
-        AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
+        WHERE o.project = ? AND o.deleted_at IS NULL AND o.type != 'skill'
           AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
         ORDER BY recall_count DESC, CASE WHEN o.topic_key = ? THEN ${CONTEXT.TOPIC_MATCH_BOOST} ELSE type_priority END DESC, trust_score DESC, o.created_at DESC
         LIMIT ?

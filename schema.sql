@@ -9,7 +9,7 @@
 --   doc-index repository: doc_repos, doc_files, doc_sections, doc FTS, links, terms, code blocks.
 --   trust-sync repository: symbol_links and trust_adjustments because they bridge memories and code symbols.
 --   analytics repository: read-only aggregate queries across feature-owned tables.
-PRAGMA user_version = 17;
+PRAGMA user_version = 10;
 
 -- ═══════════════════════════════════════════════════════════
 -- MEMORY REPOSITORY: WORKSPACES  (v4 — formal project isolation)
@@ -34,7 +34,6 @@ CREATE TABLE IF NOT EXISTS observations (
   project    TEXT,
   scope      TEXT    NOT NULL DEFAULT 'project',
   topic_key  TEXT,
-  expires_at TEXT,
   created_at TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT    NOT NULL DEFAULT (datetime('now')),
   deleted_at TEXT
@@ -46,7 +45,6 @@ CREATE INDEX IF NOT EXISTS idx_obs_scope     ON observations(scope);
 CREATE INDEX IF NOT EXISTS idx_obs_topic    ON observations(topic_key, project, scope, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_obs_created  ON observations(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_obs_deleted  ON observations(deleted_at);
-CREATE INDEX IF NOT EXISTS idx_obs_expires  ON observations(expires_at) WHERE expires_at IS NOT NULL;
 
 -- FTS5 for observations
 CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
