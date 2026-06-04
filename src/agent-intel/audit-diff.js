@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const { AUDIT_DIFF: CFG } = require('../../constants');
 
 function _requireNativeDb(db) {
@@ -152,8 +153,18 @@ function _checkHotPath(db, repoId, sym) {
   try {
     const runtimeIngest = require('./runtime-ingest');
     const hotSymbols = runtimeIngest.getHotSymbols(db, repoId, 100);
-    const hotMatch = hotSymbols.find(s => s.file_path === sym.file_path);
-    
+
+    // Normalize paths for comparison - get basename and check for matches
+    const symFileName = sym.file_path ? path.basename(sym.file_path) : '';
+    const hotMatch = hotSymbols.find(s => {
+      if (!s.file_path) return false;
+      // Try exact match first
+      if (s.file_path === sym.file_path) return true;
+      // Then try basename match for cross-platform compatibility
+      const runtimeFileName = path.basename(s.file_path);
+      return runtimeFileName === symFileName && s.function_name === sym.name;
+    });
+
     if (hotMatch) {
       return {
         type: 'hot_path_modified',
