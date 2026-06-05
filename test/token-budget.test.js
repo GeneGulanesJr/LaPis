@@ -198,4 +198,37 @@ describe('context() with token-budget', () => {
     expect(learning.content).toBe('x'.repeat(100));
     expect(learning._truncated).not.toBe(true);
   });
+
+  test('headers-only branch respects budget (no overflow)', () => {
+    // With budget=50 and 5 observations, headers should not exceed 50 tokens total
+    const observations = Array.from({ length: 5 }, (_, i) =>
+      makeObs(i + 1, 'discovery', 100, `Very Long Title For Memory Number ${i + 1}`),
+    );
+    const deps = makeDeps(observations);
+    const result = context(deps, { project: 'TestProject', 'token-budget': '50' });
+
+    expect(result.stats.budget_used).toBeLessThanOrEqual(50);
+    for (const o of result.observations) {
+      expect(o._truncated).toBe(true);
+      expect(o.content).toBe('');
+    }
+  });
+
+  test('continues processing after successful header fallback', () => {
+    // First obs is large (gets truncated to header), second is small (fits fully)
+    const observations = [
+      makeObs(1, 'discovery', 5000, 'Huge discovery'),
+      makeObs(2, 'learning', 10, 'Tiny learning'),
+    ];
+    const deps = makeDeps(observations);
+    const result = context(deps, { project: 'TestProject', 'token-budget': '600' });
+
+    // Both observations should be present
+    expect(result.observations.length).toBe(2);
+    // First should be truncated
+    expect(result.observations.find((o) => o.id === 1)._truncated).toBe(true);
+    // Second should be intact (it fits in remaining budget)
+    const tiny = result.observations.find((o) => o.id === 2);
+    expect(tiny.content).toBe('x'.repeat(10));
+  });
 });

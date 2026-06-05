@@ -262,6 +262,9 @@ function applyTokenBudget(observations, budget) {
     for (const obs of observations.slice(0, limit)) {
       const header = `[#${obs.id}] [${obs.type}] ${obs.title} trust=${obs.trust_score}`;
       const tokens = estimateTokens(header);
+      if (used + tokens > budget) {
+        break;
+      }
       result.push({ ...obs, content: '', _truncated: true, _tokens: tokens });
       used += tokens;
     }
@@ -298,6 +301,8 @@ function applyTokenBudget(observations, budget) {
     if (used + headerTokens <= budget) {
       result.push({ ...obs, content: '', _truncated: true, _tokens: headerTokens });
       used += headerTokens;
+      // oxlint-disable-next-line no-continue
+      continue;
     }
 
     break;
