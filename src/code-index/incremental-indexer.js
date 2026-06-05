@@ -57,7 +57,19 @@ function insertScopeBindings(db, repoId, fileId, bindings) {
 }
 
 function emitProgress(args, phase, detail, stats) {
-  if (!args || !args.progress) {
+  if (!args) {
+    return;
+  }
+  // Worker hook: forward every progress event to a callback (used by the
+  // async worker to update the index_jobs ledger). Errors are swallowed
+  // because a failing callback must never break the indexer.
+  if (typeof args.onProgress === 'function') {
+    try {
+      const callbackPayload = { phase, ...(detail || {}), ...(stats || {}) };
+      args.onProgress(callbackPayload);
+    } catch (_) { /* best-effort */ }
+  }
+  if (!args.progress) {
     return;
   }
   const payload = { progress: true, phase, ...detail };

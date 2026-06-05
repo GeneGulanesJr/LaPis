@@ -8,12 +8,17 @@
 const { parentPort, workerData } = require('worker_threads');
 const dbModule = require('../../db');
 const { indexRepository, reindexRepository } = require('./incremental-indexer');
+const { getLanguageForFile } = require('./parser-registry');
 const jobStore = require('./job-store');
 
 let cancelled = false;
 parentPort.on('message', (msg) => {
   if (msg && msg.type === 'cancel') cancelled = true;
 });
+
+function safeGetLanguage(filePath) {
+  try { return getLanguageForFile(filePath); } catch (_) { return null; }
+}
 
 function emit(type, payload = {}) {
   parentPort.postMessage({ type, ...payload });
@@ -34,8 +39,10 @@ async function main() {
 
   function onProgress({ phase, files_total, files_done, current_file, language }) {
     if (cancelled) throw new Error('cancelled');
-    if (language) {
-      languageCounters.set(language, (languageCounters.get(language) || 0) + 1);
+    // Derive language from current_file if not provided by the indexer.
+    const lang = language || (current_file ? safeGetLanguage(current_file) : null);
+    if (lang) {
+      languageCounters.set(lang, (languageCounters.get(lang) || 0) + 1);
     }
     const now = Date.now();
     // Throttle SQLite writes — at most once per second, plus a final write at completion.
@@ -74,7 +81,7 @@ async function main() {
     // Final progress write with the complete language breakdown.
     try {
       jobStore.updateProgress(deps, jobId, {
-        filesDone: (result && (result.filesIndexed || result.fileCount)) || 0,
+        filesDone: (result && (result.file_count || result.filesIndexed || result.fileCount)) || 0,
         languageBreakdown: Object.fromEntries(languageCounters),
       });
       jobStore.completeJob(deps, jobId, { status: result?.error ? 'error' : 'completed', error: result?.error });
