@@ -24,6 +24,9 @@ const DEFAULTS = {
   compact_every_n_sessions: 5,
   context_limit: 5, // Used by memory-store.js context command — do not remove
   tier_config_path: path.join(HOME, '.pi', 'memory', 'tier.jsonc'),
+  // Auto-switch `index-repo` to async when file count exceeds this threshold.
+  // Override with the LAPIS_ASYNC_INDEX_THRESHOLD env var or via config.jsonc.
+  async_index_file_threshold: 500,
 };
 
 function deepMerge(target, source) {

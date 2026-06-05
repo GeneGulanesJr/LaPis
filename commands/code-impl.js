@@ -1,7 +1,7 @@
 const codeIndexingService = require('../services/code-indexing');
 const codeSearchService = require('../services/code-search');
 
-function indexRepo(args) {
+async function indexRepo(args) {
   const repoPath = args.path;
   if (!repoPath) {
     const { jsonErrNoExit } = require('../db');
@@ -9,6 +9,23 @@ function indexRepo(args) {
   }
   const path = require('path');
   const repoName = args.name || path.basename(repoPath);
+  // Auto-switch to async when --async, when file count exceeds the configured
+  // threshold, or for explicit full reindex (already slow on large repos).
+  if (args.async === 'true' || args.mode === 'full') {
+    return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
+  }
+  const { getConfig } = require('../config');
+  const threshold = (getConfig().async_index_file_threshold || 500);
+  let fileCount = 0;
+  try {
+    const { scanRepository } = require('../src/code-index/scanner');
+    const scan = scanRepository(repoPath, { ignore: [], respectGitignore: true });
+    fileCount = scan && scan.files ? scan.files.length : 0;
+  } catch (_) { /* scan errors are not fatal — fall through to sync */ }
+  if (fileCount >= threshold) {
+    process.stderr.write(`${JSON.stringify({ notice: `Repository has ${fileCount} files (threshold ${threshold}); auto-switching to async.`, fileCount, threshold })}\n`);
+    return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
+  }
   return codeIndexingService.indexRepoInternal({ db: require('../db').getDb(), args }, repoPath, repoName);
 }
 

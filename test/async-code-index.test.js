@@ -70,3 +70,34 @@ describe('indexStatus wrapper', () => {
     });
   });
 });
+
+describe('indexRepo auto-switch', () => {
+  let bigTmp;
+  beforeAll(() => {
+    bigTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-auto-async-'));
+    // 600 tiny JS files to exceed the default threshold of 500.
+    for (let i = 0; i < 600; i += 1) {
+      fs.writeFileSync(path.join(bigTmp, `f${i}.js`), '// empty\n');
+    }
+  });
+  afterAll(() => fs.rmSync(bigTmp, { recursive: true, force: true }));
+
+  it('auto-routes to the async path when file count exceeds threshold', async () => {
+    const dbModule = require('../db');
+    dbModule.createDb({ memoryPath: ':memory:' });
+    const codeCmd = require('../commands/code-impl');
+    const result = await codeCmd.indexRepo({ path: bigTmp, name: 'big-repo' });
+    // Async path returns { jobId, status: 'running', filesTotal }
+    expect(result.jobId).toBeGreaterThan(0);
+    expect(result.status).toBe('running');
+    expect(result.filesTotal).toBeGreaterThanOrEqual(500);
+  });
+
+  it('--async flag forces async regardless of file count', async () => {
+    const dbModule = require('../db');
+    dbModule.createDb({ memoryPath: ':memory:' });
+    const codeCmd = require('../commands/code-impl');
+    const result = await codeCmd.indexRepo({ path: '.', name: 'small', async: 'true' });
+    expect(result.jobId).toBeGreaterThan(0);
+  });
+});
