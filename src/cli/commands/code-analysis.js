@@ -21,6 +21,7 @@ const USAGE = {
   provenance: '--repo X --symbol S',
   untested: '--repo X [--min-confidence 0.5] [--include-private]',
   'pr-risk': '--repo X [--branch B] [--base B]',
+  'coding-context': '--repo X [--symbol S | --file F] [--depth N] [--top N]',
 };
 
 const ANALYSIS_TOOLS = new Set([
@@ -44,6 +45,7 @@ const ANALYSIS_TOOLS = new Set([
   'provenance',
   'untested',
   'pr-risk',
+  'coding-context',
 ]);
 
 function _dispatch(cmd, repoName, fn, deps) {
@@ -294,6 +296,24 @@ function register(commands, deps) {
         }),
       dispatchDeps,
     );
+  commands['coding-context'] = (args) => {
+    if (!args.symbol && !args.file) {
+      return jsonErrNoExit('Missing --symbol or --file. Usage: coding-context --repo X [--symbol S | --file F]');
+    }
+    return _dispatch(
+      'coding-context',
+      args.repo,
+      (repoRow) =>
+        codeAnalysis.getCodingContext(getDb(), repoRow.id, {
+          symbol: args.symbol || null,
+          file: args.file || null,
+          depth: args.depth ? parseInt(args.depth) : 2,
+          top: args.top ? parseInt(args.top) : 10,
+          days: args.days ? parseInt(args.days) : 90,
+        }),
+      dispatchDeps,
+    );
+  };
 }
 
 module.exports = { register, USAGE, ANALYSIS_TOOLS, _wrapAnalysis };

@@ -10,6 +10,7 @@ const gitMetrics = require('./git-metrics');
 const astPatternAnalyzers = require('./ast-patterns');
 const risk = require('./risk');
 const queryWinnow = require('./query-winnow');
+const codingContext = require('./coding-context');
 const legacy = require('./legacy-core');
 const readModel = require('./read-model');
 
@@ -21,6 +22,7 @@ module.exports = {
   ...astPatternAnalyzers,
   ...risk,
   ...queryWinnow,
+  ...codingContext,
   ...readModel,
   buildImportGraphForFiles: legacy.buildImportGraphForFiles,
   buildCallGraphForFiles: legacy.buildCallGraphForFiles,

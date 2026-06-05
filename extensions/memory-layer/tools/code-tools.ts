@@ -20,7 +20,7 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
     name: 'memory-code',
     label: 'Code Analysis',
     description:
-      'Query indexed code and before-coding agent context. Use mode search, preflight, agent-pack, outline, callers, callees, deps, health, index-repo, or reindex-repo. Include repo when known; if omitted, LaPis infers the current indexed repo when possible.',
+      'Query indexed code and before-coding agent context. Use mode search, coding-context, preflight, agent-pack, outline, callers, callees, deps, health, index-repo, or reindex-repo. Include repo when known; if omitted, LaPis infers the current indexed repo when possible.',
     parameters: Type.Object({
       mode: Type.Optional(
         Type.String({
@@ -43,6 +43,7 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
             'hierarchy',
             'signal-chains',
             'layer-violations',
+            'coding-context',
             'preflight',
             'agent-pack',
             'health',
@@ -99,6 +100,7 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
           hierarchy: 'hierarchy',
           'signal-chains': 'signal-chains',
           'layer-violations': 'layer-violations',
+          'coding-context': 'coding-context',
           preflight: 'preflight',
           'agent-pack': 'agent-pack',
           health: 'health-code-repo',
@@ -401,11 +403,12 @@ function codeHelpText(): string {
     '- memory-code outline --repo <repo> --file src/foo.ts',
     '- memory-code search --repo <repo> --query "context command return fields"',
     '- memory-code callers --repo <repo> --symbol MyClass.method',
+    '- memory-code coding-context --repo <repo> --symbol saveNotificationPreferences',
     '- memory-code preflight --repo <repo> --task "add notification preferences"',
     '- memory-code agent-pack --repo <repo> --task "add notification preferences"',
     '- memory-code reindex-repo --path . --name <repo>',
     '',
-    'Modes: search, callers, callees, blast-radius, dead-code, complexity, deps, outline, churn, hotspots, cycles, importance, coupling, extractable, hierarchy, signal-chains, layer-violations, preflight, agent-pack, health, index-repo, reindex-repo, dupes, audit-diff, enrich-symbols.',
+    'Modes: search, callers, callees, blast-radius, dead-code, complexity, deps, outline, churn, hotspots, cycles, importance, coupling, extractable, hierarchy, signal-chains, layer-violations, coding-context, preflight, agent-pack, health, index-repo, reindex-repo, dupes, audit-diff, enrich-symbols.',
   ].join('\n');
 }
 
@@ -456,6 +459,10 @@ function validateCodeParams(mode: string, params: Record<string, any>): string |
 
   if (['callers', 'callees', 'blast-radius', 'complexity'].includes(mode) && !params.symbol) {
     return `${mode} requires --symbol.\n\nExample:\nmemory-code ${mode} --repo ${params.repo || '<repo>'} --symbol <symbol>`;
+  }
+
+  if (mode === 'coding-context' && !params.symbol && !params.file) {
+    return `coding-context requires --symbol or --file.\n\nExample:\nmemory-code coding-context --repo ${params.repo || '<repo>'} --symbol <symbol>`;
   }
 
   if (['outline', 'churn'].includes(mode) && !params.file) {

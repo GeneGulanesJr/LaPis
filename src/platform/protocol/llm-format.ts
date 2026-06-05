@@ -278,6 +278,51 @@ function formatCodeResult(mode: string, result: any): string {
         )
         .join('\n\n');
     }
+    case 'coding-context': {
+      if (result.error) {
+        return `Error: ${result.error}`;
+      }
+      const target = result.target || {};
+      const summary = result.summary || {};
+      let targetLabel = 'target';
+      if (target.symbol) {
+        targetLabel = `${target.symbol} (${target.file ?? '?'})`;
+      } else if (target.file) {
+        targetLabel = target.file;
+      }
+      const lines = [
+        `**Coding context:** ${targetLabel}`,
+        `Risk: ${summary.risk ?? 'unknown'} | review: ${summary.review_bar ?? 'unknown'} | affected files: ${summary.affected_files ?? 0}`,
+      ];
+      if ((summary.reasons || []).length) {
+        lines.push(`Reasons: ${(summary.reasons || []).slice(0, 5).join(', ')}`);
+      }
+      if ((result.related_files || []).length) {
+        lines.push('', 'Related files:', ...(result.related_files || []).slice(0, 10).map((file: string) => `  ${file}`));
+      }
+      if ((result.likely_tests || []).length) {
+        lines.push(
+          '',
+          'Likely tests:',
+          ...(result.likely_tests || [])
+            .slice(0, 8)
+            .map((test: any) => `  ${test.file ?? '?'}${test.reasons?.length ? ` - ${test.reasons.join(', ')}` : ''}`),
+        );
+      }
+      if ((result.recommended_next || []).length) {
+        lines.push('', 'Next:', ...(result.recommended_next || []).slice(0, 5).map((step: string) => `  - ${step}`));
+      }
+      if ((result.partial_errors || []).length) {
+        lines.push(
+          '',
+          'Partial errors:',
+          ...(result.partial_errors || [])
+            .slice(0, 5)
+            .map((err: any) => `  ${err.analyzer ?? '?'}: ${err.error ?? 'failed'}`),
+        );
+      }
+      return lines.join('\n');
+    }
     case 'preflight': {
       const code = result.likely_existing_code || [];
       const memories = result.similar_past_tasks || [];

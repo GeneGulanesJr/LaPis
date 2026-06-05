@@ -93,6 +93,7 @@ Grammar .wasm files bundled in `grammars/`.
 - `provenance --repo NAME` — Git blame-based provenance for symbols
 - `untested --repo NAME` — Find symbols without test coverage
 - `pr-risk --repo NAME` — Assess risk of changes for PR review
+- `coding-context --repo NAME [--symbol S | --file F]` — Unified before-edit context for coding tasks
 
 **Note:** Layer rules can be defined inline via `--rules` or in a `.pimemory-layers.jsonc` file at the repo root.
 Signal chains detect Express routes (`app.get/post/...`), router patterns, and CLI commands.

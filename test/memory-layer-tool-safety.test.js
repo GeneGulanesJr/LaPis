@@ -406,6 +406,45 @@ describe('memory tool renderer safety', () => {
     expect(text).toContain('getNotificationPreferences');
   });
 
+  it('supports memory-code coding-context mode for a symbol', async () => {
+    const mem = vi.fn().mockResolvedValue({
+      repo: 'app',
+      target: { symbol: 'saveUser', file: 'src/users.js' },
+      summary: { risk: 'medium', review_bar: 'normal-plus', affected_files: 2, reasons: ['multiple callers'] },
+      related_files: ['src/users.js', 'test/users.test.js'],
+      likely_tests: [{ file: 'test/users.test.js', reasons: ['imports target file'] }],
+      recommended_next: ['Read targeted lines in src/users.js.'],
+      partial_errors: [],
+    });
+    const tool = captureTool(registerCodeTools, {
+      mem,
+      memStreaming: vi.fn(),
+      getKnownRepos: vi.fn().mockResolvedValue([{ name: 'app' }]),
+      formatCodeResult,
+      invalidateRepoCache: vi.fn(),
+    });
+
+    const result = await tool.execute(
+      'id',
+      { mode: 'coding-context', repo: 'app', symbol: 'saveUser', depth: 2, top: 5 },
+      undefined,
+      vi.fn(),
+      {},
+    );
+    const text = result.content.find((item) => item.type === 'text').text;
+
+    expectRenderable(result);
+    expect(mem).toHaveBeenCalledWith('coding-context', {
+      repo: 'app',
+      symbol: 'saveUser',
+      depth: '2',
+      top: '5',
+    });
+    expect(text).toContain('Coding context');
+    expect(text).toContain('saveUser');
+    expect(text).toContain('test/users.test.js');
+  });
+
   it('infers memory-code repo when only one indexed repo is available', async () => {
     const mem = vi.fn().mockResolvedValue({
       query: 'rankObservations',

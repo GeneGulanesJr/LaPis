@@ -76,6 +76,7 @@ Supported languages: JavaScript, TypeScript, TSX, Go, Python, Rust, and SQL.
 | `provenance --repo`         | Git blame-based provenance for symbols.        |
 | `untested --repo`           | Find symbols without test coverage.            |
 | `pr-risk --repo`            | Assess risk of changes for PR review.          |
+| `coding-context --repo`     | Unified before-edit context for a symbol or file. |
 
 | Command                          | Purpose                                        |
 | -------------------------------- | ---------------------------------------------- |

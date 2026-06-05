@@ -206,8 +206,9 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
 
     // Auto-inject preflight intelligence for coding tasks when an indexed repo exists
     if (cwdRepo && isPreflightWorthyPrompt(promptQuery)) {
+      let preflightResult: any = null;
       try {
-        const preflightResult = await deps.mem('preflight', {
+        preflightResult = await deps.mem('preflight', {
           repo: cwdRepo.name,
           task: promptQuery,
           'code-limit': String(CONTEXT.PREFLIGHT_CODE_LIMIT || 3),
@@ -219,6 +220,23 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
         }
       } catch {
         // Preflight is best-effort; never block context injection on failure
+      }
+
+      try {
+        const target = chooseCodingContextTarget(promptQuery, preflightResult);
+        if (target) {
+          const codingContextResult = await deps.mem('coding-context', {
+            repo: cwdRepo.name,
+            ...target,
+            depth: '2',
+            top: '5',
+          });
+          if (codingContextResult && !codingContextResult.error) {
+            appendCodingContextBlock(lines, unwrapAnalysisData(codingContextResult));
+          }
+        }
+      } catch {
+        // Coding context is best-effort; never block context injection on failure
       }
     }
 
@@ -462,7 +480,6 @@ export function isPreflightWorthyPrompt(prompt: string | null): boolean {
 }
 
 function appendPreflightBlock(lines: string[], result: any): void {
-  const maxChars = CONTEXT.PREFLIGHT_MAX_CHARS || 400;
   const code = (result.likely_existing_code || []) as Array<{
     symbol: string;
     file: string;
@@ -486,13 +503,13 @@ function appendPreflightBlock(lines: string[], result: any): void {
   lines.push('### Preflight — Before Coding');
 
   if (warnings.length > 0) {
-    const riskIcon = risk === 'high' ? '🔴' : risk === 'medium' ? '🟡' : '🟢';
+    const riskIcon = iconForRisk(risk);
     lines.push(`${riskIcon} **Duplicate risk: ${risk}** — existing code may already handle this task.`);
     for (const w of warnings.slice(0, 2)) {
       lines.push(`- ⚠️ \`${w.symbol}\` in \`${w.file}\``);
     }
   } else if (code.length > 0) {
-    const riskIcon = risk === 'high' ? '🔴' : risk === 'medium' ? '🟡' : '🟢';
+    const riskIcon = iconForRisk(risk);
     lines.push(`${riskIcon} Risk: **${risk}** — related code exists.`);
     for (const c of code.slice(0, 2)) {
       const loc = c.line ? `:${c.line}` : '';
@@ -506,6 +523,105 @@ function appendPreflightBlock(lines: string[], result: any): void {
 
   if (action) {
     lines.push(`→ ${action}`);
+  }
+}
+
+function iconForRisk(risk: string): string {
+  if (risk === 'high') {
+    return '🔴';
+  }
+  if (risk === 'medium') {
+    return '🟡';
+  }
+  return '🟢';
+}
+
+function chooseCodingContextTarget(prompt: string | null, preflightResult: any): { file?: string; symbol?: string } | null {
+  const promptFiles = extractFilePaths(prompt || '');
+  if (promptFiles.length > 0) {
+    return { file: promptFiles[0] };
+  }
+
+  const explicitSymbol = extractExplicitSymbol(prompt);
+  if (explicitSymbol) {
+    return { symbol: explicitSymbol };
+  }
+
+  const code = (preflightResult?.likely_existing_code || []) as Array<{ symbol?: string; file?: string }>;
+  const firstCode = code.find((item) => item.symbol || item.file);
+  if (firstCode?.symbol) {
+    return { symbol: firstCode.symbol };
+  }
+  if (firstCode?.file) {
+    return { file: firstCode.file };
+  }
+
+  return null;
+}
+
+function extractExplicitSymbol(prompt: string | null): string | null {
+  if (!prompt) {
+    return null;
+  }
+
+  const codeSymbol = prompt.match(/`([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)`/);
+  if (codeSymbol) {
+    return codeSymbol[1];
+  }
+
+  const callSymbol = prompt.match(/\b([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\s*\(/);
+  if (callSymbol) {
+    return callSymbol[1];
+  }
+
+  return null;
+}
+
+function unwrapAnalysisData(result: any): any {
+  if (result && typeof result === 'object' && result.data && typeof result.data === 'object') {
+    return result.data;
+  }
+  return result;
+}
+
+function appendCodingContextBlock(lines: string[], result: any): void {
+  if (!result || result.error) {
+    return;
+  }
+
+  const target = result.target || {};
+  const summary = result.summary || {};
+  const relatedFiles = (result.related_files || []) as string[];
+  const likelyTests = (result.likely_tests || []) as Array<{ file?: string; reasons?: string[] }>;
+  const maxFiles = CONTEXT.PREFLIGHT_RELATED_FILES || 3;
+
+  if (!target.symbol && !target.file && relatedFiles.length === 0 && likelyTests.length === 0) {
+    return;
+  }
+
+  lines.push('');
+  lines.push('### Coding Context — Before Editing');
+
+  if (target.symbol) {
+    const file = target.file ? ` — \`${target.file}\`` : '';
+    lines.push(`Target: \`${target.symbol}\`${file}`);
+  } else if (target.file) {
+    lines.push(`Target file: \`${target.file}\``);
+  }
+
+  if (summary.risk || summary.review_bar) {
+    const risk = summary.risk || 'unknown';
+    const review = summary.review_bar || 'unknown';
+    const affected = typeof summary.affected_files === 'number' ? ` | affected files: ${summary.affected_files}` : '';
+    lines.push(`Risk: **${risk}** | review: **${review}**${affected}`);
+  }
+
+  if (relatedFiles.length > 0) {
+    lines.push(`Review files: ${relatedFiles.slice(0, maxFiles).map((f: string) => `\`${f}\``).join(', ')}`);
+  }
+
+  if (likelyTests.length > 0) {
+    lines.push(`Likely tests: ${likelyTests.slice(0, 2).map((test) => `\`${test.file || '?'}\``).join(', ')}`);
   }
 }
 

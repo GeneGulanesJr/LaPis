@@ -285,6 +285,74 @@ describe('context injection prompt extraction', () => {
     expect(content).not.toContain('Stale code index');
     expect(content).toContain('Why: Avoid external services Where: src/memory-domain/search.js');
   });
+
+  test('coding prompt auto-injects coding-context after preflight', async () => {
+    let handler;
+    const pi = {
+      on: vi.fn((_eventName, callback) => {
+        handler = callback;
+      }),
+    };
+    const deps = {
+      state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
+      mem: vi.fn(async (cmd) => {
+        if (cmd === 'context') {
+          return {
+            observations: [],
+            personal: [],
+            stats: { total_memories: 42, total_personal: 0, active_workflows: 0 },
+            topic: null,
+          };
+        }
+        if (cmd === 'preflight') {
+          return {
+            likely_existing_code: [{ symbol: 'saveUser', file: 'src/users.js', line: 4, kind: 'function' }],
+            related_files: ['src/users.js'],
+            duplicate_warnings: [],
+            risk: 'medium',
+            recommended_action: 'Review saveUser before editing.',
+          };
+        }
+        if (cmd === 'coding-context') {
+          return {
+            target: { symbol: 'saveUser', file: 'src/users.js' },
+            summary: { risk: 'medium', review_bar: 'normal-plus', affected_files: 2 },
+            related_files: ['src/users.js', 'src/routes.js'],
+            likely_tests: [{ file: 'test/users.test.js', reasons: ['imports target file'] }],
+            partial_errors: [],
+          };
+        }
+        return null;
+      }),
+      getKnownRepos: vi.fn().mockResolvedValue([
+        {
+          name: 'PiMemoryExtension',
+          path: process.cwd(),
+          file_count: 292,
+          symbol_count: 6913,
+          indexed_at: '2026-05-24 00:00:00',
+        },
+      ]),
+      isRepoStale: vi.fn().mockReturnValue(false),
+    };
+
+    registerBeforeAgentStart(pi, deps);
+    const prompt = 'fix saveUser so it validates input';
+    const result = await handler({ prompt }, { cwd: process.cwd() });
+    const content = result.message.content;
+
+    expect(deps.mem).toHaveBeenCalledWith('preflight', expect.objectContaining({ repo: 'PiMemoryExtension', task: prompt }));
+    expect(deps.mem).toHaveBeenCalledWith('coding-context', {
+      repo: 'PiMemoryExtension',
+      symbol: 'saveUser',
+      depth: '2',
+      top: '5',
+    });
+    expect(content).toContain('### Preflight — Before Coding');
+    expect(content).toContain('### Coding Context — Before Editing');
+    expect(content).toContain('Target: `saveUser`');
+    expect(content).toContain('Likely tests: `test/users.test.js`');
+  });
 });
 
 describe('preflight-worthiness detection', () => {

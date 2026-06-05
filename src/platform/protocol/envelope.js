@@ -247,6 +247,11 @@ const _confidenceCalculators = {
     const hasData = signalKeys.filter((k) => signals[k] != null).length;
     return parseFloat((hasData / signalKeys.length).toFixed(2));
   },
+  'coding-context'(data) {
+    const errors = data?.partial_errors || [];
+    const analyzerCount = 7;
+    return parseFloat(((analyzerCount - Math.min(errors.length, analyzerCount)) / analyzerCount).toFixed(2));
+  },
 };
 
 // ══════════════════════════════════════════════════════════
@@ -293,6 +298,12 @@ function extractResultCount(toolName, data) {
       return (data.untested || []).length;
     case 'getPrRiskProfile':
       return Object.keys(data?.signals || {}).length;
+    case 'coding-context':
+      return (
+        (data.related_files || []).length +
+        (data.likely_tests || []).length +
+        (data.blast_radius?.affected_files || []).length
+      );
     default:
       return 0;
   }
