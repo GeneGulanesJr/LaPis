@@ -2,6 +2,13 @@
 // oxlint-disable sort-imports
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { isBashToolResult } from '@earendil-works/pi-coding-agent';
+// isBashToolResult is undefined outside Pi runtime — null-guard + fallback
+function safeIsBashToolResult(event: any): boolean {
+  if (typeof isBashToolResult === 'function') {
+    return isBashToolResult(event);
+  }
+  return event?.toolName === 'bash';
+}
 import { state } from '../state';
 import { classifyCommand } from '../../../src/token-saver/classify-command';
 import { compressOutput } from '../../../src/token-saver/compress-output';
@@ -19,7 +26,7 @@ const DEFAULT_MIN_SAVINGS_PERCENT = 30;
 export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDeps) {
   pi.on('tool_result', async (event, _ctx) => {
     // Only process bash tool results
-    if (!isBashToolResult(event)) {
+    if (!safeIsBashToolResult(event)) {
       return;
     }
 
