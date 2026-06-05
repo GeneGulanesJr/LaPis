@@ -15,6 +15,8 @@ import { mem, memCmd, memStreaming } from './host/memory-client';
 import { detectProject, getKnownRepos, invalidateRepoCache, isRepoStale } from './host/project-detector';
 import { registerPassiveCapture } from './hooks/passive-capture';
 import { registerToolGuardrails } from './hooks/tool-guardrails';
+import { registerOutputCompression } from './hooks/output-compression';
+import { getConfig } from '../../config';
 import { registerTrustSync } from './hooks/trust-sync';
 import { ensureNativeModules } from './host/native-health';
 import { registerCodeTools } from './tools/code-tools';
@@ -58,6 +60,9 @@ export default function memoryLayer(pi: ExtensionAPI) {
   safeRegister(pi, deps, 'before-agent-start hook', registerBeforeAgentStart);
   safeRegister(pi, deps, 'context-reminder hook', registerContextReminder);
   safeRegister(pi, deps, 'tool-guardrails hook', registerToolGuardrails);
+  safeRegister(pi, deps, 'output-compression hook', (pi, deps) => {
+    registerOutputCompression(pi, { state: deps.state, getConfig });
+  });
   safeRegister(pi, deps, 'trust-sync hook', registerTrustSync);
   safeRegister(pi, deps, 'passive-capture hooks', registerPassiveCapture);
   safeRegister(pi, deps, 'session-shutdown hook', registerSessionShutdown);
