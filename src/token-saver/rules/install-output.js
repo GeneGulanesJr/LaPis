@@ -1,5 +1,5 @@
 const PROGRESS_PATTERNS = /(?:^npm warn|⠙|⠴|⠦|⠧|⠇|⠏|⠋|⠉|⠓|⠒|⠐|⠄|bulk|extracting|fetching|receiving|resolving|downloading|hovering|htmlandering)/i;
-const WARNING_PATTERNS = /\b(?:warn|warning|peer dep|mismatch|deprecated|deprecated|vulnerab)\b/i;
+const WARNING_PATTERNS = /\b(?:warn|warning|peer dep|mismatch|deprecated|vulnerab)\b/i;
 const ERROR_PATTERNS = /\b(?:ERR|error|ERR!|ENOENT|EACCES|404|500)\b/i;
 const SUMMARY_PATTERNS = /\b(?:added|removed|changed|audited|packages|up to date|vulnerabilities)\b/i;
 

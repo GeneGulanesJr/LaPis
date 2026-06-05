@@ -29,7 +29,12 @@ function ensureTable() {
     db.exec(CREATE_INDEX_SQL);
     db.exec(CREATE_INDEX_DATE_SQL);
     _tableEnsured = true;
-  } catch {}
+  } catch (err) {
+    // Swallow: the savings store is best-effort telemetry. A schema error
+    // Here should not break the parent command (e.g. `lapis run`).
+    // The next call retries ensureTable() because _tableEnsured stays false.
+    void err;
+  }
 }
 
 function recordRun(run) {
@@ -53,7 +58,11 @@ function recordRun(run) {
       run.savingsPercent,
       run.summary || null,
     );
-  } catch {}
+  } catch (err) {
+    // Same rationale as ensureTable(): telemetry writes must never break
+    // The user-facing command. A failed insert is dropped silently.
+    void err;
+  }
 }
 
 function getStats() {
@@ -101,7 +110,9 @@ function clearStats() {
   if (!db) { return; }
   try {
     db.exec('DELETE FROM token_saver_runs');
-  } catch {}
+  } catch (err) {
+    void err;
+  }
 }
 
 function reset() {

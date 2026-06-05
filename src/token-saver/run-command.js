@@ -48,6 +48,10 @@ function runCommand(commandArgs, options = {}) {
       if (stdout.length >= maxBufferChars) {
         truncated = true;
         stdout = stdout.slice(0, maxBufferChars);
+        // Stop reading further stdout chunks — we already have the cap and
+        // Continuing to drain the stream wastes CPU and lets the OS pipe
+        // Buffer fill up. The child will still exit on its own.
+        child.stdout.pause();
       }
     });
 
@@ -56,6 +60,7 @@ function runCommand(commandArgs, options = {}) {
       if (stderr.length >= maxBufferChars) {
         truncated = true;
         stderr = stderr.slice(0, maxBufferChars);
+        child.stderr.pause();
       }
     });
 
