@@ -184,6 +184,7 @@ function context(deps, args) {
       FROM observations o
       ${TRUST_RECALL_JOINS}
       WHERE o.project = ? AND o.deleted_at IS NULL AND o.type != 'skill'
+        AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
       ORDER BY recall_count DESC, type_priority DESC, trust_score DESC, o.created_at DESC
       LIMIT ?
     `;
