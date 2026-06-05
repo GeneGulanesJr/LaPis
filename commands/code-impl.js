@@ -12,6 +12,33 @@ function indexRepo(args) {
   return codeIndexingService.indexRepoInternal({ db: require('../db').getDb(), args }, repoPath, repoName);
 }
 
+async function indexRepoAsync(args) {
+  const repoPath = args.path;
+  if (!repoPath) {
+    const { jsonErrNoExit } = require('../db');
+    return jsonErrNoExit('Usage: index-repo-async --path <path> [--name NAME] [--mode full|incremental]');
+  }
+  const path = require('path');
+  const repoName = args.name || path.basename(repoPath);
+  return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: args.mode || 'full' });
+}
+
+function indexStatus(args) {
+  const jobId = parseInt(args.job, 10);
+  if (!jobId || Number.isNaN(jobId)) {
+    const { jsonErrNoExit } = require('../db');
+    return jsonErrNoExit('Usage: index-status --job <id>');
+  }
+  return codeIndexingService.indexStatusInternal(jobId);
+}
+
+function listIndexJobs(args) {
+  return codeIndexingService.listIndexJobsInternal({
+    onlyRunning: args.running === 'true',
+    limit: parseInt(args.limit || '20', 10),
+  });
+}
+
 function reindexRepo(args) {
   const repo = args.repo;
   if (!repo) {
@@ -87,6 +114,9 @@ function removeCodeRepo(args) {
 
 module.exports = {
   indexRepo,
+  indexRepoAsync,
+  indexStatus,
+  listIndexJobs,
   reindexRepo,
   codeRepoHealth,
   searchCode,

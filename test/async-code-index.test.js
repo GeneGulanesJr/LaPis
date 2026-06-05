@@ -31,3 +31,42 @@ describe('async code indexing', () => {
     expect(job.files_done).toBeGreaterThanOrEqual(2);
   }, 60000);
 });
+
+describe('index-repo-async wrapper', () => {
+  let tmpDir;
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-async-cmd-'));
+    fs.writeFileSync(path.join(tmpDir, 'a.js'), 'export const x = 1;\n');
+  });
+  afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+  it('returns immediately with a jobId and filesTotal without waiting for completion', async () => {
+    const dbModule = require('../db');
+    dbModule.createDb({ memoryPath: ':memory:' });
+    const codeCmd = require('../commands/code-impl');
+    const t0 = Date.now();
+    const result = await codeCmd.indexRepoAsync({ path: tmpDir, name: 'tmp-cmd', mode: 'full' });
+    const elapsed = Date.now() - t0;
+    expect(result.jobId).toBeGreaterThan(0);
+    expect(result.status).toBe('running');
+    expect(result.filesTotal).toBeGreaterThanOrEqual(1);
+    // The async path should return in well under the time a sync index would take.
+    expect(elapsed).toBeLessThan(2000);
+  });
+});
+
+describe('indexStatus wrapper', () => {
+  it('returns the job record for a given id', () => {
+    const dbModule = require('../db');
+    dbModule.createDb({ memoryPath: ':memory:' });
+    const codeCmd = require('../commands/code-impl');
+    const created = codeCmd.indexRepoAsync({ path: '.', name: 'status-test', mode: 'full' });
+    // indexRepoAsync is async; wait for the jobId
+    return created.then((r) => {
+      const status = codeCmd.indexStatus({ job: String(r.jobId) });
+      expect(status).toBeDefined();
+      expect(status.id).toBe(r.jobId);
+      expect(status.repo_name).toBe('status-test');
+    });
+  });
+});
