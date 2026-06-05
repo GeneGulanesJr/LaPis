@@ -446,7 +446,7 @@ function runMigrations() {
     console.error('[db] Failed to read user_version:', e.message);
   }
 
-  if (version >= 17) {
+  if (version >= 18) {
     return { migrated: false, version };
   }
 
@@ -467,6 +467,7 @@ function runMigrations() {
     { to: 15, run: runMigrationV15 },
     { to: 16, run: runMigrationV16 },
     { to: 17, run: runMigrationV17 },
+    { to: 18, run: runMigrationV18 },
   ];
 
   const fromVersion = version;
@@ -1167,6 +1168,36 @@ function runMigrationV17() {
     });
   } catch (e) {
     errors.push(`V17: ${e.message}`);
+  }
+  return errors;
+}
+
+function runMigrationV18() {
+  const errors = [];
+  try {
+    withTransaction(() => {
+      // index_jobs backs the async code-indexing feature. The worker writes
+      // progress here while the CLI/extension tool reads status from the
+      // same table; WAL mode (already enabled) lets both proceed in parallel.
+      sqlRaw(`CREATE TABLE IF NOT EXISTS index_jobs (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         repo_name TEXT NOT NULL,
+         mode TEXT NOT NULL DEFAULT 'full',
+         status TEXT NOT NULL DEFAULT 'pending',
+         files_total INTEGER NOT NULL DEFAULT 0,
+         files_done INTEGER NOT NULL DEFAULT 0,
+         current_file TEXT,
+         language_breakdown TEXT NOT NULL DEFAULT '{}',
+         started_at TEXT NOT NULL DEFAULT (datetime('now')),
+         completed_at TEXT,
+         error TEXT
+       )`);
+      sqlRaw('CREATE INDEX IF NOT EXISTS idx_index_jobs_status ON index_jobs(status)');
+      sqlRaw('CREATE INDEX IF NOT EXISTS idx_index_jobs_repo ON index_jobs(repo_name, started_at DESC)');
+      sqlRaw('PRAGMA user_version = 18');
+    });
+  } catch (e) {
+    errors.push(`V18: ${e.message}`);
   }
   return errors;
 }
