@@ -130,7 +130,6 @@ const cmd = process.argv[2];
     const result = await executeAndCompress(runArgs, { raw, cwd });
 
     if (remember && result.summary) {
-      const { sqlRun, sqlJson } = require('./db');
       try {
         sqlRun(
           `INSERT INTO observations (session_id, type, title, content, project, scope)
