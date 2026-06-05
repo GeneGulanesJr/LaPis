@@ -115,4 +115,10 @@ export const state = {
   hasInjectedContext: false as boolean,
   editedFiles: new Set<string>(),
   pendingRecallFeedback: new Map<number, { sessionId: number; query: string }>(),
+  compressionStats: {
+    totalRuns: 0 as number,
+    totalOriginalTokens: 0 as number,
+    totalCompressedTokens: 0 as number,
+    totalSavedTokens: 0 as number,
+  },
 };
