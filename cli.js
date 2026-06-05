@@ -98,6 +98,65 @@ const cmd = process.argv[2];
     return;
   }
 
+  if (cmd === 'run') {
+    ensureDb();
+    const { executeAndCompress, formatTextOutput } = require('./src/cli/commands/token-saver');
+    const runArgv = process.argv.slice(3);
+    const runArgs = [];
+    let raw = false;
+    let text = false;
+    let remember = false;
+    let cwd = undefined;
+
+    for (let i = 0; i < runArgv.length; i++) {
+      if (runArgv[i] === '--raw' && runArgs.length === 0) {
+        raw = true;
+      } else if (runArgv[i] === '--text' && runArgs.length === 0) {
+        text = true;
+      } else if (runArgv[i] === '--remember' && runArgs.length === 0) {
+        remember = true;
+      } else if (runArgv[i] === '--cwd' && runArgs.length === 0 && runArgv[i + 1]) {
+        cwd = runArgv[++i];
+      } else {
+        runArgs.push(runArgv[i]);
+      }
+    }
+
+    if (runArgs.length === 0) {
+      process.stderr.write(JSON.stringify({ error: 'Usage: lapis run [--raw] [--text] [--remember] <command...>' }) + '\n');
+      process.exit(1);
+    }
+
+    const result = await executeAndCompress(runArgs, { raw, cwd });
+
+    if (remember && result.summary) {
+      const { sqlRun, sqlJson } = require('./db');
+      try {
+        sqlRun(
+          `INSERT INTO observations (session_id, type, title, content, project, scope)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            'token-saver',
+            'command-summary',
+            `Command: ${result.command}`,
+            result.summary,
+            cwd || process.cwd(),
+            'project',
+          ],
+        );
+      } catch {}
+    }
+
+    if (text) {
+      process.stdout.write(formatTextOutput(result) + '\n');
+    } else {
+      jsonOut(result);
+    }
+
+    process.exit(result.exitCode ?? 0);
+    return;
+  }
+
   ensureDb();
   const format = args.format || 'json';
 
@@ -133,7 +192,7 @@ const cmd = process.argv[2];
     jsonOut(result);
   } else {
     console.error(
-      `Usage: memory-store <subcommand> [--option value ...]\nSubcommands: ${Object.keys(commands).join(', ')}`,
+      `Usage: lapis <subcommand> [--option value ...]\n       lapis run [--raw] [--text] [--remember] <command...>\nSubcommands: ${[...Object.keys(commands), 'run'].sort().join(', ')}`,
     );
     process.exit(1);
   }

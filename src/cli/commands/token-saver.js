@@ -1,0 +1,21 @@
+const { executeAndCompress, formatTextOutput } = require('../../token-saver/index');
+const { getStats, clearStats } = require('../../token-saver/savings-store');
+
+const USAGE = {
+  run: '<command...> [--raw] [--text] [--remember]',
+  'token-saver-stats': '',
+  'token-saver-clear': '',
+};
+
+function register(commands, deps) {
+  commands['token-saver-stats'] = () => {
+    return getStats();
+  };
+
+  commands['token-saver-clear'] = () => {
+    clearStats();
+    return { ok: true, message: 'Token saver stats cleared.' };
+  };
+}
+
+module.exports = { register, USAGE, executeAndCompress, formatTextOutput };
