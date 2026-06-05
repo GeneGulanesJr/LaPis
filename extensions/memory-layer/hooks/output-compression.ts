@@ -2,6 +2,12 @@
 // oxlint-disable sort-imports
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { isBashToolResult } from '@earendil-works/pi-coding-agent';
+import { state } from '../state';
+import { classifyCommand } from '../../../src/token-saver/classify-command';
+import { compressOutput } from '../../../src/token-saver/compress-output';
+import { estimateTokens } from '../../../src/token-saver/estimate-tokens';
+import { recordRun } from '../../../src/token-saver/savings-store';
+
 // isBashToolResult is undefined outside Pi runtime — null-guard + fallback
 function safeIsBashToolResult(event: any): boolean {
   if (typeof isBashToolResult === 'function') {
@@ -9,11 +15,6 @@ function safeIsBashToolResult(event: any): boolean {
   }
   return event?.toolName === 'bash';
 }
-import { state } from '../state';
-import { classifyCommand } from '../../../src/token-saver/classify-command';
-import { compressOutput } from '../../../src/token-saver/compress-output';
-import { estimateTokens } from '../../../src/token-saver/estimate-tokens';
-import { recordRun } from '../../../src/token-saver/savings-store';
 
 interface CompressionDeps {
   state: typeof state;
@@ -61,8 +62,9 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
     const commandType = classifyCommand(commandArgs);
     const exitCode = event.isError ? 1 : 0;
 
-    // Split output into stdout/stderr — bash tool gives combined output
-    // so we pass it all as stdout with empty stderr
+    // Pi's bash tool uses child_process.exec which merges stdout/stderr into
+    // a single stream. We pass the combined output as stdout with empty stderr.
+    // If Pi ever separates streams, this would need updating.
     const compressed = compressOutput({
       commandType,
       commandArgs,
