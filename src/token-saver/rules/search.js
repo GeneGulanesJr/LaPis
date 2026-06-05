@@ -1,8 +1,8 @@
 const MAX_MATCHES_PER_FILE = 10;
 const MAX_FILES = 30;
 
-function compressSearchOutput({ stdout, stderr, exitCode, commandArgs }) {
-  const combined = (stdout + '\n' + stderr).trim();
+function compressSearchOutput({ stdout, stderr, commandArgs }) {
+  const combined = `${stdout}\n${stderr}`.trim();
   if (!combined) {
     return {
       summary: 'No matches.',
@@ -14,12 +14,12 @@ function compressSearchOutput({ stdout, stderr, exitCode, commandArgs }) {
   const lines = combined.split('\n');
   const fileMap = {};
   let totalMatches = 0;
-  let headerLines = [];
+  const headerLines = [];
 
   for (const line of lines) {
-    const match = line.match(/^(.+?):(\d+):(.*)$/);
+    const match = line.match(/^(?<file>.+?):(?<lineNum>\d+):(?<text>.*)$/);
     if (match) {
-      const [, filePath, lineNum, text] = match;
+      const { file: filePath, lineNum, text } = match.groups;
       if (!fileMap[filePath]) {
         fileMap[filePath] = [];
       }

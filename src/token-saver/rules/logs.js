@@ -1,8 +1,8 @@
-const ERROR_PATTERNS = /\b(error|exception|fatal|panic|critical|stack\s*trace|segfault|OOM|out\s+of\s+memory)\b/i;
+const ERROR_PATTERNS = /\b(?:error|exception|fatal|panic|critical|stack\s*trace|segfault|OOM|out\s+of\s+memory)\b/i;
 const TIMESTAMP_PATTERNS = /\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}/;
 
-function compressLogs({ stdout, stderr, exitCode }) {
-  const combined = (stdout + '\n' + stderr).trim();
+function compressLogs({ stdout, stderr }) {
+  const combined = `${stdout}\n${stderr}`.trim();
   if (!combined) {
     return {
       summary: 'No log output.',
@@ -27,11 +27,11 @@ function compressLogs({ stdout, stderr, exitCode }) {
       lastTimestamp = tsMatch[0];
     }
 
-    const normalized = line.replace(/\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}:\d{2}(\.\d+)?/, '<ts>').replace(/\s+/g, ' ').trim();
-    if (!uniqueMessages[normalized]) {
-      uniqueMessages[normalized] = { count: 0, original: line };
+    const _normalized = line.replace(/\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}:\d{2}(?:\.\d+)?/, '<ts>').replace(/\s+/g, ' ').trim();
+    if (!uniqueMessages[_normalized]) {
+      uniqueMessages[_normalized] = { count: 0, original: line };
     }
-    uniqueMessages[normalized].count++;
+    uniqueMessages[_normalized].count++;
   }
 
   const recurring = Object.entries(uniqueMessages)
@@ -46,7 +46,7 @@ function compressLogs({ stdout, stderr, exitCode }) {
   let output = 'Log summary:\n';
   if (recurring.length > 0) {
     output += 'Recurring messages:\n';
-    for (const [normalized, info] of recurring) {
+    for (const [, info] of recurring) {
       output += `- (${info.count}x) ${info.original.slice(0, 120)}\n`;
     }
     output += '\n';

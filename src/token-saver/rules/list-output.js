@@ -1,7 +1,7 @@
 const COLLAPSE_DIRS = ['node_modules', '.git', 'dist', 'build', '.next', 'coverage', '.cache', '.turbo', 'target', '__pycache__', '.tox', 'vendor', '.venv', 'venv'];
 
-function compressListOutput({ stdout, stderr, exitCode }) {
-  const combined = (stdout + '\n' + stderr).trim();
+function compressListOutput({ stdout, stderr }) {
+  const combined = `${stdout}\n${stderr}`.trim();
   if (!combined) {
     return {
       summary: 'No output.',
@@ -17,28 +17,28 @@ function compressListOutput({ stdout, stderr, exitCode }) {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed === '.') continue;
-
-    let isCollapsed = false;
-    for (const dir of COLLAPSE_DIRS) {
-      if (trimmed.startsWith(dir + '/') || trimmed.startsWith(dir + '\\') || trimmed === dir) {
-        if (!collapsed[dir]) {
-          collapsed[dir] = 0;
+    if (trimmed && trimmed !== '.') {
+      let isCollapsed = false;
+      for (const dir of COLLAPSE_DIRS) {
+        if (trimmed.startsWith(`${dir}/`) || trimmed.startsWith(`${dir}\\`) || trimmed === dir) {
+          if (!collapsed[dir]) {
+            collapsed[dir] = 0;
+          }
+          collapsed[dir]++;
+          collapsedCount++;
+          isCollapsed = true;
+          break;
         }
-        collapsed[dir]++;
-        collapsedCount++;
-        isCollapsed = true;
-        break;
       }
-    }
 
-    if (!isCollapsed) {
-      const parts = trimmed.split(/[/\\]/);
-      const topDir = parts[0];
-      if (!sourceDirs[topDir]) {
-        sourceDirs[topDir] = 0;
+      if (!isCollapsed) {
+        const parts = trimmed.split(/[/\\]/);
+        const topDir = parts[0];
+        if (!sourceDirs[topDir]) {
+          sourceDirs[topDir] = 0;
+        }
+        sourceDirs[topDir]++;
       }
-      sourceDirs[topDir]++;
     }
   }
 

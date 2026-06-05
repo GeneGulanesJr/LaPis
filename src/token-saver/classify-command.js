@@ -8,11 +8,11 @@ const COMMAND_RULES = [
     type: 'git-status',
   },
   {
-    patterns: [/^(npm|pnpm|yarn|bun)\s+test/, /^(vitest|jest|mocha|pytest|cargo\s+test|go\s+test)/],
+    patterns: [/^(?:npm|pnpm|yarn|bun)\s+test/, /^(?:vitest|jest|mocha|pytest|cargo\s+test|go\s+test)/],
     type: 'test',
   },
   {
-    patterns: [/^(npm|pnpm|yarn|bun)\s+(install|i|ci|add)/],
+    patterns: [/^(?:npm|pnpm|yarn|bun)\s+(?:install|i|ci|add)/],
     type: 'install',
   },
   {

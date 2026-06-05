@@ -15,7 +15,7 @@ async function executeAndCompress(commandArgs, options = {}) {
     env: options.env,
   });
 
-  const combined = result.stdout + '\n' + result.stderr;
+  const combined = `${result.stdout}\n${result.stderr}`;
   const originalChars = combined.length;
   const estimatedOriginalTokens = estimateTokens(combined);
 

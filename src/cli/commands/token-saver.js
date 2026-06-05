@@ -7,10 +7,8 @@ const USAGE = {
   'token-saver-clear': '',
 };
 
-function register(commands, deps) {
-  commands['token-saver-stats'] = () => {
-    return getStats();
-  };
+function register(commands, _deps) {
+  commands['token-saver-stats'] = () => getStats();
 
   commands['token-saver-clear'] = () => {
     clearStats();

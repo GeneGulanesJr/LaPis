@@ -5,7 +5,7 @@ const DEFAULT_MAX_BUFFER_CHARS = 2_000_000;
 
 function shellEscape(arg) {
   if (/[^A-Za-z0-9_\/:.\-]/.test(arg)) {
-    return "'" + arg.replace(/'/g, "'\\''") + "'";
+    return `'${arg.replace(/'/g, "'\\''")}'`;
   }
   return arg;
 }
@@ -79,7 +79,7 @@ function runCommand(commandArgs, options = {}) {
       clearTimeout(timer);
       resolve({
         stdout,
-        stderr: stderr + '\n' + err.message,
+        stderr: `${stderr}\n${err.message}`,
         exitCode: 1,
         truncated,
         timedOut: false,

@@ -1,7 +1,7 @@
-const IMPORTANT_KEYWORDS = /\b(error|failed|exception|todo|fixme|warning|deprecated|security|password|token|api\s?key)\b/i;
+const IMPORTANT_KEYWORDS = /\b(?:error|failed|exception|todo|fixme|warning|deprecated|security|password|token|api\s?key)\b/i;
 
-function compressFileRead({ stdout, stderr, exitCode }) {
-  const combined = (stdout + '\n' + stderr).trim();
+function compressFileRead({ stdout, stderr }) {
+  const combined = `${stdout}\n${stderr}`.trim();
   if (!combined) {
     return {
       summary: 'No output.',

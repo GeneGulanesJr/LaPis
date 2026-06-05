@@ -8,8 +8,8 @@ const LOCKFILE_PATTERNS = [
   /poetry\.lock/,
 ];
 
-function compressGitDiff({ stdout, stderr, exitCode }) {
-  const combined = (stdout + '\n' + stderr).trim();
+function compressGitDiff({ stdout, stderr }) {
+  const combined = `${stdout}\n${stderr}`.trim();
   if (!combined) {
     return {
       summary: 'No changes.',
@@ -21,8 +21,7 @@ function compressGitDiff({ stdout, stderr, exitCode }) {
   const lines = combined.split('\n');
   const files = [];
   let currentFile = null;
-  let hunks = [];
-  let lockfileDiffs = [];
+  const lockfileDiffs = [];
   let lockfileLines = 0;
   let contextLines = 0;
   let inLockfile = false;
@@ -33,46 +32,33 @@ function compressGitDiff({ stdout, stderr, exitCode }) {
         lockfileDiffs.push(currentFile);
       }
       inLockfile = false;
-      const match = line.match(/diff --git a\/(.+?) b\/(.+?)$/);
+      const match = line.match(/diff --git a\/(?<oldPath>.+?) b\/(?<newPath>.+?)$/);
       if (match) {
         currentFile = {
-          path: match[2],
+          path: match.groups.newPath,
           additions: 0,
           deletions: 0,
           hunks: [],
         };
         files.push(currentFile);
         for (const lp of LOCKFILE_PATTERNS) {
-          if (lp.test(match[2])) {
+          if (lp.test(match.groups.newPath)) {
             inLockfile = true;
             break;
           }
         }
       }
-      continue;
-    }
-
-    if (inLockfile) {
+    } else if (inLockfile) {
       lockfileLines++;
-      continue;
-    }
-
-    if (line.startsWith('@@')) {
+    } else if (line.startsWith('@@')) {
       if (currentFile) {
         currentFile.hunks.push(line);
       }
-      continue;
-    }
-
-    if (line.startsWith('+') && !line.startsWith('+++')) {
-      if (currentFile) currentFile.additions++;
-      continue;
-    }
-    if (line.startsWith('-') && !line.startsWith('---')) {
-      if (currentFile) currentFile.deletions++;
-      continue;
-    }
-    if (!line.startsWith('\\') && !line.startsWith('index ') && !line.startsWith('Binary')) {
+    } else if (line.startsWith('+') && !line.startsWith('+++')) {
+      if (currentFile) { currentFile.additions++; }
+    } else if (line.startsWith('-') && !line.startsWith('---')) {
+      if (currentFile) { currentFile.deletions++; }
+    } else if (!line.startsWith('\\') && !line.startsWith('index ') && !line.startsWith('Binary')) {
       contextLines++;
     }
   }
@@ -102,7 +88,6 @@ function compressGitDiff({ stdout, stderr, exitCode }) {
     }
   }
 
-  const totalLines = lines.length;
   const omitted = contextLines + lockfileLines;
   let summary = `${files.length} file(s) changed.`;
   if (lockfileDiffs.length > 0) {

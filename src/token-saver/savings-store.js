@@ -21,9 +21,9 @@ const CREATE_INDEX_DATE_SQL = "CREATE INDEX IF NOT EXISTS idx_ts_runs_date ON to
 let _tableEnsured = false;
 
 function ensureTable() {
-  if (_tableEnsured) return;
+  if (_tableEnsured) { return; }
   const db = getDb();
-  if (!db) return;
+  if (!db) { return; }
   try {
     db.exec(CREATE_TABLE_SQL);
     db.exec(CREATE_INDEX_SQL);
@@ -35,7 +35,7 @@ function ensureTable() {
 function recordRun(run) {
   ensureTable();
   const db = getDb();
-  if (!db) return;
+  if (!db) { return; }
   try {
     const stmt = db.prepare(
       `INSERT INTO token_saver_runs (command, command_type, exit_code, original_chars, compressed_chars, estimated_original_tokens, estimated_compressed_tokens, estimated_saved_tokens, savings_percent, summary)
@@ -98,7 +98,7 @@ function getStats() {
 function clearStats() {
   ensureTable();
   const db = getDb();
-  if (!db) return;
+  if (!db) { return; }
   try {
     db.exec('DELETE FROM token_saver_runs');
   } catch {}

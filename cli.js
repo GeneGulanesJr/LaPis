@@ -123,7 +123,7 @@ const cmd = process.argv[2];
     }
 
     if (runArgs.length === 0) {
-      process.stderr.write(JSON.stringify({ error: 'Usage: lapis run [--raw] [--text] [--remember] <command...>' }) + '\n');
+      process.stderr.write(`${JSON.stringify({ error: 'Usage: lapis run [--raw] [--text] [--remember] <command...>' })}\n`);
       process.exit(1);
     }
 
@@ -147,7 +147,7 @@ const cmd = process.argv[2];
     }
 
     if (text) {
-      process.stdout.write(formatTextOutput(result) + '\n');
+      process.stdout.write(`${formatTextOutput(result)}\n`);
     } else {
       jsonOut(result);
     }
