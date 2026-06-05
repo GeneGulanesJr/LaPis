@@ -580,6 +580,58 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
     },
   });
 
+  pi.registerTool({
+    name: 'index-status',
+    label: 'Index Job Status',
+    description: 'Check the progress of an async code-indexing job. Returns job state, file progress, current file, and language breakdown.',
+    parameters: Type.Object({
+      job: Type.String({ description: 'Job ID returned by index-repo-async' }),
+    }),
+    renderResult: renderCompactToolResult,
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
+      try {
+        const result = await deps.memCmd('index-status', { job: String(params.job) });
+        if (!result || (result as any).error) {
+          return {
+            content: [{ type: 'text', text: `Error: ${(result as any)?.error || 'unknown'}` }],
+            details: {},
+            isError: true,
+          };
+        }
+        const job = result as any;
+        const total = Number(job.files_total) || 0;
+        const done = Number(job.files_done) || 0;
+        const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
+        const filled = Math.max(0, Math.min(20, Math.floor(pct / 5)));
+        const bar = '█'.repeat(filled).padEnd(20, '░');
+        const lines: string[] = [];
+        const statusIcon = job.status === 'running' ? '⏳' : job.status === 'completed' ? '✅' : job.status === 'error' ? '❌' : job.status === 'cancelled' ? '🚫' : '❔';
+        lines.push(`${statusIcon} Index job #${job.id} (${job.repo_name}) — ${job.status}`);
+        lines.push(`[${bar}] ${pct}% (${done}/${total})`);
+        if (job.current_file) lines.push(`Current: ${job.current_file}`);
+        if (job.language_breakdown && job.language_breakdown !== '{}') {
+          try {
+            const bd = JSON.parse(job.language_breakdown);
+            const top = Object.entries(bd).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 5);
+            if (top.length) lines.push(`Languages: ${top.map(([l, n]) => `${l}=${n}`).join(', ')}`);
+          } catch (_) { /* malformed JSON, skip */ }
+        }
+        if (job.completed_at) lines.push(`Completed: ${job.completed_at}`);
+        if (job.error) lines.push(`Error: ${job.error}`);
+        return {
+          content: [{ type: 'text', text: lines.join('\n') }],
+          details: job,
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text', text: `Unexpected error: ${err instanceof Error ? err.message : String(err)}` }],
+          details: {},
+          isError: true,
+        };
+      }
+    },
+  });
+
   pi.registerCommand('memory-stats', {
     description: 'Show memory layer statistics',
     handler: async (_args, ctx) => {
