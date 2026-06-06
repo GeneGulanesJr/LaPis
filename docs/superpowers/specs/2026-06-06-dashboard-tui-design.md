@@ -148,25 +148,28 @@ Staleness is determined in the CLI command handler (not in data-access) because 
 
 ## Dream Cycle Persistence — modify `src/memory-domain/compaction.js`
 
-At the end of `dream()`, after `report.totalCleaned = totalCleaned`, before the return:
+At the end of `dream()`, right before `return report;` (after `report.ok = true`), guarded on success:
 
 ```js
-// Persist dream cycle stats to settings
-try {
-  const currentTotal = parseInt(
-    deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_total_cleaned'")[0]?.value || '0',
-    10
-  );
-  const currentCount = parseInt(
-    deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_run_count'")[0]?.value || '0',
-    10
-  );
-  deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_last_run', ?)", [report.completedAt]);
-  deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_total_cleaned', ?)", [String(currentTotal + totalCleaned)]);
-  deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_run_count', ?)", [String(currentCount + 1)]);
-} catch (_e) {
-  // Non-critical — dashboard will show "no data" if this fails
+if (report.ok) {
+  // Persist dream cycle stats to settings
+  try {
+    const currentTotal = parseInt(
+      deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_total_cleaned'")[0]?.value || '0',
+      10
+    );
+    const currentCount = parseInt(
+      deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_run_count'")[0]?.value || '0',
+      10
+    );
+    deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_last_run', ?)", [report.completedAt]);
+    deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_total_cleaned', ?)", [String(currentTotal + totalCleaned)]);
+    deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_run_count', ?)", [String(currentCount + 1)]);
+  } catch (_e) {
+    // Non-critical — dashboard will show "no data" if this fails
+  }
 }
+return report;
 ```
 
 Wrapped in try/catch so a settings table issue never breaks the dream cycle itself.
@@ -268,15 +271,14 @@ Single viewport, scrollable. Sections separated by horizontal rules. Bottom bar 
 │   PiMemoryExtension  359 files, 8874 symbols  ✅     │
 │   other-repo         102 files, 2140 symbols   ⚠ STALE│
 ╰──────────────────────────────────────────────────────╯
- [↑↓] scroll  [q] close
+ [q] close
 ```
 
 ### Behavior
 
 - **Width-aware**: `render(width)` calculates bar lengths relative to available width
 - **Bar chart**: `█` chars, scaled to max count in byType array, max bar width = `width - type_label_len - count_len - padding`
-- **Scroll**: tracks `scrollOffset`, adjusts which lines render. Up/Down arrows move by 1 line, Page Up/Down by 5
-- **Close**: `q` or Escape calls `done()`
+- **Close**: `q` or Escape calls `done()`. Terminal scrollback handles vertical navigation — the full dashboard fits ~25 lines in most terminals
 - **Color**: use `theme.fg()` for:
   - Green (`success`) for healthy metrics
   - Yellow (`warning`) for moderate alerts
@@ -294,14 +296,13 @@ function createDashboardComponent(
   tui: { requestRender: () => void },
   done: (value: void) => void,
 ) {
-  let scrollOffset = 0;
   let cachedWidth: number | undefined;
   let cachedLines: string[] = [];
 
   function buildLines(width: number): string[] {
     // Build all sections as string[]
     // Use truncateToWidth(line, width) for each line
-    // Returns full content — TUI handles viewport overflow
+    // Returns full content — terminal scrollback handles navigation
   }
 
   return {
@@ -315,16 +316,10 @@ function createDashboardComponent(
     },
 
     handleInput(data: string): void {
-      if (matchesKey(data, Key.up)) {
-        scrollOffset = Math.max(0, scrollOffset - 1);
-      } else if (matchesKey(data, Key.down)) {
-        scrollOffset++;
-      } else if (matchesKey(data, Key.escape) || data === 'q') {
+      if (matchesKey(data, Key.escape) || data === 'q') {
         done();
         return;
       }
-      // After any state change, trigger re-render
-      tui.requestRender();
     },
 
     invalidate(): void {
@@ -337,10 +332,9 @@ function createDashboardComponent(
 
 Key implementation notes:
 - Use `matchesKey()` and `Key.*` from `@earendil-works/pi-tui` for key detection (not raw string comparison)
-- Call `tui.requestRender()` after every state change in `handleInput` (not `invalidate()` alone)
-- Return all lines from `render()` — the TUI framework handles viewport overflow and scrolling
+- No manual scroll tracking — the full dashboard fits ~25 lines in most terminals, and terminal scrollback handles overflow
+- Return all lines from `render()` — the TUI framework renders them
 - Use `truncateToWidth()` to ensure no line exceeds `width`
-- Capture `tui` from the `ctx.ui.custom()` callback for `requestRender()` access
 
 ## Files Summary
 
