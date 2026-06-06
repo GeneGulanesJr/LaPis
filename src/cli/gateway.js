@@ -11,6 +11,7 @@ const trustRouter = require('./commands/trust');
 const maintenanceRouter = require('./commands/maintenance');
 const agentIntelRouter = require('./commands/agent-intel');
 const tokenSaverRouter = require('./commands/token-saver');
+const dashboardRouter = require('./commands/dashboard');
 
 function buildCommandMap(deps) {
   const commands = {};
@@ -23,6 +24,7 @@ function buildCommandMap(deps) {
   maintenanceRouter.register(commands, deps);
   agentIntelRouter.register(commands, deps);
   tokenSaverRouter.register(commands, deps);
+  dashboardRouter.register(commands, deps);
 
   return commands;
 }
