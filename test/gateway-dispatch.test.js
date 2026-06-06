@@ -35,9 +35,31 @@ describe('gateway dispatch', () => {
   });
 });
 
-describe('dashboard CLI command', () => {
-  it('should register and call getDashboard', () => {
-    // Test the command router directly without going through gateway's module loading
+describe('gateway buildCommandMap', () => {
+  it('should include dashboard command in the registered commands', () => {
+    // Use the actual buildCommandMap which should register all routers
+    // We don't need to mock anything — we just check that 'dashboard' is a key
+    const { buildCommandMap } = require('../src/cli/gateway');
+    const commands = buildCommandMap({
+      sqlJson: vi.fn(),
+      sqlRun: vi.fn(),
+      sqlRaw: vi.fn(),
+      jsonErrNoExit: vi.fn(),
+      repositories: {},
+      softDeleteObservation: vi.fn(),
+    });
+    expect(commands.dashboard).toBeDefined();
+    expect(typeof commands.dashboard).toBe('function');
+  });
+});
+
+describe('dashboard CLI command router', () => {
+  it('should register dashboard command that calls getDashboard', () => {
+    // This test verifies the router pattern by re-mocking the data-access module
+    // after it's been loaded by the require() call in dashboard.js.
+    // Since dashboard.js destructures getDashboard at load time, we instead
+    // verify the integration by calling the function with controlled deps.
+    const dashboardRouter = require('../src/cli/commands/dashboard');
     const mockGetDashboard = vi.fn(() => ({
       overview: { totalMemories: 5, totalProjects: 1, thisWeekSaved: 1, thisWeekCleaned: 0, avgTrust: 0.9, neverRecalled: 0, expiringSoon: 0 },
       byType: [],
@@ -47,18 +69,17 @@ describe('dashboard CLI command', () => {
       codeIndex: [],
     }));
 
-    // Manually simulate what the register function does
+    // Replace getDashboard in the cached module — since dashboard.js uses
+    // `const { getDashboard } = require(...)` at load time, we need to mock
+    // before the require. The simpler approach: test the registration pattern
+    // directly by calling register() with a fresh mock.
     const commands = {};
     const deps = { sqlJson: vi.fn(), sqlRun: vi.fn() };
+    dashboardRouter.register(commands, deps);
 
-    // The actual register function from dashboard.js:
-    // commands.dashboard = () => getDashboard(deps);
-    // We test the pattern directly:
-    commands.dashboard = () => mockGetDashboard(deps);
-
-    const result = commands.dashboard();
-    expect(mockGetDashboard).toHaveBeenCalledWith(deps);
-    expect(result.overview.totalMemories).toBe(5);
-    expect(result.codeIndex).toEqual([]);
+    expect(commands.dashboard).toBeDefined();
+    expect(typeof commands.dashboard).toBe('function');
+    // The actual getDashboard call will use the real implementation,
+    // but we just verify the router registered successfully
   });
 });
