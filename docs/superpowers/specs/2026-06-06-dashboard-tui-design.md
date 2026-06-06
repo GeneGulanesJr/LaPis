@@ -142,9 +142,9 @@ FROM recall_log
 
 **codeIndex:**
 ```sql
-SELECT name, file_count, symbol_count, indexed_at, base_head FROM code_repos
+SELECT name, path, file_count, symbol_count, indexed_at, base_head FROM code_repos
 ```
-Staleness: compare `base_head` to actual git HEAD at the repo path. If different or path missing, `isStale = true`.
+Staleness is determined in the CLI command handler (not in data-access) because it requires spawning `git rev-parse HEAD` at the repo's filesystem `path` — a side effect that doesn't belong in the query layer. The data-access layer returns `path` and `base_head`; the command handler compares `base_head` against the actual current HEAD and sets `isStale = true` if they differ or the path is inaccessible.
 
 ## Dream Cycle Persistence — modify `src/memory-domain/compaction.js`
 
@@ -196,9 +196,10 @@ dashboardRouter.register(commands, deps);
 ## Extension Command — `extensions/memory-layer/commands/dashboard.ts` (new)
 
 ```ts
+import { execFileSync } from 'node:child_process';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { mem } from '../host/memory-client';
-import { DashboardComponent } from './dashboard-tui';
+import { createDashboardComponent } from './dashboard-tui';
 
 export function registerDashboardCommand(pi: ExtensionAPI) {
   pi.registerCommand('dashboard', {
@@ -209,8 +210,19 @@ export function registerDashboardCommand(pi: ExtensionAPI) {
         ctx.ui.notify('Failed to load dashboard data', 'error');
         return;
       }
+      // Enrich code index entries with staleness (requires git rev-parse — side effect)
+      if (data.codeIndex) {
+        for (const repo of data.codeIndex) {
+          try {
+            const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo.path, encoding: 'utf-8' }).trim();
+            repo.isStale = head !== repo.base_head;
+          } catch {
+            repo.isStale = true;
+          }
+        }
+      }
       await ctx.ui.custom<void>((tui, theme, keybindings, done) => {
-        return new DashboardComponent(data, theme, done);
+        return createDashboardComponent(data, theme, tui, done);
       });
     },
   });
@@ -225,7 +237,7 @@ safeRegister(pi, deps, 'dashboard command', registerDashboardCommand);
 
 ## TUI Component — `extensions/memory-layer/commands/dashboard-tui.ts` (new)
 
-Implements the `Component` interface from `@earendil-works/pi-tui`.
+Returns a 3-method object `{ render, invalidate, handleInput }` following the `ctx.ui.custom()` pattern from tui.md. Not a class instance — the TUI framework calls these methods directly.
 
 ### Layout
 
@@ -274,33 +286,61 @@ Single viewport, scrollable. Sections separated by horizontal rules. Bottom bar 
 ### Component structure
 
 ```ts
-class DashboardComponent implements Component {
-  private data: DashboardData;
-  private theme: Theme;
-  private done: (value: void) => void;
-  private scrollOffset: number = 0;
-  private allLines: string[] = [];  // pre-rendered, recalculated on render
+import { matchesKey, Key, truncateToWidth } from '@earendil-works/pi-tui';
 
-  constructor(data, theme, done) { ... }
+function createDashboardComponent(
+  data: DashboardData,
+  theme: Theme,
+  tui: { requestRender: () => void },
+  done: (value: void) => void,
+) {
+  let scrollOffset = 0;
+  let cachedWidth: number | undefined;
+  let cachedLines: string[] = [];
 
-  render(width: number): string[] {
-    // Build allLines from data
-    // Return visible slice based on scrollOffset and terminal height
+  function buildLines(width: number): string[] {
+    // Build all sections as string[]
+    // Use truncateToWidth(line, width) for each line
+    // Returns full content — TUI handles viewport overflow
   }
 
-  handleInput(data: string): void {
-    // up arrow: scrollOffset--
-    // down arrow: scrollOffset++
-    // page up: scrollOffset -= 5
-    // page down: scrollOffset += 5
-    // q / escape: done()
-  }
+  return {
+    render(width: number): string[] {
+      if (cachedLines.length && cachedWidth === width) {
+        return cachedLines;
+      }
+      cachedLines = buildLines(width);
+      cachedWidth = width;
+      return cachedLines;
+    },
 
-  invalidate(): void {
-    this.allLines = [];
-  }
+    handleInput(data: string): void {
+      if (matchesKey(data, Key.up)) {
+        scrollOffset = Math.max(0, scrollOffset - 1);
+      } else if (matchesKey(data, Key.down)) {
+        scrollOffset++;
+      } else if (matchesKey(data, Key.escape) || data === 'q') {
+        done();
+        return;
+      }
+      // After any state change, trigger re-render
+      tui.requestRender();
+    },
+
+    invalidate(): void {
+      cachedWidth = undefined;
+      cachedLines = [];
+    },
+  };
 }
 ```
+
+Key implementation notes:
+- Use `matchesKey()` and `Key.*` from `@earendil-works/pi-tui` for key detection (not raw string comparison)
+- Call `tui.requestRender()` after every state change in `handleInput` (not `invalidate()` alone)
+- Return all lines from `render()` — the TUI framework handles viewport overflow and scrolling
+- Use `truncateToWidth()` to ensure no line exceeds `width`
+- Capture `tui` from the `ctx.ui.custom()` callback for `requestRender()` access
 
 ## Files Summary
 
@@ -311,7 +351,7 @@ class DashboardComponent implements Component {
 | `src/cli/gateway.js` | **Modify** | Add dashboard router |
 | `src/memory-domain/compaction.js` | **Modify** | Persist dream stats to settings |
 | `extensions/memory-layer/commands/dashboard.ts` | **New** | `/dashboard` command |
-| `extensions/memory-layer/commands/dashboard-tui.ts` | **New** | TUI component |
+| `extensions/memory-layer/commands/dashboard-tui.ts` | **New** | TUI component (factory function returning `{ render, invalidate, handleInput }`) |
 | `extensions/memory-layer/index.ts` | **Modify** | Register dashboard command |
 
 ## Out of Scope (future)
