@@ -63,6 +63,13 @@ describe('Aurex HTTP Server', () => {
       const rows = sqlJson("SELECT name FROM sqlite_master WHERE type='table' AND name='checkpoints'");
       expect(rows.length).toBe(1);
     });
+
+    it('creates todo ledger tables after migration', () => {
+      for (const table of ['todo_ledgers', 'todo_items', 'todo_events']) {
+        const rows = sqlJson("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [table]);
+        expect(rows.length).toBe(1);
+      }
+    });
   });
 
   describe('Aurex repository', () => {
@@ -239,6 +246,48 @@ describe('Aurex HTTP Server', () => {
       expect(rows.length).toBeGreaterThanOrEqual(1);
       expect(rows.some((r) => r.reason === 'scope changed')).toBe(true);
     });
+
+    it('creates a mission todo ledger and todo items with audit events', () => {
+      const ledger = repo.createMissionLedger({
+        missionId: 'm1',
+        missionTitle: 'Todo mission',
+        sourceMission: 'Implement todo ledger',
+        plannerSummary: 'Add storage and API',
+        acceptanceCriteria: ['ledger can be read'],
+      })[0];
+      expect(ledger.missionId).toBe('m1');
+      expect(ledger.status).toBe('planning');
+
+      const todo = repo.createTodo('m1', {
+        id: 'todo-1',
+        title: 'Add todo storage',
+        status: 'ready',
+        type: 'implementation',
+        goal: 'Persist todos',
+        likelyFiles: ['src/platform/storage/repositories/aurex.js'],
+        lapisContextQuery: 'todo ledger storage repository tests',
+      })[0];
+      expect(todo.id).toBe('todo-1');
+      expect(repo.listTodosByMission('m1').length).toBe(1);
+      expect(repo.listMissionEvents('m1').some((e) => e.eventType === 'ledger_created')).toBe(true);
+      expect(repo.listTodoEvents('todo-1').some((e) => e.eventType === 'todo_created')).toBe(true);
+    });
+
+    it('enforces todo status safety rules', () => {
+      expect(() => repo.setTodoStatus('todo-1', 'not-real')).toThrow(/status must be/);
+      expect(() => repo.setTodoStatus('todo-1', 'passed')).toThrow(/validator verdict/);
+
+      repo.addTodoEvidence('todo-1', {
+        branch: 'task/todo-1',
+        changedFiles: ['src/platform/storage/repositories/aurex.js'],
+        notes: ['storage added'],
+      });
+      expect(repo.setTodoStatus('todo-1', 'implemented')[0].status).toBe('implemented');
+
+      repo.addTodoEvidence('todo-1', { validatorVerdict: { verdict: 'pass' }, commits: ['abc123'] });
+      expect(repo.setTodoStatus('todo-1', 'passed')[0].status).toBe('passed');
+      expect(repo.setTodoStatus('todo-1', 'merged')[0].status).toBe('merged');
+    });
   });
 
   const http = require('http');
@@ -374,6 +423,7 @@ describe('Aurex HTTP Server', () => {
     let milestoneId;
     let unitId;
     let contractId;
+    let todoId;
 
     it('creates a mission', async () => {
       const res = await req('POST', '/missions', { description: 'E2E mission', config: { modelHints: {} } });
@@ -394,6 +444,84 @@ describe('Aurex HTTP Server', () => {
       expect(res.status).toBe(200);
       const updated = await req('GET', `/missions/${missionId}`);
       expect(updated.body.status).toBe('running');
+    });
+
+    it('creates a todo ledger for a mission', async () => {
+      const res = await req('POST', '/todo-ledgers', {
+        missionId,
+        missionTitle: 'E2E mission',
+        status: 'planning',
+        sourceMission: 'E2E mission',
+        plannerSummary: 'Verify todo ledger API',
+        acceptanceCriteria: ['todo can be tracked'],
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.missionId).toBe(missionId);
+      expect(res.body.acceptanceCriteria).toContain('todo can be tracked');
+    });
+
+    it('creates and lists mission todos', async () => {
+      const res = await req('POST', `/missions/${missionId}/todos`, {
+        title: 'Implement E2E todo',
+        status: 'ready',
+        type: 'implementation',
+        priority: 'high',
+        goal: 'Exercise todo APIs',
+        scope: { in: ['src/http/handlers/todos.js'], out: ['UI'] },
+        likelyFiles: ['src/http/handlers/todos.js'],
+        lapisContextQuery: 'todo ledger HTTP handler tests',
+        acceptanceCriteria: ['HTTP endpoints work'],
+        validationCriteria: ['invalid status is rejected'],
+        testCommands: ['npx vitest run test/http-server.test.js'],
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe('ready');
+      todoId = res.body.id;
+
+      const list = await req('GET', `/missions/${missionId}/todos`);
+      expect(list.status).toBe(200);
+      expect(list.body.some((todo) => todo.id === todoId)).toBe(true);
+    });
+
+    it('rejects unsafe todo status transitions over HTTP', async () => {
+      const res = await req('PATCH', `/todos/${todoId}/status`, { status: 'passed' });
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('invalid_todo_status');
+    });
+
+    it('adds todo evidence, notes, and status updates', async () => {
+      const evidence = await req('POST', `/todos/${todoId}/evidence`, {
+        branch: 'task/e2e-todo',
+        changedFiles: ['src/http/handlers/todos.js'],
+        testsRun: [{ command: 'npx vitest run test/http-server.test.js', exitCode: 0 }],
+      });
+      expect(evidence.status).toBe(200);
+      expect(evidence.body.evidence.changedFiles).toContain('src/http/handlers/todos.js');
+
+      const note = await req('POST', `/todos/${todoId}/notes`, { note: 'Evidence captured' });
+      expect(note.status).toBe(200);
+      expect(note.body.evidence.notes).toContain('Evidence captured');
+
+      const implemented = await req('PATCH', `/todos/${todoId}/status`, { status: 'implemented' });
+      expect(implemented.status).toBe(200);
+      expect(implemented.body.status).toBe('implemented');
+    });
+
+    it('returns todo context query and focused context', async () => {
+      const query = await req('GET', `/todos/${todoId}/context-query`);
+      expect(query.status).toBe(200);
+      expect(query.body.lapisContextQuery).toBe('todo ledger HTTP handler tests');
+
+      const context = await req('GET', `/todos/${todoId}/context`);
+      expect(context.status).toBe(200);
+      expect(context.body.query).toBe('todo ledger HTTP handler tests');
+      expect(Array.isArray(context.body.context)).toBe(true);
+    });
+
+    it('records todo audit events', async () => {
+      const events = await req('GET', `/todos/${todoId}/events`);
+      expect(events.status).toBe(200);
+      expect(events.body.some((event) => event.eventType === 'todo_evidence_added')).toBe(true);
     });
 
     it('creates a milestone', async () => {
@@ -478,6 +606,23 @@ describe('Aurex HTTP Server', () => {
       });
       expect(res.status).toBe(201);
       expect(res.body.verdict).toBe('pass');
+    });
+
+    it('rejects malformed verdict payloads', async () => {
+      const res = await req('POST', '/verdicts', {
+        sessionId: 's-e2e',
+        milestoneId,
+        contractId,
+        validatorType: 'validator_scrutiny',
+        verdict: 'maybe',
+        findings: '',
+        failedUnitIds: 'unit-1',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('invalid_verdict');
+      expect(res.body.error.message).toContain('verdict must be pass or fail');
+      expect(res.body.error.message).toContain('failedUnitIds must be an array');
     });
 
     it('gets verdicts for milestone', async () => {

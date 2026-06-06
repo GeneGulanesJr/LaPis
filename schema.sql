@@ -682,3 +682,62 @@ CREATE TABLE IF NOT EXISTS stale_flags (
 
 CREATE INDEX IF NOT EXISTS idx_sf_repo ON stale_flags(repo_id);
 CREATE INDEX IF NOT EXISTS idx_sf_traffic ON stale_flags(file_path);
+
+-- ═══════════════════════════════════════════════════════════
+-- AUREX TODO LEDGER REPOSITORY
+-- ═══════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS todo_ledgers (
+  mission_id          TEXT PRIMARY KEY,
+  mission_title       TEXT NOT NULL DEFAULT '',
+  status              TEXT NOT NULL DEFAULT 'planning',
+  source_mission      TEXT NOT NULL DEFAULT '',
+  planner_summary     TEXT NOT NULL DEFAULT '',
+  acceptance_criteria TEXT NOT NULL DEFAULT '[]',
+  constraints_json    TEXT NOT NULL DEFAULT '[]',
+  assumptions         TEXT NOT NULL DEFAULT '[]',
+  human_questions     TEXT NOT NULL DEFAULT '[]',
+  created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_todo_ledgers_status ON todo_ledgers(status);
+
+CREATE TABLE IF NOT EXISTS todo_items (
+  id                     TEXT PRIMARY KEY,
+  mission_id             TEXT NOT NULL REFERENCES todo_ledgers(mission_id) ON DELETE CASCADE,
+  title                  TEXT NOT NULL,
+  status                 TEXT NOT NULL DEFAULT 'pending',
+  type                   TEXT NOT NULL DEFAULT 'implementation',
+  priority               TEXT NOT NULL DEFAULT 'medium',
+  depends_on             TEXT NOT NULL DEFAULT '[]',
+  goal                   TEXT NOT NULL DEFAULT '',
+  scope_json             TEXT NOT NULL DEFAULT '{"in":[],"out":[]}',
+  likely_files           TEXT NOT NULL DEFAULT '[]',
+  lapis_context_query    TEXT NOT NULL DEFAULT '',
+  acceptance_criteria    TEXT NOT NULL DEFAULT '[]',
+  validation_criteria    TEXT NOT NULL DEFAULT '[]',
+  test_commands          TEXT NOT NULL DEFAULT '[]',
+  risk_level             TEXT NOT NULL DEFAULT 'medium',
+  worker_instructions    TEXT NOT NULL DEFAULT '[]',
+  validator_instructions TEXT NOT NULL DEFAULT '[]',
+  escalation_rules       TEXT NOT NULL DEFAULT '[]',
+  evidence_json          TEXT NOT NULL DEFAULT '{"branch":null,"commits":[],"changedFiles":[],"testsRun":[],"testResults":[],"validatorVerdict":null,"notes":[]}',
+  confidence             TEXT NOT NULL DEFAULT 'medium',
+  assigned_worker_id     TEXT,
+  created_at             TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at             TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_todo_items_mission ON todo_items(mission_id);
+CREATE INDEX IF NOT EXISTS idx_todo_items_status ON todo_items(status);
+CREATE INDEX IF NOT EXISTS idx_todo_items_context ON todo_items(lapis_context_query);
+
+CREATE TABLE IF NOT EXISTS todo_events (
+  id           TEXT PRIMARY KEY,
+  mission_id   TEXT NOT NULL REFERENCES todo_ledgers(mission_id) ON DELETE CASCADE,
+  todo_id      TEXT REFERENCES todo_items(id) ON DELETE CASCADE,
+  event_type   TEXT NOT NULL,
+  actor_id     TEXT,
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_todo_events_mission ON todo_events(mission_id);
+CREATE INDEX IF NOT EXISTS idx_todo_events_todo ON todo_events(todo_id);

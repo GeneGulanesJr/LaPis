@@ -71,6 +71,7 @@ function buildRoutes(deps) {
   const checkpoints = require('./handlers/checkpoints');
   const settings = require('./handlers/settings');
   const codeIndex = require('./handlers/code-index');
+  const todos = require('./handlers/todos');
 
   return [
     // Health
@@ -137,6 +138,33 @@ function buildRoutes(deps) {
     { method: 'GET', pattern: '/checkpoints/:id', handler: checkpoints.getCheckpoint(aurex) },
     { method: 'PATCH', pattern: '/checkpoints/:id', handler: checkpoints.resolveCheckpoint(aurex) },
     { method: 'GET', pattern: '/missions/:missionId/checkpoints', handler: checkpoints.getPendingCheckpoints(aurex) },
+
+    // Todo ledgers
+    { method: 'POST', pattern: '/todo-ledgers', handler: todos.createMissionLedger(aurex) },
+    { method: 'GET', pattern: '/todo-ledgers', handler: todos.listMissionLedgers(aurex) },
+    { method: 'GET', pattern: '/missions/:missionId/todo-ledger', handler: todos.getMissionLedger(aurex) },
+    { method: 'PATCH', pattern: '/missions/:missionId/todo-ledger', handler: todos.updateMissionLedger(aurex) },
+    { method: 'PATCH', pattern: '/missions/:missionId/todo-ledger/status', handler: todos.setMissionLedgerStatus(aurex) },
+    { method: 'POST', pattern: '/missions/:missionId/todo-events', handler: todos.recordMissionEvent(aurex) },
+    { method: 'GET', pattern: '/missions/:missionId/todo-events', handler: todos.listMissionEvents(aurex) },
+
+    // Todo items
+    { method: 'POST', pattern: '/missions/:missionId/todos', handler: todos.createTodo(aurex) },
+    { method: 'POST', pattern: '/missions/:missionId/todos/bulk', handler: todos.createTodos(aurex) },
+    { method: 'GET', pattern: '/missions/:missionId/todos', handler: todos.listTodosByMission(aurex) },
+    { method: 'GET', pattern: '/todos', handler: todos.listTodos(aurex) },
+    { method: 'POST', pattern: '/todos/search', handler: todos.searchTodos(aurex) },
+    { method: 'POST', pattern: '/missions/:missionId/todos/claim-next', handler: todos.claimNextReadyTodo(aurex) },
+    { method: 'GET', pattern: '/todos/:todoId', handler: todos.getTodo(aurex) },
+    { method: 'PATCH', pattern: '/todos/:todoId', handler: todos.updateTodo(aurex) },
+    { method: 'PATCH', pattern: '/todos/:todoId/status', handler: todos.setTodoStatus(aurex) },
+    { method: 'POST', pattern: '/todos/:todoId/evidence', handler: todos.addTodoEvidence(aurex) },
+    { method: 'POST', pattern: '/todos/:todoId/notes', handler: todos.addTodoNote(aurex) },
+    { method: 'PATCH', pattern: '/todos/:todoId/assignment', handler: todos.assignTodo(aurex) },
+    { method: 'GET', pattern: '/todos/:todoId/context-query', handler: todos.getTodoContextQuery(aurex) },
+    { method: 'GET', pattern: '/todos/:todoId/context', handler: todos.getContextForTodo(aurex, deps) },
+    { method: 'POST', pattern: '/todos/:todoId/events', handler: todos.recordTodoEvent(aurex) },
+    { method: 'GET', pattern: '/todos/:todoId/events', handler: todos.listTodoEvents(aurex) },
 
     // Settings (KV store)
     { method: 'GET', pattern: '/settings/:key', handler: settings.getSetting(deps.sqlJson) },
