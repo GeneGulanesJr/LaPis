@@ -21,6 +21,7 @@ import { registerTrustSync } from './hooks/trust-sync';
 import { ensureNativeModules } from './host/native-health';
 import { registerCodeTools } from './tools/code-tools';
 import { registerDocTools } from './tools/doc-tools';
+import { registerDashboardCommand } from './commands/dashboard';
 import { formatCodeResult } from './tools/format-code-result';
 import { formatDocResult } from './tools/format-doc-result';
 import { registerMemoryTools } from './tools/memory-tools';
@@ -69,6 +70,7 @@ export default function memoryLayer(pi: ExtensionAPI) {
   safeRegister(pi, deps, 'memory tools', registerMemoryTools);
   safeRegister(pi, deps, 'code tools', registerCodeTools);
   safeRegister(pi, deps, 'doc tools', registerDocTools);
+  safeRegister(pi, deps, 'dashboard command', registerDashboardCommand);
 
   // Surface partial load failures via UI notification
   if (registrationFailures.length > 0) {
