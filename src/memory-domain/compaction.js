@@ -315,6 +315,26 @@ function dream(deps) {
   report.ok = true;
   report.totalCleaned = totalCleaned;
   report.cleaned = cleanedIds;
+
+  // Persist dream cycle stats to settings (guarded on success)
+  if (report.ok) {
+    try {
+      const currentTotal = parseInt(
+        deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_total_cleaned'")[0]?.value || '0',
+        10,
+      );
+      const currentCount = parseInt(
+        deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_run_count'")[0]?.value || '0',
+        10,
+      );
+      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_last_run', ?)", [report.completedAt]);
+      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_total_cleaned', ?)", [String(currentTotal + totalCleaned)]);
+      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_run_count', ?)", [String(currentCount + 1)]);
+    } catch (_e) {
+      // Non-critical — dashboard will show "no data" if this fails
+    }
+  }
+
   return report;
 }
 
