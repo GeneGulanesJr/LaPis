@@ -46,6 +46,8 @@ Feature services live under `src/` and own one feature family each:
 - `src/code-analysis/` — graph, impact, quality, git-aware, and risk analysis over the code-index read model.
 - `src/doc-index/` — Markdown documentation indexing and documentation intelligence.
 - `src/trust-sync/` — explicit integration between memory observations and code symbols.
+- `src/agent-intel/` — agent-facing coding intelligence orchestration: preflight checks, agent-pack planning, audit-diff, and symbol enrichment.
+- `src/token-saver/` — output compression, command classification, token estimation, and savings tracking.
 
 ### HTTP server (Aurex domain)
 
@@ -67,6 +69,8 @@ Feature services live under `src/` and own one feature family each:
 8. `platform/protocol` owns `_meta`, compact/auto output, and LLM-facing transformations.
 9. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
 10. Crosshash remains behind a command/API boundary until it fully replaces the JavaScript code-intelligence path.
+11. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
+12. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
 
 ## Testability expectations
 

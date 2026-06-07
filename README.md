@@ -39,12 +39,14 @@ npm install
 - **Remembers across sessions** - decisions, bugfixes, patterns, discoveries, and constraints persist.
 - **Auto-injects context** - new sessions start with relevant memories loaded.
 - **Indexes code** - web-tree-sitter parses JS/TS/TSX/Go/Python/Rust/SQL for semantic code lookup and analysis.
-- **Indexes docs** - Markdown sections, links, glossary terms, and code examples become searchable.
-- **Tracks trust** - memories linked to changed code lose confidence; stable linked code recovers trust.
+- **Indexes docs** - Markdown sections, links, glossary terms, and code examples become searchable.- **Tracks trust** - memories linked to changed code lose confidence; stable linked code recovers trust.
 - **Deduplicates memory** - similar saves are merged or flagged before they clutter recall.
 - **Manages workspaces** - project isolation is explicit through create/list/archive workflows.
 - **Cleans stale memory** - the Dream Cycle removes superseded, never-useful, and replaced memories based on quality signals.
 - **Exposes an HTTP API** - optional REST server for programmatic access to missions, milestones, working units, and code analysis.
+- **Pre-coding intelligence** - preflight checks combine memory, code, and docs into before-coding context.
+- **Compresses CLI output** - token-saving output compression reduces context window usage automatically.
+- **Memory dashboard** - observability command for memory health, statistics, and index quality.
 
 ## Benchmarks
 
@@ -148,6 +150,10 @@ The paired benchmark also reports behavior counters. In the latest run, memory-o
 - [`docs/DREAM_CYCLE.md`](docs/DREAM_CYCLE.md) - stale-memory cleanup behavior.
 - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) - step-by-step usage guide.
 
+- [`docs/GITHUB_ISSUE_BREAKDOWN.md`](docs/GITHUB_ISSUE_BREAKDOWN.md) - modularization issue breakdown.
+- [`docs/code-indexing.md`](docs/code-indexing.md) - async code indexing.
+- [`docs/SKILL.md`](docs/SKILL.md) - extension skill overview.
+
 ## License
 
-MIT
+ISC

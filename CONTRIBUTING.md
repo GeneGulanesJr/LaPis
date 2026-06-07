@@ -23,20 +23,23 @@ All three should pass before merge. Documentation-only changes may not need the 
 
 Start with the feature area, then add code in the owning module. If a change appears to need two feature modules directly importing each other, stop and add a small interface or route it through the owning integration module instead.
 
-| If you are changing...                                                                                                                                      | Add or update code in...                     | Notes                                                                                               |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Observation CRUD, memory search, context loading, sessions, recall, dedupe, compaction, or workspaces                                                       | `src/memory-domain/`                         | This module owns declarative memory and must not depend on code/doc parsers.                        |
-| Saved procedures, workflow steps, step outcomes, or workflow scoring                                                                                        | `src/workflow-memory/`                       | Keep workflow state separate from observation ranking.                                              |
-| Repository registration, file scanning, parser selection, symbol extraction, edge extraction, incremental indexing, or source retrieval                     | `src/code-index/`                            | This module writes/serves the code-index read model; it must not include memory ranking logic.      |
-| Import/call graphs, blast radius, dead code, complexity, hotspots, cycles, PageRank, coupling, signal chains, layer violations, query winnowing, or PR risk | `src/code-analysis/`                         | Analysis consumes code-index read models and git metrics; it must not depend on Pi extension state. |
-| Markdown indexing, section search, backlinks, broken links, glossary terms, tutorial paths, code examples, or doc analytics                                 | `src/doc-index/`                             | Documentation features are independent; coverage may use only a narrow code-symbol lookup.          |
-| Trust decay/recovery or memory-to-code-symbol relationship updates                                                                                          | `src/trust-sync/`                            | This is the integration boundary between declarative memory and indexed code.                       |
-| HTTP server, REST endpoints, Aurex domain handlers (missions, milestones, units, contracts, verdicts, broadcasts, findings, costs, settings)              | `src/http/`                                  | Handlers should be thin — parse params, call repositories, format JSON. No business logic or raw SQL. |
-| CLI subcommand parsing/routing                                                                                                                              | `src/cli/commands/` and `src/cli/gateway.js` | Routers should delegate to feature services and avoid embedding business logic.                     |
-| JSON envelopes, compact output, LLM-facing transformations, or response metadata                                                                            | `src/platform/protocol/`                     | Presentation belongs at platform/protocol boundaries, not inside feature services.                  |
-| Database access helpers or feature repositories                                                                                                             | `src/platform/storage/` and `data-access/`   | Prefer repository interfaces over ad hoc SQL in feature modules.                                    |
-| Pi lifecycle hooks, tool schemas, repo detection, native health checks, or tool result formatting                                                           | `extensions/memory-layer/`                   | The extension is an adapter/composition layer; keep backend behavior in feature modules.            |
-| Rust code-intelligence experiments or Crosshash engine work                                                                                                 | `crosshash/`                                 | Keep Crosshash behind a process/API boundary until it becomes the canonical backend.                |
+| If you are changing...                                                                                                                                      | Add or update code in...                                       | Notes                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Observation CRUD, memory search, context loading, sessions, recall, dedupe, compaction, or workspaces                                                       | `src/memory-domain/`                                           | This module owns declarative memory and must not depend on code/doc parsers.                          |
+| Saved procedures, workflow steps, step outcomes, or workflow scoring                                                                                        | `src/workflow-memory/`                                         | Keep workflow state separate from observation ranking.                                                |
+| Repository registration, file scanning, parser selection, symbol extraction, edge extraction, incremental indexing, or source retrieval                     | `src/code-index/`                                              | This module writes/serves the code-index read model; it must not include memory ranking logic.        |
+| Import/call graphs, blast radius, dead code, complexity, hotspots, cycles, PageRank, coupling, signal chains, layer violations, query winnowing, or PR risk | `src/code-analysis/`                                           | Analysis consumes code-index read models and git metrics; it must not depend on Pi extension state.   |
+| Markdown indexing, section search, backlinks, broken links, glossary terms, tutorial paths, code examples, or doc analytics                                 | `src/doc-index/`                                               | Documentation features are independent; coverage may use only a narrow code-symbol lookup.            |
+| Trust decay/recovery or memory-to-code-symbol relationship updates                                                                                          | `src/trust-sync/`                                              | This is the integration boundary between declarative memory and indexed code.                         |
+| HTTP server, REST endpoints, Aurex domain handlers (missions, milestones, units, contracts, verdicts, broadcasts, findings, costs, settings)                | `src/http/`                                                    | Handlers should be thin — parse params, call repositories, format JSON. No business logic or raw SQL. |
+| CLI subcommand parsing/routing                                                                                                                              | `src/cli/commands/` and `src/cli/gateway.js`                   | Routers should delegate to feature services and avoid embedding business logic.                       |
+| JSON envelopes, compact output, LLM-facing transformations, or response metadata                                                                            | `src/platform/protocol/`                                       | Presentation belongs at platform/protocol boundaries, not inside feature services.                    |
+| Database access helpers or feature repositories                                                                                                             | `src/platform/storage/` and `data-access/`                     | Prefer repository interfaces over ad hoc SQL in feature modules.                                      |
+| Pi lifecycle hooks, tool schemas, repo detection, native health checks, or tool result formatting                                                           | `extensions/memory-layer/`                                     | The extension is an adapter/composition layer; keep backend behavior in feature modules.              |
+| Agent-facing coding intelligence, preflight checks, agent-pack planning, audit-diff, or symbol enrichment                                                   | `src/agent-intel/`                                             | Read-only orchestration layer. Must not mutate memory or code indexes.                                |
+| Output compression, command classification, token estimation, or savings tracking                                                                           | `src/token-saver/`                                             | Standalone module with no feature service dependencies.                                               |
+| Memory observability dashboard or health statistics                                                                                                         | `src/cli/commands/dashboard.js` and `data-access/dashboard.js` | Dashboard is a CLI/router concern; depends on data-access helpers only.                               |
+| Rust code-intelligence experiments or Crosshash engine work                                                                                                 | `crosshash/`                                                   | Keep Crosshash behind a process/API boundary until it becomes the canonical backend.                  |
 
 For the authoritative table of module ownership, entry points, and allowed dependencies, update and consult [`docs/MODULE_MAP.md`](docs/MODULE_MAP.md).
 
@@ -53,6 +56,8 @@ src/workflow-memory/     # Procedural workflow-memory feature module
 src/code-index/          # Code indexing and source retrieval feature module
 src/code-analysis/       # Code intelligence and analysis feature module
 src/doc-index/           # Documentation indexing and doc intelligence feature module
+src/agent-intel/         # Agent intelligence and preflight orchestration (read-only)
+src/token-saver/         # Output compression and token savings tracking (standalone)
 src/trust-sync/          # Memory/code trust integration feature module
 src/platform/            # Shared storage/protocol/platform adapters and repository construction
 data-access/             # Repository-style SQL access modules used by legacy/runtime code
@@ -83,6 +88,8 @@ Follow these rules when adding or moving code:
 8. `platform/protocol` owns `_meta`, compact/auto output, and LLM-facing transformations.
 9. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
 10. Crosshash should stay behind a command/API boundary until it fully replaces the JavaScript code-intelligence path.
+11. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
+12. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the concise architecture overview and [`docs/ARCHITECTURE_MODULARIZATION.md`](docs/ARCHITECTURE_MODULARIZATION.md) for the detailed extraction rationale.
 
@@ -121,5 +128,5 @@ PRs labeled `architecture` or `refactor`, or PRs that touch modularization code,
 
 GitHub Actions runs on pushes and PRs to `main`:
 
-- `test.yml` installs dependencies, runs lint/format checks, runs the full test suite, and runs smoke CLI tests.
+- `test.yml` installs dependencies, runs lint, runs the full test suite, runs smoke CLI tests, and runs post-smoke index-repo/index-docs verification.
 - `crosshash-ci.yml` runs Rust lint/test coverage for the `crosshash/` workspace.

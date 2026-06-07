@@ -243,7 +243,72 @@ src/doc-index/
 
 Doc features should use their own repository interface and should not depend on code-index internals except through a narrow `CodeSymbolLookup` interface for coverage checks.
 
-### 7. Trust, symbol linking, and cross-feature maintenance
+### 7. Agent intelligence and preflight orchestration
+
+**Current entry points**
+
+- `src/agent-intel/preflight.js` for pre-coding intelligence combining memory, code, and docs.
+- `memory-store.js` commands: `preflight`, `agent-pack`.
+- `src/agent-intel/` modules: `audit-diff.js`, `blast.js`, `dupes.js`, `runtime-ingest.js`, `stale-flags.js`, `symbol-enrichment.js`.
+
+**Sub-features**
+
+- Preflight checks: combines code search, memory recall, related files/tests, docs, duplicate warnings, and recommended action.
+- Agent-pack planning: compact Pi planning packet with must-read files, relevant symbols, past decisions, and risk.
+- Audit-diff: compares code changes against memory expectations.
+- Symbol enrichment: enriches code symbols with cross-references from memory and docs.
+- Runtime ingest: ingests runtime signals into the code index read model.
+- Stale-flags: detects and flags stale index entries.
+
+**Boundary to establish**
+
+Agent-intel is a read-only orchestration layer. It composes results from other feature modules but must never mutate state:
+
+```text
+src/agent-intel/
+  preflight.js
+  agent-pack.js
+  audit-diff.js
+  blast.js
+  dupes.js
+  runtime-ingest.js
+  stale-flags.js
+  symbol-enrichment.js
+```
+
+It should depend on code-index, memory-domain, and doc-index through read-only interfaces only.
+
+### 8. Token saver and output compression
+
+**Current entry points**
+
+- `src/token-saver/index.js` for command output compression and token savings tracking.
+- `src/token-saver/` modules: `classify-command.js`, `compress-output.js`, `estimate-tokens.js`, `savings-store.js`.
+
+**Sub-features**
+
+- Command classification (build, test, lint, etc.).
+- Output compression and summarization.
+- Token count estimation.
+- Savings statistics tracking and reporting.
+
+**Boundary to establish**
+
+Token-saver is fully standalone. It has no dependency on feature service internals:
+
+```text
+src/token-saver/
+  index.js
+  classify-command.js
+  compress-output.js
+  estimate-tokens.js
+  savings-store.js
+  rules/
+```
+
+It should remain independent of all feature modules and can be used as a general-purpose output compression utility.
+
+### 9. Trust, symbol linking, and cross-feature maintenance
 
 **Current entry points**
 
@@ -273,7 +338,7 @@ src/trust-sync/
 
 It should depend on `memory-domain` and `code-index` through interfaces only. It should be the only module that mutates both memory tables and code-link/trust tables.
 
-### 8. Storage, configuration, and wire protocol
+### 10. Storage, configuration, and wire protocol
 
 **Current entry points**
 
@@ -313,7 +378,7 @@ src/platform/
 
 A feature module should receive a storage/repository dependency instead of importing raw SQL helpers globally.
 
-### 9. HTTP server (Aurex domain)
+### 11. HTTP server (Aurex domain)
 
 **Current entry points**
 
@@ -365,7 +430,7 @@ src/http/
 
 Handlers should not contain business logic. They should receive a repository dependency at construction time and delegate all domain work to the repository or feature service.
 
-### 10. Crosshash Rust engine
+### 12. Crosshash Rust engine
 
 **Current entry points**
 
@@ -402,13 +467,16 @@ Treat Crosshash as the future code-intelligence backend. The Node feature module
 
 ```text
 src/cli/commands/
-  memory.ts
-  workflow.ts
-  code-index.ts
-  code-analysis.ts
-  docs.ts
-  trust.ts
-  maintenance.ts
+  memory.js
+  workflow.js
+  code-index.js
+  code-analysis.js
+  docs.js
+  trust.js
+  agent-intel.js
+  token-saver.js
+  dashboard.js
+  maintenance.js
 ```
 
 Each router should depend on a feature service, not on raw SQL helpers.
@@ -463,6 +531,9 @@ src/cli command gateway  or  src/http HTTP server
   ├─ code-index router         ├─ code index/analysis handlers
   ├─ code-analysis router      └─ settings/checkpoint handlers
   ├─ doc-index router
+  ├─ agent-intel router
+  ├─ token-saver router
+  ├─ dashboard router
   ├─ trust-sync router
   └─ maintenance router
        │
@@ -473,6 +544,8 @@ Feature services
   ├─ code-index
   ├─ code-analysis
   ├─ doc-index
+  ├─ agent-intel
+  ├─ token-saver
   ├─ trust-sync
   └─ maintenance
        │
@@ -497,6 +570,8 @@ Platform
 8. `platform/protocol` owns `_meta`, compact/auto output, and LLM-facing transformations.
 9. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
 10. Crosshash should remain behind a command/API boundary until it fully replaces the JS code-intelligence path.
+11. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
+12. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
 
 ## Suggested extraction order
 

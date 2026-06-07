@@ -144,6 +144,15 @@ Supported languages: JavaScript, TypeScript, TSX, Go, Python, Rust, and SQL.
 | `dream`         | Run stale-memory cleanup.                    |
 | `stats`         | Show database statistics.                    |
 | `list-projects` | List all known project names.                |
+| `dashboard`     | Memory observability dashboard: health, statistics, and index quality. |
+
+## Token Saver
+
+| Command                 | Purpose                                              |
+| ----------------------- | ---------------------------------------------------- |
+| `run <command...>`      | Execute a command with output compression. Supports `--raw` (no compression), `--text` (text output), `--remember`. |
+| `token-saver-stats`     | Show token savings statistics.                       |
+| `token-saver-clear`     | Clear token savings statistics.                      |
 
 ## HTTP Server
 

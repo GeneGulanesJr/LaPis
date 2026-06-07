@@ -6,20 +6,20 @@ By default, `lapis index-repo --path <repo>` blocks until indexing finishes. For
 
 ```bash
 # Synchronous (small repos) — blocks until done
-lapis index-repo --path ./myrepo
+node memory-store.js index-repo --path ./myrepo
 
 # Explicit async (returns jobId immediately)
-lapis index-repo-async --path ./myrepo --name myrepo
+node memory-store.js index-repo-async --path ./myrepo --name myrepo
 
 # Force async even on a small repo
-lapis index-repo --path ./myrepo --async
+node memory-store.js index-repo --path ./myrepo --async
 
 # Poll progress
-lapis index-status --job 42
+node memory-store.js index-status --job 42
 
 # List recent jobs
-lapis list-index-jobs
-lapis list-index-jobs --running
+node memory-store.js list-index-jobs
+node memory-store.js list-index-jobs --running
 ```
 
 ## Extension tool

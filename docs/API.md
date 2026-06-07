@@ -170,6 +170,10 @@ Defaults to `127.0.0.1:9100`. Binding to `0.0.0.0` prints a network exposure war
 | GET    | `/code/graph/:repo`       | Dependency graph for a repo.         |
 | GET    | `/code/hotspots/:repo`    | Hotspot analysis for a repo.         |
 
+### Dashboard
+
+The `dashboard` CLI command provides a memory observability overview. It is available as a CLI command only (`node memory-store.js dashboard`) and is not exposed as an HTTP endpoint.
+
 ## Repository Interfaces
 
 Feature modules access storage through repository interfaces in `src/platform/storage/repositories/`:

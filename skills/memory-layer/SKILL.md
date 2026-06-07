@@ -59,7 +59,7 @@ Optional HTTP server for programmatic access to the Aurex domain (missions, mile
 
 **Fast-path guidance:** For exact current-code questions, use one locator step, then a targeted read. If you already know the symbol name, exact `grep`/`rg` is acceptable when it is clearly cheaper than semantic search. If using `memory-code`, include `--repo` when known. After a locator identifies the file, do not run another broad search; call `outline --repo NAME --file F` only if structure is needed, then use `read` with `offset`/`limit`.
 
-**Supported:** JavaScript, TypeScript, TSX, Go, Python, Rust. Uses web-tree-sitter (WASM) — zero Python dependency.
+**Supported:** JavaScript, TypeScript, TSX, Go, Python, Rust, SQL. Uses web-tree-sitter (WASM) — zero Python dependency.
 Grammar .wasm files bundled in `grammars/`.
 
 ### Code Analysis (v5 — import graph, call graph, complexity, dead code)
