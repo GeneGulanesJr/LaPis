@@ -590,7 +590,7 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const result = await deps.memCmd('index-status', { job: String(params.job) });
+        const result = await deps.mem('index-status', { job: String(params.job) });
         if (!result || (result as any).error) {
           return {
             content: [{ type: 'text', text: `Error: ${(result as any)?.error || 'unknown'}` }],

@@ -5,7 +5,7 @@ const {
   path,
   _requireNativeDb,
   PR_RISK,
-  UNTETECTED_CONFIDENCE,
+  UNDETECTED_CONFIDENCE,
   COMPLEXITY /* oxlint-disable-line no-unused-vars */,
   HOTSPOT_THRESHOLDS /* oxlint-disable-line no-unused-vars */,
 } = require('./shared-deps');
@@ -128,11 +128,11 @@ function getUntestedSymbols(db, repoId, opts = {}) {
 
     let confidence;
     if (indirectlyTested.has(sym.id)) {
-      confidence = UNTETECTED_CONFIDENCE.INDIRECTLY_TESTED;
+      confidence = UNDETECTED_CONFIDENCE.INDIRECTLY_TESTED;
     } else if (testImportedFiles.has(sym.file_id)) {
-      confidence = UNTETECTED_CONFIDENCE.TEST_IMPORTED_FILE;
+      confidence = UNDETECTED_CONFIDENCE.TEST_IMPORTED_FILE;
     } else {
-      confidence = UNTETECTED_CONFIDENCE.NO_TEST_SIGNAL;
+      confidence = UNDETECTED_CONFIDENCE.NO_TEST_SIGNAL;
     }
 
     if (confidence >= minConfidence) {

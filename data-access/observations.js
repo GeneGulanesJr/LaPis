@@ -1,5 +1,4 @@
-const { RESULT_LIMITS: _RESULT_LIMITS } = require('../constants');
-const { getConfig: _getConfig } = require('../config');
+
 
 function insertObservation(deps, { sessionId, type, title, content, project, scope, topicKey, expiresAt }) {
   const { sqlJson } = deps;

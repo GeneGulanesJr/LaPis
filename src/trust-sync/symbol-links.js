@@ -1,5 +1,5 @@
 const { TRUST_DELTA } = require('../../constants');
-const { detectChangedSymbols, parseChangedSymbolsJson: _parseChangedSymbolsJson } = require('./change-detector');
+const { detectChangedSymbols } = require('./change-detector');
 const { evaluateTrustSync, stripOperations } = require('./trust-policy');
 
 const TRUST_SYNC_METHODS = [

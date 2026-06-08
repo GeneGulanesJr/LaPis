@@ -167,9 +167,6 @@ function _routeToExtractor(filePath, source, parser, langConfig) {
     return _extractHtmlSymbolsAst(filePath, source, parser);
   }
   if (langConfig.languageName === 'sql') {
-    return [];
-  }
-  if (langConfig.languageName === 'sql') {
     return _extractSqlSymbols(filePath, source, parser);
   }
   if (langConfig.languageName === 'python') {

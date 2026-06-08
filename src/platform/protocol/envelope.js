@@ -296,6 +296,10 @@ function extractResultCount(toolName, data) {
       return (data.commits || []).length;
     case 'getUntestedSymbols':
       return (data.untested || []).length;
+    case 'getComplexity':
+      return Array.isArray(data) ? data.length : (data.symbols || data.results || []).length;
+    case 'getChurn':
+      return (data.top_files || data.results || []).length;
     case 'getPrRiskProfile':
       return Object.keys(data?.signals || {}).length;
     case 'coding-context':
