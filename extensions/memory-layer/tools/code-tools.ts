@@ -80,6 +80,7 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
       path: Type.Optional(Type.String({ description: 'Local repo path' })),
       name: Type.Optional(Type.String({ description: 'Repo name' })),
       rules: Type.Optional(Type.String({ description: 'Layer rules JSON' })),
+      files: Type.Optional(Type.String({ description: 'Comma-separated list of files (audit-diff)' })),
     }),
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, onUpdate, ctx) {
@@ -206,6 +207,9 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
         }
         if (params.rules) {
           args.rules = typeof params.rules === 'string' ? params.rules : JSON.stringify(params.rules);
+        }
+        if (params.files) {
+          args.files = params.files;
         }
 
         if (mode === 'index-repo' || mode === 'reindex-repo') {

@@ -12,7 +12,7 @@ import { isCodeFile, state, trustIcon } from './state';
 import { registerBeforeAgentStart, registerContextReminder } from './hooks/context-injection';
 import { registerSessionCompact, registerSessionShutdown, registerSessionStart } from './hooks/session-lifecycle';
 import { mem, memCmd, memStreaming } from './host/memory-client';
-import { detectProject, getKnownRepos, invalidateRepoCache, isRepoStale } from './host/project-detector';
+import { detectProject, getKnownRepos, getKnownDocRepos, invalidateRepoCache, isRepoStale } from './host/project-detector';
 import { registerPassiveCapture } from './hooks/passive-capture';
 import { registerToolGuardrails } from './hooks/tool-guardrails';
 import { registerOutputCompression } from './hooks/output-compression';
@@ -48,12 +48,14 @@ export default function memoryLayer(pi: ExtensionAPI) {
     memStreaming,
     detectProject,
     getKnownRepos,
+    getKnownDocRepos,
     invalidateRepoCache,
     isRepoStale,
     isCodeFile,
     trustIcon,
     formatCodeResult,
     formatDocResult,
+    getSettings: () => ({ contextLimit: getConfig().context_limit }),
   };
 
   safeRegister(pi, deps, 'session-lifecycle hooks', registerSessionStart);

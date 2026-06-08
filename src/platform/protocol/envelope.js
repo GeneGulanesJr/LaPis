@@ -388,6 +388,9 @@ const TOOL_NAMES = {
   provenance: 'getProvenance',
   untested: 'getUntestedSymbols',
   'pr-risk': 'getPrRiskProfile',
+  'coding-context': 'getCodingContext',
+  preflight: 'preflight',
+  'agent-pack': 'agentPack',
 };
 
 function buildAnalysisEnvelope(toolName, data, repoRow, startTime, deps) {

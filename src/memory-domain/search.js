@@ -376,35 +376,33 @@ function related(deps, args) {
   }
 
   const result = [];
-  if (symbols.length > 0) {
-    const symbolIds = symbols.map((s) => s.symbol_id);
-    const placeholders = symbolIds.map(() => '?').join(',');
-    const clusters = sqlJson(
-      `
-      SELECT sl.symbol_id, o.id, o.title, o.type, o.project, o.created_at
-      FROM observations o
-      JOIN symbol_links sl ON sl.memory_id = CAST(o.id AS TEXT)
-      WHERE sl.symbol_id IN (${placeholders})
-        AND o.id != ?
-        AND o.deleted_at IS NULL
-      ORDER BY o.created_at DESC
-    `,
-      [...symbolIds, id],
-    );
-    const grouped = new Map();
-    for (const row of clusters) {
-      if (!grouped.has(row.symbol_id)) {
-        grouped.set(row.symbol_id, []);
-      }
-      if (grouped.get(row.symbol_id).length < RESULT_LIMITS.RELATED_PER_SYMBOL) {
-        grouped.get(row.symbol_id).push(row);
-      }
+  const symbolIds = symbols.map((s) => s.symbol_id);
+  const placeholders = symbolIds.map(() => '?').join(',');
+  const clusters = sqlJson(
+    `
+    SELECT sl.symbol_id, o.id, o.title, o.type, o.project, o.created_at
+    FROM observations o
+    JOIN symbol_links sl ON sl.memory_id = CAST(o.id AS TEXT)
+    WHERE sl.symbol_id IN (${placeholders})
+      AND o.id != ?
+      AND o.deleted_at IS NULL
+    ORDER BY o.created_at DESC
+  `,
+    [...symbolIds, id],
+  );
+  const grouped = new Map();
+  for (const row of clusters) {
+    if (!grouped.has(row.symbol_id)) {
+      grouped.set(row.symbol_id, []);
     }
-    for (const sym of symbols) {
-      const cluster = grouped.get(sym.symbol_id);
-      if (cluster && cluster.length > 0) {
-        result.push({ symbol: sym.symbol_id, repo: sym.repo, memories: cluster });
-      }
+    if (grouped.get(row.symbol_id).length < RESULT_LIMITS.RELATED_PER_SYMBOL) {
+      grouped.get(row.symbol_id).push(row);
+    }
+  }
+  for (const sym of symbols) {
+    const cluster = grouped.get(sym.symbol_id);
+    if (cluster && cluster.length > 0) {
+      result.push({ symbol: sym.symbol_id, repo: sym.repo, memories: cluster });
     }
   }
 

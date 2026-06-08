@@ -17,6 +17,14 @@ export interface RepoInfo {
   symbol_count: number;
 }
 
+export interface DocRepoInfo {
+  name: string;
+  path: string;
+  indexed_at: string;
+  file_count: number;
+  section_count: number;
+}
+
 const TIMEOUT_DEFAULTS: Record<string, number> = {
   _default: 15000,
   'dead-code': 60000,
@@ -103,6 +111,8 @@ export const state = {
   nativeChecked: false as boolean,
   cachedRepos: null as RepoInfo[] | null,
   repoCacheTime: 0 as number,
+  cachedDocRepos: null as DocRepoInfo[] | null,
+  docRepoCacheTime: 0 as number,
   sessionId: null as number | null,
   currentProject: null as string | null,
   projectSessionCount: 0 as number,

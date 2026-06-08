@@ -415,6 +415,66 @@ function formatCodeResult(mode: string, result: any): string {
       }
       return `✅ Doc repo "${result.name || result.repo}" reindexed: ${result.section_count || 0} sections (${result.mode || 'full'})`;
     }
+    case 'health': {
+      const diagnostics = result.diagnostics || {};
+      const lines = [
+        `# Index Health: ${result.repo}`,
+        '',
+        `Score: ${result.health_score}`,
+        `Indexed: ${result.indexed_files} files, ${result.indexed_symbols} symbols`,
+        `Fresh: ${result.stale ? 'no' : 'yes'}`,
+      ];
+      if (result.scan) {
+        const delta = result.scan.indexed_file_delta;
+        lines.push(
+          `Discovered: ${result.scan.parseable_files_found} parseable files (${delta >= 0 ? '+' : ''}${delta} vs indexed)`,
+        );
+      }
+      lines.push(
+        `Diagnostics: ok=${diagnostics.ok || 0}, zero_symbols=${diagnostics.zero_symbols || 0}, error=${diagnostics.error || 0}`,
+      );
+      if ((result.recommendations || []).length) {
+        lines.push('', 'Recommendations:', ...(result.recommendations || []).map((r: string) => `- ${r}`));
+      }
+      return lines.join('\n');
+    }
+    case 'dupes': {
+      const groups = result.duplicate_groups || [];
+      if (!groups.length) {
+        return 'No duplicate code groups found.';
+      }
+      return `Found ${result.groups_found ?? groups.length} duplicate groups (${result.total_symbols_scanned ?? '?'} symbols scanned, ${result.scan_duration_ms ?? '?'}ms):\n\n${groups
+        .slice(0, 10)
+        .map((g: any) => {
+          const instances = (g.instances || []).map((i: any) => `  - ${i.symbol_name} in ${safePop(i.file_path)}:${i.line_start ?? '?'}`).join('\n');
+          return `**${g.intent || 'Group'}** (${g.risk || '?'}, ${g.detection_type || '?'})\n${instances}`;
+        })
+        .join('\n\n')}`;
+    }
+    case 'audit-diff': {
+      const violations = result.violations || [];
+      const lines = [
+        `**Audit diff** — risk: ${result.risk || '?'} (score ${result.risk_score ?? '?'}), files checked: ${result.files_checked ?? 0}`,
+      ];
+      if (!violations.length) {
+        lines.push('', 'No violations found.');
+        return lines.join('\n');
+      }
+      lines.push('', `Violations (${violations.length}):`);
+      for (const v of violations.slice(0, 20)) {
+        lines.push(`  [${v.severity || '?'}] ${v.type || '?'}: ${v.message || ''}`);
+      }
+      return lines.join('\n');
+    }
+    case 'enrich-symbols': {
+      const total = result.total_symbols ?? 0;
+      const enriched = result.enriched_count ?? 0;
+      const skipped = result.skipped_count ?? 0;
+      if (result.error) {
+        return `Error: ${result.error}`;
+      }
+      return `Enriched ${enriched} / ${total} symbols (${skipped} skipped).`;
+    }
     default:
       return JSON.stringify(result, null, 2).slice(0, 2000);
   }

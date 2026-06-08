@@ -2,13 +2,13 @@ import { normalizeToolResult, stringifyToolError, toolTextResult } from './tool-
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from './schema';
 import { formatDocResult } from './format-doc-result';
-import { getKnownRepos } from '../host/project-detector';
+import { getKnownDocRepos } from '../host/project-detector';
 import { mem } from '../host/memory-client';
 import { renderCompactToolResult } from './render';
 
 interface DocDeps {
   mem: typeof mem;
-  getKnownRepos: typeof getKnownRepos;
+  getKnownDocRepos: typeof getKnownDocRepos;
   formatDocResult: typeof formatDocResult;
 }
 
@@ -152,7 +152,7 @@ export function registerDocTools(pi: ExtensionAPI, deps: DocDeps) {
           return toolTextResult(fmt || 'Doc indexing completed.', result ?? {});
         }
 
-        const docRepos = await deps.getKnownRepos();
+        const docRepos = await deps.getKnownDocRepos();
         const docRepoMatch = docRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
         if (!docRepoMatch) {
           const available = docRepos.map((r) => r.name).join(', ') || 'none';

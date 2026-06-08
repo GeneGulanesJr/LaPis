@@ -15,6 +15,7 @@ const USAGE = {
   'code-examples': '--query Q --repo X [--lang X]',
   'index-docs': '--path P --name X [--ignore GLOB]',
   'doc-coverage': '--repo X [--doc-repo X]',
+  'list-doc-repos': '',
 };
 
 function _dispatchDoc(cmd, repoName, fn, deps) {
@@ -66,6 +67,10 @@ function register(commands, deps) {
       return jsonErrNoExit('Usage: index-docs --path P --name X [--ignore GLOB]');
     }
     return docIndexer.indexDocs(getDb(), path.resolve(docPath), name, args.ignore || null);
+  };
+  commands['list-doc-repos'] = () => {
+    const rows = sqlJson('SELECT name, path, file_count, section_count, indexed_at, updated_at FROM doc_repos ORDER BY updated_at DESC');
+    return { repos: rows, total: rows.length };
   };
   commands['reindex-docs'] = async (args) =>
     _dispatchDoc(

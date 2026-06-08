@@ -1,8 +1,8 @@
-import { REPO_CACHE_TTL, type RepoInfo, state } from '../state';
+import { type DocRepoInfo, REPO_CACHE_TTL, type RepoInfo, state } from '../state';
 import { mem, memCmd } from './memory-client';
 import path from 'node:path';
 
-export { type RepoInfo };
+export { type RepoInfo, type DocRepoInfo };
 
 export async function getKnownRepos(): Promise<RepoInfo[]> {
   const now = Date.now();
@@ -18,9 +18,25 @@ export async function getKnownRepos(): Promise<RepoInfo[]> {
   return state.cachedRepos;
 }
 
+export async function getKnownDocRepos(): Promise<DocRepoInfo[]> {
+  const now = Date.now();
+  if (state.cachedDocRepos && now - state.docRepoCacheTime < REPO_CACHE_TTL) {
+    return state.cachedDocRepos;
+  }
+  const result = await memCmd('list-doc-repos');
+  if (!result || !(result as any).repos) {
+    return state.cachedDocRepos || [];
+  }
+  state.cachedDocRepos = (result as any).repos as DocRepoInfo[];
+  state.docRepoCacheTime = now;
+  return state.cachedDocRepos;
+}
+
 export function invalidateRepoCache(): void {
   state.cachedRepos = null;
   state.repoCacheTime = 0;
+  state.cachedDocRepos = null;
+  state.docRepoCacheTime = 0;
 }
 
 export function isRepoStale(repo: RepoInfo): boolean {
