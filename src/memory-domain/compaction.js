@@ -45,6 +45,9 @@ function runCompact(deps) {
     )`);
     report.steps.sessionLogPruned = true;
 
+    sqlRun(`DELETE FROM user_prompts WHERE session_id NOT IN (SELECT CAST(id AS TEXT) FROM session_log)`);
+    report.steps.orphanPromptsCleaned = true;
+
     sqlRun(
       `DELETE FROM trust_adjustments WHERE timestamp < datetime('now', '-${TIME_WINDOWS.TRUST_ADJUSTMENTS_RETENTION_DAYS} days')`,
     );
