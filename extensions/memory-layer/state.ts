@@ -119,6 +119,7 @@ export const state = {
   memoriesSavedThisSession: 0 as number,
   exploredFiles: new Set<string>(),
   turnCount: 0 as number,
+  dreamTriggeredThisSession: false as boolean,
   lastMemoryToolCall: 0 as number,
   callsSinceLastMemory: 0 as number,
   lastAutoDecisionSave: 0 as number,
