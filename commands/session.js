@@ -47,12 +47,15 @@ function recoverOrphans(deps) {
   return recoveryService.recoverOrphans(deps);
 }
 
-function dream(deps) {
-  return dreamService.dream({
-    sqlJson: deps.sqlJson,
-    sqlRun: deps.sqlRun,
-    softDeleteObservation: (id) => deps.softDeleteObservation(id),
-  });
+function dream(deps, args) {
+  return dreamService.dream(
+    {
+      sqlJson: deps.sqlJson,
+      sqlRun: deps.sqlRun,
+      softDeleteObservation: (id) => deps.softDeleteObservation(id),
+    },
+    args,
+  );
 }
 
 function compact() {

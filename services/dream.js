@@ -13,11 +13,14 @@ function compact() {
   return runCompact();
 }
 
-function dream(deps) {
-  return compactionDomain.dream({
-    ...deps,
-    sqlRaw: deps.sqlRaw || sqlRaw,
-  });
+function dream(deps, args) {
+  return compactionDomain.dream(
+    {
+      ...deps,
+      sqlRaw: deps.sqlRaw || sqlRaw,
+    },
+    args,
+  );
 }
 
 function trustRecovery(args) {

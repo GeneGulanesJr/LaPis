@@ -25,7 +25,7 @@ function register(commands, deps) {
     return { ok: true, db: DB_PATH, engine: getEngine() };
   };
   commands.compact = () => sesCmd.compact();
-  commands.dream = () => sesCmd.dream({ sqlJson, sqlRun, softDeleteObservation });
+  commands.dream = (args) => sesCmd.dream({ sqlJson, sqlRun, softDeleteObservation }, args);
   commands['session-start'] = (args) =>
     sesCmd.sessionStart({ sqlJson, sqlRun, _readTierConfig, TOOL_TIERS, commands, softDeleteObservation }, args);
   commands['session-end'] = (args) => sesCmd.sessionEnd({ sqlJson, sqlRun, softDeleteObservation }, args);
