@@ -11,6 +11,7 @@ const {
   jsonErrNoExit,
   parseArgs,
   MemoryError,
+  withTransaction,
 } = require('./db');
 const { getConfig } = require('./config');
 const obsDA = require('./data-access/observations');
@@ -83,6 +84,7 @@ const commands = buildCommandMap({
   ensureDb,
   DB_PATH,
   getEngine,
+  withTransaction,
 });
 
 const args = parseArgs(process.argv);

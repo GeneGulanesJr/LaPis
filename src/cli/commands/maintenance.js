@@ -1,5 +1,6 @@
 const sesCmd = require('../../../commands/session');
 const wsCmd = require('../../../commands/workspace');
+const cleanupCmd = require('../../../scripts/cleanup-sessions');
 
 const USAGE = {
   init: '',
@@ -15,10 +16,11 @@ const USAGE = {
   'create-workspace': '--name X',
   'archive-workspace': '--name X',
   'trust-recovery': '[--repo X]',
+  'cleanup-sessions': '[--project X] [--dry-run] [--yes] [--keep-last N] [--include-dream] [--bypass-age-gates]',
 };
 
 function register(commands, deps) {
-  const { sqlJson, sqlRun, softDeleteObservation, _readTierConfig, TOOL_TIERS, ensureDb, DB_PATH, getEngine } = deps;
+  const { sqlJson, sqlRun, softDeleteObservation, _readTierConfig, TOOL_TIERS, ensureDb, DB_PATH, getEngine, withTransaction } = deps;
 
   commands.init = () => {
     ensureDb();
@@ -38,6 +40,18 @@ function register(commands, deps) {
   commands['list-workspaces'] = () => wsCmd.listWorkspaces(deps);
   commands['create-workspace'] = (args) => wsCmd.createWorkspace(deps, args);
   commands['archive-workspace'] = (args) => wsCmd.archiveWorkspace(deps, args);
+  commands['cleanup-sessions'] = (args) => {
+    return cleanupCmd.cleanupSessions(
+      { sqlJson, sqlRun, withTransaction, softDeleteObservation },
+      {
+        keepLast: args['keep-last'] ? parseInt(args['keep-last'], 10) : 10,
+        project: args.project || null,
+        yes: args.yes === true,
+        includeDream: args['include-dream'] === true,
+        bypassAgeGates: args['bypass-age-gates'] === true,
+      },
+    );
+  };
 }
 
 module.exports = { register, USAGE };
