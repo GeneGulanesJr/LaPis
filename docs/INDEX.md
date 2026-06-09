@@ -49,7 +49,8 @@ Grouped by router under `src/cli/commands/`. Full syntax in [`docs/COMMANDS.md`]
 - **Sessions/workspaces**: `session-start`, `session-end`, `session-summary`, `auto-recover`, `recover-orphans`, `trust-recovery`, `list-projects`, `list-workspaces`, `create-workspace`, `archive-workspace`
 - **Maintenance**: `init`, `compact`, `dream`, `dashboard`
 - **Agent intel**: `preflight`, `agent-pack`, `dupes`, `enrich-symbols`, `symbol-meta`, `audit-diff`, `runtime-ingest`, `hot-symbols`, `cold-symbols`, `blast`, `stale-flags`
-- **Top-level**: `serve` (HTTP), `run` (token saver)
+- **Token saver**: `run`, `token-saver-stats`, `token-saver-clear`
+- **Top-level**: `serve` (HTTP)
 
 ### HTTP endpoints
 

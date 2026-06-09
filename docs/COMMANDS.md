@@ -161,7 +161,9 @@ See [`docs/code-indexing.md`](code-indexing.md) for the async indexing pipeline 
 
 | Command                 | Purpose                                              |
 | ----------------------- | ---------------------------------------------------- |
-| `run <command...>`      | Execute a command with output compression. Supports `--raw` (no compression), `--text` (text output), `--remember`. |
+| `run <command...>`      | Execute a command with output compression. Supports `--raw` (no compression), `--text` (text output), `--remember`, `--cwd <path>`. |
+| `token-saver-stats`     | Show cumulative token-saver savings statistics.      |
+| `token-saver-clear`     | Clear accumulated token-saver savings statistics.    |
 
 ## HTTP Server
 

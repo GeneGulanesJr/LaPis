@@ -39,7 +39,8 @@ npm install
 - **Remembers across sessions** - decisions, bugfixes, patterns, discoveries, and constraints persist.
 - **Auto-injects context** - new sessions start with relevant memories loaded.
 - **Indexes code** - web-tree-sitter parses JS/TS/TSX/Go/Python/Rust/SQL for semantic code lookup and analysis.
-- **Indexes docs** - Markdown sections, links, glossary terms, and code examples become searchable.- **Tracks trust** - memories linked to changed code lose confidence; stable linked code recovers trust.
+- **Indexes docs** - Markdown sections, links, glossary terms, and code examples become searchable.
+- **Tracks trust** - memories linked to changed code lose confidence; stable linked code recovers trust.
 - **Deduplicates memory** - similar saves are merged or flagged before they clutter recall.
 - **Manages workspaces** - project isolation is explicit through create/list/archive workflows.
 - **Cleans stale memory** - the Dream Cycle removes superseded, never-useful, and replaced memories based on quality signals.

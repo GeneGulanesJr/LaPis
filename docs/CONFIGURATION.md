@@ -80,7 +80,7 @@ LaPis supports tool access tiers to control which commands are available to the 
 
 | Tier      | Commands included                                                                                       |
 | --------- | ------------------------------------------------------------------------------------------------------- |
-| `core`    | `search`, `save`, `context`, `search-code`, `get-code-source`, `importance`, `outline`, `winnow`, `dream` |
+| `core`    | `search`, `save`, `context`, `search-code`, `get-code-source`, `preflight`, `agent-pack`, `importance`, `outline`, `winnow`, `dream` |
 | `standard`| All core commands + `complexity`, `dead-code`, `hotspots`, `blast-radius`, `call-hierarchy`, `cycles`, `coupling` |
 | `full`    | All commands unrestricted                                                                               |
 
