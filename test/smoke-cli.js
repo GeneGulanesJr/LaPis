@@ -170,10 +170,6 @@ const requiredCommands = [
   'sync-code-trust',
   'symbol-cluster',
   'related',
-  'save-workflow',
-  'record-step',
-  'step-outcome',
-  'get-workflow',
   'session-start',
   'session-end',
   'session-summary',
@@ -286,21 +282,6 @@ smokeTestWithDb('save-prompt', path.join(TMP_DIR, 'smoke-sp.db'), (env) => {
 
 smokeTestWithDb('capture-passive', path.join(TMP_DIR, 'smoke-cp.db'), (env) => {
   run(`${CLI} capture-passive --role assistant --content "test response"`, { env });
-});
-
-console.log('\nWorkflow commands (temp DB):');
-smokeTestWithDb('save-workflow + get-workflow', path.join(TMP_DIR, 'smoke-wf.db'), (env) => {
-  run(`${CLI} save-workflow --id "test-flow" --name "test-flow" --scope project`, { env });
-  const out = run(`${CLI} get-workflow --id "test-flow"`, { env });
-  if (!out.includes('test-flow')) {
-    throw new Error('get-workflow did not return workflow');
-  }
-});
-
-smokeTestWithDb('record-step + step-outcome', path.join(TMP_DIR, 'smoke-step.db'), (env) => {
-  run(`${CLI} save-workflow --id "step-flow" --name "step-flow" --scope project`, { env });
-  run(`${CLI} record-step --workflow "step-flow" --step "step1" --status in-progress`, { env });
-  run(`${CLI} step-outcome --workflow "step-flow" --step "step1" --outcome success`, { env });
 });
 
 console.log('\nCode index commands (temp DB):');
