@@ -140,15 +140,18 @@ Observation CRUD, search, context loading, sessions, prompt capture, dedupe, rec
 
 ---
 
-## Issue 5: Extract procedural workflow memory into `workflow-memory`
+## Issue 5: ~~Extract procedural workflow memory into `workflow-memory`~~ — SUPERSEDED by #167
 
 **Labels**: `architecture`, `memory`, `workflow`
+**Status**: Withdrawn — the procedural memory feature was removed in commit `a2b151b` (Issue #167, "remove dead procedural memory feature") because the underlying `procedural_memory` table had zero rows and was not in use. The CLI commands `save-workflow`, `record-step`, `step-outcome`, and `get-workflow` no longer exist, and the corresponding `src/workflow-memory/`, `src/cli/commands/workflow.js`, `commands/workflow.js`, `src/platform/storage/repositories/workflow.js`, and `test/workflow-memory.test.js` files were deleted. The decisions/trust/auto-capture/preflight subsystems already cover the use case this issue was originally intended to address.
 
-### Motivation
+**Smoke test note**: Any smoke test referencing these commands (e.g. `--help lists save-workflow`) is stale and should be removed.
+
+### Original motivation (kept for historical context)
 
 Procedural workflows have a distinct data model from declarative observations. They track named workflows, ordered steps, outcomes, attempts, and workarounds. They should not be coupled to observation ranking or context search.
 
-### Scope
+### Original scope (no longer applicable)
 
 - Create `src/workflow-memory/` with modules such as:
   - `workflows.ts`
@@ -157,7 +160,7 @@ Procedural workflows have a distinct data model from declarative observations. T
 - Move commands currently represented by `save-workflow`, `record-step`, `step-outcome`, and `get-workflow` behind a workflow service.
 - Share only storage and project/workspace identity with declarative memory.
 
-### Acceptance criteria
+### Original acceptance criteria (no longer applicable)
 
 - Workflow memory can be tested without observation search/context code.
 - Workflow commands preserve current CLI behavior.
