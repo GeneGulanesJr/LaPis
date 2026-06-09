@@ -515,14 +515,14 @@ describe('context.js mutation killers', () => {
   it('topic-key filter', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', 'topic-key': 'auth' });
-    const c = sqlJson.mock.calls.find(c => c[0].includes('topic_key = ?'));
+    const c = sqlJson.mock.calls.find(call => call[0].includes('topic_key = ?'));
     expect(c).toBeDefined();
   });
 
   it('query triggers topic_matches', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', query: 'jwt auth' });
-    const c = sqlJson.mock.calls.find(c => c[0].includes('topic_matches'));
+    const c = sqlJson.mock.calls.find(call => call[0].includes('topic_matches'));
     expect(c).toBeDefined();
   });
 
@@ -1500,42 +1500,42 @@ describe('context.js exact SQL verification', () => {
   });
 
   it('context: recall log query is "context-auto" when no topic', () => {
-    const insertRecallLog = vi.fn();
+    const irlMock = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
     });
-    context(mockDeps({ sqlJson, insertRecallLog }), { project: 'p', 'session-id': '1' });
-    if (insertRecallLog.mock.calls.length > 0) {
-      const entries = insertRecallLog.mock.calls[0][0];
+    context(mockDeps({ sqlJson, insertRecallLog: irlMock }), { project: 'p', 'session-id': '1' });
+    if (irlMock.mock.calls.length > 0) {
+      const entries = irlMock.mock.calls[0][0];
       expect(entries[0].query).toBe('context-auto');
     }
   });
 
   it('context: recall log query uses topicQuery when present', () => {
-    const insertRecallLog = vi.fn();
+    const irlMock = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       if (q.includes('topic_matches')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
       return [];
     });
-    context(mockDeps({ sqlJson, insertRecallLog }), { project: 'p', query: 'jwt auth', 'session-id': '1' });
-    if (insertRecallLog.mock.calls.length > 0) {
-      const entries = insertRecallLog.mock.calls[0][0];
+    context(mockDeps({ sqlJson, insertRecallLog: irlMock }), { project: 'p', query: 'jwt auth', 'session-id': '1' });
+    if (irlMock.mock.calls.length > 0) {
+      const entries = irlMock.mock.calls[0][0];
       expect(entries[0].query).toBe('jwt auth');
     }
   });
 
   it('context: recall log query uses topicKey when present (no query)', () => {
-    const insertRecallLog = vi.fn();
+    const irlMock = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       if (q.includes('topic_key = ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
       return [];
     });
-    context(mockDeps({ sqlJson, insertRecallLog }), { project: 'p', 'topic-key': 'auth', 'session-id': '1' });
-    if (insertRecallLog.mock.calls.length > 0) {
-      const entries = insertRecallLog.mock.calls[0][0];
+    context(mockDeps({ sqlJson, insertRecallLog: irlMock }), { project: 'p', 'topic-key': 'auth', 'session-id': '1' });
+    if (irlMock.mock.calls.length > 0) {
+      const entries = irlMock.mock.calls[0][0];
       expect(entries[0].query).toBe('auth');
     }
   });
@@ -1546,10 +1546,10 @@ describe('context.js exact SQL verification', () => {
 // ═══════════════════════════════════════════════
 describe('context.js applyTokenBudget never-truncate overflow', () => {
   const ts = () => new Date().toISOString().replace('Z', '');
-  const { CONTEXT } = require('../constants');
+  const CONTEXT_CONST = require('../constants').CONTEXT;
 
   it('never-truncate type: _truncated=false even when overflowing budget', () => {
-    const nt = (CONTEXT.NEVER_TRUNCATE_TYPES || [])[0];
+    const nt = (CONTEXT_CONST.NEVER_TRUNCATE_TYPES || [])[0];
     if (!nt) return;
     // First, consume budget with a normal item
     const normal = { id: 1, title: 'big', type: 'observation', content: 'X'.repeat(2000), trust_score: 0.5, created_at: ts() };
@@ -2793,28 +2793,28 @@ describe('context.js boundary condition killers', () => {
     const sqlJson = vi.fn(() => []);
     // session-id='42' should be parsed to 42
     // Then used in recall log as String(42)
-    const insertRecallLog = vi.fn();
+    const irlMock = vi.fn();
     const sqlJson2 = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
     });
-    context(mockDeps({ sqlJson: sqlJson2, insertRecallLog }), { project: 'p', 'session-id': '42' });
-    if (insertRecallLog.mock.calls.length > 0) {
+    context(mockDeps({ sqlJson: sqlJson2, insertRecallLog: irlMock }), { project: 'p', 'session-id': '42' });
+    if (irlMock.mock.calls.length > 0) {
       // sessionId is parsed to 42, then String(42) = '42'
-      expect(insertRecallLog.mock.calls[0][0][0].sessionId).toBe('42');
+      expect(irlMock.mock.calls[0][0][0].sessionId).toBe('42');
     }
   });
 
   it('context: session-id is null when not provided', () => {
     const sqlJson = vi.fn(() => []);
-    const insertRecallLog = vi.fn();
+    const irlMock = vi.fn();
     const sqlJson2 = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
     });
-    context(mockDeps({ sqlJson: sqlJson2, insertRecallLog }), { project: 'p' });
+    context(mockDeps({ sqlJson: sqlJson2, insertRecallLog: irlMock }), { project: 'p' });
     // No session-id → sessionId = null → insertRecallLog should NOT be called
-    expect(insertRecallLog).not.toHaveBeenCalled();
+    expect(irlMock).not.toHaveBeenCalled();
   });
 
   it('context: deep=true (string) is parsed correctly', () => {

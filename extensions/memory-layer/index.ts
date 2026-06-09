@@ -63,8 +63,8 @@ export default function memoryLayer(pi: ExtensionAPI) {
   safeRegister(pi, deps, 'before-agent-start hook', registerBeforeAgentStart);
   safeRegister(pi, deps, 'context-reminder hook', registerContextReminder);
   safeRegister(pi, deps, 'tool-guardrails hook', registerToolGuardrails);
-  safeRegister(pi, deps, 'output-compression hook', (pi, deps) => {
-    registerOutputCompression(pi, { state: deps.state, getConfig });
+  safeRegister(pi, deps, 'output-compression hook', (api, ctx) => {
+    registerOutputCompression(api, { state: ctx.state, getConfig });
   });
   safeRegister(pi, deps, 'trust-sync hook', registerTrustSync);
   safeRegister(pi, deps, 'passive-capture hooks', registerPassiveCapture);
