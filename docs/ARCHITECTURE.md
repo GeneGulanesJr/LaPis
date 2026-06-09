@@ -41,13 +41,14 @@ The lifecycle view complements the module-boundary diagram. Session hooks captur
 Feature services live under `src/` and own one feature family each:
 
 - `src/memory-domain/` — declarative memory: observations, search, context, sessions, recall, dedupe, compaction, and workspaces.
-- `src/workflow-memory/` — procedural workflow memory and step outcomes.
 - `src/code-index/` — repository scanning, parsing, symbol extraction, edge extraction, incremental indexing, and source retrieval.
 - `src/code-analysis/` — graph, impact, quality, git-aware, and risk analysis over the code-index read model.
 - `src/doc-index/` — Markdown documentation indexing and documentation intelligence.
 - `src/trust-sync/` — explicit integration between memory observations and code symbols.
 - `src/agent-intel/` — agent-facing coding intelligence orchestration: preflight checks, agent-pack planning, audit-diff, and symbol enrichment.
 - `src/token-saver/` — output compression, command classification, token estimation, and savings tracking.
+
+> Note: `src/workflow-memory/` (procedural workflow memory) was removed in commit `a2b151b` (Issue #167). The CLI commands `save-workflow`, `record-step`, `step-outcome`, and `get-workflow` no longer exist; the corresponding module, router, repository, and test files were deleted. Use `memory-save` observations and the trust/session subsystems for the use case this module was originally intended to address.
 
 ### HTTP server (Aurex domain)
 
@@ -61,16 +62,15 @@ Feature services live under `src/` and own one feature family each:
 
 1. `extensions/*` may depend on backend clients and formatting adapters, but not raw SQL or parser internals.
 2. `memory-domain` may depend on storage, config, and ranking constants, but not code/doc parsers.
-3. `workflow-memory` may depend on storage and project identity only.
-4. `code-index` may depend on parser, filesystem, hashing, and storage helpers, but not memory observation ranking.
-5. `code-analysis` may depend on code-index read repositories and git metrics, but not Pi extension state.
-6. `doc-index` may depend on Markdown/doc storage; documentation coverage may depend only on a narrow code-symbol lookup.
-7. `trust-sync` is the only feature module that should coordinate memory observations with code symbol tables.
-8. `platform/protocol` owns `_meta`, compact/auto output, and LLM-facing transformations.
-9. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
-10. Crosshash remains behind a command/API boundary until it fully replaces the JavaScript code-intelligence path.
-11. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
-12. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
+3. `code-index` may depend on parser, filesystem, hashing, and storage helpers, but not memory observation ranking.
+4. `code-analysis` may depend on code-index read repositories and git metrics, but not Pi extension state.
+5. `doc-index` may depend on Markdown/doc storage; documentation coverage may depend only on a narrow code-symbol lookup.
+6. `trust-sync` is the only feature module that should coordinate memory observations with code symbol tables.
+7. `platform/protocol` owns `_meta`, compact/auto output, and LLM-facing transformations.
+8. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
+9. Crosshash remains behind a command/API boundary until it fully replaces the JavaScript code-intelligence path.
+10. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
+11. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
 
 ## Testability expectations
 

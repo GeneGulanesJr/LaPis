@@ -165,7 +165,7 @@ LaPis includes an optional HTTP server for programmatic access to the Aurex doma
 node memory-store.js serve [--host HOST] [--port PORT]
 ```
 
-Defaults to `127.0.0.1:9100`. Provides REST endpoints for missions, milestones, working units, handoffs, contracts, verdicts, broadcasts, findings, sessions, memory search, costs, retry/rescope, compression, checkpoints, settings, and code indexing/analysis. See [`docs/API.md`](docs/API.md) for the full endpoint reference.
+Defaults to `127.0.0.1:9100`. Provides REST endpoints for missions, milestones, working units, handoffs, contracts, verdicts, broadcasts, findings, sessions, memory search, costs, retry/rescope, compression, checkpoints, settings, and code indexing/analysis. See [`../../docs/API.md`](../../docs/API.md) for the full endpoint reference.
 
 ## Project Detection (v3.2)
 

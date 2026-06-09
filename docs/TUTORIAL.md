@@ -129,7 +129,7 @@ Detected patterns include:
 1. **Session start** — context is auto-loaded from relevant memories
 2. **During session** — save decisions and discoveries as they happen
 3. **Session end** — summary is auto-saved, trust recovery runs
-4. **Dream Cycle** — runs every 10 sessions to clean stale memories
+4. **Dream Cycle** — runs at turn 50 of each session (and again at `session-end` if it did not run) to consolidate `session_summary` observations and clean stale memories. Use `node memory-store.js cleanup-sessions` for a one-shot retroactive cleanup of pre-#194 databases.
 
 ## See Also
 

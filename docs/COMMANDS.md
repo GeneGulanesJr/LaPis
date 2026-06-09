@@ -155,6 +155,7 @@ See [`docs/code-indexing.md`](code-indexing.md) for the async indexing pipeline 
 | `init`          | Initialize the database schema.              |
 | `compact`       | Prune dead links, decay trust, vacuum, and optimize FTS5. |
 | `dream`         | Run stale-memory cleanup.                    |
+| `cleanup-sessions` | Retroactively consolidate `session_summary` observations and prune orphaned/empty sessions. Mirrors the per-session merge that the in-session Dream Cycle performs at turn 50. Safe to re-run. |
 | `dashboard`     | Memory observability dashboard: health, statistics, and index quality. |
 
 ## Token Saver

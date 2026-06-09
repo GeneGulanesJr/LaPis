@@ -105,21 +105,23 @@ src/memory-domain/
 
 This domain should expose typed functions and return domain results, not CLI envelopes. CLI/extension formatting should live outside it.
 
-### 3. Procedural workflow memory
+### 3. Procedural workflow memory — REMOVED (Issue #167)
 
-**Current entry points**
+The `workflow-memory` module and its commands (`save-workflow`, `record-step`, `step-outcome`, `get-workflow`) were removed in commit `a2b151b` because the underlying `procedural_memory` and `procedural_steps` tables had zero rows in production and were not in use. The decisions/trust/auto-capture/preflight subsystems already cover the use case this module was originally intended to address. Any smoke test or doc referencing these commands (e.g. `--help lists save-workflow`) is stale and should be removed; the rest of this subsection is kept for historical context only.
+
+**Original entry points (no longer applicable)**
 
 - `memory-store.js` commands: `save-workflow`, `record-step`, `step-outcome`, and `get-workflow`.
 - SQLite tables: `procedural_memory` and `procedural_steps`.
 
-**Sub-features**
+**Original sub-features (no longer applicable)**
 
 - Persist named workflows.
 - Persist ordered commands/steps.
 - Track step success, attempts, and workarounds.
 - Recover successful procedures across sessions.
 
-**Boundary to establish**
+**Original boundary (no longer applicable)**
 
 Extract as `workflow-memory` because it has a distinct model and should not be coupled to observation ranking:
 
@@ -540,7 +542,6 @@ src/cli command gateway  or  src/http HTTP server
        ▼
 Feature services
   ├─ memory-domain
-  ├─ workflow-memory
   ├─ code-index
   ├─ code-analysis
   ├─ doc-index
@@ -562,16 +563,15 @@ Platform
 
 1. `extensions/*` may depend on the backend client and formatting adapters, but not raw SQL or parser internals.
 2. `memory-domain` may depend on storage, config, and ranking constants, but not code/doc parsers.
-3. `workflow-memory` may depend on storage and project identity only.
-4. `code-index` may depend on parser, filesystem, hashing, and storage, but not memory observation ranking.
-5. `code-analysis` may depend on code-index read repositories and git metrics, but not Pi extension state.
-6. `doc-index` may depend on Markdown/doc storage; doc coverage may depend only on `CodeSymbolLookup`.
-7. `trust-sync` is the only module allowed to coordinate memory and code symbol tables.
-8. `platform/protocol` owns `_meta`, compact/auto output, and LLM-facing transformations.
-9. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
-10. Crosshash should remain behind a command/API boundary until it fully replaces the JS code-intelligence path.
-11. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
-12. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
+3. `code-index` may depend on parser, filesystem, hashing, and storage, but not memory observation ranking.
+4. `code-analysis` may depend on code-index read repositories and git metrics, but not Pi extension state.
+5. `doc-index` may depend on Markdown/doc storage; doc coverage may depend only on `CodeSymbolLookup`.
+6. `trust-sync` is the only module allowed to coordinate memory and code symbol tables.
+7. `platform/protocol` owns `_meta`, compact/auto output, and LLM-facing transformations.
+8. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
+9. Crosshash should remain behind a command/API boundary until it fully replaces the JS code-intelligence path.
+10. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
+11. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
 
 ## Suggested extraction order
 
@@ -583,6 +583,7 @@ Platform
 6. **Extract docs into a standalone doc-index feature.** Keep doc coverage behind an explicit code lookup interface.
 7. **Extract trust-sync integration.** Make memory/code coupling explicit and easy to test in isolation.
 8. **Decide Crosshash migration direction.** Either promote Rust as the canonical code intelligence backend or keep it as a separate experimental engine; avoid maintaining two implicit architectures indefinitely.
+9. **Remove dead features.** `workflow-memory` was retired in Issue #167 because the underlying tables were empty; future candidates (e.g. unused exports, dead package entries) should be deleted rather than kept around as stubs.
 
 ## Independently testable module checklist
 

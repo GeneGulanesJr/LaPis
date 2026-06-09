@@ -26,7 +26,6 @@ Start with the feature area, then add code in the owning module. If a change app
 | If you are changing...                                                                                                                                      | Add or update code in...                                       | Notes                                                                                                 |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Observation CRUD, memory search, context loading, sessions, recall, dedupe, compaction, or workspaces                                                       | `src/memory-domain/`                                           | This module owns declarative memory and must not depend on code/doc parsers.                          |
-| Saved procedures, workflow steps, step outcomes, or workflow scoring                                                                                        | `src/workflow-memory/`                                         | Keep workflow state separate from observation ranking.                                                |
 | Repository registration, file scanning, parser selection, symbol extraction, edge extraction, incremental indexing, or source retrieval                     | `src/code-index/`                                              | This module writes/serves the code-index read model; it must not include memory ranking logic.        |
 | Import/call graphs, blast radius, dead code, complexity, hotspots, cycles, PageRank, coupling, signal chains, layer violations, query winnowing, or PR risk | `src/code-analysis/`                                           | Analysis consumes code-index read models and git metrics; it must not depend on Pi extension state.   |
 | Markdown indexing, section search, backlinks, broken links, glossary terms, tutorial paths, code examples, or doc analytics                                 | `src/doc-index/`                                               | Documentation features are independent; coverage may use only a narrow code-symbol lookup.            |
@@ -52,7 +51,6 @@ extensions/memory-layer/ # Pi extension composition root, hooks, host client, an
 src/cli/                 # CLI gateway and feature command routers
 src/http/                # Optional HTTP server (Aurex domain + code endpoints)
 src/memory-domain/       # Declarative memory feature module
-src/workflow-memory/     # Procedural workflow-memory feature module
 src/code-index/          # Code indexing and source retrieval feature module
 src/code-analysis/       # Code intelligence and analysis feature module
 src/doc-index/           # Documentation indexing and doc intelligence feature module
@@ -80,16 +78,15 @@ Follow these rules when adding or moving code:
 
 1. `extensions/*` may depend on backend clients and formatting adapters, but not raw SQL or parser internals.
 2. `memory-domain` may depend on storage, config, and ranking constants, but not code/doc parsers.
-3. `workflow-memory` may depend on storage and project identity only.
-4. `code-index` may depend on parser, filesystem, hashing, and storage helpers, but not memory observation ranking.
-5. `code-analysis` may depend on code-index read repositories and git metrics, but not Pi extension state.
-6. `doc-index` may depend on Markdown/doc storage; documentation coverage may depend only on a narrow code-symbol lookup.
-7. `trust-sync` is the only module that should coordinate memory observations with code symbol tables.
-8. `platform/protocol` owns `_meta`, compact/auto output, and LLM-facing transformations.
-9. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
-10. Crosshash should stay behind a command/API boundary until it fully replaces the JavaScript code-intelligence path.
-11. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
-12. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
+3. `code-index` may depend on parser, filesystem, hashing, and storage helpers, but not memory observation ranking.
+4. `code-analysis` may depend on code-index read repositories and git metrics, but not Pi extension state.
+5. `doc-index` may depend on Markdown/doc storage; documentation coverage may depend only on a narrow code-symbol lookup.
+6. `trust-sync` is the only module that should coordinate memory observations with code symbol tables.
+7. `platform/protocol` owns `_meta`, compact/auto output, and LLM-facing transformations.
+8. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
+9. Crosshash should stay behind a command/API boundary until it fully replaces the JavaScript code-intelligence path.
+10. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
+11. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the concise architecture overview and [`docs/ARCHITECTURE_MODULARIZATION.md`](docs/ARCHITECTURE_MODULARIZATION.md) for the detailed extraction rationale.
 

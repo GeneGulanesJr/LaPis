@@ -16,11 +16,13 @@ const SRC_ROOT = path.resolve(__dirname, '..', 'src');
  * should not cascade into another.
  */
 const FORBIDDEN_IMPORTS = {
-  'trust-sync': ['doc-index', 'code-analysis', 'code-index', 'workflow-memory'],
-  'workflow-memory': ['doc-index', 'code-analysis', 'code-index', 'trust-sync'],
-  'doc-index': ['trust-sync', 'workflow-memory', 'memory-domain'],
-  'code-analysis': ['doc-index', 'memory-domain', 'workflow-memory'],
-  'code-index': ['doc-index', 'trust-sync', 'workflow-memory'],
+  // Note: 'workflow-memory' was removed in commit a2b151b (Issue #167) because
+  // its tables had zero rows. If the module is ever reinstated, restore the
+  // boundary entries for it in this map.
+  'trust-sync': ['doc-index', 'code-analysis', 'code-index'],
+  'doc-index': ['trust-sync', 'memory-domain'],
+  'code-analysis': ['doc-index', 'memory-domain'],
+  'code-index': ['doc-index', 'trust-sync'],
 };
 
 function collectJsFiles(dir) {

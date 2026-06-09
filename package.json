@@ -57,7 +57,6 @@
     "./code-index": "./src/code-index/index.js",
     "./doc-index": "./src/doc-index/index.js",
     "./memory-domain": "./src/memory-domain/index.js",
-    "./workflow-memory": "./src/workflow-memory/index.js",
     "./trust-sync": "./src/trust-sync/index.js",
     "./platform/storage": "./src/platform/storage/index.js",
     "./platform/protocol/envelope": "./src/platform/protocol/envelope.js",

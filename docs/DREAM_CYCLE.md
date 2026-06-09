@@ -2,7 +2,15 @@
 
 The Dream Cycle is LaPis' memory-quality cleanup pass. It targets stale or low-value memory, not old memory.
 
-It runs per project every 10 sessions after the session ends. A 6-month-old valid decision should stay; a 1-day-old superseded setup note can be removed or consolidated.
+It runs once **per active session**, triggered when the in-session turn counter reaches **turn 50** (see Issue #194 / PR #195). Before that change it ran per project every 10 sessions after `session-end`; the trigger moved into the session so the cycle can act on fresh turn context. A 6-month-old valid decision should stay; a 1-day-old superseded setup note can be removed or consolidated.
+
+For databases created before the trigger moved, run the one-shot retroactive cleanup:
+
+```bash
+node memory-store.js cleanup-sessions
+```
+
+This consolidates accumulated `session_summary` observations into one per project and prunes empty/orphaned sessions, mirroring what the in-session cycle now does automatically.
 
 ## What It Cleans
 
@@ -18,7 +26,7 @@ It runs per project every 10 sessions after the session ends. A 6-month-old vali
 
 - It does not delete memory because of age alone.
 - It does not replace explicit user decisions with inferred memories.
-- It does not run during the active session; cleanup happens after session end.
+- It does not run only at session end. As of Issue #194, the cycle triggers at turn 50 of each active session, then once more at `session-end` if it did not already run.
 
 ## Related Maintenance
 

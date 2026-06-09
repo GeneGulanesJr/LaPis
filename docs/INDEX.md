@@ -4,12 +4,12 @@ This page is the entry point to the LaPis documentation. Use it to find the righ
 
 ## Verified counts (from `npm test`)
 
-- Test files: **89**
-- Tests passing: **1454**
-- Tests skipped: **1**
-- Tests total: **1455**
+- Test files: **90**
+- Tests passing: **1459**
+- Tests skipped: **0** (a one-off `incremental-derived` integration suite may show as 1 skipped when `node memory-store.js list-code-repos` cannot run at module load; the suite is otherwise complete)
+- Tests total: **1459**
 
-Run `npm test` to regenerate.
+Run `npm test` to regenerate. The previous numbers (89 / 1454 / 1455) reflected the state before the `cleanup-sessions` and per-session Dream Cycle at turn 50 work landed (commit `8b07a342`, Issue #194).
 
 ## Documentation map
 
@@ -47,7 +47,7 @@ Grouped by router under `src/cli/commands/`. Full syntax in [`docs/COMMANDS.md`]
 - **Docs**: `index-docs`, `reindex-docs`, `list-doc-repos`, `doc-search`, `doc-outline`, `backlinks`, `broken-links`, `glossary`, `tutorial-path`, `code-examples`, `doc-orphans`, `doc-coverage`, `stale-pages`, `doc-duplicates`
 - **Trust**: `link-symbol`, `auto-link`, `adjust-trust`, `record-recall`, `stale-links`, `sync-code-trust`, `symbol-cluster`, `related`
 - **Sessions/workspaces**: `session-start`, `session-end`, `session-summary`, `auto-recover`, `recover-orphans`, `trust-recovery`, `list-projects`, `list-workspaces`, `create-workspace`, `archive-workspace`
-- **Maintenance**: `init`, `compact`, `dream`, `dashboard`
+- **Maintenance**: `init`, `compact`, `dream`, `cleanup-sessions`, `dashboard`
 - **Agent intel**: `preflight`, `agent-pack`, `dupes`, `enrich-symbols`, `symbol-meta`, `audit-diff`, `runtime-ingest`, `hot-symbols`, `cold-symbols`, `blast`, `stale-flags`
 - **Token saver**: `run`, `token-saver-stats`, `token-saver-clear`
 - **Top-level**: `serve` (HTTP)
