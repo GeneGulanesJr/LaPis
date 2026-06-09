@@ -37,6 +37,7 @@ export function registerSessionStart(pi: ExtensionAPI, deps: SessionDeps) {
     deps.state.turnCount = 0;
     deps.state.lastMemoryToolCall = 0;
     deps.state.lastAutoDecisionSave = 0;
+    deps.state.dreamTriggeredThisSession = false;
     deps.state.hasInjectedContext = false;
     deps.state.projectSessionCount = 0;
     deps.state.editedFiles = new Set();
@@ -215,18 +216,6 @@ export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {
       );
     }
 
-    if (deps.state.projectSessionCount && deps.state.projectSessionCount % 10 === 0) {
-      try {
-        const dreamResult = await deps.memCmd('dream');
-        if (dreamResult && (dreamResult as any).totalCleaned > 0) {
-          ctx.ui.notify(
-            `💤 Dream Cycle: ${(dreamResult as any).totalCleaned} memories cleaned (${deps.state.currentProject})`,
-            'info',
-          );
-        }
-      } catch (e) {
-        console.error('[memory-layer] auto-dream failed:', e);
-      }
-    }
+
   });
 }
