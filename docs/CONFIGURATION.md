@@ -26,7 +26,8 @@ Supported settings include:
 {
   "db_path": "~/.pi/memory/memory.db",
   "wal_autocheckpoint": 1000,
-  "busy_timeout_ms": 5000,
+  "busy_timeout_ms": 30000,
+  "busy_retry_max": 5,
   "ranking": {
     "fts_relevance": 0.4,
     "recency": 0.3,
@@ -39,9 +40,31 @@ Supported settings include:
   },
   "compact_every_n_sessions": 5,
   "context_limit": 5,
-  "tier_config_path": "~/.pi/memory/tier.jsonc"
+  "tier_config_path": "~/.pi/memory/tier.jsonc",
+  "async_index_file_threshold": 500,
+  "output_compression": {
+    "enabled": true,
+    "min_chars": 2000,
+    "min_savings_percent": 30
+  }
 }
 ```
+
+### Setting reference
+
+| Key                         | Default                              | Purpose                                                                 |
+| --------------------------- | ------------------------------------ | ----------------------------------------------------------------------- |
+| `db_path`                   | `~/.pi/memory/memory.db`             | SQLite database path. `~` is expanded.                                  |
+| `wal_autocheckpoint`        | `1000`                               | Pages between WAL checkpoints.                                          |
+| `busy_timeout_ms`           | `30000`                              | SQLite busy timeout in milliseconds.                                    |
+| `busy_retry_max`            | `5`                                  | Maximum retries when the database reports `SQLITE_BUSY`.                |
+| `ranking.*`                 | see above                            | Hybrid search weights (must sum to 1.0).                                |
+| `dedup.*`                   | see above                            | Similarity thresholds for auto-merge and warning.                       |
+| `compact_every_n_sessions`  | `5`                                  | Sessions between compaction passes.                                     |
+| `context_limit`             | `5`                                  | Default context-packet size for the `context` command.                  |
+| `tier_config_path`          | `~/.pi/memory/tier.jsonc`            | Path to the tool tier configuration file.                               |
+| `async_index_file_threshold` | `500`                                | File count at which `index-repo` auto-switches to async.                |
+| `output_compression.*`      | `{ enabled: true, min_chars: 2000, min_savings_percent: 30 }` | Output compression defaults for the `run` subcommand and extension tool guardrails. |
 
 ## Tool Tier Configuration
 

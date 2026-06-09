@@ -43,7 +43,7 @@ npm install
 - **Deduplicates memory** - similar saves are merged or flagged before they clutter recall.
 - **Manages workspaces** - project isolation is explicit through create/list/archive workflows.
 - **Cleans stale memory** - the Dream Cycle removes superseded, never-useful, and replaced memories based on quality signals.
-- **Exposes an HTTP API** - optional REST server for programmatic access to missions, milestones, working units, and code analysis.
+- **Exposes an HTTP API** - optional REST server for programmatic access to missions, milestones, working units, todo/ledger domain, and code analysis.
 - **Pre-coding intelligence** - preflight checks combine memory, code, and docs into before-coding context.
 - **Compresses CLI output** - token-saving output compression reduces context window usage automatically.
 - **Memory dashboard** - observability command for memory health, statistics, and index quality.
@@ -140,6 +140,7 @@ The paired benchmark also reports behavior counters. In the latest run, memory-o
 
 ## Documentation
 
+- [`docs/INDEX.md`](docs/INDEX.md) - documentation map and verified counts.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) - contributor workflow and checks.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - architecture overview and dependency rules.
 - [`docs/MODULE_MAP.md`](docs/MODULE_MAP.md) - module ownership and entry points.

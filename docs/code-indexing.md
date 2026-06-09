@@ -35,7 +35,7 @@ Languages: js=80, ts=10
 
 ## Configuration
 
-- `LAPIS_ASYNC_INDEX_THRESHOLD` (env var) or `async_index_file_threshold` (config.jsonc) — file count that triggers auto-switch. Default: 500.
+- `async_index_file_threshold` in `~/.pi/memory/config.jsonc` — file count that triggers auto-switch. Default: 500.
 
 ## How it works
 

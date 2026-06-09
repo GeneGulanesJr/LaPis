@@ -103,6 +103,16 @@ curl -X POST http://127.0.0.1:9100/memory/search \
 
 # Get code hotspots
 curl http://127.0.0.1:9100/code/hotspots/my-project
+
+# Create a todo ledger
+curl -X POST http://127.0.0.1:9100/todo-ledgers \
+  -H "Content-Type: application/json" \
+  -d '{"missionId": "mission-1"}'
+
+# Create a todo
+curl -X POST http://127.0.0.1:9100/missions/mission-1/todos \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Refactor auth module"}'
 ```
 
 ## How Auto-Detection Works

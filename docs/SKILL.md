@@ -10,7 +10,7 @@ The memory layer provides persistent memory capabilities for the Pi coding agent
 
 - **Declarative memory** — save, search, update, and delete observations (decisions, bugfixes, patterns, discoveries).
 - **Code indexing** — web-tree-sitter (WASM) parses JS/TS/TSX/Go/Python/Rust/SQL for semantic symbol lookup.
-- **Code analysis** — import graphs, call hierarchies, blast radius, dead code, complexity, hotspots, cycles, importance, coupling, signal chains, layer violations, AST patterns, provenance, untested detection, and PR risk.
+- **Code analysis** — import graphs, call hierarchies, blast radius, dead code, complexity, hotspots, cycles, importance, coupling, signal chains, layer violations, AST patterns, provenance, untested detection, PR risk, and unified coding context.
 - **Doc indexing** — Markdown sections, links, glossary terms, code examples, broken link detection, tutorial path reconstruction.
 - **Trust scoring** — memories linked to changed code lose confidence; stable linked code recovers trust.
 - **HTTP server** — optional REST API for programmatic access to the Aurex domain model and code analysis.

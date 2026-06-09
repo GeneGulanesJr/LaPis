@@ -151,6 +151,39 @@ Defaults to `127.0.0.1:9100`. Binding to `0.0.0.0` prints a network exposure war
 | PATCH  | `/checkpoints/:id`                    | Resolve a checkpoint.        |
 | GET    | `/missions/:missionId/checkpoints`    | Get pending checkpoints.     |
 
+### Todo Ledgers
+
+| Method | Endpoint                                          | Purpose                              |
+| ------ | ------------------------------------------------- | ------------------------------------ |
+| POST   | `/todo-ledgers`                                   | Create a mission todo ledger.        |
+| GET    | `/todo-ledgers`                                   | List mission todo ledgers.           |
+| GET    | `/missions/:missionId/todo-ledger`                | Get the todo ledger for a mission.   |
+| PATCH  | `/missions/:missionId/todo-ledger`                | Update the todo ledger.              |
+| PATCH  | `/missions/:missionId/todo-ledger/status`         | Set the todo ledger status.          |
+| POST   | `/missions/:missionId/todo-events`                | Record a mission-scoped event.       |
+| GET    | `/missions/:missionId/todo-events`                | List mission-scoped events.          |
+
+### Todo Items
+
+| Method | Endpoint                                          | Purpose                              |
+| ------ | ------------------------------------------------- | ------------------------------------ |
+| POST   | `/missions/:missionId/todos`                      | Create a todo item for a mission.    |
+| POST   | `/missions/:missionId/todos/bulk`                 | Bulk-create todo items.              |
+| GET    | `/missions/:missionId/todos`                      | List todos by mission.               |
+| GET    | `/todos`                                          | List all todos.                      |
+| POST   | `/todos/search`                                   | Search todos.                        |
+| POST   | `/missions/:missionId/todos/claim-next`           | Claim the next ready todo.           |
+| GET    | `/todos/:todoId`                                  | Get a todo by ID.                    |
+| PATCH  | `/todos/:todoId`                                  | Update a todo.                       |
+| PATCH  | `/todos/:todoId/status`                           | Set todo status.                     |
+| POST   | `/todos/:todoId/evidence`                         | Add evidence to a todo.              |
+| POST   | `/todos/:todoId/notes`                            | Add a note to a todo.                |
+| PATCH  | `/todos/:todoId/assignment`                       | Assign a todo.                       |
+| GET    | `/todos/:todoId/context-query`                    | Get the context query for a todo.    |
+| GET    | `/todos/:todoId/context`                          | Get the assembled context for a todo. |
+| POST   | `/todos/:todoId/events`                           | Record a todo event.                 |
+| GET    | `/todos/:todoId/events`                           | List todo events.                    |
+
 ### Settings
 
 | Method  | Endpoint          | Purpose                      |
@@ -180,12 +213,11 @@ Feature modules access storage through repository interfaces in `src/platform/st
 
 | Repository      | File          | Used by                                 |
 | --------------- | ------------- | --------------------------------------- |
-| Aurex           | `aurex.js`    | HTTP server, missions/milestones domain |
+| Aurex           | `aurex.js`    | HTTP server, missions/milestones/todo/ledger domain |
 | Code index      | `code-index.js` | Code indexing and analysis features   |
 | Doc index       | `doc-index.js`  | Documentation indexing features       |
 | Memory          | `memory.js`    | Observation CRUD, search, context     |
 | Trust sync      | `trust-sync.js` | Symbol links, trust scoring           |
-| Workflow        | `workflow.js`   | Procedural workflow memory            |
 | Analytics       | `analytics.js`  | Code quality analytics               |
 
 ## See Also
