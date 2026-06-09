@@ -163,7 +163,7 @@ function dream(deps, args = {}) {
         AND (rl.recall_count IS NULL OR rl.recall_count = 0)
         AND o.content LIKE '%Auto-detected%'
         AND (sl.trust_score IS NULL OR sl.trust_score < ${DEDUP.DREAM_LOW_TRUST_THRESHOLD})
-        ${args.bypassAgeGates ? '' : `AND o.created_at < datetime('now', '-${TIME_WINDOWS.DREAM_AUTO_DETECTED_MIN_AGE_DAYS} days)`}
+        ${args.bypassAgeGates ? '' : "AND o.created_at < datetime('now', '-" + TIME_WINDOWS.DREAM_AUTO_DETECTED_MIN_AGE_DAYS + " days')"}
     `,
       [type],
     );
