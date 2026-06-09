@@ -1,12 +1,13 @@
 import { AUTO_DECISION_COOLDOWN, CHECKPOINT_INTERVAL, state } from '../state';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { mem } from '../host/memory-client';
+import { mem, memCmd } from '../host/memory-client';
 import { shouldAutoCapture } from './pattern-matcher';
 import path from 'node:path';
 
 interface PassiveCaptureDeps {
   state: typeof state;
   mem: typeof mem;
+  memCmd: typeof memCmd;
 }
 
 
@@ -86,6 +87,21 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
 
   pi.on('turn_end', async (_event, _ctx) => {
     deps.state.turnCount++;
+
+    // Trigger Dream Cycle once per session at turn 50
+    if (deps.state.turnCount === 50 && !deps.state.dreamTriggeredThisSession) {
+      deps.state.dreamTriggeredThisSession = true;
+      try {
+        const dreamResult = await deps.memCmd('dream');
+        if (dreamResult && (dreamResult as any).totalCleaned > 0) {
+          console.log(
+            `[memory-layer] 💤 Dream Cycle at turn 50: ${(dreamResult as any).totalCleaned} memories cleaned`,
+          );
+        }
+      } catch (e) {
+        console.error('[memory-layer] auto-dream at turn 50 failed:', e);
+      }
+    }
 
     if (deps.state.pendingRecallFeedback.size > 0) {
       const entries = [...deps.state.pendingRecallFeedback.entries()].map(([memoryId, meta]) => ({
