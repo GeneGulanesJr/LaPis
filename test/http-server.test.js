@@ -733,11 +733,12 @@ describe('Aurex HTTP Server', () => {
       expect(res.body.ok).toBe(true);
     });
 
-    it('runs compression (stub)', async () => {
+    it('runs compression', async () => {
       const res = await req('POST', `/missions/${missionId}/compression`, { trigger: 'post_milestone' });
       expect(res.status).toBe(200);
-      expect(res.body.accepted).toBe(true);
-      expect(res.body.skipped).toBe(true);
+      expect(typeof res.body.summary === 'string' || res.body.summary === null).toBe(true);
+      expect(typeof res.body.tokensSaved).toBe('number');
+      expect(res.body.tokensSaved).toBeGreaterThanOrEqual(0);
     });
 
     it('searches memory', async () => {
