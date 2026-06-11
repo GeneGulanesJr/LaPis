@@ -473,6 +473,7 @@ function runMigrations() {
     { to: 18, run: runMigrationV18 },
     { to: 19, run: runMigrationV19 },
     { to: 20, run: runMigrationV20 },
+    { to: 21, run: runMigrationV21 },
   ];
 
   const fromVersion = version;
@@ -1288,6 +1289,30 @@ function runMigrationV20() {
     });
   } catch (e) {
     errors.push(`V20: ${e.message}`);
+  }
+  return errors;
+}
+
+function runMigrationV21() {
+  const errors = [];
+  try {
+    withTransaction(() => {
+      sqlRaw(`
+        CREATE TABLE IF NOT EXISTS mission_compression_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          mission_id TEXT NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+          trigger TEXT NOT NULL,
+          summary TEXT NOT NULL DEFAULT '',
+          tokens_saved INTEGER NOT NULL DEFAULT 0,
+          error TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+      sqlRaw('CREATE INDEX IF NOT EXISTS idx_compression_log_mission ON mission_compression_log(mission_id)');
+      sqlRaw('PRAGMA user_version = 21');
+    });
+  } catch (e) {
+    errors.push(`V21: ${e.message}`);
   }
   return errors;
 }
