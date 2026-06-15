@@ -8,13 +8,13 @@ It runs as one Pi extension plus one local Node.js backend. Storage is SQLite by
 
 ## Walkthrough
 
-A 30-second tour of the LaPis lifecycle. Source composition lives at [`repo-media/html-video/lapis-slideshow/index.html`](repo-media/html-video/lapis-slideshow/index.html) — edit the prompts and re-render with [`npx hyperframes render`](https://hyperframes.heygen.com/).
+A 30-second tour of the LaPis lifecycle. The video below is a 6.4 MB inline GIF (autoplays on hover / in GitHub's image viewer); click it to play, or grab the full MP4 below.
 
-https://github.com/GeneGulanesJr/LaPis/raw/main/repo-media/html-video/lapis-slideshow-walkthrough.mp4
+![LaPis 30s walkthrough — gem, memory types, lifecycle, dream, shipping](repo-media/html-video/lapis-slideshow-walkthrough.gif)
 
-<video src="repo-media/html-video/lapis-slideshow-walkthrough.mp4" controls width="100%"></video>
+[Download the full-quality MP4 (11 MB, 1920×1080, 30s, with audio)](repo-media/html-video/lapis-slideshow-walkthrough.mp4)
 
-[Download the walkthrough MP4 (11 MB, 1920×1080, 30s)](repo-media/html-video/lapis-slideshow-walkthrough.mp4)
+Source composition lives at [`repo-media/html-video/lapis-slideshow/index.html`](repo-media/html-video/lapis-slideshow/index.html) — edit the prompts and re-render with [`npx hyperframes render`](https://hyperframes.heygen.com/).
 
 ## Architecture
 
