@@ -8,11 +8,18 @@ It runs as one Pi extension plus one local Node.js backend. Storage is SQLite by
 
 ## Walkthrough
 
-A 30-second tour of the LaPis lifecycle. The video below is a 6.4 MB inline GIF (autoplays on hover / in GitHub's image viewer); click it to play, or grab the full MP4 below.
+A 30-second tour of the LaPis lifecycle. Click the thumbnail to watch on YouTube (with audio), or grab the GIF / MP4 below for offline use.
+
+[![LaPis — Persistent Memory for Pi (30s walkthrough)](repo-media/html-video/lapis-slideshow-youtube-thumb.jpg)](https://www.youtube.com/watch?v=dm5XT0b0jM4)
+
+<details>
+<summary>Prefer inline? Open the GIF / MP4 versions.</summary>
 
 ![LaPis 30s walkthrough — gem, memory types, lifecycle, dream, shipping](repo-media/html-video/lapis-slideshow-walkthrough.gif)
 
 [Download the full-quality MP4 (11 MB, 1920×1080, 30s, with audio)](repo-media/html-video/lapis-slideshow-walkthrough.mp4)
+
+</details>
 
 Source composition lives at [`repo-media/html-video/lapis-slideshow/index.html`](repo-media/html-video/lapis-slideshow/index.html) — edit the prompts and re-render with [`npx hyperframes render`](https://hyperframes.heygen.com/).
 
