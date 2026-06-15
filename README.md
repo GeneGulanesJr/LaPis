@@ -4,6 +4,18 @@ Persistent memory for the [Pi coding agent](https://github.com/earendil-works/pi
 
 It runs as one Pi extension plus one local Node.js backend. Storage is SQLite by default at `~/.pi/memory/memory.db`; there are no cloud dependencies and no API keys.
 
+![LaPis banner — persistent memory for the Pi coding agent](banner.jpeg)
+
+## Walkthrough
+
+A 30-second tour of the LaPis lifecycle. Source composition lives at [`repo-media/html-video/lapis-slideshow/index.html`](repo-media/html-video/lapis-slideshow/index.html) — edit the prompts and re-render with [`npx hyperframes render`](https://hyperframes.heygen.com/).
+
+https://github.com/GeneGulanesJr/LaPis/raw/main/repo-media/html-video/lapis-slideshow-walkthrough.mp4
+
+<video src="repo-media/html-video/lapis-slideshow-walkthrough.mp4" controls width="100%"></video>
+
+[Download the walkthrough MP4 (11 MB, 1920×1080, 30s)](repo-media/html-video/lapis-slideshow-walkthrough.mp4)
+
 ## Architecture
 
 LaPis is a modular monolith: one installable extension with clear internal ownership between Pi adapters, CLI routing, feature services, and shared platform/storage code. The extension calls the backend through in-process `dispatch()` when possible, with child-process fallback for streaming operations such as indexing.
@@ -39,12 +51,21 @@ npm install
 - **Remembers across sessions** - decisions, bugfixes, patterns, discoveries, and constraints persist.
 - **Auto-injects context** - new sessions start with relevant memories loaded.
 - **Indexes code** - web-tree-sitter parses JS/TS/TSX/Go/Python/Rust/SQL for semantic code lookup and analysis.
+
+  ![LaPis memory-code module](repo-media/modules/illustration-memory-code.jpeg)
+
 - **Indexes docs** - Markdown sections, links, glossary terms, and code examples become searchable.
 - **Tracks trust** - memories linked to changed code lose confidence; stable linked code recovers trust.
 - **Deduplicates memory** - similar saves are merged or flagged before they clutter recall.
 - **Manages workspaces** - project isolation is explicit through create/list/archive workflows.
 - **Cleans stale memory** - the Dream Cycle removes superseded, never-useful, and replaced memories based on quality signals.
+
+  ![LaPis dream-cycle module](repo-media/modules/illustration-dream-cycle.jpeg)
+
 - **Exposes an HTTP API** - optional REST server for programmatic access to missions, milestones, working units, todo/ledger domain, and code analysis.
+
+  ![LaPis dispatch-flow module — in-process dispatch with child-process fallback](repo-media/modules/illustration-dispatch-flow.jpeg)
+
 - **Pre-coding intelligence** - preflight checks combine memory, code, and docs into before-coding context.
 - **Compresses CLI output** - token-saving output compression reduces context window usage automatically.
 - **Memory dashboard** - observability command for memory health, statistics, and index quality.
