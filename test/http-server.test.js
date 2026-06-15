@@ -583,7 +583,7 @@ describe('Aurex HTTP Server', () => {
         commandsRun: [{ command: 'npm test', exitCode: 0 }],
         gitCommitHash: 'abc123',
       });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       expect(res.body.accepted).toBe(true);
     });
 

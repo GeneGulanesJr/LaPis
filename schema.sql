@@ -743,6 +743,130 @@ CREATE INDEX IF NOT EXISTS idx_todo_events_mission ON todo_events(mission_id);
 CREATE INDEX IF NOT EXISTS idx_todo_events_todo ON todo_events(todo_id);
 
 -- ═══════════════════════════════════════════════════════════
+-- AUREX DOMAIN  (mission orchestration)
+-- ═══════════════════════════════════════════════════════════
+-- These tables are the source of truth for the Aurex mission domain.
+-- The same DDL is also emitted by runMigrationV11 for legacy upgrade
+-- paths; the canonical definition lives here so a fresh `createDb`
+-- produces a complete schema without depending on the migration loop.
+CREATE TABLE IF NOT EXISTS missions (
+  id           TEXT PRIMARY KEY,
+  description  TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'planning',
+  config_json  TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS milestones (
+  id                       TEXT PRIMARY KEY,
+  mission_id               TEXT NOT NULL REFERENCES missions(id),
+  title                    TEXT NOT NULL,
+  description              TEXT NOT NULL DEFAULT '',
+  order_index              INTEGER NOT NULL DEFAULT 0,
+  status                   TEXT NOT NULL DEFAULT 'planned',
+  validation_contract_id   TEXT,
+  retries                  INTEGER NOT NULL DEFAULT 0,
+  rescopes                 INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS working_units (
+  id                TEXT PRIMARY KEY,
+  milestone_id      TEXT NOT NULL REFERENCES milestones(id),
+  description       TEXT NOT NULL DEFAULT '',
+  declared_paths    TEXT NOT NULL DEFAULT '[]',
+  declared_modules  TEXT NOT NULL DEFAULT '[]',
+  status            TEXT NOT NULL DEFAULT 'spawned',
+  task_branch       TEXT NOT NULL DEFAULT '',
+  worktree_path     TEXT NOT NULL DEFAULT '',
+  session_id        TEXT
+);
+CREATE TABLE IF NOT EXISTS validation_contracts (
+  id                  TEXT PRIMARY KEY,
+  milestone_id        TEXT NOT NULL REFERENCES milestones(id),
+  version             INTEGER NOT NULL DEFAULT 1,
+  content             TEXT NOT NULL DEFAULT '{}',
+  supersedes          TEXT,
+  superseded_by       TEXT,
+  rescope_event_id    TEXT,
+  created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS validation_verdicts (
+  id                TEXT PRIMARY KEY,
+  milestone_id      TEXT NOT NULL REFERENCES milestones(id),
+  contract_id       TEXT NOT NULL REFERENCES validation_contracts(id),
+  validator_type    TEXT NOT NULL,
+  session_id        TEXT NOT NULL,
+  verdict           TEXT NOT NULL,
+  classification    TEXT,
+  findings          TEXT NOT NULL DEFAULT '',
+  failed_unit_ids   TEXT NOT NULL DEFAULT '[]',
+  timestamp         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS broadcasts (
+  id            TEXT PRIMARY KEY,
+  mission_id    TEXT NOT NULL REFERENCES missions(id),
+  author_id     TEXT NOT NULL,
+  author_type   TEXT NOT NULL,
+  category      TEXT NOT NULL DEFAULT 'info',
+  title         TEXT NOT NULL DEFAULT '',
+  content       TEXT NOT NULL DEFAULT '',
+  status        TEXT NOT NULL DEFAULT 'active',
+  ttl           INTEGER,
+  expires_at    TEXT,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS research_findings (
+  id                TEXT PRIMARY KEY,
+  mission_id        TEXT NOT NULL REFERENCES missions(id),
+  author_id         TEXT NOT NULL,
+  domain            TEXT NOT NULL DEFAULT '[]',
+  title             TEXT NOT NULL DEFAULT '',
+  content           TEXT NOT NULL DEFAULT '',
+  relevance         TEXT NOT NULL DEFAULT 'medium',
+  status            TEXT NOT NULL DEFAULT 'unverified',
+  verified_task_id  TEXT,
+  ttl               INTEGER,
+  expires_at        TEXT,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS agent_sessions (
+  session_id      TEXT PRIMARY KEY,
+  agent_type      TEXT NOT NULL,
+  mission_id      TEXT NOT NULL REFERENCES missions(id),
+  milestone_id    TEXT REFERENCES milestones(id),
+  unit_id         TEXT REFERENCES working_units(id),
+  spawned_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  terminated_at   TEXT
+);
+CREATE TABLE IF NOT EXISTS cost_entries (
+  id                  TEXT PRIMARY KEY,
+  mission_id          TEXT NOT NULL REFERENCES missions(id),
+  agent_session_id    TEXT NOT NULL,
+  model               TEXT NOT NULL,
+  prompt_tokens       INTEGER NOT NULL DEFAULT 0,
+  completion_tokens   INTEGER NOT NULL DEFAULT 0,
+  cost                REAL NOT NULL DEFAULT 0,
+  timestamp           TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS rescope_events (
+  id              TEXT PRIMARY KEY,
+  milestone_id    TEXT NOT NULL REFERENCES milestones(id),
+  contract_id     TEXT NOT NULL REFERENCES validation_contracts(id),
+  reason          TEXT NOT NULL DEFAULT '',
+  previous_scope  TEXT NOT NULL DEFAULT '',
+  new_scope       TEXT NOT NULL DEFAULT '',
+  timestamp       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_aurex_milestones_mission  ON milestones(mission_id);
+CREATE INDEX IF NOT EXISTS idx_aurex_units_milestone    ON working_units(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_aurex_contracts_milestone ON validation_contracts(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_aurex_verdicts_milestone  ON validation_verdicts(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_aurex_broadcasts_mission  ON broadcasts(mission_id);
+CREATE INDEX IF NOT EXISTS idx_aurex_findings_mission    ON research_findings(mission_id);
+CREATE INDEX IF NOT EXISTS idx_aurex_sessions_mission    ON agent_sessions(mission_id);
+CREATE INDEX IF NOT EXISTS idx_aurex_sessions_milestone  ON agent_sessions(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_aurex_costs_mission       ON cost_entries(mission_id);
+CREATE INDEX IF NOT EXISTS idx_aurex_rescope_milestone   ON rescope_events(milestone_id);
+
+-- ═══════════════════════════════════════════════════════════
 -- AUREX HANDOFFS  (worker → orchestrator structured completion)
 -- ═══════════════════════════════════════════════════════════
 -- Worker agents call write_handoff to signal completed work. The
