@@ -22,7 +22,8 @@ function sessionEnd(deps, args) {
       sqlJson: deps.sqlJson,
       sqlRun: deps.sqlRun,
       trustRecovery: dreamService.trustRecovery,
-      runCompact: dreamService.runCompact,
+      runCompactCheap: dreamService.runCompactCheap,
+      runVacuum: dreamService.runVacuum,
     },
     args,
   );

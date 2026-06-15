@@ -5,11 +5,11 @@ const { execSync } = require('child_process');
 const STORE = path.resolve(__dirname, '..', 'memory-store.js');
 const testProject = `edge-test-${process.pid}`;
 
-function run(cmd) {
+function run(cmd, timeout = 15000) {
   try {
     const out = execSync(`node "${STORE}" ${cmd}`, {
       encoding: 'utf8',
-      timeout: 15000,
+      timeout,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return JSON.parse(out.trim());
@@ -358,7 +358,10 @@ describe('edge cases: sessions', () => {
 // ═══════════════════════════════════════════
 describe('edge cases: compact/dream', () => {
   it('should complete compact without error', () => {
-    const result = run('compact');
+    // `compact` runs VACUUM + FTS optimize on the live memory.db, which can be
+    // hundreds of MB. Give it a generous timeout so this integration test isn't
+    // flaky on large DBs.
+    const result = run('compact', 60000);
     expect(result.ok).toBe(true);
     expect(result.steps.deadLinksCleaned).toBe(true);
     expect(result.steps.vacuumed).toBe(true);

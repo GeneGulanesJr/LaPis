@@ -155,10 +155,19 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
 }
 
 export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {
-  pi.on('session_shutdown', async (_event, ctx) => {
+  pi.on('session_shutdown', async (event, ctx) => {
     if (!deps.state.sessionId || !deps.state.currentProject) {
       return;
     }
+
+    // `quit` = Ctrl+C / Ctrl+D / SIGHUP / SIGTERM. Pi awaits session_shutdown
+    // handlers before exiting, so awaiting DB bookkeeping here blocks the exit
+    // for seconds on large DBs (VACUUM, FTS optimize). On quit we run the work
+    // fire-and-forget so the process can exit immediately.
+    // `reload` / `new` / `resume` / `fork` keep the awaited path so the summary
+    // and trust sync land before the next session starts.
+    const reason = (event as any)?.reason as string | undefined;
+    const isQuit = reason === 'quit' || !reason;
 
     const entries = ctx.sessionManager.getEntries();
     const userMessages = entries.filter((e: any) => e.type === 'message' && e.message?.role === 'user');
@@ -198,18 +207,34 @@ export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {
       `${deps.state.memoriesSavedThisSession} memories saved, ${assistantMessages.length} assistant turns, ${deps.state.turnCount} total turns`,
     );
 
-    await deps.mem('session-summary', {
-      content: summaryParts.join('\n'),
-      project: deps.state.currentProject,
-    });
+    const runShutdownWork = async () => {
+      try {
+        await deps.mem('session-summary', {
+          content: summaryParts.join('\n'),
+          project: deps.state.currentProject,
+        });
+        await deps.mem('session-end', {
+          id: String(deps.state.sessionId),
+          memories: String(deps.state.memoriesSavedThisSession),
+          auto: 'true',
+        });
+      } catch (e) {
+        // Best-effort on shutdown; never throw out of the handler.
+        console.error('[memory-layer] shutdown work failed:', e instanceof Error ? e.message : String(e));
+      }
+    };
 
-    await deps.mem('session-end', {
-      id: String(deps.state.sessionId),
-      memories: String(deps.state.memoriesSavedThisSession),
-      auto: 'true',
-    });
+    if (isQuit) {
+      // Fire-and-forget: let Pi exit immediately. Give the in-process gateway
+      // a short grace window to flush the cheap deletes (no VACUUM on most
+      // exits thanks to the session-count gate), but never block on it.
+      void runShutdownWork();
+    } else {
+      // Reload / new / resume / fork: the next session needs this data in place.
+      await runShutdownWork();
+    }
 
-    if (ctx.hasUI) {
+    if (ctx.hasUI && !isQuit) {
       ctx.ui.notify(
         `Memory: session saved (${deps.state.memoriesSavedThisSession} memories, ${deps.state.turnCount} turns)`,
         'info',

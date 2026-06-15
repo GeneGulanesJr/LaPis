@@ -2,8 +2,10 @@ const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../const
 const { createTrustSyncRepository } = require('../platform/storage/repositories/trust-sync');
 const trustSync = require('../trust-sync');
 
-function runCompact(deps) {
-  const { sqlRun, sqlRaw } = deps;
+// Cheap, lock-light cleanup: all the DELETEs + trust decay. No VACUUM, no FTS optimize.
+// Safe to run on every session-end without blocking exit.
+function runCompactCheap(deps) {
+  const { sqlRun } = deps;
   const startedAt = new Date().toISOString();
   const report = { startedAt, steps: {} };
 
@@ -62,6 +64,23 @@ function runCompact(deps) {
       ) AND trust_score > ${TRUST_DELTA.TRUST_FLOOR}`);
     report.steps.staleTrustDecayed = true;
 
+    report.completedAt = new Date().toISOString();
+    report.ok = true;
+  } catch (e) {
+    report.error = e.message;
+    report.ok = false;
+  }
+  return report;
+}
+
+// Expensive: VACUUM rewrites the whole DB under an exclusive lock; FTS 'optimize'
+// rebuilds the index b-trees. Only run on a gated cadence (every N sessions),
+// never on every exit — otherwise quitting Pi blocks for seconds on large DBs.
+function runVacuum(deps) {
+  const { sqlRaw } = deps;
+  const startedAt = new Date().toISOString();
+  const report = { startedAt, steps: {} };
+  try {
     sqlRaw('VACUUM;');
     report.steps.vacuumed = true;
 
@@ -76,6 +95,20 @@ function runCompact(deps) {
     report.ok = false;
   }
   return report;
+}
+
+// Full compact = cheap deletes + expensive VACUUM/FTS optimize.
+// Kept for backward compat (CLI `compact`, `dream`, tests).
+function runCompact(deps) {
+  const cheap = runCompactCheap(deps);
+  const vacuum = runVacuum(deps);
+  return {
+    startedAt: cheap.startedAt,
+    ok: cheap.ok && vacuum.ok,
+    steps: { ...cheap.steps, ...vacuum.steps },
+    cheap,
+    vacuum,
+  };
 }
 
 function compact(deps) {
@@ -404,4 +437,4 @@ function trustRecovery(deps, args) {
   return trustSync.trustRecovery({ jsonErrNoExit: deps.jsonErrNoExit, trustSyncRepository }, args);
 }
 
-module.exports = { runCompact, compact, dream, trustRecovery };
+module.exports = { runCompact, runCompactCheap, runVacuum, compact, dream, trustRecovery };

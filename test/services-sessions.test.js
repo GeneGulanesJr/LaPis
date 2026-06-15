@@ -139,21 +139,69 @@ describe('services/sessions', () => {
       expect(result.trustRecovery).toBeUndefined();
     });
 
-    it('should run compact at session end when runCompact is provided', () => {
+    it('should always run cheap compact at session end when runCompactCheap is provided', () => {
       const sqlJson = vi.fn();
       const sqlRun = vi.fn();
       const jsonErrNoExit = vi.fn((msg) => ({ error: msg }));
       const trustRecovery = vi.fn(() => ({ ok: true }));
-      const runCompact = vi.fn(() => ({ ok: true, pruned: 3 }));
+      const runCompactCheap = vi.fn(() => ({ ok: true, pruned: 3 }));
+      const runVacuum = vi.fn(() => ({ ok: true, steps: { vacuumed: true } }));
       const result = sessionEnd(
-        { sqlJson, sqlRun, jsonErrNoExit, trustRecovery, runCompact },
+        { sqlJson, sqlRun, jsonErrNoExit, trustRecovery, runCompactCheap, runVacuum },
         { id: '10', memories: '5' },
       );
-      expect(runCompact).toHaveBeenCalled();
+      expect(runCompactCheap).toHaveBeenCalled();
+      // Vacuum is gated by session count; with an unmocked count query it
+      // returns undefined and vacuum is skipped (cheap path only).
+      expect(runVacuum).not.toHaveBeenCalled();
       expect(result.compacted).toEqual({ ok: true, pruned: 3 });
     });
 
-    it('should not fail when runCompact is not provided', () => {
+    it('should run vacuum only when ended session count is a multiple of compact_every_n_sessions', () => {
+      const sqlRun = vi.fn();
+      const jsonErrNoExit = vi.fn((msg) => ({ error: msg }));
+      const trustRecovery = vi.fn(() => ({ ok: true }));
+      const runCompactCheap = vi.fn(() => ({ ok: true, startedAt: 't', steps: { expiredPurged: true } }));
+      const runVacuum = vi.fn(() => ({ ok: true, steps: { vacuumed: true } }));
+      // 10 ended sessions → divisible by default interval of 5 → vacuum due.
+      const sqlJson = vi.fn((query) => {
+        if (/COUNT\(\*\) as cnt FROM session_log WHERE ended_at IS NOT NULL/i.test(query)) {
+          return [{ cnt: 10 }];
+        }
+        return [];
+      });
+      const result = sessionEnd(
+        { sqlJson, sqlRun, jsonErrNoExit, trustRecovery, runCompactCheap, runVacuum },
+        { id: '10', memories: '5' },
+      );
+      expect(runCompactCheap).toHaveBeenCalled();
+      expect(runVacuum).toHaveBeenCalledTimes(1);
+      expect(result.compacted.steps.vacuumed).toBe(true);
+    });
+
+    it('should skip vacuum when ended session count is not on the gated cadence', () => {
+      const sqlRun = vi.fn();
+      const jsonErrNoExit = vi.fn((msg) => ({ error: msg }));
+      const trustRecovery = vi.fn(() => ({ ok: true }));
+      const runCompactCheap = vi.fn(() => ({ ok: true, steps: { expiredPurged: true } }));
+      const runVacuum = vi.fn(() => ({ ok: true }));
+      // 7 ended sessions → not divisible by 5 → vacuum NOT due.
+      const sqlJson = vi.fn((query) => {
+        if (/COUNT\(\*\) as cnt FROM session_log WHERE ended_at IS NOT NULL/i.test(query)) {
+          return [{ cnt: 7 }];
+        }
+        return [];
+      });
+      const result = sessionEnd(
+        { sqlJson, sqlRun, jsonErrNoExit, trustRecovery, runCompactCheap, runVacuum },
+        { id: '10', memories: '5' },
+      );
+      expect(runCompactCheap).toHaveBeenCalled();
+      expect(runVacuum).not.toHaveBeenCalled();
+      expect(result.compacted.steps.vacuumed).toBeUndefined();
+    });
+
+    it('should not fail when runCompactCheap is not provided', () => {
       const sqlJson = vi.fn();
       const sqlRun = vi.fn();
       const jsonErrNoExit = vi.fn((msg) => ({ error: msg }));

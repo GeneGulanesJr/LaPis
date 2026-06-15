@@ -105,14 +105,37 @@ function sessionEnd(deps, args) {
     parseInt(id, 10),
   ]);
 
-  const compacted = deps.runCompact ? deps.runCompact() : null;
+  // Always run the cheap, lock-light cleanup (DELETEs + trust decay).
+  // The expensive VACUUM + FTS 'optimize' is gated by session count so quitting
+  // Pi doesn't block for seconds on large DBs. The gate matches sessionStart's
+  // compact_every_n_sessions so the heavy work lands on the same cadence.
+  const cheapResult = deps.runCompactCheap ? deps.runCompactCheap() : null;
+
+  let vacuumResult = null;
+  if (deps.runVacuum) {
+    let vacuumDue = true;
+    try {
+      const compactInterval = getConfig().compact_every_n_sessions || 5;
+      const row = deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE ended_at IS NOT NULL');
+      const ended = row && row[0] ? parseInt(row[0].cnt, 10) : 0;
+      vacuumDue = ended > 0 && ended % compactInterval === 0;
+    } catch (_e) {
+      // If the count query fails, skip vacuum rather than block exit.
+      vacuumDue = false;
+    }
+    if (vacuumDue) {
+      vacuumResult = deps.runVacuum();
+    }
+  }
 
   const result = { ok: true, sessionId: parseInt(id, 10) };
   if (trustRecoveryResult) {
     result.trustRecovery = trustRecoveryResult;
   }
-  if (compacted) {
-    result.compacted = compacted;
+  if (cheapResult) {
+    result.compacted = vacuumResult
+      ? { startedAt: cheapResult.startedAt, ok: cheapResult.ok && vacuumResult.ok, steps: { ...cheapResult.steps, ...vacuumResult.steps } }
+      : cheapResult;
   }
   return result;
 }
