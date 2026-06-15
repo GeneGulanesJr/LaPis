@@ -134,7 +134,7 @@ function buildRoutes(deps) {
     { method: 'POST', pattern: '/milestones/:milestoneId/retry', handler: retry.incrementRetry(aurex) },
     { method: 'POST', pattern: '/milestones/:milestoneId/rescope', handler: retry.logRescope(aurex) },
 
-    // Compression (stub)
+    // Mission-state compression
     { method: 'POST', pattern: '/missions/:missionId/compression', handler: compression.runCompression() },
 
     // Checkpoints

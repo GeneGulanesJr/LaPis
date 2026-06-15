@@ -1,5 +1,16 @@
 const { indexRepository, reindexRepository, getCodeRepoHealth } = require('../../code-index/incremental-indexer');
+const { getDependencyCycles } = require('../../code-analysis/graph');
 const { getDb } = require('../../../db');
+
+// Compute real dependency cycles; degrade gracefully to a zero-value so a
+// graph-build failure never 500s the whole summary/graph endpoint.
+function safeDependencyCycles(db, repoId) {
+  try {
+    return getDependencyCycles(db, repoId);
+  } catch {
+    return { cycles: [], total_circular_files: 0 };
+  }
+}
 
 function indexRepo(deps) {
   return async (req, res, { body }) => {
@@ -103,6 +114,8 @@ function codeRepoSummary(deps) {
     `).all(repoRow.id);
     const entryPoints = entryRows.map(r => r.path.split('/').pop());
 
+    const cyc = safeDependencyCycles(db, repoRow.id);
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       files: repoRow.file_count,
@@ -110,7 +123,7 @@ function codeRepoSummary(deps) {
       edges: edgeRow.count,
       modules: moduleList,
       entryPoints,
-      cycles: { count: 0, paths: [] },
+      cycles: { count: cyc.cycles.length, paths: cyc.cycles.map((c) => c.files) },
     }));
   };
 }
@@ -172,7 +185,12 @@ function codeRepoGraph(deps) {
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ nodes, edges, cycles: [] }));
+    const cyc = safeDependencyCycles(db, repoRow.id);
+    res.end(JSON.stringify({
+      nodes,
+      edges,
+      cycles: cyc.cycles.map((c) => ({ files: c.files, edges: c.edges })),
+    }));
   };
 }
 

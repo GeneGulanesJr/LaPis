@@ -1,7 +1,19 @@
+const { getDb } = require('../../../db');
+
 function healthCheck(deps) {
   return async (req, res, ctx) => {
     const { jsonOk } = require('../errors');
-    jsonOk(res, { status: 'ok', db: true });
+    // Prefer an injected getDb (test seam), else fall back to the shared DB.
+    const getDbFn = (deps && deps.getDb) || getDb;
+    let dbReachable = false;
+    try {
+      const db = getDbFn();
+      db.prepare('SELECT 1').get();
+      dbReachable = true;
+    } catch {
+      dbReachable = false;
+    }
+    jsonOk(res, { status: dbReachable ? 'ok' : 'degraded', db: dbReachable });
   };
 }
 

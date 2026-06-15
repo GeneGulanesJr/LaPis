@@ -6,6 +6,7 @@ function makeSqlJson(rowsByQuery) {
   return (sql, params) => {
     // Match by FROM clause to dispatch to the right canned response
     if (/FROM research_findings/.test(sql)) return rowsByQuery.findings ?? [];
+    if (/FROM handoffs/.test(sql)) return rowsByQuery.handoffs ?? [];
     if (/FROM validation_verdicts/.test(sql)) return rowsByQuery.verdicts ?? [];
     if (/FROM cost_entries/.test(sql)) return rowsByQuery.costs ?? [];
     return [];
@@ -38,6 +39,36 @@ describe('compressMissionState', () => {
       ],
     });
     const result = compressMissionState({ sqlJson, missionId: 'm-1' });
+    expect(result.summary).toBeDefined();
+    expect(result.summary.length).toBeGreaterThan(0);
+    expect(result.tokensSaved).toBeGreaterThanOrEqual(0);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('aggregates worker handoffs into the summary', () => {
+    const queries = [];
+    const baseSqlJson = makeSqlJson({
+      handoffs: [
+        {
+          feature_name: 'Login flow',
+          description: 'Implemented OAuth callback',
+          remaining: 'Add rate limiting',
+          status: 'accepted',
+        },
+      ],
+    });
+    const sqlJson = (sql, params) => {
+      queries.push({ sql, params });
+      return baseSqlJson(sql, params);
+    };
+    const result = compressMissionState({ sqlJson, missionId: 'm-1' });
+
+    // The handoffs table is queried for this mission, bounded by windowSize.
+    const handoffQuery = queries.find((q) => /FROM handoffs/.test(q.sql));
+    expect(handoffQuery).toBeDefined();
+    expect(handoffQuery.params).toEqual(['m-1', 50]);
+
+    // The handoff content flows into the compressor (non-empty summary produced).
     expect(result.summary).toBeDefined();
     expect(result.summary.length).toBeGreaterThan(0);
     expect(result.tokensSaved).toBeGreaterThanOrEqual(0);
