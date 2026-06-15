@@ -12,7 +12,7 @@ A 30-second tour of the LaPis lifecycle. The GIF below autoplays inline (silent)
 
 [![LaPis 30s walkthrough — gem, memory types, lifecycle, dream, shipping](repo-media/html-video/lapis-slideshow-walkthrough.gif)](https://www.youtube.com/watch?v=dm5XT0b0jM4)
 
-Want it offline? [Download the full-quality MP4 (11 MB, 1920×1080, 30s, with audio)](repo-media/html-video/lapis-slideshow-walkthrough.mp4). Source composition lives at [`repo-media/html-video/lapis-slideshow/index.html`](repo-media/html-video/lapis-slideshow/index.html) — edit the prompts and re-render with [`npx hyperframes render`](https://hyperframes.heygen.com/).
+Source composition lives at [`repo-media/html-video/lapis-slideshow/index.html`](repo-media/html-video/lapis-slideshow/index.html) — edit the prompts and re-render with [`npx hyperframes render`](https://hyperframes.heygen.com/).
 
 ## Architecture
 
