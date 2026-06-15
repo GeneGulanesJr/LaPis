@@ -18,15 +18,25 @@ Source composition lives at [`repo-media/html-video/lapis-slideshow/index.html`]
 
 LaPis is a modular monolith: one installable extension with clear internal ownership between Pi adapters, CLI routing, feature services, and shared platform/storage code. The extension calls the backend through in-process `dispatch()` when possible, with child-process fallback for streaming operations such as indexing.
 
-![LaPis Modular Memory Architecture](memory-layer-architecture.png)
+All three architecture views are interactive HTML — clickable nodes, themeable (light/dark), and animated request paths with marching dashes on highlighted edges.
+
+### Architecture overview
+
+The full stack from Pi prompt to SQLite row. Chips animate 3 representative request lifecycles.
+
+👉 **[Open the architecture overview](docs/diagrams/lapis-architecture.html)** — Save memory · Recall at start · Index code/docs
 
 ### Module boundaries
 
-![LaPis module boundaries](docs/diagrams/lapis-module-boundaries.png)
+The dependency view. Highlights the layered architecture, peer relationships between feature services, and the trust-sync bridge (the only explicit memory↔code link).
+
+👉 **[Open the module boundaries diagram](docs/diagrams/lapis-module-boundaries.html)** — Request flow · Feature peers · Trust bridge
 
 ### Memory lifecycle
 
-![LaPis memory lifecycle](docs/diagrams/lapis-memory-lifecycle.png)
+How data moves through the four primary operations into one local SQLite store. The trust path is highlighted in violet to mark it as the only memory↔code bridge.
+
+👉 **[Open the memory lifecycle diagram](docs/diagrams/lapis-memory-lifecycle.html)** — Write · Read · Index · Trust
 
 For dependency rules and module ownership details, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/MODULE_MAP.md`](docs/MODULE_MAP.md).
 

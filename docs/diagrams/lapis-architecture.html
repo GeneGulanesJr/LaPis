@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LaPis — Architecture</title>
+<script>
+  (function () {
+    const saved = localStorage.getItem('theme');
+    const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', dark);
+  })();
+</script>
+<style>
+  :root {
+    --bg: #FAF9F5; --surface: #FFFFFF; --surface2: #F0EEE6;
+    --ink: #141413; --body: #3D3D3A; --muted: #87867F;
+    --line: #D1CFC5; --line-soft: #E6E3DA;
+    --clay: #D97757; --clay-soft: rgba(217,119,87,0.10);
+    --olive: #788C5D; --olive-soft: rgba(120,140,93,0.12);
+    --gold: #C9A45C; --blue: #5B7E96;
+    --violet: #7653B8; --violet-soft: rgba(118,83,184,0.10);
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  html.dark {
+    --bg: #141413; --surface: #1F1F1D; --surface2: #2A2A28;
+    --ink: #FAF9F5; --body: #D1CFC5; --muted: #87867F;
+    --line: #3D3D3A; --line-soft: #2A2A28;
+    --clay: #E48A6E; --clay-soft: rgba(228,138,110,0.14);
+    --olive: #9DB07C; --olive-soft: rgba(157,176,124,0.16);
+    --gold: #D4B36F; --blue: #7FA3BC;
+    --violet: #9D7FCB; --violet-soft: rgba(157,127,203,0.16);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--body); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  .bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 20px; border-bottom: 1px solid var(--line-soft); flex: none; }
+  .bar h1 { font-family: var(--serif); font-weight: 500; font-size: 19px; color: var(--ink); letter-spacing: -0.01em; }
+  .bar .sub { font-family: var(--mono); font-size: 10.5px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .spacer { flex: 1; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px;
+    background: transparent; color: var(--muted); cursor: pointer; transition: all .15s ease; }
+  .chip:hover { color: var(--ink); border-color: var(--muted); }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  #themeToggle { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: transparent; color: var(--muted); cursor: pointer; }
+  #themeToggle:hover { color: var(--ink); border-color: var(--muted); }
+
+  .stage { flex: 1; position: relative; min-height: 0; }
+  .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .zone rect { fill: var(--zone); stroke: var(--zone-line); stroke-width: 1; stroke-dasharray: 5 5; rx: 16; }
+  .zone .ztitle { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; fill: var(--muted); }
+  .zone .zsub { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); opacity: 0.75; }
+
+  .node { cursor: pointer; }
+  .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; rx: 10; transition: stroke .15s ease; }
+  .node:hover rect { stroke: var(--muted); }
+  .node.sel rect { stroke: var(--clay) !important; stroke-width: 2; }
+  .node .t  { font-family: var(--sans); font-size: 14.5px; font-weight: 600; fill: var(--ink); pointer-events: none; }
+  .node .m  { font-family: var(--mono); font-size: 11px; fill: var(--muted); pointer-events: none; }
+  .node .k  { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; fill: var(--clay); pointer-events: none; }
+  .node.gate rect { fill: var(--clay-soft); stroke: var(--clay); }
+  .node.store rect { fill: var(--surface2); }
+  .node.feat rect { fill: var(--olive-soft); stroke: var(--olive); }
+  .node.ext rect { stroke-dasharray: 6 3; }
+
+  .edge { stroke: var(--muted); stroke-width: 1.6; fill: none; marker-end: url(#a-mut); transition: opacity .2s ease, stroke .2s ease; }
+  .edge.dash { stroke-dasharray: 5 4; }
+  .elbl { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); transition: opacity .2s ease; }
+
+  .stage.flowing .edge { opacity: 0.13; }
+  .stage.flowing .elbl { opacity: 0.13; }
+  .stage.flowing .node { opacity: 0.30; }
+  .stage.flowing .zone { opacity: 0.45; }
+  .stage.flowing .edge.lit {
+    opacity: 1; stroke: var(--clay); marker-end: url(#a-clay);
+    stroke-dasharray: 7 5; animation: march 0.9s linear infinite;
+  }
+  .stage.flowing .elbl.lit { opacity: 1; fill: var(--clay); }
+  .stage.flowing .node.lit { opacity: 1; }
+  .stage.flowing .node.lit rect { stroke: var(--clay); }
+  @keyframes march { to { stroke-dashoffset: -12; } }
+  @media (prefers-reduced-motion: reduce) { .stage.flowing .edge.lit { animation: none; } }
+
+  .badge { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  .badge circle { fill: var(--clay); }
+  .badge text { fill: var(--bg); }
+  .stage:not(.flowing) .badge { display: none; }
+
+  .card { position: absolute; max-width: 360px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.08); }
+  #detail { right: 16px; bottom: 16px; width: 340px; }
+  #detail h3 { font-family: var(--serif); font-weight: 500; font-size: 17px; color: var(--ink); margin-bottom: 2px; }
+  #detail .meta { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-bottom: 8px; }
+  #detail p { font-size: 12.5px; line-height: 1.55; }
+  #detail p code, #flowcap code { font-family: var(--mono); font-size: 11px; color: var(--clay); }
+  #flowcap { left: 16px; bottom: 16px; max-width: 460px; display: none; }
+  #flowcap.show { display: block; }
+  #flowcap .fname { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--clay); margin-bottom: 6px; }
+  #flowcap ol { margin-left: 18px; }
+  #flowcap li { font-size: 12.5px; line-height: 1.55; }
+  .src { position: absolute; top: 10px; right: 16px; font-family: var(--mono); font-size: 10px; color: var(--muted); opacity: 0.8; }
+
+  .nav { position: absolute; top: 16px; left: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .nav a {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--surface); color: var(--muted); text-decoration: none;
+    transition: all .15s ease;
+  }
+  .nav a:hover { color: var(--ink); border-color: var(--muted); }
+  .nav a strong { color: var(--ink); font-weight: 600; }
+
+  @media (max-width: 880px) {
+    body { overflow: auto; }
+    .stage { min-height: 70vh; }
+    #detail { position: static; width: auto; margin: 10px 16px; }
+    #flowcap { position: static; margin: 0 16px 16px; }
+    .nav { position: static; flex-direction: row; flex-wrap: wrap; padding: 10px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div>
+    <h1>LaPis — Architecture</h1>
+    <div class="sub">modular monolith · one sqlite · extension + cli + http</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="chips" id="chips">
+    <button class="chip on" data-flow="all">Everything</button>
+    <button class="chip" data-flow="save">Save memory</button>
+    <button class="chip" data-flow="recall">Recall at start</button>
+    <button class="chip" data-flow="index">Index code/docs</button>
+  </div>
+  <button id="themeToggle">Theme</button>
+</div>
+
+<div class="stage" id="stage">
+<svg viewBox="0 0 1560 980" preserveAspectRatio="xMidYMid meet" role="img" aria-label="LaPis architecture overview">
+  <defs>
+    <marker id="a-mut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--muted)"/>
+    </marker>
+    <marker id="a-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--clay)"/>
+    </marker>
+  </defs>
+
+  <!-- ── zones ─────────────────────────────── -->
+  <g class="zone" id="z-pi">
+    <rect x="40" y="120" width="320" height="640"/>
+    <text class="ztitle" x="60" y="150">Pi Agent</text>
+    <text class="zsub" x="60" y="168">session + tools + prompt</text>
+  </g>
+  <g class="zone" id="z-ext">
+    <rect x="400" y="120" width="320" height="640"/>
+    <text class="ztitle" x="420" y="150">Pi Extension</text>
+    <text class="zsub" x="420" y="168">hooks/ · tools/ · host/ · format/</text>
+  </g>
+  <g class="zone" id="z-cli">
+    <rect x="760" y="120" width="280" height="640"/>
+    <text class="ztitle" x="780" y="150">CLI Gateway</text>
+    <text class="zsub" x="780" y="168">memory-store.js · cli.js · src/cli/</text>
+  </g>
+  <g class="zone" id="z-feat">
+    <rect x="1080" y="120" width="220" height="640"/>
+    <text class="ztitle" x="1100" y="150">Feature Services</text>
+    <text class="zsub" x="1100" y="168">memory · code · doc · trust</text>
+  </g>
+  <g class="zone" id="z-plat">
+    <rect x="1340" y="120" width="200" height="640"/>
+    <text class="ztitle" x="1360" y="150">Platform</text>
+    <text class="zsub" x="1360" y="168">storage · protocol · config</text>
+  </g>
+
+  <!-- ── Pi → Extension ───────────────────── -->
+  <path class="edge"        id="e-pi-ext"      d="M360,210 C 380,210 380,210 400,210"/>
+  <path class="edge"        id="e-pi-ext-inj" d="M360,260 C 380,260 380,260 400,260"/>
+  <path class="edge dash"   id="e-pi-ext-tool" d="M360,340 C 380,340 380,340 400,340"/>
+
+  <!-- Extension → CLI -->
+  <path class="edge"        id="e-ext-cli-save"   d="M720,210 C 740,210 740,210 760,210"/>
+  <path class="edge dash"   id="e-ext-cli-recall" d="M720,260 C 740,260 740,260 760,260"/>
+  <path class="edge"        id="e-ext-cli-idx"    d="M720,340 C 740,340 740,340 760,340"/>
+
+  <!-- CLI → Feature -->
+  <path class="edge"        id="e-cli-feat-save"  d="M1040,210 C 1060,210 1060,210 1080,210"/>
+  <path class="edge dash"   id="e-cli-feat-recall" d="M1040,260 C 1060,260 1060,260 1080,260"/>
+  <path class="edge"        id="e-cli-feat-idx"   d="M1040,340 C 1060,340 1060,340 1080,340"/>
+
+  <!-- Feature → Platform -->
+  <path class="edge"        id="e-feat-plat-save" d="M1300,225 C 1320,225 1320,225 1340,225"/>
+  <path class="edge dash"   id="e-feat-plat-recall" d="M1300,275 C 1320,275 1320,275 1340,275"/>
+  <path class="edge"        id="e-feat-plat-idx"  d="M1300,360 C 1320,360 1320,360 1340,360"/>
+
+  <!-- Internal: in-process vs child-process -->
+  <path class="edge dash"   id="e-ext-inproc" d="M540,425 C 580,440 660,440 700,425"/>
+  <path class="edge"        id="e-ext-child"  d="M540,455 C 580,470 660,470 700,455"/>
+
+  <!-- Optional HTTP server -->
+  <path class="edge dash"   id="e-http" d="M920,500 C 920,560 920,640 920,800"/>
+
+  <!-- edge labels -->
+  <text class="elbl" data-e="e-pi-ext"        x="375" y="200">event</text>
+  <text class="elbl" data-e="e-pi-ext-inj"    x="375" y="252">startup</text>
+  <text class="elbl" data-e="e-pi-ext-tool"   x="375" y="332">tool call</text>
+  <text class="elbl" data-e="e-ext-cli-save"  x="735" y="200">dispatch()</text>
+  <text class="elbl" data-e="e-ext-cli-recall" x="735" y="252">dispatch()</text>
+  <text class="elbl" data-e="e-ext-cli-idx"   x="735" y="332">child proc</text>
+  <text class="elbl" data-e="e-cli-feat-save" x="1055" y="200">router</text>
+  <text class="elbl" data-e="e-cli-feat-recall" x="1055" y="252">router</text>
+  <text class="elbl" data-e="e-cli-feat-idx"  x="1055" y="332">router</text>
+  <text class="elbl" data-e="e-feat-plat-save" x="1315" y="216">repo</text>
+  <text class="elbl" data-e="e-feat-plat-recall" x="1315" y="266">repo</text>
+  <text class="elbl" data-e="e-feat-plat-idx" x="1315" y="351">repo</text>
+  <text class="elbl" data-e="e-ext-inproc"    x="555" y="416">in-process</text>
+  <text class="elbl" data-e="e-ext-child"     x="555" y="472">streaming fallback</text>
+  <text class="elbl" data-e="e-http"          x="930" y="780">optional · :9100</text>
+
+  <!-- ── nodes: Pi Agent ──────────────────── -->
+  <g class="node" data-k="pi-session">
+    <rect x="65" y="178" width="270" height="65"/>
+    <text class="t" x="85" y="208">Pi session</text>
+    <text class="m" x="85" y="230">user prompt + tool result stream</text>
+  </g>
+  <g class="node" data-k="pi-startup">
+    <rect x="65" y="260" width="270" height="65"/>
+    <text class="t" x="85" y="290">Session start</text>
+    <text class="m" x="85" y="312">trigger memory-context injection</text>
+  </g>
+  <g class="node" data-k="pi-tool">
+    <rect x="65" y="340" width="270" height="65"/>
+    <text class="t" x="85" y="370">Tool call</text>
+    <text class="m" x="85" y="392">memory-save · memory-code · memory-doc · dream</text>
+  </g>
+
+  <!-- ── nodes: Pi Extension ──────────────── -->
+  <g class="node ext" data-k="ext-hooks">
+    <rect x="400" y="178" width="320" height="65"/>
+    <text class="t" x="420" y="208">hooks/</text>
+    <text class="m" x="420" y="230">session_start · turn_end · trust_sync</text>
+    <text class="m" x="420" y="246">passive capture + active inject</text>
+  </g>
+  <g class="node ext" data-k="ext-tools">
+    <rect x="400" y="260" width="320" height="65"/>
+    <text class="t" x="420" y="290">tools/</text>
+    <text class="m" x="420" y="312">schemas, project detection, native health</text>
+  </g>
+  <g class="node ext" data-k="ext-host">
+    <rect x="400" y="340" width="320" height="65"/>
+    <text class="t" x="420" y="370">host/ backend client</text>
+    <text class="m" x="420" y="392">dispatch() in-process; child proc for streams</text>
+  </g>
+  <g class="node ext" data-k="ext-format">
+    <rect x="400" y="425" width="320" height="65"/>
+    <text class="t" x="420" y="455">format/ adapters</text>
+    <text class="m" x="420" y="477">format-code-result · format-doc-result · compact</text>
+  </g>
+
+  <!-- ── nodes: CLI Gateway ──────────────── -->
+  <g class="node gate" data-k="cli-memory">
+    <rect x="760" y="178" width="280" height="65"/>
+    <text class="k" x="780" y="200">in-process</text>
+    <text class="t" x="780" y="222">memory-store.js</text>
+    <text class="m" x="780" y="244">save · search · context · index · dream</text>
+  </g>
+  <g class="node gate" data-k="cli-legacy">
+    <rect x="760" y="260" width="280" height="65"/>
+    <text class="k" x="780" y="282">compat shim</text>
+    <text class="t" x="780" y="304">cli.js + commands/</text>
+    <text class="m" x="780" y="326">back-compat routing for older entry points</text>
+  </g>
+  <g class="node gate" data-k="cli-child">
+    <rect x="760" y="340" width="280" height="65"/>
+    <text class="k" x="780" y="362">child process</text>
+    <text class="t" x="780" y="384">index runner</text>
+    <text class="m" x="780" y="406">spawns for code-index streaming & large repos</text>
+  </g>
+  <g class="node gate" data-k="cli-routers">
+    <rect x="760" y="425" width="280" height="75"/>
+    <text class="k" x="780" y="447">src/cli/</text>
+    <text class="t" x="780" y="469">command gateway</text>
+    <text class="m" x="780" y="491">gateway.js composes feature routers</text>
+  </g>
+
+  <!-- HTTP server (optional) -->
+  <g class="node ext" data-k="http">
+    <rect x="760" y="720" width="280" height="65"/>
+    <text class="t" x="780" y="750">HTTP server · src/http/</text>
+    <text class="m" x="780" y="772">REST surface (Aurex domain + code) · :9100</text>
+  </g>
+
+  <!-- ── nodes: Feature Services ─────────── -->
+  <g class="node feat" data-k="feat-memory">
+    <rect x="1080" y="195" width="220" height="65"/>
+    <text class="t" x="1100" y="225">memory-domain</text>
+    <text class="m" x="1100" y="247">save · search · context · dedupe · workspace</text>
+  </g>
+  <g class="node feat" data-k="feat-trust">
+    <rect x="1080" y="270" width="220" height="65"/>
+    <text class="t" x="1100" y="300">trust-sync</text>
+    <text class="m" x="1100" y="322">memory↔symbol links · git change detection</text>
+  </g>
+  <g class="node feat" data-k="feat-code">
+    <rect x="1080" y="345" width="220" height="65"/>
+    <text class="t" x="1100" y="375">code-index</text>
+    <text class="m" x="1100" y="397">scan · parse · symbols · edges · incremental</text>
+  </g>
+  <g class="node feat" data-k="feat-analysis">
+    <rect x="1080" y="420" width="220" height="65"/>
+    <text class="t" x="1100" y="450">code-analysis</text>
+    <text class="m" x="1100" y="472">graph · blast · dead · hotspots · cycles</text>
+  </g>
+  <g class="node feat" data-k="feat-doc">
+    <rect x="1080" y="495" width="220" height="65"/>
+    <text class="t" x="1100" y="525">doc-index</text>
+    <text class="m" x="1100" y="547">markdown sections · glossary · coverage</text>
+  </g>
+  <g class="node feat" data-k="feat-agent">
+    <rect x="1080" y="570" width="220" height="65"/>
+    <text class="t" x="1100" y="600">agent-intel</text>
+    <text class="m" x="1100" y="622">preflight · agent-pack · audit-diff</text>
+  </g>
+  <g class="node feat" data-k="feat-token">
+    <rect x="1080" y="645" width="220" height="65"/>
+    <text class="t" x="1100" y="675">token-saver</text>
+    <text class="m" x="1100" y="697">compress · classify · estimate</text>
+  </g>
+
+  <!-- ── nodes: Platform ──────────────────── -->
+  <g class="node" data-k="plat-repos">
+    <rect x="1340" y="195" width="200" height="75"/>
+    <text class="t" x="1360" y="225">repositories/</text>
+    <text class="m" x="1360" y="247">observations · code · doc · trust · aurex</text>
+  </g>
+  <g class="node" data-k="plat-protocol">
+    <rect x="1340" y="280" width="200" height="65"/>
+    <text class="t" x="1360" y="310">protocol/</text>
+    <text class="m" x="1360" y="332">_meta · compact · auto · LLM envelopes</text>
+  </g>
+  <g class="node" data-k="plat-config">
+    <rect x="1340" y="355" width="200" height="65"/>
+    <text class="t" x="1360" y="385">config + git</text>
+    <text class="m" x="1360" y="407">project id · ranking constants</text>
+  </g>
+  <g class="node store" data-k="plat-store">
+    <rect x="1340" y="430" width="200" height="100"/>
+    <text class="t" x="1360" y="460">SQLite store</text>
+    <text class="m" x="1360" y="482">~/.pi/memory/memory.db</text>
+    <text class="m" x="1360" y="500">FTS5 · symbol links · sessions</text>
+  </g>
+  <g class="node store" data-k="plat-crosshash">
+    <rect x="1340" y="540" width="200" height="80"/>
+    <text class="t" x="1360" y="570">crosshash/</text>
+    <text class="m" x="1360" y="592">Rust code-intel experiment</text>
+    <text class="m" x="1360" y="610">behind command/API boundary</text>
+  </g>
+
+  <!-- ── Numbered badges per flow ────────── -->
+  <g class="badge" data-flow="save">
+    <circle cx="200" cy="195" r="9"/><text x="200" y="199" text-anchor="middle">1</text>
+    <circle cx="560" cy="195" r="9"/><text x="560" y="199" text-anchor="middle">2</text>
+    <circle cx="900" cy="195" r="9"/><text x="900" y="199" text-anchor="middle">3</text>
+    <circle cx="1190" cy="227" r="9"/><text x="1190" y="231" text-anchor="middle">4</text>
+    <circle cx="1440" cy="227" r="9"/><text x="1440" y="231" text-anchor="middle">5</text>
+  </g>
+  <g class="badge" data-flow="recall">
+    <circle cx="200" cy="277" r="9"/><text x="200" y="281" text-anchor="middle">1</text>
+    <circle cx="560" cy="277" r="9"/><text x="560" y="281" text-anchor="middle">2</text>
+    <circle cx="900" cy="277" r="9"/><text x="900" y="281" text-anchor="middle">3</text>
+    <circle cx="1190" cy="297" r="9"/><text x="1190" y="301" text-anchor="middle">4</text>
+    <circle cx="1440" cy="297" r="9"/><text x="1440" y="301" text-anchor="middle">5</text>
+  </g>
+  <g class="badge" data-flow="index">
+    <circle cx="200" cy="357" r="9"/><text x="200" y="361" text-anchor="middle">1</text>
+    <circle cx="560" cy="357" r="9"/><text x="560" y="361" text-anchor="middle">2</text>
+    <circle cx="900" cy="357" r="9"/><text x="900" y="361" text-anchor="middle">3</text>
+    <circle cx="1190" cy="377" r="9"/><text x="1190" y="381" text-anchor="middle">4</text>
+    <circle cx="1440" cy="377" r="9"/><text x="1440" y="381" text-anchor="middle">5</text>
+  </g>
+
+  <text x="780" y="950" text-anchor="middle" style="font-family: var(--mono); font-size: 11px; fill: var(--muted); letter-spacing: .05em;">Chips animate the path · click any box for detail</text>
+</svg>
+
+  <nav class="nav" aria-label="diagram navigation">
+    <a href="lapis-module-boundaries.html"><strong>Module boundaries →</strong> dependency view</a>
+    <a href="lapis-memory-lifecycle.html"><strong>Memory lifecycle →</strong> write/read/index/trust</a>
+  </nav>
+
+  <div class="src">docs/ARCHITECTURE.md · docs/MODULE_MAP.md</div>
+
+  <div class="card" id="flowcap">
+    <div class="fname" id="f-name"></div>
+    <ol id="f-steps"></ol>
+  </div>
+
+  <div class="card" id="detail">
+    <h3 id="d-title">Click anything</h3>
+    <div class="meta" id="d-meta">node detail</div>
+    <p id="d-body">The big-picture stack — every request crosses <b>5 zones</b> from Pi prompt to SQLite row. Chips animate 3 representative paths: <b>Save memory</b>, <b>Recall at start</b>, <b>Index code/docs</b>. For the dependency view and the operation-level lifecycle, use the nav above.</p>
+  </div>
+</div>
+<script>
+const DETAIL = {
+  "pi-session":   { t:"Pi session", m:"client · prompt + tool result", b:"A live Pi coding session. Each turn produces a user prompt, tool calls, and a model response. LaPis observes the stream to capture and inject memory." },
+  "pi-startup":   { t:"Session start", m:"client · trigger", b:"Fired on every <code>session_start</code>. LaPis uses this hook to load relevant memories (decisions, prior fixes, project identity) and inject them into the prompt as context." },
+  "pi-tool":      { t:"Tool call", m:"client · manual or implicit", b:"Pi exposes LaPis as a tool surface: <code>memory-save</code>, <code>memory-search</code>, <code>memory-code</code>, <code>memory-doc</code>, <code>dream</code>, and more." },
+
+  "ext-hooks":    { t:"hooks/", m:"extension · passive + active", b:"Registers <code>session_start</code>, <code>turn_end</code>, and trust-sync hooks. Adapters only — no SQL or parser internals." },
+  "ext-tools":    { t:"tools/", m:"extension · tool schemas", b:"JSON tool schemas, project detection, and native-dependency health checks." },
+  "ext-host":     { t:"host/ backend client", m:"extension · dispatch bridge", b:"The single point of contact with the backend. <code>dispatch()</code> in-process for fast commands; spawns a child process for streaming index work." },
+  "ext-format":   { t:"format/ adapters", m:"extension · result shaping", b:"Adapts backend output for Pi: <code>format-code-result</code>, <code>format-doc-result</code>, and the token-saver compact envelope." },
+
+  "cli-memory":   { t:"memory-store.js", m:"cli · in-process", b:"Canonical CLI entry. Composes feature routers from <code>src/cli/commands/</code> and dispatches synchronously." },
+  "cli-legacy":   { t:"cli.js + commands/", m:"cli · compat shim", b:"Older entry points still route here. New behavior lives in <code>src/cli/</code>; legacy modules delegate to it." },
+  "cli-child":    { t:"index runner", m:"cli · child process", b:"Spawned by the host adapter for <code>code-index</code> on large repos. Streams progress over stdout and exits with a summary." },
+  "cli-routers":  { t:"src/cli/ command gateway", m:"cli · composition", b:"<code>src/cli/gateway.js</code> wires feature routers together. Routers map CLI args to feature services; they do not become a second implementation." },
+
+  "http":         { t:"HTTP server · src/http/", m:"optional · :9100", b:"Optional REST surface. Exposes the Aurex domain and code analysis endpoints. Uses the same repositories as the CLI. <b>Disabled by default.</b>" },
+
+  "feat-memory":  { t:"memory-domain", m:"feature · declarative memory", b:"Owns observations, search, context, sessions, recall logging, dedupe, compaction, and workspaces. The heart of LaPis." },
+  "feat-trust":   { t:"trust-sync", m:"feature · memory↔code bridge", b:"The <b>only</b> module that coordinates memory observations with code symbol tables." },
+  "feat-code":    { t:"code-index", m:"feature · code intel", b:"Scanning, language detection, web-tree-sitter parsing, symbol + import/call edge extraction, incremental indexing, source retrieval." },
+  "feat-analysis":{ t:"code-analysis", m:"feature · graph queries", b:"Built on the code-index read model. Import/call graph, blast radius, dead code, complexity, hotspots, cycles, importance, coupling, signal chains, layer violations." },
+  "feat-doc":     { t:"doc-index", m:"feature · docs intel", b:"Markdown sections, links, glossary terms, code examples, stale/duplicate/orphan analytics, and doc coverage." },
+  "feat-agent":   { t:"agent-intel", m:"feature · pre-coding intel", b:"Agent-facing orchestration: preflight checks, agent-pack planning, audit-diff, blast orchestration, dupes detection, runtime-ingest, stale flags, symbol enrichment." },
+  "feat-token":   { t:"token-saver", m:"feature · output compression", b:"Standalone. Classifies commands, estimates tokens, compresses responses via the platform compact envelope." },
+
+  "plat-repos":   { t:"repositories/", m:"platform · storage", b:"SQL repositories for observations, code-index, doc-index, memory, trust-sync, analytics, and aurex." },
+  "plat-protocol":{ t:"protocol/", m:"platform · wire format", b:"Owns <code>_meta</code>, compact/auto output, and LLM-facing transformations." },
+  "plat-config":  { t:"config + git", m:"platform · shared helpers", b:"Project identity, ranking constants, git provider." },
+  "plat-store":   { t:"SQLite store", m:"platform · persistent", b:"<code>~/.pi/memory/memory.db</code> by default. Holds observations, sessions, code symbols, doc sections, symbol links, and FTS5 indexes. One database. No cloud." },
+  "plat-crosshash":{ t:"crosshash/", m:"platform · experimental", b:"Rust code-intelligence engine in development. Stays behind a command/API boundary until it fully replaces the JavaScript code-intel path." },
+};
+
+const FLOWS = {
+  save: {
+    name: "Save memory",
+    edges: ["e-pi-ext","e-ext-cli-save","e-cli-feat-save","e-feat-plat-save"],
+    nodes: ["pi-tool","ext-hooks","ext-host","cli-memory","cli-routers","feat-memory","plat-repos","plat-store"],
+    steps: [
+      "User/agent calls a tool (or passive capture fires at <code>turn_end</code>)",
+      "<code>hooks/</code> hands the event to <code>host/</code>; <code>dispatch()</code> runs in-process",
+      "CLI gateway routes the command to <code>memory-domain</code> via the feature router",
+      "<code>memory-domain</code> dedupes + runs recall logging, then writes through the observation repository",
+      "SQLite persists the new observation; FTS5 indexes update on commit"
+    ]
+  },
+  recall: {
+    name: "Recall at session start",
+    edges: ["e-pi-ext-inj","e-ext-cli-recall","e-cli-feat-recall","e-feat-plat-recall"],
+    nodes: ["pi-startup","ext-hooks","ext-host","cli-legacy","cli-routers","feat-memory","plat-repos","plat-store"],
+    steps: [
+      "Pi emits <code>session_start</code> for the new project",
+      "<code>hooks/</code> triggers the inject path; <code>host/</code> calls <code>dispatch()</code>",
+      "CLI gateway routes to <code>memory-domain</code> <code>context</code> command",
+      "<code>memory-domain</code> ranks observations by project relevance + recency, compacts via <code>protocol/</code>",
+      "Top-K facts + recent decisions are returned; extension formats them into the prompt"
+    ]
+  },
+  index: {
+    name: "Index code/docs",
+    edges: ["e-pi-ext-tool","e-ext-cli-idx","e-cli-feat-idx","e-feat-plat-idx"],
+    nodes: ["pi-tool","ext-tools","ext-host","cli-child","cli-routers","feat-code","feat-doc","plat-repos","plat-store"],
+    steps: [
+      "Agent/CLI calls <code>memory-code</code> or <code>memory-doc</code>",
+      "<code>tools/</code> resolves project + scope; <code>host/</code> decides child-process path for streams",
+      "CLI spawns the index runner; routers delegate to <code>code-index</code> and/or <code>doc-index</code>",
+      "Symbols/edges/sections are extracted; <code>trust-sync</code> runs alongside to refresh memory trust",
+      "Repositories write symbols, sections, and links into SQLite; FTS5 indexes update"
+    ]
+  }
+};
+
+const stage = document.getElementById('stage');
+const nodes = document.querySelectorAll('.node');
+const edges = document.querySelectorAll('.edge');
+const elbls = document.querySelectorAll('.elbl');
+const chips = document.querySelectorAll('.chip');
+const fcap = document.getElementById('flowcap');
+const badges = document.querySelectorAll('.badge');
+
+function setFlow(key) {
+  chips.forEach(c => c.classList.toggle('on', c.dataset.flow === key));
+  edges.forEach(e => e.classList.remove('lit'));
+  elbls.forEach(l => l.classList.remove('lit'));
+  nodes.forEach(n => n.classList.remove('lit'));
+  badges.forEach(b => b.style.display = 'none');
+  if (key === 'all') { stage.classList.remove('flowing'); fcap.classList.remove('show'); return; }
+  const f = FLOWS[key];
+  stage.classList.add('flowing');
+  f.edges.forEach(id => document.getElementById(id)?.classList.add('lit'));
+  elbls.forEach(l => { if (f.edges.includes(l.dataset.e)) l.classList.add('lit'); });
+  f.nodes.forEach(k => document.querySelector(`.node[data-k="${k}"]`)?.classList.add('lit'));
+  document.getElementById('f-name').textContent = f.name;
+  document.getElementById('f-steps').innerHTML = f.steps.map(s => `<li>${s}</li>`).join('');
+  fcap.classList.add('show');
+  badges.forEach(b => { if (b.dataset.flow === key) b.style.display = ''; });
+}
+chips.forEach(c => c.addEventListener('click', () => setFlow(c.dataset.flow)));
+
+nodes.forEach(n => n.addEventListener('click', () => {
+  nodes.forEach(x => x.classList.remove('sel'));
+  n.classList.add('sel');
+  const d = DETAIL[n.dataset.k];
+  if (!d) return;
+  document.getElementById('d-title').textContent = d.t;
+  document.getElementById('d-meta').textContent = d.m;
+  document.getElementById('d-body').innerHTML = d.b;
+}));
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const dark = !document.documentElement.classList.contains('dark');
+  document.documentElement.classList.toggle('dark', dark);
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+});
+</script>
+</body>
+</html>
