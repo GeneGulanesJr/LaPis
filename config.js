@@ -93,6 +93,22 @@ function expandTilde(p) {
   return p;
 }
 
+// Apply documented environment-variable overrides. Precedence:
+//   env var > config.jsonc value > DEFAULTS.
+// Add future env overrides here so they all flow through getConfig()'s cache.
+function applyEnvOverrides(config) {
+  const raw = process.env.LAPIS_ASYNC_INDEX_THRESHOLD;
+  if (raw !== undefined && raw !== '') {
+    // Accept only clean positive integers (e.g. "500"), not "3.7" or "1e3".
+    if (/^\d+$/.test(raw.trim())) {
+      const parsed = parseInt(raw, 10);
+      if (parsed > 0) {
+        config.async_index_file_threshold = parsed;
+      }
+    }
+  }
+}
+
 function loadConfig() {
   try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
@@ -101,6 +117,7 @@ function loadConfig() {
     const merged = deepMerge(DEFAULTS, userConfig);
     merged.db_path = expandTilde(merged.db_path);
     merged.tier_config_path = expandTilde(merged.tier_config_path);
+    applyEnvOverrides(merged);
     return merged;
   } catch (e) {
     if (e instanceof SyntaxError) {
@@ -108,7 +125,9 @@ function loadConfig() {
     } else if (e.code !== 'ENOENT') {
       console.error(`[config] Error reading ${CONFIG_PATH}: ${e.message}`);
     }
-    return { ...DEFAULTS };
+    const fallback = { ...DEFAULTS };
+    applyEnvOverrides(fallback);
+    return fallback;
   }
 }
 
@@ -140,6 +159,7 @@ module.exports = {
   stripJsoncComments,
   expandTilde,
   deepMerge,
+  applyEnvOverrides,
   DEFAULTS,
   CONFIG_PATH,
 };

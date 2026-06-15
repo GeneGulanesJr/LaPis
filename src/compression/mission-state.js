@@ -40,14 +40,31 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
     );
   }
 
-  // NOTE: Handoffs are intentionally omitted. LaPis's writeHandoff handler
-  // (src/http/handlers/handoffs.js) is currently a stub that returns
-  // { accepted: true } without persisting to a table. There is no
-  // `handoffs` table in the V11+ schema. When a real handoffs table is
-  // added in a future migration, re-introduce the join against
-  // working_units -> milestones -> handoffs here.
+  // 2. Recent worker handoffs (what was done vs. what remains)
+  // The handoffs table was added in the V22 migration (see db.js:runMigrationV22)
+  // and is persisted by src/platform/storage/repositories/aurex.js:createHandoff.
+  const handoffs = sqlJson(
+    `SELECT feature_name, description, remaining, status
+     FROM handoffs
+     WHERE mission_id = ?
+     ORDER BY created_at DESC
+     LIMIT ?`,
+    [missionId, windowSize],
+  );
+  if (handoffs.length > 0) {
+    sections.push(
+      `## Worker handoffs (${handoffs.length})\n` +
+        handoffs
+          .map(
+            (h) =>
+              `- [${h.status}] ${h.feature_name}: ${h.description?.slice(0, 200) ?? ''}` +
+              (h.remaining ? ` — remaining: ${String(h.remaining).slice(0, 160)}` : ''),
+          )
+          .join('\n'),
+    );
+  }
 
-  // 2. Failed validation verdicts (what went wrong)
+  // 3. Failed validation verdicts (what went wrong)
   // Schema note: validation_verdicts uses `timestamp`, not `created_at`.
   const verdicts = sqlJson(
     `SELECT vv.verdict, vv.findings, vv.failed_unit_ids
@@ -86,7 +103,7 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
 
   if (sections.length === 0) {
     return {
-      summary: 'Mission has no compressible state yet (no findings, verdicts, or cost entries).',
+      summary: 'Mission has no compressible state yet (no findings, handoffs, verdicts, or cost entries).',
       tokensSaved: 0,
     };
   }
