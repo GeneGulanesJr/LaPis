@@ -6,6 +6,7 @@ const USAGE = {
   'call-hierarchy': '--symbol S --repo X [--direction callers|callees] [--depth N]',
   'blast-radius': '--symbol S --repo X [--depth N]',
   'dead-code': '--repo X [--min-confidence 0.5] [--include-tests true]',
+  outline: '--file F --repo X',
   complexity: '--repo X [--symbol S | --file F]',
   churn: '--repo X [--file F] [--days 90] [--refresh]',
   hotspots: '--repo X [--top N] [--days N]',
