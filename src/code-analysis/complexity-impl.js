@@ -9,6 +9,29 @@ function _likeEscape(str) {
   return str.replace(/!/g, '!!').replace(/%/g, '!%').replace(/_/g, '!_');
 }
 
+// PERF(issue #133): Decision-point patterns hoisted to module scope. Previously
+// this 10-element RegExp array was re-allocated once per symbol inside
+// buildComplexity, i.e. 10N regex allocations for N functions in the repo. The
+// patterns carry the /g flag and lastIndex is reset before each use below, so
+// reuse across iterations is safe (single-threaded synchronous scan).
+// Do NOT move this array back into the per-symbol loop body.
+const DECISION_PATTERNS = [
+  /if\b/g,
+  /else\s+if\b/g,
+  /\bfor\b/g,
+  /\bwhile\b/g,
+  /\bdo\b/g,
+  /\bcase\b/g,
+  /\bcatch\b/g,
+  /\&\&/g,
+  /\|\|/g,
+  /\?\?/g,
+];
+// PERF(issue #133): Ternary pattern hoisted alongside DECISION_PATTERNS for the
+// same reason (was re-created per symbol). lastIndex is reset before its
+// .exec() loop below.
+const TERNARY_RE = /\?(?:\s*[^.:])/g;
+
 function normalizeRepoPath(filePath, repoRoot = null) {
   const normalized = String(filePath || '')
     .replace(/\\/g, '/')
@@ -59,20 +82,8 @@ function buildComplexity(db, repoId) {
     }
 
     let cyclomatic = 1;
-    const decisionPatterns = [
-      /if\b/g,
-      /else\s+if\b/g,
-      /\bfor\b/g,
-      /\bwhile\b/g,
-      /\bdo\b/g,
-      /\bcase\b/g,
-      /\bcatch\b/g,
-      /\&\&/g,
-      /\|\|/g,
-      /\?\?/g,
-    ];
     // Note: optional chaining (?.) is NOT a decision point per spec
-    for (const pattern of decisionPatterns) {
+    for (const pattern of DECISION_PATTERNS) {
       pattern.lastIndex = 0;
       const m = body.match(pattern);
       if (m) {
@@ -80,9 +91,8 @@ function buildComplexity(db, repoId) {
       }
     }
     // Ternary (?:) — count only if not followed by . (to exclude ?.)
-    const ternaryRe = /\?(?:\s*[^.:])/g;
-    let __ternaryMatch;
-    while ((_ternaryMatch = ternaryRe.exec(body)) !== null) {
+    TERNARY_RE.lastIndex = 0;
+    while (TERNARY_RE.exec(body) !== null) {
       cyclomatic++;
     }
 

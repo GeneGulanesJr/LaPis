@@ -226,6 +226,12 @@ const DUPLICATE_DETECTION = {
   SHINGLE_SIZE: 4,
   TOP_K_GROUPS: 20,
   NAME_SIMILARITY_THRESHOLD: 0.6,
+  // LSH banding: replace O(n^2) pairwise MinHash comparison with candidate
+  // generation via band buckets. rowsPerBand=4 → 32 bands for 128 permutations,
+  // giving ~99.8% recall at the 0.65 threshold while collapsing the all-pairs
+  // scan. Exact Jaccard is still applied to every candidate pair, so the
+  // reported threshold is unaffected.
+  LSH_ROWS_PER_BAND: 4,
 };
 
 const AUDIT_DIFF = {
