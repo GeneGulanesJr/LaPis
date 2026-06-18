@@ -70,6 +70,12 @@ function findDupes(db, repoId, opts = {}) {
   for (let i = 0; i < fingerprints.length; i++) {
     neighbors[i] = null;
   }
+  // Deduplicate candidate pairs with a compact integer key (lo * N + hi)
+  // rather than a string, which keeps Set memory low even when many LSH
+  // collisions produce a large candidate set. `lo` is always < `hi` here
+  // because the inner loop starts at a + 1 within a bucket that holds each
+  // fingerprint index at most once.
+  const N = fingerprints.length;
   const seenPairs = new Set();
   for (const bucket of buckets.values()) {
     if (bucket.length < 2) continue;
@@ -77,8 +83,9 @@ function findDupes(db, repoId, opts = {}) {
       const i = bucket[a];
       for (let b = a + 1; b < bucket.length; b++) {
         const j = bucket[b];
-        if (i === j) continue;
-        const pairKey = i < j ? `${i}:${j}` : `${j}:${i}`;
+        const lo = i < j ? i : j;
+        const hi = i < j ? j : i;
+        const pairKey = lo * N + hi;
         if (seenPairs.has(pairKey)) continue;
         seenPairs.add(pairKey);
         if (jaccardSimilarity(fingerprints[i].signature, fingerprints[j].signature) >= threshold) {

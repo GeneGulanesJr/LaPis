@@ -95,7 +95,11 @@ function jaccardSimilarity(sig1, sig2) {
  * LSH candidates (likely similar); exact similarity is verified separately.
  *
  * With rowsPerBand=4 and 128 permutations this yields 32 bands. The number of
- * bands adapts to the actual signature length (e.g. 16 bands for 64 perms).
+ * bands adapts to the actual signature length (e.g. 16 bands for 64 perms). A
+ * trailing partial band (when the signature length is not evenly divisible by
+ * rowsPerBand) is still emitted so no elements are dropped and recall is not
+ * silently degraded; the shorter last band only slightly lowers its own
+ * selectivity, and exact Jaccard re-verifies every candidate anyway.
  *
  * @param {number[]} signature — MinHash signature
  * @param {number} rowsPerBand — values grouped into one band key
@@ -107,7 +111,9 @@ function lshBands(signature, rowsPerBand = CFG.LSH_ROWS_PER_BAND) {
   if (len < r) {
     return [];
   }
-  const numBands = Math.floor(len / r);
+  // Math.ceil so a non-divisible signature length keeps its trailing band
+  // instead of silently discarding the remainder (which would reduce recall).
+  const numBands = Math.ceil(len / r);
   const keys = new Array(numBands);
   for (let b = 0; b < numBands; b++) {
     const start = b * r;
