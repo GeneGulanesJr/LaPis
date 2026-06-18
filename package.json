@@ -102,6 +102,9 @@
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "pi": {
     "extensions": [
       "./extensions"

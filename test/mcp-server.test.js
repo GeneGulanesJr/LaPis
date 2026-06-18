@@ -271,6 +271,55 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
   });
 });
 
+// --- startMcpServer error handling ---
+
+describe('startMcpServer', () => {
+  it('writes to stderr and exits non-zero when ensureDb() throws', async () => {
+    // Swap the cached db module for one whose ensureDb() throws so we
+    // Exercise the real error path without touching the real DB.
+    const dbPath = require.resolve('../db');
+    // Ensure the module is cached so we can swap its exports.
+    require(dbPath);
+    const realDb = require.cache[dbPath].exports;
+    require.cache[dbPath].exports = {
+      ensureDb: () => {
+        throw new Error('EACCES: ~/.lapis unwritable');
+      },
+    };
+
+    const stderrChunks = [];
+    const realStderrWrite = process.stderr.write.bind(process.stderr);
+    const realExit = process.exit;
+    process.stderr.write = (chunk) => {
+      stderrChunks.push(String(chunk));
+      return true;
+    };
+    let exitCode = null;
+    process.exit = (code) => {
+      exitCode = code;
+      // Throw to unwind startMcpServer before it reaches server.connect()
+      throw new Error(`__synthetic_exit_${code}__`);
+    };
+
+    const { startMcpServer } = require('../src/mcp/server');
+    let thrown = null;
+    try {
+      await startMcpServer();
+    } catch (err) {
+      thrown = err;
+    } finally {
+      process.stderr.write = realStderrWrite;
+      process.exit = realExit;
+      require.cache[dbPath].exports = realDb;
+    }
+
+    expect(thrown, 'startMcpServer should propagate the synthetic exit signal').not.toBeNull();
+    expect(exitCode).toBe(1);
+    expect(stderrChunks.join('')).toMatch(/lapis mcp: database initialization failed/);
+    expect(stderrChunks.join('')).toMatch(/EACCES/);
+  });
+});
+
 // --- helper ---
 
 function sampleParams(name) {

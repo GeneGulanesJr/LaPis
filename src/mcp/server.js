@@ -20,9 +20,17 @@ const SERVER_VERSION = require('../../package.json').version || '0.0.0';
 
 /**
  * Derive a project name from the current working directory.
- * Matches the Pi extension's project-detection intent (state.currentProject):
- * the directory basename, lowercased. MCP clients run with a cwd, so this
- * scopes memories the same way Pi does per-session.
+ *
+ * Uses a simpler heuristic than the Pi extension's `detectProject()` in
+ * `extensions/memory-layer/host/project-detector.ts` (which walks up the tree
+ * matching known `code_repos.path` and `knownProjects`). MCP clients typically
+ * run with a stable cwd at session start, so the basename is a reasonable
+ * default and avoids an async DB round-trip before the first tool call.
+ *
+ * NOTE: This is NOT identical to `state.currentProject` in the Pi extension.
+ * If you run LaPis MCP from inside a git worktree or subdirectory whose name
+ * differs from the registered repo, MCP and Pi will scope memories under
+ * different project keys. Sharing the full detector is a future refactor.
  */
 function projectFromCwd(cwd = process.cwd()) {
   const base = path.basename(path.resolve(cwd));
@@ -109,7 +117,17 @@ function createServer(opts = {}) {
  */
 async function startMcpServer(opts = {}) {
   const db = require('../../db');
-  db.ensureDb();
+  try {
+    db.ensureDb();
+  } catch (err) {
+    // Stdio is the only output channel MCP clients reliably read; without this
+    // Guard a crash here would leave the host staring at a silent close. Emit a
+    // Clear stderr line + non-zero exit so the host surfaces the failure.
+    process.stderr.write(
+      `lapis mcp: database initialization failed: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
+    process.exit(1);
+  }
 
   const server = createServer(opts);
   const transport = new StdioServerTransport();
