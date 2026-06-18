@@ -89,6 +89,40 @@ function jaccardSimilarity(sig1, sig2) {
 }
 
 /**
+ * Band a MinHash signature for Locality-Sensitive Hashing (LSH).
+ * Splits the signature into contiguous bands of `rowsPerBand` values and
+ * returns one string key per band. Signatures that share any band key are
+ * LSH candidates (likely similar); exact similarity is verified separately.
+ *
+ * With rowsPerBand=4 and 128 permutations this yields 32 bands. The number of
+ * bands adapts to the actual signature length (e.g. 16 bands for 64 perms). A
+ * trailing partial band (when the signature length is not evenly divisible by
+ * rowsPerBand) is still emitted so no elements are dropped and recall is not
+ * silently degraded; the shorter last band only slightly lowers its own
+ * selectivity, and exact Jaccard re-verifies every candidate anyway.
+ *
+ * @param {number[]} signature — MinHash signature
+ * @param {number} rowsPerBand — values grouped into one band key
+ * @returns {string[]} band keys (empty if signature too short)
+ */
+function lshBands(signature, rowsPerBand = CFG.LSH_ROWS_PER_BAND) {
+  const len = signature.length;
+  const r = rowsPerBand > 0 ? rowsPerBand : CFG.LSH_ROWS_PER_BAND;
+  if (len < r) {
+    return [];
+  }
+  // Math.ceil so a non-divisible signature length keeps its trailing band
+  // instead of silently discarding the remainder (which would reduce recall).
+  const numBands = Math.ceil(len / r);
+  const keys = new Array(numBands);
+  for (let b = 0; b < numBands; b++) {
+    const start = b * r;
+    keys[b] = `${b}:${signature.slice(start, start + r).join('|')}`;
+  }
+  return keys;
+}
+
+/**
  * Fingerprint a code symbol for duplicate detection.
  * Returns null if the body is too short to be meaningful.
  */
@@ -120,6 +154,7 @@ module.exports = {
   shingle,
   minhashSignature,
   jaccardSimilarity,
+  lshBands,
   fingerprintSymbol,
   _hash,
 };

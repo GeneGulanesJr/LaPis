@@ -1,7 +1,7 @@
 'use strict';
 
 const { DUPLICATE_DETECTION: CFG } = require('../../constants');
-const { fingerprintSymbol, jaccardSimilarity } = require('../code-analysis/fingerprint');
+const { fingerprintSymbol, jaccardSimilarity, lshBands } = require('../code-analysis/fingerprint');
 
 function _requireNativeDb(db) {
   if (!db || !db.prepare) return { error: 'Native database connection required' };
@@ -45,18 +45,72 @@ function findDupes(db, repoId, opts = {}) {
     }
   }
 
-  // Compare all pairs, cluster by similarity
+  // PERF: LSH candidate generation. Previously this was an O(n^2) pairwise
+  // comparison over every fingerprint (each pair running a 128-element
+  // Jaccard scan). For 10K symbols that is ~50M pairs × 128 ≈ 6.4B element
+  // comparisons. Instead, band each signature into LSH buckets and only
+  // compare pairs that collide in a band, then verify with exact Jaccard.
+  // This preserves the reported threshold (exact Jaccard is still applied to
+  // every candidate) while collapsing the comparison set from O(n^2) to ~O(n).
+  const buckets = new Map();
+  for (let i = 0; i < fingerprints.length; i++) {
+    const keys = lshBands(fingerprints[i].signature, CFG.LSH_ROWS_PER_BAND);
+    for (const key of keys) {
+      let bucket = buckets.get(key);
+      if (!bucket) {
+        bucket = [];
+        buckets.set(key, bucket);
+      }
+      bucket.push(i);
+    }
+  }
+
+  // Build threshold neighbor map from candidate pairs only.
+  const neighbors = new Array(fingerprints.length);
+  for (let i = 0; i < fingerprints.length; i++) {
+    neighbors[i] = null;
+  }
+  // Deduplicate candidate pairs with a compact integer key (lo * N + hi)
+  // rather than a string, which keeps Set memory low even when many LSH
+  // collisions produce a large candidate set. `lo` is always < `hi` here
+  // because the inner loop starts at a + 1 within a bucket that holds each
+  // fingerprint index at most once.
+  const N = fingerprints.length;
+  const seenPairs = new Set();
+  for (const bucket of buckets.values()) {
+    if (bucket.length < 2) continue;
+    for (let a = 0; a < bucket.length; a++) {
+      const i = bucket[a];
+      for (let b = a + 1; b < bucket.length; b++) {
+        const j = bucket[b];
+        const lo = i < j ? i : j;
+        const hi = i < j ? j : i;
+        const pairKey = lo * N + hi;
+        if (seenPairs.has(pairKey)) continue;
+        seenPairs.add(pairKey);
+        if (jaccardSimilarity(fingerprints[i].signature, fingerprints[j].signature) >= threshold) {
+          if (!neighbors[i]) neighbors[i] = [];
+          if (!neighbors[j]) neighbors[j] = [];
+          neighbors[i].push(j);
+          neighbors[j].push(i);
+        }
+      }
+    }
+  }
+
+  // Greedy clustering, preserving the original "seed + unassigned neighbors"
+  // semantics but now only over verified-similar pairs.
   const groups = [];
   const assigned = new Set();
 
   for (let i = 0; i < fingerprints.length; i++) {
     if (assigned.has(i)) continue;
-    const cluster = [i];
+    const nbrs = neighbors[i];
+    if (!nbrs || nbrs.length === 0) continue;
 
-    for (let j = i + 1; j < fingerprints.length; j++) {
-      if (assigned.has(j)) continue;
-      const sim = jaccardSimilarity(fingerprints[i].signature, fingerprints[j].signature);
-      if (sim >= threshold) {
+    const cluster = [i];
+    for (const j of nbrs) {
+      if (!assigned.has(j)) {
         cluster.push(j);
       }
     }

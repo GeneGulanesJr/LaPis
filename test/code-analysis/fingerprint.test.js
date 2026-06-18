@@ -5,6 +5,7 @@ import {
   shingle,
   minhashSignature,
   jaccardSimilarity,
+  lshBands,
   fingerprintSymbol,
 } from '../../src/code-analysis/fingerprint.js';
 
@@ -90,6 +91,47 @@ describe('fingerprint', () => {
       const sig1 = minhashSignature(['alpha beta', 'beta gamma'], 128);
       const sig2 = minhashSignature(['one two', 'two three'], 128);
       expect(jaccardSimilarity(sig1, sig2)).toBeLessThan(0.3);
+    });
+  });
+
+  describe('lshBands', () => {
+    it('produces len/rowsPerBand bands for an evenly divisible signature', () => {
+      const sig = Array.from({ length: 128 }, (_, i) => i);
+      const bands = lshBands(sig, 4);
+      expect(bands).toHaveLength(32);
+      // band index is prefixed to each key
+      expect(bands[0]).toMatch(/^0:/);
+      expect(bands[31]).toMatch(/^31:/);
+    });
+
+    it('keeps a trailing partial band instead of dropping remainder elements', () => {
+      // 130 elements, 4 rows/band: ceil(130/4) = 33 bands (last band = 2 rows)
+      const sig = Array.from({ length: 130 }, (_, i) => i);
+      const bands = lshBands(sig, 4);
+      expect(bands).toHaveLength(33);
+      // last band still covers the trailing two elements (indices 128, 129)
+      expect(bands[32]).toBe('32:128|129');
+    });
+
+    it('returns empty array when signature is shorter than rowsPerBand', () => {
+      expect(lshBands([1, 2, 3], 4)).toEqual([]);
+      expect(lshBands([], 4)).toEqual([]);
+    });
+
+    it('falls back to default rowsPerBand when given a non-positive value', () => {
+      const sig = Array.from({ length: 128 }, (_, i) => i);
+      expect(lshBands(sig, 0)).toHaveLength(32);
+      expect(lshBands(sig, -1)).toHaveLength(32);
+    });
+
+    it('yields colliding band keys for identical signatures', () => {
+      const sig1 = minhashSignature(['a b c', 'b c d', 'c d e'], 128);
+      const sig2 = minhashSignature(['a b c', 'b c d', 'c d e'], 128);
+      const bands1 = lshBands(sig1, 4);
+      const bands2 = lshBands(sig2, 4);
+      expect(bands1).toEqual(bands2);
+      // identical signatures must collide in every band to be LSH candidates
+      expect(bands1.length).toBeGreaterThan(0);
     });
   });
 
