@@ -12,21 +12,21 @@
 describe('MCP tool catalog', () => {
   const { tools, toolByName, CODE_MODE_TO_COMMAND, DOC_MODE_TO_COMMAND } = require('../src/mcp/tools');
 
-  it('exposes the 10 expected tools', () => {
+  it('exposes the 11 expected tools', () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
-        'index_status',
-        'memory_code',
-        'memory_delete',
-        'memory_doc',
-        'memory_get',
-        'memory_load_context',
-        'memory_related',
-        'memory_save',
-        'memory_search',
-        'memory_sync_code_trust',
-        'memory_update',
+        'index-status',
+        'memory-code',
+        'memory-delete',
+        'memory-doc',
+        'memory-get',
+        'memory-load-context',
+        'memory-related',
+        'memory-save',
+        'memory-search',
+        'memory-sync-code-trust',
+        'memory-update',
       ].sort(),
     );
   });
@@ -57,31 +57,31 @@ describe('MCP tool catalog', () => {
     });
   }
 
-  it('memory_code toCommand maps every mode to a known dispatch command', () => {
-    const t = toolByName.memory_code;
+  it('memory-code toCommand maps every mode to a known dispatch command', () => {
+    const t = toolByName['memory-code'];
     for (const mode of Object.keys(CODE_MODE_TO_COMMAND)) {
       const out = t.toCommand({ mode, repo: 'r' }, { project: 'p' });
       expect(out.cmd, `mode ${mode} → ${out.cmd}`).toBe(CODE_MODE_TO_COMMAND[mode]);
     }
   });
 
-  it('memory_doc toCommand maps every mode to a known dispatch command', () => {
-    const t = toolByName.memory_doc;
+  it('memory-doc toCommand maps every mode to a known dispatch command', () => {
+    const t = toolByName['memory-doc'];
     for (const mode of Object.keys(DOC_MODE_TO_COMMAND)) {
       const out = t.toCommand({ mode, repo: 'r' }, { project: 'p' });
       expect(out.cmd, `mode ${mode} → ${out.cmd}`).toBe(DOC_MODE_TO_COMMAND[mode]);
     }
   });
 
-  it('memory_code rejects unknown mode', () => {
-    const t = toolByName.memory_code;
+  it('memory-code rejects unknown mode', () => {
+    const t = toolByName['memory-code'];
     const out = t.toCommand({ mode: 'bogus', repo: 'r' }, { project: 'p' });
     expect(out.cmd).toBeNull();
-    expect(out.error).toMatch(/Unknown memory_code mode/);
+    expect(out.error).toMatch(/Unknown memory-code mode/);
   });
 
-  it('memory_save injects project + defaults from ctx', () => {
-    const t = toolByName.memory_save;
+  it('memory-save injects project + defaults from ctx', () => {
+    const t = toolByName['memory-save'];
     const out = t.toCommand({ title: 'T', content: 'C' }, { project: 'myproj' });
     expect(out.cmd).toBe('save');
     expect(out.args.project).toBe('myproj');
@@ -89,8 +89,8 @@ describe('MCP tool catalog', () => {
     expect(out.args.scope).toBe('project'); // Default
   });
 
-  it('memory_save forwards optional kebab-case flags', () => {
-    const t = toolByName.memory_save;
+  it('memory-save forwards optional kebab-case flags', () => {
+    const t = toolByName['memory-save'];
     const out = t.toCommand(
       { title: 'T', content: 'C', topic_key: 'auth', force: true, expires_in: '7d' },
       { project: 'p' },
@@ -100,14 +100,14 @@ describe('MCP tool catalog', () => {
     expect(out.args['expires-in']).toBe('7d');
   });
 
-  it('memory_code callers/callees map to call-hierarchy with direction', () => {
-    const t = toolByName.memory_code;
+  it('memory-code callers/callees map to call-hierarchy with direction', () => {
+    const t = toolByName['memory-code'];
     expect(t.toCommand({ mode: 'callers', repo: 'r', symbol: 's' }, { project: 'p' }).args.direction).toBe('callers');
     expect(t.toCommand({ mode: 'callees', repo: 'r', symbol: 's' }, { project: 'p' }).args.direction).toBe('callees');
   });
 
-  it('memory_code search uses max-results instead of top', () => {
-    const t = toolByName.memory_code;
+  it('memory-code search uses max-results instead of top', () => {
+    const t = toolByName['memory-code'];
     const out = t.toCommand({ mode: 'search', repo: 'r', query: 'q', top: 3 }, { project: 'p' });
     expect(out.args['max-results']).toBe('3');
     expect(out.args.top).toBeUndefined();
@@ -180,7 +180,7 @@ describe('translate-result', () => {
 // --- end-to-end through SDK InMemoryTransport ---
 
 describe('MCP server end-to-end (InMemoryTransport)', () => {
-  it('lists all tools and calls memory_save → dispatch → result', async () => {
+  it('lists all tools and calls memory-save → dispatch → result', async () => {
     vi.resetModules();
 
     // Fake dispatch: records calls, returns canned responses keyed by cmd.
@@ -208,13 +208,13 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
     // Tools/list
     const toolsList = await client.listTools();
     const toolNames = toolsList.tools.map((t) => t.name);
-    expect(toolNames).toContain('memory_save');
-    expect(toolNames).toContain('memory_search');
-    expect(toolsList.tools.find((t) => t.name === 'memory_save').inputSchema.type).toBe('object');
+    expect(toolNames).toContain('memory-save');
+    expect(toolNames).toContain('memory-search');
+    expect(toolsList.tools.find((t) => t.name === 'memory-save').inputSchema.type).toBe('object');
 
     // Tools/call — save
     const saveResult = await client.callTool({
-      name: 'memory_save',
+      name: 'memory-save',
       arguments: { title: 'My Decision', content: 'Use X because Y' },
     });
     expect(saveResult.isError).toBeUndefined();
@@ -227,7 +227,7 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
     expect(calls[0].args.project).toBe('e2e-project');
 
     // Tools/call — search returns serialized object
-    const searchResult = await client.callTool({ name: 'memory_search', arguments: { query: 'decisions' } });
+    const searchResult = await client.callTool({ name: 'memory-search', arguments: { query: 'decisions' } });
     const searchParsed = JSON.parse(searchResult.content[0].text);
     expect(searchParsed.results[0].id).toBe(42);
 
@@ -236,8 +236,8 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
     expect(unknownResult.isError).toBe(true);
     expect(unknownResult.content[0].text).toMatch(/Unknown tool/);
 
-    // Unknown memory_code mode → error
-    const badMode = await client.callTool({ name: 'memory_code', arguments: { mode: 'not-a-mode' } });
+    // Unknown memory-code mode → error
+    const badMode = await client.callTool({ name: 'memory-code', arguments: { mode: 'not-a-mode' } });
     expect(badMode.isError).toBe(true);
 
     server.close?.();
@@ -256,7 +256,7 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
-    const result = await client.callTool({ name: 'memory_search', arguments: { query: 'x' } });
+    const result = await client.callTool({ name: 'memory-search', arguments: { query: 'x' } });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toMatch(/repo not indexed/);
 
@@ -275,25 +275,25 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
 
 function sampleParams(name) {
   switch (name) {
-    case 'memory_save':
+    case 'memory-save':
       return { title: 'T', content: 'C' };
-    case 'memory_search':
+    case 'memory-search':
       return { query: 'q' };
-    case 'memory_get':
-    case 'memory_delete':
-    case 'memory_related':
+    case 'memory-get':
+    case 'memory-delete':
+    case 'memory-related':
       return { id: 1 };
-    case 'memory_update':
+    case 'memory-update':
       return { id: 1, title: 'T' };
-    case 'memory_load_context':
+    case 'memory-load-context':
       return { query: 'q' };
-    case 'memory_code':
+    case 'memory-code':
       return { mode: 'outline', repo: 'r', file: 'src/foo.ts' };
-    case 'memory_doc':
+    case 'memory-doc':
       return { mode: 'search', repo: 'r', query: 'q' };
-    case 'memory_sync_code_trust':
+    case 'memory-sync-code-trust':
       return { repo: 'r' };
-    case 'index_status':
+    case 'index-status':
       return { job: 'j1' };
     default:
       return {};

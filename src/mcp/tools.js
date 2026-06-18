@@ -130,9 +130,9 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
 // State.currentProject.
 
 const tools = [
-  // ============ memory_save ============
+  // ============ memory-save ============
   {
-    name: 'memory_save',
+    name: 'memory-save',
     description:
       'Save persistent memory; checks duplicates. Use What/Why/Where/Learned content. ' +
       'Types: decision, bugfix, architecture, pattern, discovery, config, preference, learning, manual.',
@@ -186,9 +186,9 @@ const tools = [
     },
   },
 
-  // ============ memory_search ============
+  // ============ memory-search ============
   {
-    name: 'memory_search',
+    name: 'memory-search',
     description: 'Search persistent memory for decisions, bugfixes, patterns, and discoveries.',
     inputSchema: obj({
       query: { schema: str('Search query') },
@@ -205,9 +205,9 @@ const tools = [
     },
   },
 
-  // ============ memory_get ============
+  // ============ memory-get ============
   {
-    name: 'memory_get',
+    name: 'memory-get',
     description: 'Get full memory details by ID.',
     inputSchema: obj({
       id: { schema: num('Memory ID') },
@@ -225,9 +225,9 @@ const tools = [
     },
   },
 
-  // ============ memory_update ============
+  // ============ memory-update ============
   {
-    name: 'memory_update',
+    name: 'memory-update',
     description: 'Update an existing memory in place by ID.',
     inputSchema: obj({
       id: { schema: num('Memory ID') },
@@ -261,9 +261,9 @@ const tools = [
     },
   },
 
-  // ============ memory_delete ============
+  // ============ memory-delete ============
   {
-    name: 'memory_delete',
+    name: 'memory-delete',
     description: 'Soft-delete a stale, incorrect, or duplicate memory.',
     inputSchema: obj({
       id: { schema: num('Memory ID') },
@@ -273,9 +273,9 @@ const tools = [
     },
   },
 
-  // ============ memory_related ============
+  // ============ memory-related ============
   {
-    name: 'memory_related',
+    name: 'memory-related',
     description: 'Find memories linked to the same code symbols.',
     inputSchema: obj({
       id: { schema: num('Memory ID') },
@@ -285,9 +285,9 @@ const tools = [
     },
   },
 
-  // ============ memory_load_context ============
+  // ============ memory-load-context ============
   {
-    name: 'memory_load_context',
+    name: 'memory-load-context',
     description: 'Load deeper memory context for a topic.',
     inputSchema: obj({
       query: { schema: str('Topic or keyword') },
@@ -307,9 +307,9 @@ const tools = [
     },
   },
 
-  // ============ memory_code ============
+  // ============ memory-code ============
   {
-    name: 'memory_code',
+    name: 'memory-code',
     description:
       'Query indexed code and before-coding agent context. Use mode search, coding-context, ' +
       'preflight, agent-pack, outline, callers, callees, deps, health, index-repo, or reindex-repo. ' +
@@ -342,7 +342,7 @@ const tools = [
     toCommand(p) {
       const mode = p.mode;
       if (!mode || !CODE_MODE_TO_COMMAND[mode]) {
-        return { cmd: null, error: !mode ? 'memory_code requires a mode.' : `Unknown memory_code mode: ${mode}` };
+        return { cmd: null, error: !mode ? 'memory-code requires a mode.' : `Unknown memory-code mode: ${mode}` };
       }
       const cmd = CODE_MODE_TO_COMMAND[mode];
       const args = {};
@@ -406,9 +406,9 @@ const tools = [
     },
   },
 
-  // ============ memory_doc ============
+  // ============ memory-doc ============
   {
-    name: 'memory_doc',
+    name: 'memory-doc',
     description: 'Query indexed docs. Use mode search, outline, backlinks, coverage, index-docs, or reindex-docs.',
     inputSchema: obj({
       mode: { schema: opt(strEnum('Query mode', DOC_MODES)), optional: true },
@@ -430,7 +430,7 @@ const tools = [
     toCommand(p) {
       const mode = p.mode;
       if (!mode || !DOC_MODE_TO_COMMAND[mode]) {
-        return { cmd: null, error: !mode ? 'memory_doc requires a mode.' : `Unknown memory_doc mode: ${mode}` };
+        return { cmd: null, error: !mode ? 'memory-doc requires a mode.' : `Unknown memory-doc mode: ${mode}` };
       }
       const cmd = DOC_MODE_TO_COMMAND[mode];
       const args = {};
@@ -462,9 +462,9 @@ const tools = [
     },
   },
 
-  // ============ memory_sync_code_trust ============
+  // ============ memory-sync-code-trust ============
   {
-    name: 'memory_sync_code_trust',
+    name: 'memory-sync-code-trust',
     description: 'Sync memory trust scores with changed code after pull, checkout, merge, or rebase.',
     inputSchema: obj({
       repo: { schema: str('Indexed repo name') },
@@ -474,9 +474,9 @@ const tools = [
     },
   },
 
-  // ============ index_status ============
+  // ============ index-status ============
   {
-    name: 'index_status',
+    name: 'index-status',
     description:
       'Check the progress of an async code-indexing job. Returns job state, file progress, ' +
       'current file, and language breakdown.',

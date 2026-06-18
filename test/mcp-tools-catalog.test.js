@@ -22,29 +22,37 @@ describe('MCP ↔ Pi extension tool parity', () => {
   const { tools, CODE_MODE_TO_COMMAND, DOC_MODE_TO_COMMAND } = require('../src/mcp/tools');
   const mcpNames = new Set(tools.map((t) => t.name));
 
-  it('MCP exposes every tool the Pi extension registers', () => {
-    // Tool names registered in extensions/memory-layer/tools/*.ts via pi.registerTool.
-    // Sourced from memory-tools.ts, code-tools.ts, doc-tools.ts.
-    // If the Pi extension gains a registerTool call, add it here — that's the point.
-    const piToolNames = [
-      'memory_save',
-      'memory_search',
-      'memory_get',
-      'memory_update',
-      'memory_delete',
-      'memory_related',
-      'memory_load_context',
-      'memory_sync_code_trust',
-      'index_status',
-      'memory_code', // Code-tools.ts
-      'memory_doc', // Doc-tools.ts
+  // Tool names registered in extensions/memory-layer/tools/*.ts via pi.registerTool.
+  // Extracted statically from the TS source (no TS compiler) so the parity guard
+  // Breaks loudly if either adapter adds/removes a tool. Names must match exactly:
+  // The Pi extension uses kebab-case, so the MCP catalog mirrors it (src/mcp/tools.js).
+  function piRegisteredToolNames() {
+    const files = [
+      'extensions/memory-layer/tools/memory-tools.ts',
+      'extensions/memory-layer/tools/code-tools.ts',
+      'extensions/memory-layer/tools/doc-tools.ts',
     ];
+    const names = [];
+    for (const rel of files) {
+      const src = read(rel);
+      const re = /registerTool\(\s*\{\s*name:\s*['"]([^'"]+)['"]/g;
+      let m;
+      while ((m = re.exec(src)) !== null) {
+        names.push(m[1]);
+      }
+    }
+    return names;
+  }
+
+  it('MCP exposes every tool the Pi extension registers (names match exactly)', () => {
+    const piToolNames = piRegisteredToolNames();
+    expect(piToolNames.length, 'found no registerTool names in Pi extension source').toBeGreaterThan(0);
     for (const name of piToolNames) {
-      expect(mcpNames.has(name), `MCP missing tool "${name}" present in Pi extension`).toBe(true);
+      expect(mcpNames.has(name), `MCP missing tool "${name}" registered in Pi extension`).toBe(true);
     }
   });
 
-  it('MCP memory_code mode list matches the enum in code-tools.ts', () => {
+  it('MCP memory-code mode list matches the enum in code-tools.ts', () => {
     const codeToolsSrc = read('extensions/memory-layer/tools/code-tools.ts');
     // Extract the enum array from: enum: [ 'search', 'callers', ... ]
     const enumMatch = codeToolsSrc.match(/mode:\s*Type\.Optional\([\s\S]*?enum:\s*\[([\s\S]*?)\]/);
@@ -57,7 +65,7 @@ describe('MCP ↔ Pi extension tool parity', () => {
     expect([...piModes].sort()).toEqual([...mcpModes].sort());
   });
 
-  it('MCP memory_doc mode list matches the enum in doc-tools.ts', () => {
+  it('MCP memory-doc mode list matches the enum in doc-tools.ts', () => {
     const docToolsSrc = read('extensions/memory-layer/tools/doc-tools.ts');
     const enumMatch = docToolsSrc.match(/mode:\s*Type\.Optional\([\s\S]*?enum:\s*\[([\s\S]*?)\]/);
     expect(enumMatch, 'could not find mode enum in doc-tools.ts').not.toBeNull();

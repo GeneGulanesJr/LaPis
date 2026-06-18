@@ -49,8 +49,8 @@ function createServer(opts = {}) {
         tools: {},
       },
       instructions:
-        'LaPis persistent memory. Use memory_save for decisions/bugfixes/discoveries, ' +
-        'memory_search to recall them, memory_code/memory_doc to query indexed code & docs. ' +
+        'LaPis persistent memory. Use memory-save for decisions/bugfixes/discoveries, ' +
+        'memory-search to recall them, memory-code/memory-doc to query indexed code & docs. ' +
         'Memories are scoped to the current project (cwd-derived).',
     },
   );
