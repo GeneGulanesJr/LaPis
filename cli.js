@@ -100,6 +100,13 @@ const cmd = process.argv[2];
     return;
   }
 
+  if (cmd === 'mcp') {
+    // MCP transport adapter. startMcpServer owns ensureDb() internally.
+    const { startMcpServer } = require('./src/mcp/server');
+    await startMcpServer();
+    return;
+  }
+
   if (cmd === 'run') {
     ensureDb();
     const { executeAndCompress, formatTextOutput } = require('./src/cli/commands/token-saver');
@@ -125,7 +132,9 @@ const cmd = process.argv[2];
     }
 
     if (runArgs.length === 0) {
-      process.stderr.write(`${JSON.stringify({ error: 'Usage: lapis run [--raw] [--text] [--remember] <command...>' })}\n`);
+      process.stderr.write(
+        `${JSON.stringify({ error: 'Usage: lapis run [--raw] [--text] [--remember] <command...>' })}\n`,
+      );
       process.exit(1);
     }
 

@@ -17,7 +17,8 @@
   },
   "bin": {
     "lapis": "./memory-store.js",
-    "memory-store": "./memory-store.js"
+    "memory-store": "./memory-store.js",
+    "lapis-mcp": "./memory-store.js"
   },
   "directories": {
     "doc": "docs"
@@ -78,6 +79,7 @@
     "check": "oxlint && oxfmt --check"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.10.0",
     "ignore": "^7.0.5",
     "web-tree-sitter": "^0.26.9"
@@ -99,6 +101,9 @@
     "typebox": "^1.1.37",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "pi": {
     "extensions": [
