@@ -102,6 +102,19 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
       repos.find((r) => r.name.toLowerCase() === deps.state.currentProject?.toLowerCase());
     const isStale = cwdRepo ? deps.isRepoStale(cwdRepo) : false;
 
+    // Self-heal a stale cached project key. `state.currentProject` is set once at
+    // session_start and never refreshed; `cwdRepo` above is resolved fresh each
+    // turn by path-prefix match against code_repos.path. When a repo is renamed in
+    // code_repos mid-session (or the session started under a parent dir that was a
+    // stale knownProjects basename match — see detectProject fallback), the cached
+    // key and the path-resolved truth diverge. Trust the path match: without this,
+    // every memory saved for the rest of the session silently lands in the wrong
+    // project bucket, and the banner reports the stale key while the code-index
+    // line already shows the corrected name.
+    if (cwdRepo && cwdRepo.name.toLowerCase() !== (deps.state.currentProject || '').toLowerCase()) {
+      deps.state.currentProject = cwdRepo.name;
+    }
+
     const isNewProject = crossProjectResult !== null && !projectContext;
     let effectiveObservations: any[] = [];
     if (promptQuery) {
