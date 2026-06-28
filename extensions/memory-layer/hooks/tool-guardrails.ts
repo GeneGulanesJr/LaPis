@@ -194,6 +194,12 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
 
       const absPath = path.resolve(filePath);
 
+      // ponytail: cross-project reads (files outside cwd) bypass the outline guard
+      const cwd = process.cwd();
+      if (absPath !== cwd && !absPath.startsWith(cwd + path.sep)) {
+        return;
+      }
+
       const repos = await deps.getKnownRepos();
       const matchedRepo = repos.find(
         (r) =>
@@ -202,7 +208,6 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
       );
 
       if (!matchedRepo) {
-        const cwd = process.cwd();
         // Prefer cwd (project root) to match the bash guardrail behavior.
         // Fall back to the file's directory only when the file lives outside cwd.
         const projectDir = absPath.startsWith(cwd) ? cwd : path.dirname(absPath);
