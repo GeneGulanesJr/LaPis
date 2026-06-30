@@ -45,6 +45,7 @@ describe('services/observations', () => {
       };
       const result = obsService.save(deps, { content: 'hello' });
       expect(result.error).toContain('title');
+      expect(result.error).not.toContain('content');
     });
 
     it('should return error when content is missing', () => {
@@ -58,6 +59,20 @@ describe('services/observations', () => {
       };
       const result = obsService.save(deps, { title: 'hello' });
       expect(result.error).toContain('content');
+      expect(result.error).not.toContain('title');
+    });
+
+    it('should report both --title and --content when both are missing', () => {
+      const deps = {
+        jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
+        insertObservation: vi.fn(),
+        insertObservationRelation: vi.fn(),
+        softDeleteObservation: vi.fn(),
+        checkDuplicate: vi.fn(),
+        findLatestSession: vi.fn(),
+      };
+      const result = obsService.save(deps, {});
+      expect(result.error).toBe('Missing --title and --content');
     });
 
     it('should insert observation when valid and no duplicates', () => {

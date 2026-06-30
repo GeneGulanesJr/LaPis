@@ -2,7 +2,23 @@ const obsCmd = require('../../../commands/observation');
 const searchCmd = require('../../../commands/search');
 const codeSearchService = require('../../../services/code-search');
 
-const USAGE = {};
+const USAGE = {
+  save: '--title <title> --content <content> [--type TYPE] [--project NAME] [--scope SCOPE] [--topic-key KEY] [--force] [--expires-in DUR] [--session-id ID]',
+  get: '--id ID',
+  update:
+    '--id ID [--title T] [--content C] [--type T] [--project P] [--scope S] [--topic-key K] [--expires-in DUR] [--expires-at TS] [--clear-expiry]',
+  delete: '--id ID [--hard]',
+  timeline: '--id ID [--before N] [--after N]',
+  search: '--query <text> [--project NAME] [--type TYPE] [--limit N] [--repo NAME]',
+  context: '--query <text> [--project NAME] [--limit N] [--deep]',
+  'suggest-topic-key': '[--title T] [--content C]',
+  'save-prompt': '--content <text> [--project NAME] [--session-id ID]',
+  'capture-passive': '--content <text>',
+  stats: '',
+  'check-dup': '--title T [--type TYPE] [--project NAME] [--topic-key KEY]',
+  'mark-dup': '--source ID --target ID [--confidence N]',
+  'log-negative-recall': '--entries <json-array>',
+};
 
 function register(commands, deps) {
   const { sqlJson, sqlRun, sqlRaw, jsonErrNoExit, repositories } = deps;

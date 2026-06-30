@@ -61,7 +61,15 @@ describe('dashboard CLI command router', () => {
     // verify the integration by calling the function with controlled deps.
     const dashboardRouter = require('../src/cli/commands/dashboard');
     const mockGetDashboard = vi.fn(() => ({
-      overview: { totalMemories: 5, totalProjects: 1, thisWeekSaved: 1, thisWeekCleaned: 0, avgTrust: 0.9, neverRecalled: 0, expiringSoon: 0 },
+      overview: {
+        totalMemories: 5,
+        totalProjects: 1,
+        thisWeekSaved: 1,
+        thisWeekCleaned: 0,
+        avgTrust: 0.9,
+        neverRecalled: 0,
+        expiringSoon: 0,
+      },
       byType: [],
       trust: { avg: 0.9, lowTrustCount: 0, distribution: { high: 5, medium: 0, low: 0, none: 0 } },
       recall: { totalRecalls: 10, usefulRate: 0.8, uniqueMemoriesHit: 5 },
@@ -81,5 +89,15 @@ describe('dashboard CLI command router', () => {
     expect(typeof commands.dashboard).toBe('function');
     // The actual getDashboard call will use the real implementation,
     // but we just verify the router registered successfully
+  });
+});
+
+describe('gateway getAllUsage', () => {
+  it('should expose usage entries for memory commands including save', () => {
+    const { getAllUsage } = require('../src/cli/gateway');
+    const usage = getAllUsage();
+    expect(usage.save).toBeDefined();
+    expect(usage.save).toContain('--title');
+    expect(usage.save).toContain('--content');
   });
 });

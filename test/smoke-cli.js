@@ -98,11 +98,16 @@ function run(cmd, opts = {}) {
 
 console.log('\nSmoke CLI Tests\n');
 
-// --- Group 1: Help output (exits 1, that's normal for --help) ---
+// --- Group 1: Help output (--help exits 0 and prints usage to stdout) ---
 console.log('Help output:');
 smokeTest('--help lists subcommands', `${CLI} --help`, {
-  expectExit0: false,
   expectContains: 'Subcommands:',
+});
+smokeTest('save --help prints save usage', `${CLI} save --help`, {
+  expectContains: 'Usage: lapis save',
+});
+smokeTest('save -h prints save usage', `${CLI} save -h`, {
+  expectContains: '--title',
 });
 
 // Verify key subcommands are listed
@@ -115,7 +120,7 @@ const helpOutput = (() => {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch (e) {
-    // --help exits 1 but outputs text to stderr
+    // Fallback: capture from combined streams if exit code differs
     return (e.stdout || '') + (e.stderr || '');
   }
 })();
