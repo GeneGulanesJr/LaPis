@@ -53,6 +53,7 @@
     ".": "./memory-store.js",
     "./cli": "./cli.js",
     "./memory-store": "./memory-store.js",
+    "./hooks-engine": "./src/hooks-engine/index.js",
     "./extension": "./extensions/memory-layer/index.ts",
     "./code-analysis": "./src/code-analysis/index.js",
     "./code-index": "./src/code-index/index.js",

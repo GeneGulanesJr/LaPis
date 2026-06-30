@@ -2,9 +2,40 @@ import { MEMORY_REMINDER_INTERVAL, MemResult, state } from '../state';
 import { getKnownRepos, isRepoStale } from '../host/project-detector';
 import { CONTEXT } from '../../../constants';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import fs from 'node:fs';
-import { mem } from '../host/memory-client';
 import path from 'node:path';
+import { mem } from '../host/memory-client';
+
+// Engine delegation (pure transport-agnostic core).
+import {
+  buildContextBlock,
+  buildSourceLookupGuidance,
+  capInjectedContext,
+  appendExtensionHint,
+} from '../../../src/hooks-engine/context-builder.js';
+import {
+  appendPreflightBlock,
+  chooseCodingContextTarget,
+  appendCodingContextBlock,
+  unwrapAnalysisData,
+} from '../../../src/hooks-engine/preflight-assembly.js';
+import {
+  extractUserPrompt,
+  isSourceAuthoritativePrompt,
+  isHistoricalMemoryPrompt,
+  isPreflightWorthyPrompt,
+} from '../../../src/hooks-engine/prompt-classifiers.js';
+
+// Re-exported for existing tests that import from this file.
+export { extractFilePaths } from '../../../src/hooks-engine/context-builder.js';
+export {
+  extractUserPrompt,
+  isSourceAuthoritativePrompt,
+  isHistoricalMemoryPrompt,
+  isNavigationPrompt,
+  isPreflightWorthyPrompt,
+} from '../../../src/hooks-engine/prompt-classifiers.js';
+// appendPreflightBlock/appendCodingContextBlock/chooseCodingContextTarget/
+// unwrapAnalysisData are used internally only; not re-exported today.
 
 interface ContextDeps {
   state: typeof state;
@@ -112,87 +143,24 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
     deps.state.hasInjectedContext = true;
 
     const topic = effectiveContext.topic as string | null;
-
-    const topicNote = topic ? ` | topic: ${topic}` : '';
-    const lines: string[] = ['## Memory Context (auto-loaded)', ''];
     const projectDir = cwdRepo?.path || ctx.cwd;
-    const projectSummary = truncateText(getProjectSummary(projectDir), CONTEXT.PROJECT_SUMMARY_LENGTH || 180);
 
-    if (isNewProject) {
-      lines.push(
-        `Project: **${deps.state.currentProject}** | new project | ${effectiveStats?.total_memories || 0} total memories across all projects`,
-      );
-      lines.push('');
-    } else {
-      lines.push(
-        `Project: **${deps.state.currentProject}** | ${effectiveStats?.total_memories || 0} memories | ${effectiveStats?.total_personal || 0} personal preferences${topicNote}`,
-      );
-      lines.push('');
-    }
-
-    lines.push('### Project Context');
-    lines.push(`- Directory: \`${projectDir}\``);
-    lines.push(`- Summary: ${projectSummary}`);
-    if (cwdRepo) {
-      // Suppress stale label when the agent got its answer from prompt-matched memory.
-      // Staleness is irrelevant for recall — the answer is already injected.
-      const suppressStale = isStale && effectiveObservations.length > 0;
-      const staleLabel = isStale && !suppressStale ? ' (stale)' : '';
-      lines.push(
-        `- Code index: \`${cwdRepo.name}\` with ${cwdRepo.file_count} files / ${cwdRepo.symbol_count} symbols${staleLabel}`,
-      );
-    } else {
-      lines.push(`- Code index: not indexed for this project`);
-    }
-    lines.push('');
-
-    if (effectiveObservations.length > 0) {
-      const navigationPrompt = isNavigationPrompt(promptQuery);
-      const injectLimit = navigationPrompt
-        ? CONTEXT.NAVIGATION_PROMPT_INJECT_LIMIT || 2
-        : CONTEXT.PROMPT_INJECT_LIMIT || 1;
-      lines.push('### Prompt-Matched Memory');
-      for (const o of effectiveObservations.slice(0, injectLimit)) {
-        let trust = '';
-        if (o.trust_score < 0.5) {
-          trust = ' ⚠️';
-        } else if (o.trust_score < 0.8) {
-          trust = ' 🔎';
-        }
-        lines.push(`- [${o.type}] ${o.title}${trust}`);
-        const snippet = summarizeMemoryContent(o.content);
-        if (snippet) {
-          lines.push(`  ${snippet}`);
-        }
-        if (navigationPrompt) {
-          const filePaths = extractFilePaths(o.content);
-          if (filePaths.length > 0) {
-            lines.push(`  Related: ${filePaths.map((p) => `\`${p}\``).join(', ')}`);
-          }
-        }
-      }
-      lines.push('');
-    }
-
-    if (promptQuery && personal.length > 0 && CONTEXT.PERSONAL_INJECT_LIMIT > 0) {
-      lines.push('### Personal Preferences');
-      for (const p of personal.slice(0, CONTEXT.PERSONAL_INJECT_LIMIT)) {
-        lines.push(`- ${p.title}`);
-      }
-      lines.push('');
-    }
-
-    // Cross-project suggestions: related memories from other projects
-    const crossProjectSuggestions = (effectiveContext.cross_project_suggestions || []) as any[];
-    if (crossProjectSuggestions.length > 0) {
-      lines.push('### Cross-Project Suggestions');
-      for (const s of crossProjectSuggestions) {
-        lines.push(`- [${s.type ?? '?'}] ${s.title ?? '?'} (${s.project ?? '?'})`);
-      }
-      lines.push('');
-    }
-
-    lines.push('Use `memory-search` for deeper recall and `memory-save` for durable decisions.');
+    const lines = buildContextBlock({
+      promptQuery,
+      currentProject: deps.state.currentProject,
+      projectDir,
+      cwdRepo,
+      isStale,
+      isNewProject,
+      observations,
+      effectiveObservations,
+      personal,
+      stats,
+      effectiveStats,
+      topic,
+      crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
+      cwd: ctx.cwd,
+    });
 
     if (!cwdRepo) {
       lines.push('');
@@ -250,389 +218,6 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
       },
     };
   });
-}
-
-function buildSourceLookupGuidance(
-  repos: Awaited<ReturnType<typeof getKnownRepos>>,
-  cwd: string,
-  currentProject: string | null,
-): string | null {
-  const resolvedCwd = path.resolve(cwd);
-  const cwdRepo =
-    repos.find((r) => resolvedCwd.startsWith(path.resolve(r.path))) ||
-    repos.find((r) => r.name.toLowerCase() === currentProject?.toLowerCase());
-
-  if (!cwdRepo) {
-    return null;
-  }
-
-  return [
-    '## Code Lookup Guidance',
-    '',
-    `Current-source prompt: skip memory facts and verify against code in indexed repo \`${cwdRepo.name}\`.`,
-    'For exact symbol questions, prefer a targeted current-source lookup such as `rg -n "<symbol>" <narrow-path>` or a small `read` when the file is known.',
-    'For return-shape questions where the module name is evident, read that module directly before searching; for example, `memory-domain context` usually means `src/memory-domain/context.js`.',
-    `Use \`memory-code search --repo ${cwdRepo.name} --query <query>\` only when the file or symbol is not already known, then do at most one small targeted \`read\` around the reported file/line.`,
-    'Avoid broad shell code search and skip `memory-code outline` unless the task needs file structure.',
-  ].join('\n');
-}
-
-/**
- * Pull the current user prompt out of Pi hook events when available. The
- * before-agent hook runs after Pi has assembled messages, but exact event shape
- * differs across Pi versions, so this accepts the known string and content-part
- * forms and falls back quietly.
- */
-export function extractUserPrompt(event: unknown): string | null {
-  const eventAny = event as any;
-  const candidates: unknown[] = [eventAny?.prompt, eventAny?.input, eventAny?.query];
-  const messages = Array.isArray(eventAny?.messages) ? eventAny.messages : [];
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (message?.role === 'user') {
-      candidates.push(message.content);
-      break;
-    }
-  }
-
-  for (const candidate of candidates) {
-    const text = contentToText(candidate);
-    if (text) {
-      return text.length > 500 ? `${text.slice(0, 500)}...` : text;
-    }
-  }
-
-  return null;
-}
-
-export function isSourceAuthoritativePrompt(prompt: string | null): boolean {
-  if (!prompt) {
-    return false;
-  }
-
-  const normalized = prompt.toLowerCase();
-  return (
-    /\bcurrent source\b/.test(normalized) ||
-    /\bcurrent code\b/.test(normalized) ||
-    /\bfrom the code\b/.test(normalized) ||
-    /\banswer from (?:the )?code\b/.test(normalized)
-  );
-}
-
-export function isHistoricalMemoryPrompt(prompt: string | null): boolean {
-  if (!prompt) {
-    return false;
-  }
-
-  const normalized = prompt.toLowerCase();
-  return (
-    /\bwhy did\b/.test(normalized) ||
-    /\bwhat bug led to\b/.test(normalized) ||
-    /\brationale\b/.test(normalized) ||
-    /\bdecision\b/.test(normalized) ||
-    /\bchoose\b/.test(normalized) ||
-    /\bchose\b/.test(normalized)
-  );
-}
-
-export function isNavigationPrompt(prompt: string | null): boolean {
-  if (!prompt) {
-    return false;
-  }
-
-  const normalized = prompt.toLowerCase();
-  return (
-    /\b(where|module|file|hook|wired|location|path|lives|implemented|implementation|identify)\b/.test(normalized) ||
-    /\bcurrent\s+\w*\s*module\b/.test(normalized)
-  );
-}
-
-function capInjectedContext(content: string): string {
-  const limit = CONTEXT.MAX_INJECTED_CONTEXT_CHARS || 1800;
-  if (content.length <= limit) {
-    return content;
-  }
-
-  return `${content.slice(0, limit - 1).trimEnd()}…`;
-}
-
-function truncateText(text: string, limit: number): string {
-  if (text.length <= limit) {
-    return text;
-  }
-  return `${text.slice(0, limit - 1).trimEnd()}…`;
-}
-
-function summarizeMemoryContent(content: unknown): string | null {
-  if (typeof content !== 'string') {
-    return null;
-  }
-
-  const lines = content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const priority = lines.filter((line) => /^\*\*(What|Why|Where)\*\*:/i.test(line));
-  const selected = (priority.length > 0 ? priority : lines).slice(0, 3);
-  if (selected.length === 0) {
-    return null;
-  }
-
-  const normalized = selected
-    .join(' ')
-    .replace(/\*\*(What|Why|Where)\*\*:\s*/gi, '$1: ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const limit = CONTEXT.PROMPT_MEMORY_SNIPPET_LENGTH || 280;
-  return normalized.length > limit ? `${normalized.slice(0, limit - 1)}…` : normalized;
-}
-
-function contentToText(content: unknown): string | null {
-  if (typeof content === 'string') {
-    const trimmed = content.trim();
-    return trimmed || null;
-  }
-
-  if (Array.isArray(content)) {
-    const text = content
-      .map((part) => {
-        if (typeof part === 'string') {
-          return part;
-        }
-        if (part && typeof part === 'object' && 'text' in part && typeof (part as any).text === 'string') {
-          return (part as any).text;
-        }
-        return '';
-      })
-      .join('\n')
-      .trim();
-    return text || null;
-  }
-
-  return null;
-}
-
-function getProjectSummary(cwd: string): string {
-  const packagePath = path.join(cwd, 'package.json');
-  try {
-    const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-    if (typeof pkg.description === 'string' && pkg.description.trim()) {
-      return pkg.description.trim();
-    }
-    if (typeof pkg.name === 'string' && pkg.name.trim()) {
-      return `Local project ${pkg.name.trim()}.`;
-    }
-  } catch {
-    // Non-Node projects or unreadable package files fall back to directory name.
-  }
-  return `Local project directory ${path.basename(cwd) || cwd}.`;
-}
-
-function appendExtensionHint(lines: string[], cwd: string) {
-  const extensionDir = path.join(cwd, 'extensions', 'memory-layer');
-  try {
-    const extStat = fs.statSync(extensionDir);
-    if (extStat.isDirectory()) {
-      lines.push('');
-      lines.push('📂 Extension source: `extensions/memory-layer/` in this project repo.');
-    }
-  } catch {
-    // No local extension dir — skip hint
-  }
-}
-
-export function extractFilePaths(content: string): string[] {
-  if (!content || typeof content !== 'string') {
-    return [];
-  }
-
-  const pathRe = /(?:^|\s|`)([\w/.-]+\.(?:js|ts|tsx|jsx|mjs|cjs|py|go|rs|sql))(?:`|\s|,|\.|$)/gm;
-  const matches: string[] = [];
-  let match;
-  while ((match = pathRe.exec(content)) !== null) {
-    const p = match[1];
-    // Filter out short strings without directory separators
-    if (p.includes('/') && p.length > 5) {
-      matches.push(p);
-    }
-  }
-  // Deduplicate, max 3
-  return [...new Set(matches)].slice(0, 3);
-}
-
-export function isPreflightWorthyPrompt(prompt: string | null): boolean {
-  if (!prompt) {
-    return false;
-  }
-  // Skip prompts that are purely questions/navigation/history
-  if (isSourceAuthoritativePrompt(prompt) || isHistoricalMemoryPrompt(prompt) || isNavigationPrompt(prompt)) {
-    return false;
-  }
-  const normalized = prompt.toLowerCase();
-  // Heavily question-shaped prompts (starts with question words and no action verbs)
-  if (/^(what|where|when|who|how many|does|is there|can you explain|tell me about)\b/.test(normalized)) {
-    return false;
-  }
-  // Must contain at least one action/coding signal
-  const codingSignals = [
-    /\b(add|create|build|implement|fix|refactor|modify|update|change|remove|delete)\b/,
-    /\b(write|extend|extract|move|rename|migrate|wire up|integrate)\b/,
-    /\b(feature|bug|issue|test|function|module|component|endpoint|route)\b/,
-    /\b(make it|ensure|so that|need to|should|let's|let me)\b/,
-  ];
-  return codingSignals.some((re) => re.test(normalized));
-}
-
-function appendPreflightBlock(lines: string[], result: any): void {
-  const code = (result.likely_existing_code || []) as Array<{
-    symbol: string;
-    file: string;
-    line?: number;
-    kind?: string;
-  }>;
-  const warnings = (result.duplicate_warnings || []) as Array<{
-    symbol: string;
-    file: string;
-  }>;
-  const risk = result.risk as string;
-  const action = result.recommended_action as string;
-  const relatedFiles = (result.related_files || []) as string[];
-  const maxFiles = CONTEXT.PREFLIGHT_RELATED_FILES || 3;
-
-  if (code.length === 0 && warnings.length === 0 && risk === 'low') {
-    return; // Nothing to surface
-  }
-
-  lines.push('');
-  lines.push('### Preflight — Before Coding');
-
-  if (warnings.length > 0) {
-    const riskIcon = iconForRisk(risk);
-    lines.push(`${riskIcon} **Duplicate risk: ${risk}** — existing code may already handle this task.`);
-    for (const w of warnings.slice(0, 2)) {
-      lines.push(`- ⚠️ \`${w.symbol}\` in \`${w.file}\``);
-    }
-  } else if (code.length > 0) {
-    const riskIcon = iconForRisk(risk);
-    lines.push(`${riskIcon} Risk: **${risk}** — related code exists.`);
-    for (const c of code.slice(0, 2)) {
-      const loc = c.line ? `:${c.line}` : '';
-      lines.push(`- \`${c.symbol}\` (${c.kind || 'symbol'}) — \`${c.file}${loc}\``);
-    }
-  }
-
-  if (relatedFiles.length > 0) {
-    lines.push(`Related files: ${relatedFiles.slice(0, maxFiles).map((f: string) => `\`${f}\``).join(', ')}`);
-  }
-
-  if (action) {
-    lines.push(`→ ${action}`);
-  }
-}
-
-function iconForRisk(risk: string): string {
-  if (risk === 'high') {
-    return '🔴';
-  }
-  if (risk === 'medium') {
-    return '🟡';
-  }
-  return '🟢';
-}
-
-function chooseCodingContextTarget(prompt: string | null, preflightResult: any): { file?: string; symbol?: string } | null {
-  const promptFiles = extractFilePaths(prompt || '');
-  if (promptFiles.length > 0) {
-    return { file: promptFiles[0] };
-  }
-
-  const explicitSymbol = extractExplicitSymbol(prompt);
-  if (explicitSymbol) {
-    return { symbol: explicitSymbol };
-  }
-
-  const code = (preflightResult?.likely_existing_code || []) as Array<{ symbol?: string; file?: string }>;
-  const firstCode = code.find((item) => item.symbol || item.file);
-  if (firstCode?.symbol) {
-    // Pass both symbol and file when available — helps disambiguate common names
-    return firstCode.file ? { symbol: firstCode.symbol, file: firstCode.file } : { symbol: firstCode.symbol };
-  }
-  if (firstCode?.file) {
-    return { file: firstCode.file };
-  }
-
-  return null;
-}
-
-function extractExplicitSymbol(prompt: string | null): string | null {
-  if (!prompt) {
-    return null;
-  }
-
-  const codeSymbol = prompt.match(/`([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)`/);
-  if (codeSymbol) {
-    return codeSymbol[1];
-  }
-
-  const callSymbol = prompt.match(/\b([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\s*\(/);
-  if (callSymbol) {
-    return callSymbol[1];
-  }
-
-  return null;
-}
-
-function unwrapAnalysisData(result: any): any {
-  if (result && typeof result === 'object' && result.data && typeof result.data === 'object') {
-    return result.data;
-  }
-  return result;
-}
-
-function appendCodingContextBlock(lines: string[], result: any): void {
-  if (!result || result.error) {
-    return;
-  }
-
-  const target = result.target || {};
-  const summary = result.summary || {};
-  const relatedFiles = (result.related_files || []) as string[];
-  const likelyTests = (result.likely_tests || []) as Array<{ file?: string; reasons?: string[] }>;
-  const maxFiles = CONTEXT.PREFLIGHT_RELATED_FILES || 3;
-
-  if (!target.symbol && !target.file && relatedFiles.length === 0 && likelyTests.length === 0) {
-    return;
-  }
-
-  lines.push('');
-  lines.push('### Coding Context — Before Editing');
-
-  if (target.symbol) {
-    const file = target.file ? ` — \`${target.file}\`` : '';
-    lines.push(`Target: \`${target.symbol}\`${file}`);
-  } else if (target.file) {
-    lines.push(`Target file: \`${target.file}\``);
-  }
-
-  if (summary.risk || summary.review_bar) {
-    const risk = summary.risk || 'unknown';
-    const review = summary.review_bar || 'unknown';
-    const affected = typeof summary.affected_files === 'number' ? ` | affected files: ${summary.affected_files}` : '';
-    lines.push(`Risk: **${risk}** | review: **${review}**${affected}`);
-  }
-
-  if (relatedFiles.length > 0) {
-    lines.push(`Review files: ${relatedFiles.slice(0, maxFiles).map((f: string) => `\`${f}\``).join(', ')}`);
-  }
-
-  if (likelyTests.length > 0) {
-    lines.push(`Likely tests: ${likelyTests.slice(0, 2).map((test) => `\`${test.file || '?'}\``).join(', ')}`);
-  }
 }
 
 export function registerContextReminder(pi: ExtensionAPI, deps: ContextDeps) {
