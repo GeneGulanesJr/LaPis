@@ -18,7 +18,7 @@ const obsDA = require('./data-access/observations');
 
 const fs = require('fs');
 
-const { buildCommandMap, ANALYSIS_TOOLS, _wrapAnalysis } = require('./src/cli/gateway');
+const { buildCommandMap, getAllUsage, ANALYSIS_TOOLS, _wrapAnalysis } = require('./src/cli/gateway');
 const { createRepositories } = require('./src/platform/storage/repositories');
 
 const TOOL_TIERS = {
@@ -89,6 +89,32 @@ const commands = buildCommandMap({
 
 const args = parseArgs(process.argv);
 const cmd = process.argv[2];
+
+function printHelp(targetCmd) {
+  const usage = getAllUsage();
+  if (targetCmd && usage[targetCmd] !== undefined) {
+    const spec = usage[targetCmd];
+    process.stdout.write(`Usage: lapis ${targetCmd}${spec ? ` ${spec}` : ''}\n`);
+    return;
+  }
+  if (targetCmd) {
+    process.stdout.write(`Usage: lapis ${targetCmd} [options]\n`);
+    return;
+  }
+  const subcommands = [...Object.keys(commands), 'run'].sort();
+  process.stdout.write(
+    `Usage: lapis <subcommand> [--option value ...]\n` +
+      `       lapis run [--raw] [--text] [--remember] <command...>\n` +
+      `Subcommands: ${subcommands.join(', ')}\n`,
+  );
+}
+
+const isHelpRequest = cmd === 'help' || cmd === '--help' || cmd === '-h' || args.help === true || args._.includes('-h');
+
+if (isHelpRequest) {
+  printHelp(commands[cmd] ? cmd : null);
+  process.exit(0);
+}
 
 (async () => {
   if (cmd === 'serve') {
