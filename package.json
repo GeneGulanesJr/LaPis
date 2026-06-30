@@ -85,7 +85,7 @@
     "web-tree-sitter": "^0.26.9"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": ">=0.72.1",
+    "@earendil-works/pi-coding-agent": "^0.80.2",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/typescript-checker": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
@@ -101,6 +101,10 @@
     "typebox": "^1.1.37",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
+  },
+  "overrides": {
+    "qs": "^6.15.3",
+    "protobufjs": "^7.6.4"
   },
   "engines": {
     "node": ">=18"
