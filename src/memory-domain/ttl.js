@@ -23,7 +23,11 @@ function parseExpiresIn(duration) {
   } else if (unit === 'w') {
     now.setUTCDate(now.getUTCDate() + n * 7);
   } else if (unit === 'm') {
-    now.setUTCMonth(now.getUTCMonth() + n);
+    // Fixed 30-day month. Calendar-month arithmetic (setUTCMonth) varies 28-31
+    // Days by month, making expiry non-deterministic (e.g. 1m set on Jul 1
+    // Expired in 31 days). A TTL unit should be deterministic, matching the
+    // Documented "1m = 30 days" contract (see test/memory-ttl.test.js).
+    now.setUTCDate(now.getUTCDate() + n * 30);
   } else {
     return null;
   }
