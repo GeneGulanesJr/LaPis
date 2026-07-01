@@ -146,7 +146,6 @@ function buildSourceLookupGuidance(repos, cwd, currentProject) {
  * @param {object}   bag.effectiveStats
  * @param {string|null} bag.topic
  * @param {Array}    bag.crossProjectSuggestions
- * @param {string}   bag.cwd
  */
 function buildContextBlock(bag) {
   const {
@@ -161,7 +160,6 @@ function buildContextBlock(bag) {
     effectiveStats,
     topic,
     crossProjectSuggestions = [],
-    cwd,
   } = bag;
 
   const topicNote = topic ? ` | topic: ${topic}` : '';

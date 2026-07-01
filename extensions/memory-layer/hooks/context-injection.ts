@@ -159,7 +159,6 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
       effectiveStats,
       topic,
       crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
-      cwd: ctx.cwd,
     });
 
     if (!cwdRepo) {

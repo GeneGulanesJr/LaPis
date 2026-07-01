@@ -73,6 +73,12 @@ function isTargetedSymbolLookup(cmd) {
   let pattern = null;
   let hasQuotedPattern = false;
   let m;
+  // Reset the module-level /g flag's lastIndex. The original (hooks/guardrail-utils.js)
+  // reused QUOTED_PATTERN_RE across calls without resetting; because the loop below
+  // `break`s on the first non-glob candidate, lastIndex was left stale and a later
+  // call could start scanning mid-string. Resetting here makes the function
+  // deterministic across calls (intentional deviation from the original, which had
+  // this latent stateful-regex bug; covered by test/tool-guardrails.test.js parity).
   QUOTED_PATTERN_RE.lastIndex = 0;
   while ((m = QUOTED_PATTERN_RE.exec(cmd)) !== null) {
     const candidate = m[1];
