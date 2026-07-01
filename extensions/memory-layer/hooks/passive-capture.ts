@@ -4,27 +4,19 @@ import { mem, memCmd } from '../host/memory-client';
 import { shouldAutoCapture } from './pattern-matcher';
 import path from 'node:path';
 
+// Engine delegation (pure transport-agnostic core).
+import { extractMessageText } from '../../../src/hooks-engine/prompt-classifiers.js';
+import {
+  buildAutoDecisionPayload,
+  shouldCheckpoint,
+  shouldDream,
+  isAutoDecisionCoolingDown,
+} from '../../../src/hooks-engine/passive-capture.js';
+
 interface PassiveCaptureDeps {
   state: typeof state;
   mem: typeof mem;
   memCmd: typeof memCmd;
-}
-
-
-function extractMessageText(msg: any): string {
-  if (!msg) {
-    return '';
-  }
-  if (typeof msg.content === 'string') {
-    return msg.content;
-  }
-  if (Array.isArray(msg.content)) {
-    return msg.content
-      .filter((c: any) => c.type === 'text')
-      .map((c: any) => c.text || '')
-      .join(' ');
-  }
-  return '';
 }
 
 export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDeps) {
@@ -56,7 +48,7 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
       return;
     }
 
-    if (Date.now() - deps.state.lastAutoDecisionSave < AUTO_DECISION_COOLDOWN) {
+    if (isAutoDecisionCoolingDown(deps.state.lastAutoDecisionSave, Date.now(), AUTO_DECISION_COOLDOWN)) {
       return;
     }
 
@@ -65,23 +57,15 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
     }
 
     const capture = shouldAutoCapture(text);
-    if (capture.match && capture.confidence !== 'low' && capture.pattern) {
+    const payload = buildAutoDecisionPayload({
+      text,
+      capture,
+      project: deps.state.currentProject,
+      sessionId: deps.state.sessionId,
+    });
+    if (payload) {
       deps.state.lastAutoDecisionSave = Date.now();
-
-      const lastLine = text.split('\n').filter((l) => l.trim()).pop()?.slice(0, 120) || text.slice(0, 120);
-      const title = `${capture.pattern.label}: ${lastLine.slice(0, 80)}`;
-
-      await deps.mem('save', {
-        title,
-        type: capture.pattern.type,
-        project: deps.state.currentProject || 'unknown',
-        scope: 'project',
-        content: [
-          `**What**: Auto-detected ${capture.pattern.label.toLowerCase()} (confidence: ${capture.confidence})`,
-          `**Where**: Session ${deps.state.sessionId || 'unknown'}`,
-          `**Learned**: ${text.slice(0, 300)}`,
-        ].join('\n'),
-      });
+      await deps.mem('save', payload);
     }
   });
 
@@ -89,7 +73,7 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
     deps.state.turnCount++;
 
     // Trigger Dream Cycle once per session at turn 50
-    if (deps.state.turnCount === 50 && !deps.state.dreamTriggeredThisSession) {
+    if (shouldDream(deps.state.turnCount, deps.state.dreamTriggeredThisSession)) {
       deps.state.dreamTriggeredThisSession = true;
       try {
         const dreamResult = await deps.memCmd('dream');
@@ -116,7 +100,7 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
       deps.state.pendingRecallFeedback.clear();
     }
 
-    if (deps.state.turnCount % CHECKPOINT_INTERVAL !== 0 || deps.state.turnCount === 0) {
+    if (!shouldCheckpoint(deps.state.turnCount, CHECKPOINT_INTERVAL)) {
       return;
     }
     if (!deps.state.currentProject) {
@@ -139,7 +123,10 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
           task: `checkpoint turn ${deps.state.turnCount}`,
         });
         if (auditResult && !auditResult.error && auditResult.violations && auditResult.violations.length > 0) {
-          auditNote = `\n\n**Post-edit audit**: ${auditResult.risk} risk, ${auditResult.violations.length} violation(s): ${auditResult.violations.slice(0, 3).map((v: any) => v.message).join('; ')}`;
+          auditNote = `\n\n**Post-edit audit**: ${auditResult.risk} risk, ${auditResult.violations.length} violation(s): ${auditResult.violations
+            .slice(0, 3)
+            .map((v: any) => v.message)
+            .join('; ')}`;
         }
       }
     } catch {

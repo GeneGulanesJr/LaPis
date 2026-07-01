@@ -4,7 +4,9 @@ import { MemResult, state } from '../state';
 import { mem, memCmd } from '../host/memory-client';
 import { ensureNativeModules } from '../host/native-health';
 import { detectProject } from '../host/project-detector';
-import path from 'node:path';
+
+// Engine delegation (pure transport-agnostic core).
+import { buildSessionSummary } from '../../../src/hooks-engine/session-summary.js';
 
 interface SessionDeps {
   state: typeof state;
@@ -12,22 +14,6 @@ interface SessionDeps {
   mem: typeof mem;
   memCmd: typeof memCmd;
   detectProject: typeof detectProject;
-}
-
-function extractMessageText(msg: any): string {
-  if (!msg) {
-    return '';
-  }
-  if (typeof msg.content === 'string') {
-    return msg.content;
-  }
-  if (Array.isArray(msg.content)) {
-    return msg.content
-      .filter((c: any) => c.type === 'text')
-      .map((c: any) => c.text || '')
-      .join(' ');
-  }
-  return '';
 }
 
 export function registerSessionStart(pi: ExtensionAPI, deps: SessionDeps) {
@@ -173,44 +159,19 @@ export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {
     const userMessages = entries.filter((e: any) => e.type === 'message' && e.message?.role === 'user');
     const assistantMessages = entries.filter((e: any) => e.type === 'message' && e.message?.role === 'assistant');
 
-    const topics: string[] = [];
-    for (const m of userMessages) {
-      const text = extractMessageText((m as any).message);
-      if (text) {
-        const firstSentence = text.split(/[.!?\n]/)[0].slice(0, 100);
-        if (firstSentence && !topics.includes(firstSentence)) {
-          topics.push(firstSentence);
-        }
-      }
-    }
-
-    const summaryParts: string[] = [
-      '## Goal',
-      userMessages.length > 0
-        ? (userMessages[0] as any).message?.content?.[0]?.text?.slice(0, 200) || 'Session work'
-        : 'Session work',
-      '',
-      '## Topics Discussed',
-      ...topics.slice(0, 10).map((t) => `- ${t}`),
-    ];
-
-    if (deps.state.editedFiles.size > 0) {
-      summaryParts.push('', '## Files Modified');
-      for (const f of [...deps.state.editedFiles].slice(0, 20)) {
-        summaryParts.push(`- ${path.relative(process.cwd(), f) || f}`);
-      }
-    }
-
-    summaryParts.push(
-      '',
-      '## Accomplished',
-      `${deps.state.memoriesSavedThisSession} memories saved, ${assistantMessages.length} assistant turns, ${deps.state.turnCount} total turns`,
-    );
+    const summaryContent = buildSessionSummary({
+      userMessages,
+      assistantCount: assistantMessages.length,
+      turnCount: deps.state.turnCount,
+      memoriesSaved: deps.state.memoriesSavedThisSession,
+      editedFiles: deps.state.editedFiles,
+      cwd: process.cwd(),
+    });
 
     const runShutdownWork = async () => {
       try {
         await deps.mem('session-summary', {
-          content: summaryParts.join('\n'),
+          content: summaryContent,
           project: deps.state.currentProject,
         });
         await deps.mem('session-end', {
@@ -240,7 +201,5 @@ export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {
         'info',
       );
     }
-
-
   });
 }

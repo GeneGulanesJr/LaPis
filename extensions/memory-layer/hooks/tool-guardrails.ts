@@ -1,56 +1,16 @@
 // oxlint-disable sort-imports
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { isCodeFile, state } from '../state';
-import { isPipedOutputFilter, isTargetedSymbolLookup } from './guardrail-utils';
+import {
+  isPipedOutputFilter,
+  isTargetedSymbolLookup,
+  CONFIG_FILENAMES,
+  RAW_CODE_DISCOVERY_RE,
+  CODE_PATH_HINT_RE,
+} from './guardrail-utils';
 import { getKnownRepos, invalidateRepoCache } from '../host/project-detector';
 import { memStreaming } from '../host/memory-client';
 import path from 'node:path';
-
-const CONFIG_FILENAMES = new Set([
-  'package.json',
-  'package-lock.json',
-  'tsconfig.json',
-  'tsconfig.build.json',
-  'tsconfig.node.json',
-  'vitest.config.ts',
-  'vitest.config.mjs',
-  'vitest.config.js',
-  'jest.config.ts',
-  'jest.config.js',
-  'eslint.config.js',
-  'eslint.config.mjs',
-  'eslint.config.ts',
-  '.eslintrc',
-  '.eslintrc.js',
-  '.eslintrc.json',
-  '.eslintrc.yml',
-  '.prettierrc',
-  '.prettierrc.js',
-  '.prettierrc.json',
-  'tailwind.config.ts',
-  'tailwind.config.js',
-  'next.config.js',
-  'next.config.ts',
-  'next.config.mjs',
-  'vite.config.ts',
-  'vite.config.js',
-  'webpack.config.js',
-  'rollup.config.js',
-  'babel.config.js',
-  'babel.config.json',
-  '.babelrc',
-  'composer.json',
-  'Cargo.toml',
-  'go.mod',
-  'go.sum',
-  'pyproject.toml',
-  'setup.py',
-  'requirements.txt',
-]);
-
-const RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i;
-const CODE_PATH_HINT_RE =
-  /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java)\b|(^|\s)(src|lib|app|test|tests|extensions|commands|data-access|services)\b/i;
 
 interface GuardrailsDeps {
   state: typeof state;
