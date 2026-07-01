@@ -16,7 +16,7 @@ const path = require('node:path');
 const { resolveCwd, projectFromCwd } = require('../../hooks-engine/project');
 const { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
 const { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher');
-const { readTranscript } = require('../hooks-engine/transcript-reader');
+const { readTranscriptStream } = require('../hooks-engine/transcript-reader');
 const {
   buildAutoDecisionPayload,
   shouldCheckpoint,
@@ -29,20 +29,33 @@ const {
 const CHECKPOINT_EVERY = 10;
 const COOLDOWN_MS = 60000;
 
-function extractLastAssistantText(payload) {
+function extractInlineAssistantText(payload) {
   // Preferred inline field (#207). Newer Claude Code builds may ship the last
-  // assistant message directly; older builds only send transcript_path.
+  // assistant message directly; older builds only send transcript_path, which
+  // is resolved asynchronously inside runStopCapture (see resolveAssistantText)
+  // so the file read never blocks handleStop's synchronous return.
   const inline = payload?.last_assistant_message || payload?.assistant_message;
   const inlineText = extractMessageText(inline);
   if (typeof inlineText === 'string' && inlineText.trim()) {
     return inlineText;
   }
+  return '';
+}
 
-  // Fallback: read the transcript for the last assistant message. Best-effort;
-  // readTranscript returns lastAssistantText=null on any read failure.
-  if (payload?.transcript_path) {
+/**
+ * Resolve the last assistant message text for capture. The inline payload
+ * field is read synchronously (cheap); only when it is absent does this read
+ * the transcript_path via the async streaming reader. Called from runStopCapture
+ * (the fire-and-forget async path) so any file I/O happens after handleStop has
+ * already returned and Claude Code can proceed with its turn.
+ */
+async function resolveAssistantText(lastText, transcriptPath) {
+  if (typeof lastText === 'string' && lastText.trim()) {
+    return lastText;
+  }
+  if (transcriptPath) {
     try {
-      const { lastAssistantText } = readTranscript(payload.transcript_path);
+      const { lastAssistantText } = await readTranscriptStream(transcriptPath);
       if (typeof lastAssistantText === 'string' && lastAssistantText.trim()) {
         return lastAssistantText;
       }
@@ -156,11 +169,23 @@ async function handleStop({ payload, dispatch, stateStore }) {
   state.turnCount += 1;
   const now = Date.now();
 
-  const lastText = extractLastAssistantText(payload);
+  // Only the cheap inline field read happens synchronously; the transcript
+  // fallback (async stream read) runs inside runStopCapture, after we return, so
+  // Stop never blocks Claude Code's turn progression.
+  const lastText = extractInlineAssistantText(payload);
 
   // All capture work is fire-and-forget: Stop must not block Claude Code.
   // Exposed as runStopCapture for deterministic testing.
-  void runStopCapture({ dispatch, stateStore, claudeSessionId, state, project, now, lastText }).catch(() => {});
+  void runStopCapture({
+    dispatch,
+    stateStore,
+    claudeSessionId,
+    state,
+    project,
+    now,
+    lastText,
+    transcriptPath: payload?.transcript_path,
+  }).catch(() => {});
 
   return null; // silent — no stdout, no turn continuation
 }
@@ -169,9 +194,21 @@ async function handleStop({ payload, dispatch, stateStore }) {
  * The awaited capture work. handleStop runs this fire-and-forget so the host
  * never blocks on it; tests call it directly to assert dispatch behavior.
  */
-async function runStopCapture({ dispatch, stateStore, claudeSessionId, state, project, now, lastText }) {
+async function runStopCapture({
+  dispatch,
+  stateStore,
+  claudeSessionId,
+  state,
+  project,
+  now,
+  lastText,
+  transcriptPath,
+}) {
   try {
-    await passiveCapture({ dispatch, text: lastText, project, state, now });
+    // Transcript fallback is resolved here (async stream read), off the
+    // synchronous hook path; passive capture uses the resulting text.
+    const text = await resolveAssistantText(lastText, transcriptPath);
+    await passiveCapture({ dispatch, text, project, state, now });
 
     if (shouldDream(state.turnCount, state.dreamTriggeredThisSession)) {
       state.dreamTriggeredThisSession = true;

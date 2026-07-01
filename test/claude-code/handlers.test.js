@@ -45,6 +45,24 @@ function hasCall(calls, cmd, predicate) {
   return calls.some((c) => c.cmd === cmd && (!predicate || predicate(c.args)));
 }
 
+// Polls `fn` until it returns truthy, up to `timeoutMs`. Resolves with the last
+// result. Used for fire-and-forget capture work whose async I/O (transcript
+// stream read) settles across event-loop ticks rather than a single microtask.
+function waitFor(fn, timeoutMs = 1000) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    const tick = () => {
+      const result = fn();
+      if (result || Date.now() >= deadline) {
+        resolve(result);
+        return;
+      }
+      setImmediate(tick);
+    };
+    setImmediate(tick);
+  });
+}
+
 // =====================================================================
 // SessionStart
 // =====================================================================
@@ -324,8 +342,9 @@ describe('claude-code handlers: Stop', () => {
     const { dispatch, calls } = makeFakeDispatch();
 
     // handleStop returns null immediately (fire-and-forget); the capture work
-    // completes via microtask drain before exit. Poll the dispatch record to
-    // verify the transcript fallback fired without awaiting a private handle.
+    // — including the async transcript stream read — completes after we return.
+    // Poll the dispatch record until the transcript fallback fires, since the
+    // streaming read resolves across event-loop ticks, not just microtasks.
     const out = await handleStop({
       payload: { session_id: 'claude-tx', cwd: '/p', transcript_path: txPath },
       dispatch,
@@ -333,9 +352,11 @@ describe('claude-code handlers: Stop', () => {
     });
     expect(out).toBeNull();
 
-    // Give the microtasks a chance to drain.
-    await new Promise((r) => setImmediate(r));
-    expect(hasCall(calls, 'save', (a) => a.type === 'decision' || a.type === 'bugfix')).toBe(true);
+    const captured = await waitFor(
+      () => hasCall(calls, 'save', (a) => a.type === 'decision' || a.type === 'bugfix'),
+      1000,
+    );
+    expect(captured).toBe(true);
 
     fs.rmSync(txDir, { recursive: true, force: true });
   });
