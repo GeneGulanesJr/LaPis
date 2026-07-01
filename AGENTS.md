@@ -91,3 +91,26 @@ Pi's footer shows `cache` usage — but this is **NOT** the persistent memory la
 **Why the confusion?** The `PI_CACHE_RENTENTION` name suggests it controls Pi's memory retention, but it only controls the LLM API's prompt cache (a cost-saving feature). The memory layer has no retention setting — it's permanent by design.
 
 > **Bottom line:** The `cache` stat in the footer is transient API optimization. The memory layer (`memory-*` tools) is your permanent knowledge base that grows across sessions.
+
+## Cursor Cloud specific instructions
+
+Durable, non-obvious notes for developing LaPis in the Cursor Cloud VM. The startup update script already ran `npm install` (which builds the native `better-sqlite3` binding), so you do not need to reinstall.
+
+### Node runtime (pinned to 26.4.0)
+
+- The dev runtime is **Node 26.4.0** (nvm default: `nvm alias default 26.4.0`). Older nvm Node 22 has been removed.
+- Gotcha: the base image's `~/.bashrc` sources nvm and then prepends Pi's bundled Node (`~/.local/share/pi-node/.../v22.23.1/bin`), which would otherwise win. A trailing line in `~/.bashrc` re-prepends `~/.nvm/versions/node/v26.4.0/bin` so **login/interactive shells resolve to 26.4.0**. Verify with `bash -lc 'node -v'` → `v26.4.0`.
+- Two Node 22 binaries intentionally remain and must **not** be deleted: `/exec-daemon/node` (backs the agent shell/tooling) and `~/.local/share/pi-node/...v22.23.1` (Pi's bundled runtime + the `pi` launcher). They are overridden on `PATH`, not removed.
+- `better-sqlite3` is a native module. If the Node major version changes, run `npm install` again so the binding matches the running ABI (empirically the prebuilt binary loads across Node 22 and 26, but reinstalling is the safe path).
+
+### Running / testing (standard commands — see `CONTRIBUTING.md` and `docs/API.md`)
+
+- Lint / tests / smoke: `npm run lint`, `npm test`, `node test/smoke-cli.js` (all green on Node 26.4.0).
+- `npm run format:check` (oxfmt) currently reports pre-existing formatting diffs across the repo; it is **not** part of CI (`test.yml` runs lint + test + smoke only), so don't mass-reformat untouched files.
+- Run the app (CLI): `node memory-store.js <subcommand>` (e.g. `save`, `search`, `index-repo`, `search-code`). Data lives in `~/.pi/memory/memory.db`.
+- Run the HTTP server: `node memory-store.js serve [--host 127.0.0.1] [--port 9100]` (`GET /health`, Aurex domain + code endpoints).
+
+### Pi extension
+
+- Install/refresh into Pi with `pi install git:github.com/GeneGulanesJr/LaPis`; `pi list` shows it as a user package. Pi is configured with the `minimax` provider.
+- Pi launches the extension via `#!/usr/bin/env node`, so with the `PATH` setup above it runs on Node 26.4.0. Non-interactive runs use `pi --print --mode json` (text `--print` buffers output until the turn completes, so a killed/timed-out run prints nothing — prefer `--mode json` for streaming/inspection).
