@@ -133,6 +133,13 @@ if (isHelpRequest) {
     return;
   }
 
+  if (cmd === 'claude-code') {
+    // Claude Code hooks bridge. runHook owns ensureDb() internally.
+    const { runHook } = require('./src/claude-code/hooks');
+    await runHook(process.argv.slice(3)); // ['hook', '<event>']
+    return;
+  }
+
   if (cmd === 'run') {
     ensureDb();
     const { executeAndCompress, formatTextOutput } = require('./src/cli/commands/token-saver');
