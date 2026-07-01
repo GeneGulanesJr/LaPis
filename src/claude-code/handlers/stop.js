@@ -16,6 +16,7 @@ const path = require('node:path');
 const { resolveCwd, projectFromCwd } = require('../../hooks-engine/project');
 const { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
 const { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher');
+const { readTranscript } = require('../hooks-engine/transcript-reader');
 const {
   buildAutoDecisionPayload,
   shouldCheckpoint,
@@ -29,9 +30,27 @@ const CHECKPOINT_EVERY = 10;
 const COOLDOWN_MS = 60000;
 
 function extractLastAssistantText(payload) {
-  const msg = payload?.last_assistant_message || payload?.assistant_message;
-  const text = extractMessageText(msg);
-  return typeof text === 'string' && text.trim() ? text : '';
+  // Preferred inline field (#207). Newer Claude Code builds may ship the last
+  // assistant message directly; older builds only send transcript_path.
+  const inline = payload?.last_assistant_message || payload?.assistant_message;
+  const inlineText = extractMessageText(inline);
+  if (typeof inlineText === 'string' && inlineText.trim()) {
+    return inlineText;
+  }
+
+  // Fallback: read the transcript for the last assistant message. Best-effort;
+  // readTranscript returns lastAssistantText=null on any read failure.
+  if (payload?.transcript_path) {
+    try {
+      const { lastAssistantText } = readTranscript(payload.transcript_path);
+      if (typeof lastAssistantText === 'string' && lastAssistantText.trim()) {
+        return lastAssistantText;
+      }
+    } catch {
+      // Transcript read is best-effort.
+    }
+  }
+  return '';
 }
 
 /**

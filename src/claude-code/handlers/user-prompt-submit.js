@@ -32,10 +32,6 @@ const REMINDER_RECENT_MS = 180000; // 3min (context-injection.ts:235)
 const REMINDER_TEXT =
   '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.';
 
-function timeout(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
  * Append preflight + coding-context blocks (best-effort). Mutates lines.
  */
@@ -124,8 +120,20 @@ async function run({ payload, dispatch, getKnownRepos, stateStore }) {
 
 async function handleUserPromptSubmit(ctx) {
   // Race against the 30s budget; on timeout return whatever was produced so
-  // the prompt is never blocked.
-  return Promise.race([run(ctx).catch(() => null), timeout(BUDGET_MS).then(() => null)]);
+  // the prompt is never blocked. The timer is cleared when run() settles so the
+  // hook process exits immediately on the fast path — otherwise the dangling
+  // timer keeps Node's event loop (and thus Claude Code) alive for the full budget.
+  let timer;
+  try {
+    return await Promise.race([
+      run(ctx).catch(() => null),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(null), BUDGET_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 module.exports = { handleUserPromptSubmit, REMINDER_INTERVAL, REMINDER_RECENT_MS, BUDGET_MS };

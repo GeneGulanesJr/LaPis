@@ -296,6 +296,50 @@ describe('claude-code handlers: Stop', () => {
     expect(hasCall(calls, 'save', (a) => a.type === 'decision' || a.type === 'bugfix')).toBe(true);
   });
 
+  test('passive capture falls back to transcript_path when no inline message', async () => {
+    // Claude Code's Stop payload ships transcript_path rather than
+    // last_assistant_message; handleStop must read the transcript so capture
+    // actually fires in practice.
+    const reasoning =
+      'Analyzing the requirements and constraints of this subsystem in detail before proceeding. '.repeat(4);
+    const assistantText = `${reasoning} Based on the tradeoffs, going with a queue-based design because it avoids head-of-line blocking.`;
+    const txDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-stop-tx-'));
+    const txPath = path.join(txDir, 't.jsonl');
+    fs.writeFileSync(
+      txPath,
+      [
+        JSON.stringify({ message: { role: 'user', content: 'do work' } }),
+        JSON.stringify({ message: { role: 'assistant', content: assistantText } }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const stateStore = makeStateStore();
+    stateStore.saveState('claude-tx', {
+      ...realStateStore.defaultState(),
+      sessionId: 1,
+      turnCount: 3,
+      lastAutoDecisionSave: 0,
+    });
+    const { dispatch, calls } = makeFakeDispatch();
+
+    // handleStop returns null immediately (fire-and-forget); the capture work
+    // completes via microtask drain before exit. Poll the dispatch record to
+    // verify the transcript fallback fired without awaiting a private handle.
+    const out = await handleStop({
+      payload: { session_id: 'claude-tx', cwd: '/p', transcript_path: txPath },
+      dispatch,
+      stateStore,
+    });
+    expect(out).toBeNull();
+
+    // Give the microtasks a chance to drain.
+    await new Promise((r) => setImmediate(r));
+    expect(hasCall(calls, 'save', (a) => a.type === 'decision' || a.type === 'bugfix')).toBe(true);
+
+    fs.rmSync(txDir, { recursive: true, force: true });
+  });
+
   test('negative-recall feedback is flushed', async () => {
     const { dispatch, calls } = makeFakeDispatch();
     const state = {
@@ -433,5 +477,23 @@ describe('claude-code router (hooks.js)', () => {
       stateStore: makeStateStore(),
     });
     expect(calls).toHaveLength(0);
+  });
+
+  test('UserPromptSubmit clears its budget timer on the fast path', async () => {
+    // Regression: a dangling setTimeout(30000) from the budget race used to
+    // keep Node's event loop alive after the hook resolved, stalling the
+    // process for the full budget on every prompt. Now the timer is cleared
+    // when run() settles, so the handler returns with no pending handles.
+    const { dispatch } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
+    const t0 = Date.now();
+    await runHook(['hook', 'UserPromptSubmit'], {
+      ensureDb: false,
+      stdin: JSON.stringify({ session_id: 'r-3', prompt: 'hello', cwd: '/p' }),
+      dispatch,
+      getKnownRepos: () => [],
+      stateStore: makeStateStore(),
+    });
+    const elapsed = Date.now() - t0;
+    expect(elapsed).toBeLessThan(2000);
   });
 });
