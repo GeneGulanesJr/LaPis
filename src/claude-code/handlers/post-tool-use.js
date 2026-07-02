@@ -124,10 +124,16 @@ async function gitTrustSync({ input, dispatch, getKnownRepos, state, cwd }) {
   }
 }
 
-async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore }) {
+async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore, roleFilter }) {
   const toolName = payload.tool_name;
   const role = postToolRole(toolName);
   if (!role) {
+    return null;
+  }
+  // Role filter (`--only`/`--skip` from the install config): lets one Claude
+  // Code event be split across two handlers — synchronous tracking/mirroring
+  // vs an async `--only git-trust` handler — without double-firing a role.
+  if (roleFilter && ((roleFilter.only && role !== roleFilter.only) || roleFilter.skip === role)) {
     return null;
   }
 

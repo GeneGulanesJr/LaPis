@@ -64,6 +64,28 @@ function sanitizeOutput(output) {
 }
 
 /**
+ * Parse the optional role-filter flags after the event name. The install
+ * config uses these to split one Claude Code event across two handlers (e.g.
+ * PostToolUse `--skip git-trust` synchronous + `--only git-trust` async) so a
+ * heavy dispatch can run in the background without double-firing.
+ */
+function parseRoleFilter(argv) {
+  let only;
+  let skip;
+  for (let i = 2; i < argv.length; i++) {
+    if (argv[i] === '--only' && argv[i + 1]) {
+      only = argv[++i];
+    } else if (argv[i] === '--skip' && argv[i + 1]) {
+      skip = argv[++i];
+    }
+  }
+  if (!only && !skip) {
+    return undefined;
+  }
+  return { only, skip };
+}
+
+/**
  * Run a hook. argv is the slice AFTER `claude-code`, e.g. ['hook', 'SessionStart'].
  */
 async function runHook(argv, opts = {}) {
@@ -71,10 +93,12 @@ async function runHook(argv, opts = {}) {
   const event = argv[1];
 
   if (subcommand !== 'hook' || !event) {
-    process.stderr.write('Usage: lapis claude-code hook <event>\n');
+    process.stderr.write('Usage: lapis claude-code hook <event> [--only <role>] [--skip <role>]\n');
     process.exitCode = process.exitCode || 2;
     return;
   }
+
+  const roleFilter = parseRoleFilter(argv);
 
   // Parse stdin payload (best-effort; malformed → empty object).
   const raw = opts.stdin !== undefined ? opts.stdin : await readStdin();
@@ -114,7 +138,7 @@ async function runHook(argv, opts = {}) {
 
   let output;
   try {
-    output = await handler({ payload, dispatch, dispatchClient, getKnownRepos, stateStore });
+    output = await handler({ payload, dispatch, dispatchClient, getKnownRepos, stateStore, roleFilter });
   } catch (e) {
     // Hooks must fail open: log to stderr, do NOT set a non-zero exit.
     process.stderr.write(`claude-code ${resolvedEvent} handler error: ${e instanceof Error ? e.message : String(e)}\n`);
@@ -126,4 +150,4 @@ async function runHook(argv, opts = {}) {
   }
 }
 
-module.exports = { runHook, HANDLERS, sanitizeOutput };
+module.exports = { runHook, HANDLERS, sanitizeOutput, parseRoleFilter };
