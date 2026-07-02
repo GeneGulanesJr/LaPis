@@ -95,6 +95,28 @@ describe('claude-code handlers: SessionStart', () => {
     expect(out.hookSpecificOutput.additionalContext).toContain('Memory Context');
   });
 
+  test('startup does not store a null sessionId (stays symmetric with SessionEnd guard)', async () => {
+    // If the server returns { sessionId: null } (or omits it), the stored value
+    // must remain the default null so SessionEnd's "no session ever started"
+    // guard doesn't skip a summary for a session that DID start.
+    const { dispatch } = makeFakeDispatch({
+      'session-start': () => ({ sessionId: null, sessionCount: 0 }),
+      context: () => EMPTY_CONTEXT,
+    });
+    const stateStore = makeStateStore();
+
+    await handleSessionStart({
+      payload: { session_id: 'claude-null', source: 'startup', cwd: '/proj/myapp' },
+      dispatch,
+      getKnownRepos: () => [],
+      stateStore,
+    });
+
+    const stored = stateStore._peek('claude-null');
+    expect(stored.sessionId).toBeNull();
+    expect(stored.projectSessionCount).toBe(0);
+  });
+
   test('resume and clear also call session-start', async () => {
     for (const source of ['resume', 'clear']) {
       const { dispatch, calls } = makeFakeDispatch({

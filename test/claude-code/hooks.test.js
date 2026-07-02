@@ -59,3 +59,27 @@ describe('claude-code router injection seams', () => {
     expect(dispatched).toContain('session-start');
   });
 });
+
+describe('claude-code router usage', () => {
+  test('runHook without a leading "hook" token prints usage and sets exit code 2', async () => {
+    const origExitCode = process.exitCode;
+    const stderrChunks = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (chunk) => {
+      stderrChunks.push(String(chunk));
+      return true;
+    };
+    try {
+      process.exitCode = undefined;
+      // argv[0] must be the literal 'hook' token (cli.js guards on sub === 'hook'
+      // before delegating here). A missing/unknown subcommand no longer reaches
+      // runHook — it gets a top-level claude-code usage message in cli.js instead.
+      await runHook(['bogus', 'SessionStart'], { ensureDb: false, stdin: '' });
+      expect(stderrChunks.join('')).toContain('Usage: lapis claude-code hook');
+      expect(process.exitCode).toBe(2);
+    } finally {
+      process.stderr.write = origWrite;
+      process.exitCode = origExitCode;
+    }
+  });
+});
