@@ -134,9 +134,33 @@ if (isHelpRequest) {
   }
 
   if (cmd === 'claude-code') {
+    const sub = process.argv[3];
+    const subArgv = process.argv.slice(4);
+    try {
+      if (sub === 'install') {
+        const { runInstall } = require('./src/claude-code/install');
+        runInstall(subArgv);
+        return;
+      }
+      if (sub === 'uninstall') {
+        const { runUninstall } = require('./src/claude-code/uninstall');
+        runUninstall(subArgv);
+        return;
+      }
+      if (sub === 'doctor') {
+        const { runDoctor } = require('./src/claude-code/doctor');
+        const { ok } = runDoctor(subArgv);
+        process.exitCode = ok ? 0 : 1;
+        return;
+      }
+    } catch (e) {
+      process.stderr.write(`claude-code ${sub}: ${e instanceof Error ? e.message : String(e)}\n`);
+      process.exitCode = 1;
+      return;
+    }
     // Claude Code hooks bridge. runHook owns ensureDb() internally.
     const { runHook } = require('./src/claude-code/hooks');
-    await runHook(process.argv.slice(3)); // ['hook', '<event>']
+    await runHook(process.argv.slice(3)); // ['hook', '<event>', ...flags]
     return;
   }
 

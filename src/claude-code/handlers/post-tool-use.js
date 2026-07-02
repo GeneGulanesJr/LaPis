@@ -124,10 +124,16 @@ async function gitTrustSync({ input, dispatch, getKnownRepos, state, cwd }) {
   }
 }
 
-async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore }) {
+async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore, roleFilter }) {
   const toolName = payload.tool_name;
   const role = postToolRole(toolName);
   if (!role) {
+    return null;
+  }
+  // Role filter (`--only`/`--skip` from the install config): lets one Claude
+  // Code event be split across two handlers — synchronous tracking/mirroring
+  // vs an async `--only git-trust` handler — without double-firing a role.
+  if (roleFilter && ((roleFilter.only && role !== roleFilter.only) || roleFilter.skip === role)) {
     return null;
   }
 
@@ -147,7 +153,11 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore 
       break;
     case 'git-trust':
       await gitTrustSync({ input, dispatch, getKnownRepos, state, cwd });
-      break;
+      // Deliberately NO saveState: this role runs in the async split handler
+      // (install config `--only git-trust`), gitTrustSync never mutates state,
+      // and writing the pre-dispatch snapshot back after a slow sync-code-trust
+      // would clobber whatever the synchronous handler saved in the meantime.
+      return null;
     case 'memory-save-mirror':
       if (wasSaveSuccessful(toolResponse)) {
         state.memoriesSavedThisSession = (state.memoriesSavedThisSession || 0) + 1;
