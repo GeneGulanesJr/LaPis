@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const db = require('../../db');
 const realStateStore = require('../../src/claude-code/state-store');
 const { handleSessionStart } = require('../../src/claude-code/handlers/session-start');
 const { handleUserPromptSubmit } = require('../../src/claude-code/handlers/user-prompt-submit');
@@ -409,7 +410,7 @@ describe('claude-code handlers: PostToolUse', () => {
       payload: {
         session_id: 'claude-save',
         tool_name: 'mcp__lapis__memory-save',
-        tool_response: 'Memory saved: [#5] Decision',
+        tool_response: { content: [{ type: 'text', text: JSON.stringify({ id: 5, title: 'Decision' }) }] },
       },
     });
     expect(stateStore._peek('claude-save').memoriesSavedThisSession).toBe(1);
@@ -419,7 +420,9 @@ describe('claude-code handlers: PostToolUse', () => {
       payload: {
         session_id: 'claude-save',
         tool_name: 'mcp__lapis__memory-save',
-        tool_response: 'Potential duplicate detected:\n- [#5] Existing',
+        tool_response: {
+          content: [{ type: 'text', text: JSON.stringify({ status: 'potential_duplicate', matches: [{ id: 5 }] }) }],
+        },
       },
     });
     expect(stateStore._peek('claude-save').memoriesSavedThisSession).toBe(1);
@@ -440,7 +443,19 @@ describe('claude-code handlers: PostToolUse', () => {
         session_id: 'claude-search',
         tool_name: 'mcp__lapis__memory-search',
         tool_input: { query: 'bridge state' },
-        tool_response: 'Found 2 memories:\n- [#5] [decision] A\n- [#6] [bugfix] B',
+        tool_response: {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                results: [
+                  { id: 5, title: 'A', type: 'decision' },
+                  { id: 6, title: 'B', type: 'bugfix' },
+                ],
+              }),
+            },
+          ],
+        },
       },
     });
     expect(stateStore._peek('claude-search').pendingRecallFeedback).toEqual([
@@ -786,6 +801,28 @@ describe('claude-code router (hooks.js)', () => {
       stateStore: makeStateStore(),
     });
     expect(calls).toHaveLength(0);
+  });
+
+  test('database initialization failure logs and fails open', async () => {
+    const { dispatch, calls } = makeFakeDispatch();
+    const originalExitCode = process.exitCode;
+    const spy = vi.spyOn(db, 'ensureDb').mockImplementation(() => {
+      throw new Error('boom');
+    });
+    process.exitCode = undefined;
+    try {
+      await runHook(['hook', 'PreToolUse'], {
+        stdin: JSON.stringify({ session_id: 'r-db', tool_name: 'Read', tool_input: { file_path: '/repo/src/a.js' } }),
+        dispatch,
+        getKnownRepos: () => [{ name: 'repo', path: '/repo' }],
+        stateStore: makeStateStore(),
+      });
+      expect(process.exitCode).toBeUndefined();
+      expect(calls).toHaveLength(0);
+    } finally {
+      spy.mockRestore();
+      process.exitCode = originalExitCode;
+    }
   });
 
   test('UserPromptSubmit clears its budget timer on the fast path', async () => {

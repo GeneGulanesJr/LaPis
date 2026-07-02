@@ -106,7 +106,6 @@ async function runHook(argv, opts = {}) {
       process.stderr.write(
         `claude-code: database initialization failed: ${e instanceof Error ? e.message : String(e)}\n`,
       );
-      process.exitCode = process.exitCode || 1;
       return;
     }
   }

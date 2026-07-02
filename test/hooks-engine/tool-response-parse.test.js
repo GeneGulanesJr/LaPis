@@ -1,5 +1,6 @@
 const {
   normalizeToolResponseText,
+  parseToolResponseJson,
   parseMemoryIds,
   parseSearchResultIds,
   wasSaveSuccessful,
@@ -31,5 +32,31 @@ describe('hooks-engine tool-response-parse', () => {
     expect(normalizeToolResponseText(response)).toContain('[#8]');
     expect(parseSearchResultIds(response)).toEqual([8]);
     expect(parseMemoryIds(null)).toEqual([]);
+  });
+
+  test('parses JSON-stringified MCP gateway results', () => {
+    const searchResponse = {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            results: [
+              { id: 21, title: 'A' },
+              { id: '22', title: 'B' },
+            ],
+          }),
+        },
+      ],
+    };
+    const saveResponse = { content: [{ type: 'text', text: JSON.stringify({ id: 23, title: 'Saved' }) }] };
+    const duplicateResponse = {
+      content: [{ type: 'text', text: JSON.stringify({ status: 'potential_duplicate', matches: [{ id: 23 }] }) }],
+    };
+
+    expect(parseToolResponseJson(searchResponse).results).toHaveLength(2);
+    expect(parseSearchResultIds(searchResponse)).toEqual([21, 22]);
+    expect(parseMemoryIds(saveResponse)).toEqual([23]);
+    expect(wasSaveSuccessful(saveResponse)).toBe(true);
+    expect(wasSaveSuccessful(duplicateResponse)).toBe(false);
   });
 });
