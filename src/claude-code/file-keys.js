@@ -12,13 +12,6 @@
 const path = require('node:path');
 
 /**
- * Lowercase a path and split off its basename, tolerating both POSIX and
- * Windows separators. Returns null for non-string / empty input.
- *
- * @param {string} p
- * @returns {{ lower: string, base: string } | null}
- */
-/**
  * Lowercase and normalize separators for stable path comparison (#230).
  *
  * @param {string} p
@@ -31,6 +24,13 @@ function normalizePathForCompare(p) {
   return p.toLowerCase().replace(/\\/g, '/');
 }
 
+/**
+ * Lowercase a path and split off its basename, tolerating both POSIX and
+ * Windows separators. Returns null for non-string / empty input.
+ *
+ * @param {string} p
+ * @returns {{ lower: string, base: string } | null}
+ */
 function fileKey(p) {
   if (typeof p !== 'string' || !p) {
     return null;

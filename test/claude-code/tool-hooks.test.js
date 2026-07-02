@@ -94,6 +94,16 @@ describe('claude-code PreToolUse: Read guardrail', () => {
   test('allows reads in an unindexed project (deferred auto-index)', async () => {
     expect(isDeny(await runRead({ file_path: 'src/db.js' }, { repos: () => [] }))).toBe(false);
   });
+
+  test('blocks whole-file read when repo path uses mixed separators', async () => {
+    const repos = () => [{ name: 'app', path: 'C:/proj/app', indexed_at: new Date().toISOString() }];
+    const out = await handlePreToolUse({
+      payload: { session_id: 's', tool_name: 'Read', tool_input: { file_path: 'src/db.js' }, cwd: 'C:\\proj\\app' },
+      getKnownRepos: repos,
+      stateStore: makeStateStore(),
+    });
+    expect(isDeny(out)).toBe(true);
+  });
 });
 
 // =====================================================================

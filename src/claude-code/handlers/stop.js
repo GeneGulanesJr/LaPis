@@ -12,11 +12,13 @@
  * re-entrancy loops.
  *
  * State writes route through mutateState so parallel PostToolUse hooks cannot
- * be clobbered by a stale snapshot saved at the end of capture (#228).
+ * be clobbered by a stale snapshot (#228). Slow gateway dispatches run OUTSIDE
+ * the file lock so PostToolUse hooks are not blocked for the dispatch duration.
  */
 
 const path = require('node:path');
 const { uniqueEditedPaths } = require('../file-keys');
+const { makeMutate } = require('../state-mutate');
 const { resolveCwd, projectFromCwd } = require('../../hooks-engine/project');
 const { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
 const { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher');
@@ -32,18 +34,6 @@ const {
 // AUTO_DECISION_COOLDOWN) and the hooks-engine passive-capture defaults.
 const CHECKPOINT_EVERY = 10;
 const COOLDOWN_MS = 60000;
-
-function makeMutate(stateStore, claudeSessionId) {
-  if (stateStore.mutateState) {
-    return (mutator) => stateStore.mutateState(claudeSessionId, mutator);
-  }
-  return async (mutator) => {
-    const state = stateStore.loadState(claudeSessionId);
-    const result = await mutator(state);
-    stateStore.saveState(claudeSessionId, state);
-    return result;
-  };
-}
 
 function extractInlineAssistantText(payload) {
   // Preferred inline field (#207). Newer Claude Code builds may ship the last
@@ -185,40 +175,51 @@ async function runStopCapture({
   try {
     const text = await resolveAssistantText(lastText, transcriptPath);
 
-    await mutate(async (state) => {
+    // Passive capture: locked read → dispatch (unlocked) → locked cooldown stamp.
+    const autoPayload = await mutate((state) => {
       if (!text || text.length < 100) {
-        return;
+        return null;
       }
       if (isAutoDecisionCoolingDown(state.lastAutoDecisionSave, now, COOLDOWN_MS)) {
-        return;
+        return null;
       }
       if (text.includes('memory-save') || text.includes('memory-search') || text.includes('memory-get')) {
-        return;
+        return null;
       }
-
       const capture = shouldAutoCapture(text);
-      const payload = buildAutoDecisionPayload({ text, capture, project, sessionId: state.sessionId });
-      if (payload) {
-        state.lastAutoDecisionSave = now;
-        await dispatch('save', payload);
-      }
+      return buildAutoDecisionPayload({ text, capture, project, sessionId: state.sessionId });
     });
+    if (autoPayload) {
+      try {
+        await dispatch('save', autoPayload);
+        await mutate((state) => {
+          state.lastAutoDecisionSave = now;
+        });
+      } catch {
+        // Passive capture is best-effort; cooldown not stamped on failure.
+      }
+    }
 
-    await mutate(async (state) => {
+    // Dream: claim the once-per-session flag under lock, dispatch outside it.
+    const runDream = await mutate((state) => {
       if (!shouldDream(turnCount, state.dreamTriggeredThisSession)) {
-        return;
+        return false;
       }
       state.dreamTriggeredThisSession = true;
+      return true;
+    });
+    if (runDream) {
       try {
         await dispatch('dream', {});
       } catch {
         // Auto-dream is best-effort.
       }
-    });
+    }
 
-    await mutate(async (state) => {
+    // Negative recall: drain the queue under lock, dispatch outside it.
+    const recallEntries = await mutate((state) => {
       if (!state.pendingRecallFeedback || state.pendingRecallFeedback.length === 0) {
-        return;
+        return null;
       }
       const entries = state.pendingRecallFeedback.map(([memoryId, meta]) => ({
         memoryId,
@@ -226,9 +227,16 @@ async function runStopCapture({
         query: meta?.query,
         wasUseful: false,
       }));
-      await dispatch('log-negative-recall', { entries: JSON.stringify(entries) });
       state.pendingRecallFeedback = [];
+      return entries;
     });
+    if (recallEntries) {
+      try {
+        await dispatch('log-negative-recall', { entries: JSON.stringify(recallEntries) });
+      } catch {
+        // Negative-recall flush is best-effort.
+      }
+    }
 
     if (shouldCheckpoint(turnCount, CHECKPOINT_EVERY)) {
       const state = stateStore.loadState(claudeSessionId);
@@ -239,4 +247,4 @@ async function runStopCapture({
   }
 }
 
-module.exports = { handleStop, runStopCapture, makeMutate };
+module.exports = { handleStop, runStopCapture };

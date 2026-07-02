@@ -24,7 +24,7 @@
 
 const path = require('node:path');
 const { isCodeFile } = require('../../code-index/scanner');
-const { resolveCwd, projectFromCwd, findMatchingRepo } = require('../../hooks-engine/project');
+const { resolveCwd, projectFromCwd, findMatchingRepo, normalizeRepoPath } = require('../../hooks-engine/project');
 const {
   isPipedOutputFilter,
   isTargetedSymbolLookup,
@@ -94,16 +94,17 @@ function readGuardrail({ input, repos, cwd, state }) {
   }
 
   const absPath = path.resolve(cwd, filePath);
+  const absNorm = normalizeRepoPath(absPath);
+  const cwdNorm = normalizeRepoPath(cwd);
   // Cross-project reads (outside cwd) bypass the outline guard.
-  if (absPath !== cwd && !absPath.startsWith(cwd + path.sep)) {
+  if (absNorm !== cwdNorm && !absNorm.startsWith(`${cwdNorm}/`)) {
     return null;
   }
 
-  const matchedRepo = repos.find(
-    (r) =>
-      absPath.toLowerCase().startsWith(`${r.path.toLowerCase()}${path.sep}`) ||
-      absPath.toLowerCase() === r.path.toLowerCase(),
-  );
+  const matchedRepo = repos.find((r) => {
+    const rp = normalizeRepoPath(r.path);
+    return absNorm === rp || absNorm.startsWith(`${rp}/`);
+  });
   // Deferred auto-index: an unindexed project is allowed through (no outline to
   // point at, and indexing inline would blow the hook timeout).
   if (!matchedRepo) {
@@ -114,7 +115,6 @@ function readGuardrail({ input, repos, cwd, state }) {
   const explored = Array.isArray(state.exploredFiles) ? state.exploredFiles : [];
   const exploredNorm = explored.map(normalizePathForCompare);
   const basenameNorm = basename.toLowerCase();
-  const absNorm = normalizePathForCompare(absPath);
   if (
     exploredNorm.includes(basenameNorm) ||
     exploredNorm.includes(relPath) ||

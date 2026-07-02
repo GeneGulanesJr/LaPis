@@ -376,6 +376,42 @@ describe('claude-code handlers: Stop', () => {
     expect(stateStore._peek('z').pendingRecallFeedback).toEqual([]);
   });
 
+  test('runStopCapture dispatches outside the mutateState lock', async () => {
+    let mutateDepth = 0;
+    const stateStore = makeStateStore();
+    stateStore.saveState('lock', {
+      ...realStateStore.defaultState(),
+      sessionId: 1,
+      turnCount: 3,
+      pendingRecallFeedback: [[9, { sessionId: 1, query: 'q' }]],
+    });
+    const origMutate = stateStore.mutateState.bind(stateStore);
+    stateStore.mutateState = async (id, mutator) => {
+      mutateDepth += 1;
+      try {
+        return await origMutate(id, mutator);
+      } finally {
+        mutateDepth -= 1;
+      }
+    };
+    const dispatch = async (cmd) => {
+      if (cmd === 'log-negative-recall' || cmd === 'save' || cmd === 'dream') {
+        expect(mutateDepth).toBe(0);
+      }
+      return { ok: true };
+    };
+
+    await runStopCapture({
+      dispatch,
+      stateStore,
+      claudeSessionId: 'lock',
+      turnCount: 3,
+      project: 'p',
+      now: Date.now(),
+      lastText: '',
+    });
+  });
+
   test('runStopCapture does not clobber concurrent PostToolUse state', async () => {
     const stateStore = makeStateStore();
     stateStore.saveState('race', {

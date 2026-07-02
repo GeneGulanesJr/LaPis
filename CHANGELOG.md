@@ -22,6 +22,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - **Edit-track:** `MultiEdit` / `Edit` `edits[]` paths are recorded.
   - **UserPromptSubmit timeout:** cancelled flag prevents state persistence after
     the 30s budget fires.
+  - **Stop capture lock scope:** gateway dispatches (passive capture, dream,
+    negative-recall) run outside the `mutateState` file lock so parallel
+    PostToolUse hooks are not blocked for dispatch duration.
+  - **Read guardrail:** repo path matching uses the same separator normalization
+    as `findMatchingRepo`.
+  - **Shared `makeMutate`:** extracted to `src/claude-code/state-mutate.js`.
 
 - **Claude Code bridge — Phase 1–6 review polish** (#234 follow-up).
   - `uniqueEditedPaths` dedupes dual full-path + basename `editedFiles` entries

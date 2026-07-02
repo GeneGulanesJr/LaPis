@@ -25,24 +25,13 @@ const {
 } = require('../../hooks-engine/preflight-assembly');
 const { capInjectedContext } = require('../../hooks-engine/context-builder');
 const { assembleContextLines } = require('../context-inject');
+const { makeMutate } = require('../state-mutate');
 
 const BUDGET_MS = 30000;
 const REMINDER_INTERVAL = 5; // MEMORY_REMINDER_INTERVAL (state.ts:107)
 const REMINDER_RECENT_MS = 180000; // 3min (context-injection.ts:235)
 const REMINDER_TEXT =
   '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.';
-
-function makeMutate(stateStore, claudeSessionId) {
-  if (stateStore.mutateState) {
-    return (mutator) => stateStore.mutateState(claudeSessionId, mutator);
-  }
-  return async (mutator) => {
-    const state = stateStore.loadState(claudeSessionId);
-    const result = await mutator(state);
-    stateStore.saveState(claudeSessionId, state);
-    return result;
-  };
-}
 
 /**
  * Append preflight + coding-context blocks (best-effort). Mutates lines.
