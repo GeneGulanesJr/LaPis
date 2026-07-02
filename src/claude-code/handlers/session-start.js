@@ -69,7 +69,10 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, stateStore
     state.exploredFiles = [];
 
     const result = await dispatch('session-start', { project });
-    if (result && result.sessionId !== undefined) {
+    // A nullish server value must NOT overwrite the default null — SessionEnd's
+    // guard treats sessionId === null as "no session ever started" and skips the
+    // summary. Only accept a concrete value so the two checks stay symmetric.
+    if (result && result.sessionId !== undefined && result.sessionId !== null) {
       state.sessionId = result.sessionId;
       state.projectSessionCount = result.sessionCount || 0;
     }

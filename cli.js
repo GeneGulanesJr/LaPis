@@ -173,9 +173,19 @@ if (isHelpRequest) {
       process.exitCode = 1;
       return;
     }
-    // Claude Code hooks bridge. runHook owns ensureDb() internally.
-    const { runHook } = require('./src/claude-code/hooks');
-    await runHook(process.argv.slice(3)); // ['hook', '<event>', ...flags]
+    // Claude Code hooks bridge. Only `hook` routes here — a missing or unknown
+    // subcommand should not fall through into the hook router (which would
+    // print a confusing hook-specific usage). runHook owns ensureDb() internally.
+    if (sub === 'hook') {
+      const { runHook } = require('./src/claude-code/hooks');
+      await runHook(process.argv.slice(3)); // ['hook', '<event>', ...flags]
+      return;
+    }
+    process.stderr.write(
+      `Unknown claude-code subcommand${sub ? ` "${sub}"` : ''}.\n` +
+        'Usage: lapis claude-code <install|uninstall|doctor|start|stop|gc|hook …>\n',
+    );
+    process.exitCode = 2;
     return;
   }
 
