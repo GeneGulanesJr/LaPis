@@ -43,11 +43,17 @@ function buildSessionSummary({
     }
   }
 
+  // Goal: the first user message's text, regardless of whether `content` is a
+  // plain string (Claude Code transcripts) or an array of parts (Pi extension).
+  // The previous `.content?.[0]?.text` chain only worked for the array shape and
+  // fell back to "Session work" for string content — losing the goal for every
+  // Claude Code session. extractMessageText handles both shapes.
+  const goalText =
+    userMessages.length > 0 ? extractMessageText(userMessages[0]?.message)?.slice(0, 200) || 'Session work' : 'Session work';
+
   const summaryParts = [
     '## Goal',
-    userMessages.length > 0
-      ? userMessages[0]?.message?.content?.[0]?.text?.slice(0, 200) || 'Session work'
-      : 'Session work',
+    goalText,
     '',
     '## Topics Discussed',
     ...topics.slice(0, 10).map((t) => `- ${t}`),
