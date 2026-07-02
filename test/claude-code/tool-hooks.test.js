@@ -10,6 +10,12 @@ function makeStateStore(seed = {}) {
     saveState: (id, s) => {
       map.set(id, s);
     },
+    mutateState: async (id, mutator) => {
+      const s = map.get(id) || realStateStore.defaultState();
+      const r = await mutator(s);
+      map.set(id, s);
+      return r;
+    },
     clearState: (id) => map.delete(id),
     sweepStaleSessions: () => ({ swept: 0 }),
     _peek: (id) => map.get(id),
@@ -225,6 +231,26 @@ describe('claude-code PostToolUse: edit-track + git-trust', () => {
       dispatch,
       getKnownRepos: reposFn,
       stateStore,
+    });
+    expect(calls.some((c) => c.cmd === 'sync-code-trust' && c.args.repo === 'app')).toBe(true);
+  });
+
+  test('a compound git command (cd repo && git pull) still triggers sync-code-trust', async () => {
+    // #225: the install `if: "Bash(git *)"` prefix rule used to skip this; now
+    // the Bash PostToolUse matcher is bare and GIT_TRUST_OP_RE classifies it.
+    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), currentProject: 'app' } });
+    const { dispatch, calls } = makeFakeDispatch();
+    await handlePostToolUse({
+      payload: {
+        session_id: 's',
+        tool_name: 'Bash',
+        tool_input: { command: 'cd /proj/app && git pull origin main' },
+        cwd: '/proj/app',
+      },
+      dispatch,
+      getKnownRepos: reposFn,
+      stateStore,
+      roleFilter: { only: 'git-trust' },
     });
     expect(calls.some((c) => c.cmd === 'sync-code-trust' && c.args.repo === 'app')).toBe(true);
   });

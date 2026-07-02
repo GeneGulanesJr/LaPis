@@ -30,6 +30,12 @@ function makeStateStore() {
     saveState: (id, s) => {
       map.set(id, s);
     },
+    mutateState: async (id, mutator) => {
+      const s = map.get(id) || realStateStore.defaultState();
+      const r = await mutator(s);
+      map.set(id, s);
+      return r;
+    },
     clearState: (id) => {
       map.delete(id);
     },

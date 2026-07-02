@@ -9,6 +9,7 @@
  */
 
 const path = require('node:path');
+const { uniqueEditedPaths } = require('../claude-code/file-keys');
 const { extractMessageText } = require('./prompt-classifiers');
 
 /**
@@ -52,7 +53,7 @@ function buildSessionSummary({
     ...topics.slice(0, 10).map((t) => `- ${t}`),
   ];
 
-  const files = [...(editedFiles instanceof Set ? editedFiles : editedFiles || [])];
+  const files = uniqueEditedPaths(editedFiles);
   if (files.length > 0) {
     summaryParts.push('', '## Files Modified');
     for (const f of files.slice(0, 20)) {

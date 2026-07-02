@@ -120,8 +120,13 @@ async function runHook(argv, opts = {}) {
     return;
   }
 
-  const dispatch = opts.dispatch || dispatchClient.dispatch;
-  const getKnownRepos = opts.getKnownRepos || dispatchClient.getKnownRepos;
+  // Allow tests / alternate backends to inject the state store and dispatch
+  // client the same way they inject dispatch/getKnownRepos (#231). `dispatch`
+  // and `getKnownRepos` fall back to the (possibly injected) client's methods.
+  const resolvedDispatchClient = opts.dispatchClient || dispatchClient;
+  const dispatch = opts.dispatch || resolvedDispatchClient.dispatch;
+  const getKnownRepos = opts.getKnownRepos || resolvedDispatchClient.getKnownRepos;
+  const resolvedStateStore = opts.stateStore || stateStore;
 
   // ensureDb once — mirrors src/mcp/server.js:118-130.
   if (opts.ensureDb !== false) {
@@ -138,7 +143,14 @@ async function runHook(argv, opts = {}) {
 
   let output;
   try {
-    output = await handler({ payload, dispatch, dispatchClient, getKnownRepos, stateStore, roleFilter });
+    output = await handler({
+      payload,
+      dispatch,
+      dispatchClient: resolvedDispatchClient,
+      getKnownRepos,
+      stateStore: resolvedStateStore,
+      roleFilter,
+    });
   } catch (e) {
     // Hooks must fail open: log to stderr, do NOT set a non-zero exit.
     process.stderr.write(`claude-code ${resolvedEvent} handler error: ${e instanceof Error ? e.message : String(e)}\n`);

@@ -39,8 +39,17 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, stateStore
 
   if (!isCompact) {
     // GC orphaned state files from force-killed sessions before starting fresh.
+    // The TTL honors LAPIS_SESSION_TTL_HOURS (default 24h); surface a sweep so
+    // the user can correlate a missing state file (#233).
     try {
-      stateStore.sweepStaleSessions(24);
+      const sweep = stateStore.sweepStaleSessions();
+      if (sweep && sweep.swept > 0) {
+        const ttl = typeof stateStore.defaultTtlHours === 'function' ? stateStore.defaultTtlHours() : 24;
+        process.stderr.write(
+          `claude-code: swept ${sweep.swept} stale session state file(s) older than ${ttl}h` +
+            ` (set LAPIS_SESSION_TTL_HOURS to adjust).\n`,
+        );
+      }
     } catch {
       // GC is best-effort.
     }

@@ -174,8 +174,37 @@ const CODE_PATH_HINT_RE =
 // rather than a single-symbol lookup. Mirrors the check in
 // isTargetedSymbolLookup so Grep and Bash gate identically.
 const GREP_METACHAR_RE = /[.*+?|^$()[\]{}\\]/;
-const SPECIFIC_CODE_FILE_RE =
-  /\.(cjs|cts|js|jsx|mjs|mts|ts|tsx|py|pyi|go|rs|java|kt|rb|c|h|cpp|hpp|cs|scala|swift|php)$/i;
+
+// Single source of truth for the set of code file extensions. Both the
+// "specific code file" classifier (below) and the bridge's harvest regex
+// (src/claude-code/handlers/post-tool-use.js CODE_PATH_RE) build from this so
+// they never drift (#230).
+const CODE_EXTENSIONS = [
+  'cjs',
+  'cts',
+  'js',
+  'jsx',
+  'mjs',
+  'mts',
+  'ts',
+  'tsx',
+  'py',
+  'pyi',
+  'go',
+  'rs',
+  'java',
+  'kt',
+  'rb',
+  'c',
+  'h',
+  'cpp',
+  'hpp',
+  'cs',
+  'scala',
+  'swift',
+  'php',
+];
+const SPECIFIC_CODE_FILE_RE = new RegExp(`\\.(${CODE_EXTENSIONS.join('|')})$`, 'i');
 
 /**
  * True when a path points at a single concrete code file (not a directory,
@@ -261,6 +290,7 @@ module.exports = {
   isTargetedGrepLookup,
   isBroadGlob,
   CONFIG_FILENAMES,
+  CODE_EXTENSIONS,
   RAW_CODE_DISCOVERY_RE,
   CODE_PATH_HINT_RE,
   MIN_SYMBOL_LENGTH,

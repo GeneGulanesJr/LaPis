@@ -199,8 +199,28 @@ async function runStart(argv, io = {}) {
 
   const existing = readLockfile(lockfilePath);
   if (existing?.pid && isProcessAlive(existing.pid)) {
-    log(`LaPis daemon already running (pid ${existing.pid}, port ${existing.port}).`);
-    return { alreadyRunning: true, ...existing };
+    const portMismatch = Number.isFinite(existing.port) && existing.port !== flags.port;
+    const hostMismatch = Boolean(existing.host) && existing.host !== flags.host;
+    if (portMismatch || hostMismatch) {
+      // The lockfile is the source of truth; the install `--daemon-port` flag
+      // cannot relocate a running daemon. Warn loudly and keep the existing one
+      // rather than silently dropping the flag or disrupting other sessions
+      // sharing this daemon (#232).
+      log(
+        `⚠ LaPis daemon already running (pid ${existing.pid}) on http://${existing.host}:${existing.port},` +
+          ` but http://${flags.host}:${flags.port} was requested.`,
+      );
+      log('  Run `lapis claude-code stop` first to change the host/port. Keeping the existing daemon.');
+    } else {
+      log(`LaPis daemon already running (pid ${existing.pid}, port ${existing.port}).`);
+    }
+    return {
+      alreadyRunning: true,
+      ...existing,
+      requestedPort: flags.port,
+      requestedHost: flags.host,
+      ...(portMismatch || hostMismatch ? { mismatch: { portMismatch, hostMismatch } } : {}),
+    };
   }
   if (existing) {
     removeLockfile(lockfilePath);
