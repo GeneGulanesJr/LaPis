@@ -84,8 +84,25 @@ describe('claude-code PreToolUse: Read guardrail', () => {
     expect(isDeny(await runRead({ file_path: 'src/db.js' }, { stateStore }))).toBe(false);
   });
 
+  test('allows when explored path uses a different separator style', async () => {
+    const stateStore = makeStateStore({
+      s: { ...realStateStore.defaultState(), exploredFiles: ['src\\db.js'] },
+    });
+    expect(isDeny(await runRead({ file_path: 'src/db.js' }, { stateStore }))).toBe(false);
+  });
+
   test('allows reads in an unindexed project (deferred auto-index)', async () => {
     expect(isDeny(await runRead({ file_path: 'src/db.js' }, { repos: () => [] }))).toBe(false);
+  });
+
+  test('blocks whole-file read when repo path uses mixed separators', async () => {
+    const repos = () => [{ name: 'app', path: 'C:/proj/app', indexed_at: new Date().toISOString() }];
+    const out = await handlePreToolUse({
+      payload: { session_id: 's', tool_name: 'Read', tool_input: { file_path: 'src/db.js' }, cwd: 'C:\\proj\\app' },
+      getKnownRepos: repos,
+      stateStore: makeStateStore(),
+    });
+    expect(isDeny(out)).toBe(true);
   });
 });
 
@@ -150,6 +167,11 @@ describe('claude-code PreToolUse: Glob + Bash guardrails', () => {
 
   test('Bash ignores non-search commands', async () => {
     expect(isDeny(await run('Bash', { command: 'npm test' }))).toBe(false);
+  });
+
+  test('Bash blocks compound search commands (cd repo && find)', async () => {
+    // #226: the full command string is classified, not a prefix-matched if-rule.
+    expect(isDeny(await run('Bash', { command: 'cd /proj/app && find . -name "*.ts"' }))).toBe(true);
   });
 });
 
@@ -253,6 +275,45 @@ describe('claude-code PostToolUse: edit-track + git-trust', () => {
       roleFilter: { only: 'git-trust' },
     });
     expect(calls.some((c) => c.cmd === 'sync-code-trust' && c.args.repo === 'app')).toBe(true);
+  });
+
+  test('git -C <path> pull triggers sync-code-trust', async () => {
+    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), currentProject: 'app' } });
+    const { dispatch, calls } = makeFakeDispatch();
+    await handlePostToolUse({
+      payload: {
+        session_id: 's',
+        tool_name: 'Bash',
+        tool_input: { command: 'git -C /proj/app pull origin main' },
+        cwd: '/proj/app',
+      },
+      dispatch,
+      getKnownRepos: reposFn,
+      stateStore,
+      roleFilter: { only: 'git-trust' },
+    });
+    expect(calls.some((c) => c.cmd === 'sync-code-trust' && c.args.repo === 'app')).toBe(true);
+  });
+
+  test('MultiEdit records each edited file path', async () => {
+    const stateStore = makeStateStore();
+    const { dispatch } = makeFakeDispatch();
+    await handlePostToolUse({
+      payload: {
+        session_id: 's',
+        tool_name: 'MultiEdit',
+        tool_input: {
+          edits: [{ file_path: '/proj/app/src/a.js' }, { file_path: '/proj/app/src/b.js' }],
+        },
+        cwd: '/proj/app',
+      },
+      dispatch,
+      getKnownRepos: reposFn,
+      stateStore,
+    });
+    const edited = stateStore._peek('s').editedFiles;
+    expect(edited).toContain('/proj/app/src/a.js');
+    expect(edited).toContain('/proj/app/src/b.js');
   });
 
   test('non-git bash does not trigger sync-code-trust', async () => {

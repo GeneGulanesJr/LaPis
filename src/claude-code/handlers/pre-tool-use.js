@@ -24,7 +24,7 @@
 
 const path = require('node:path');
 const { isCodeFile } = require('../../code-index/scanner');
-const { resolveCwd, projectFromCwd, findMatchingRepo } = require('../../hooks-engine/project');
+const { resolveCwd, projectFromCwd, findMatchingRepo, normalizeRepoPath } = require('../../hooks-engine/project');
 const {
   isPipedOutputFilter,
   isTargetedSymbolLookup,
@@ -35,7 +35,7 @@ const {
   CODE_PATH_HINT_RE,
 } = require('../../hooks-engine/guardrail-utils');
 const { preToolRole } = require('../tool-map');
-const { addNormalized } = require('../file-keys');
+const { addNormalized, normalizePathForCompare } = require('../file-keys');
 
 /** Build the PreToolUse deny envelope. */
 function deny(reason) {
@@ -94,28 +94,31 @@ function readGuardrail({ input, repos, cwd, state }) {
   }
 
   const absPath = path.resolve(cwd, filePath);
+  const absNorm = normalizeRepoPath(absPath);
+  const cwdNorm = normalizeRepoPath(cwd);
   // Cross-project reads (outside cwd) bypass the outline guard.
-  if (absPath !== cwd && !absPath.startsWith(cwd + path.sep)) {
+  if (absNorm !== cwdNorm && !absNorm.startsWith(`${cwdNorm}/`)) {
     return null;
   }
 
-  const matchedRepo = repos.find(
-    (r) =>
-      absPath.toLowerCase().startsWith(`${r.path.toLowerCase()}${path.sep}`) ||
-      absPath.toLowerCase() === r.path.toLowerCase(),
-  );
+  const matchedRepo = repos.find((r) => {
+    const rp = normalizeRepoPath(r.path);
+    return absNorm === rp || absNorm.startsWith(`${rp}/`);
+  });
   // Deferred auto-index: an unindexed project is allowed through (no outline to
   // point at, and indexing inline would blow the hook timeout).
   if (!matchedRepo) {
     return null;
   }
 
-  const relPath = path.relative(matchedRepo.path, absPath).toLowerCase();
+  const relPath = normalizePathForCompare(path.relative(matchedRepo.path, absPath));
   const explored = Array.isArray(state.exploredFiles) ? state.exploredFiles : [];
+  const exploredNorm = explored.map(normalizePathForCompare);
+  const basenameNorm = basename.toLowerCase();
   if (
-    explored.includes(basename.toLowerCase()) ||
-    explored.includes(relPath) ||
-    explored.includes(absPath.toLowerCase())
+    exploredNorm.includes(basenameNorm) ||
+    exploredNorm.includes(relPath) ||
+    exploredNorm.includes(absNorm)
   ) {
     return null;
   }

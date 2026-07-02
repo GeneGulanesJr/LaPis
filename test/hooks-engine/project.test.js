@@ -58,6 +58,11 @@ describe('hooks-engine project: findMatchingRepo', () => {
     // separate a backslash-styled cwd from its repo.
     expect(findMatchingRepo('/repos/alphabeta', repos)).toBeNull();
   });
+
+  test('matches when repo path uses forward slashes and cwd uses backslashes', () => {
+    const mixed = [{ name: 'win', path: 'C:/repos/win' }];
+    expect(findMatchingRepo('C:\\repos\\win\\src', mixed)?.name).toBe('win');
+  });
 });
 
 describe('hooks-engine project: findMatchingProject', () => {

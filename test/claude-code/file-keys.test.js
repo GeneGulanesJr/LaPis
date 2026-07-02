@@ -7,7 +7,7 @@ describe('claude-code file-keys: shared normalization', () => {
   });
 
   test('fileKey handles Windows-style separators', () => {
-    expect(fileKey('src\\sub\\Foo.JS')).toEqual({ lower: 'src\\sub\\foo.js', base: 'foo.js' });
+    expect(fileKey('src\\sub\\Foo.JS')).toEqual({ lower: 'src/sub/foo.js', base: 'foo.js' });
   });
 
   test('fileKey rejects non-strings', () => {

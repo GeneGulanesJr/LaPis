@@ -25,6 +25,7 @@ const {
 } = require('../../hooks-engine/preflight-assembly');
 const { capInjectedContext } = require('../../hooks-engine/context-builder');
 const { assembleContextLines } = require('../context-inject');
+const { makeMutate } = require('../state-mutate');
 
 const BUDGET_MS = 30000;
 const REMINDER_INTERVAL = 5; // MEMORY_REMINDER_INTERVAL (state.ts:107)
@@ -69,7 +70,7 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt }) {
   }
 }
 
-async function run({ payload, dispatch, getKnownRepos, stateStore }) {
+async function run({ payload, dispatch, getKnownRepos, stateStore, isCancelled }) {
   const prompt = payload.prompt || '';
   const cwd = resolveCwd(payload.cwd);
   const project = projectFromCwd(cwd);
@@ -87,23 +88,46 @@ async function run({ payload, dispatch, getKnownRepos, stateStore }) {
     sessionId,
   }).catch(() => null);
 
+  if (isCancelled?.()) {
+    return null;
+  }
+
   const lines = assembled ? assembled.lines : [];
   const cwdRepo = assembled ? assembled.cwdRepo : findMatchingRepo(path.resolve(cwd), getKnownRepos());
 
   // Preflight / coding context (best-effort, timeout-safe).
   await appendPreflight({ lines, dispatch, cwdRepo, prompt });
 
+  if (isCancelled?.()) {
+    return null;
+  }
+
   // Cadence-gated reminder (parity of Pi's context-event reminder).
-  state.callsSinceLastMemory += 1;
-  const recentMemory = Date.now() - state.lastMemoryToolCall < REMINDER_RECENT_MS;
-  if (state.callsSinceLastMemory >= REMINDER_INTERVAL && !recentMemory) {
-    state.callsSinceLastMemory = 0;
+  // Routed through mutateState so parallel memory-tool hooks cannot be
+  // clobbered by an unlocked load/save (#228).
+  let shouldRemind = false;
+  const mutate = makeMutate(stateStore, claudeSessionId);
+  await mutate((s) => {
+    if (isCancelled?.()) {
+      return;
+    }
+    s.callsSinceLastMemory += 1;
+    const recentMemory = Date.now() - s.lastMemoryToolCall < REMINDER_RECENT_MS;
+    if (s.callsSinceLastMemory >= REMINDER_INTERVAL && !recentMemory) {
+      s.callsSinceLastMemory = 0;
+      shouldRemind = true;
+    }
+    s.hasInjectedContext = true;
+  });
+
+  if (isCancelled?.()) {
+    return null;
+  }
+
+  if (shouldRemind) {
     lines.push('');
     lines.push(REMINDER_TEXT);
   }
-
-  state.hasInjectedContext = true;
-  stateStore.saveState(claudeSessionId, state);
 
   const additionalContext = capInjectedContext(lines.join('\n'));
   if (!additionalContext) {
@@ -123,12 +147,17 @@ async function handleUserPromptSubmit(ctx) {
   // the prompt is never blocked. The timer is cleared when run() settles so the
   // hook process exits immediately on the fast path — otherwise the dangling
   // timer keeps Node's event loop (and thus Claude Code) alive for the full budget.
+  // A cancelled flag prevents run() from persisting state after the budget fires.
   let timer;
+  let cancelled = false;
   try {
     return await Promise.race([
-      run(ctx).catch(() => null),
+      run({ ...ctx, isCancelled: () => cancelled }).catch(() => null),
       new Promise((resolve) => {
-        timer = setTimeout(() => resolve(null), BUDGET_MS);
+        timer = setTimeout(() => {
+          cancelled = true;
+          resolve(null);
+        }, BUDGET_MS);
       }),
     ]);
   } finally {
