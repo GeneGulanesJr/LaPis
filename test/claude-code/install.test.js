@@ -762,3 +762,90 @@ describe('claude-code hook role filter', () => {
     expect(ids).toEqual([12, 34]);
   });
 });
+
+// =====================================================================
+// CLAUDE.md block writers — symlink safety
+// =====================================================================
+//
+// A malicious repo can commit `.claude/CLAUDE.md` as a symlink to an
+// attacker-chosen file (e.g. ~/.bashrc). install/uninstall must NEVER read or
+// write through that link — only ever replace it with a fresh regular file
+// (upsert) or unlink the link itself (remove). Regression coverage for the
+// arbitrary-file-write vector fixed alongside this test.
+
+describe('claude-code install: CLAUDE.md symlink safety', () => {
+  const { upsertClaudeMdBlock, removeClaudeMdBlock, claudeMdBlock } = install;
+
+  function makeSymlinkRoot() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-cc-symlink-'));
+    const claudeDir = path.join(root, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    const target = path.join(root, 'victim.txt');
+    fs.writeFileSync(target, 'victim-contents-before\n', 'utf8');
+    const md = path.join(claudeDir, 'CLAUDE.md');
+    fs.symlinkSync(target, md);
+    return { root, claudeDir, target, md };
+  }
+
+  test('upsertClaudeMdBlock does NOT write through a symlink to its target', () => {
+    const { target, md } = makeSymlinkRoot();
+    const before = fs.readFileSync(target, 'utf8');
+
+    upsertClaudeMdBlock(md, claudeMdBlock('lapis'));
+
+    // The victim file must be byte-for-byte untouched.
+    expect(fs.readFileSync(target, 'utf8')).toBe(before);
+    // The path is now a regular file (the symlink was replaced), carrying the
+    // LaPis block — not the victim's prior contents.
+    expect(fs.lstatSync(md).isSymbolicLink()).toBe(false);
+    expect(fs.readFileSync(md, 'utf8')).toContain('<!-- lapis:start -->');
+    expect(fs.readFileSync(md, 'utf8')).not.toContain('victim-contents');
+  });
+
+  test('removeClaudeMdBlock on a bare symlink unlinks the LINK, never the target', () => {
+    const { target, md } = makeSymlinkRoot();
+    const before = fs.readFileSync(target, 'utf8');
+
+    const removed = removeClaudeMdBlock(md);
+
+    expect(removed).toBe(true);
+    // Symlink itself is gone.
+    expect(fs.existsSync(md)).toBe(false);
+    // Target file is untouched.
+    expect(fs.readFileSync(target, 'utf8')).toBe(before);
+  });
+
+  test('upsert then remove round-trips on a regular file (no symlink regression)', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-cc-md-'));
+    const md = path.join(root, 'CLAUDE.md');
+    fs.writeFileSync(md, '# My project notes\n\nKeep these.\n', 'utf8');
+
+    upsertClaudeMdBlock(md, claudeMdBlock('lapis'));
+    expect(fs.readFileSync(md, 'utf8')).toContain('# My project notes');
+    expect(fs.readFileSync(md, 'utf8')).toContain('<!-- lapis:start -->');
+
+    const removed = removeClaudeMdBlock(md);
+    expect(removed).toBe(true);
+    // Surrounding prose is preserved, the block is gone.
+    const after = fs.readFileSync(md, 'utf8');
+    expect(after).toContain('# My project notes');
+    expect(after).not.toContain('<!-- lapis:start -->');
+  });
+
+  test('full install over a symlinked .claude/CLAUDE.md does not corrupt the target', async () => {
+    const io = makeIo();
+    const target = path.join(io.root, 'victim.txt');
+    fs.writeFileSync(target, 'victim-contents-before\n', 'utf8');
+    const md = path.join(io.cwd, '.claude', 'CLAUDE.md');
+    fs.mkdirSync(path.dirname(md), { recursive: true });
+    fs.symlinkSync(target, md);
+    const before = fs.readFileSync(target, 'utf8');
+
+    await runInstall([], io);
+
+    // Victim untouched, CLAUDE.md is now a regular file with the protocol block.
+    expect(fs.readFileSync(target, 'utf8')).toBe(before);
+    expect(fs.lstatSync(md).isSymbolicLink()).toBe(false);
+    expect(fs.readFileSync(md, 'utf8')).toContain('<!-- lapis:start -->');
+  });
+});

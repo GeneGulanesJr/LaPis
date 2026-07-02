@@ -510,14 +510,60 @@ function claudeMdBlock(mcpName) {
   ].join('\n');
 }
 
-/** Insert or replace the delimited LaPis block in a CLAUDE.md file. */
-function upsertClaudeMdBlock(filePath, block) {
-  let existing = '';
+/**
+ * Read a CLAUDE.md file WITHOUT following a symlink. A symlinked CLAUDE.md is
+ * unexpected for a project memory-protocol file and is a known arbitrary-file-
+ * write vector for a malicious repo (commit `.claude/CLAUDE.md` → `~/.bashrc`,
+ * then `install` writes through the link). Treat a symlink as absent so we
+ * neither leak the target's contents into the block nor write back through it.
+ * Returns { existed: bool, content: string }.
+ */
+function readClaudeMdSafe(filePath) {
   try {
-    existing = fs.readFileSync(filePath, 'utf8');
+    if (fs.lstatSync(filePath).isSymbolicLink()) {
+      return { existed: false, content: '' };
+    }
   } catch (e) {
     if (e.code !== 'ENOENT') {
       throw e;
+    }
+    return { existed: false, content: '' };
+  }
+  try {
+    return { existed: true, content: fs.readFileSync(filePath, 'utf8') };
+  } catch (e) {
+    if (e.code === 'ENOENT') {
+      return { existed: false, content: '' };
+    }
+    throw e;
+  }
+}
+
+/**
+ * Atomic text write (temp + rename), matching writeJson's discipline so a crash
+ * mid-write never leaves a truncated file and a symlink at the path is REPLACED
+ * by a regular file rather than written through. The previous direct
+ * writeFileSync followed symlinks (see readClaudeMdSafe).
+ */
+function writeTextAtomic(filePath, content) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(tmpPath, content, 'utf8');
+  fs.renameSync(tmpPath, filePath);
+}
+
+/** Insert or replace the delimited LaPis block in a CLAUDE.md file. */
+function upsertClaudeMdBlock(filePath, block) {
+  const { existed, content: existing } = readClaudeMdSafe(filePath);
+  // If a symlink is in the way, remove the link itself (NOT its target) so the
+  // atomic rename below installs a fresh regular file.
+  if (existed === false) {
+    try {
+      if (fs.lstatSync(filePath).isSymbolicLink()) {
+        fs.unlinkSync(filePath);
+      }
+    } catch {
+      // raced away — the atomic rename below still produces a regular file
     }
   }
   const start = existing.indexOf(CLAUDE_MD_START);
@@ -530,20 +576,23 @@ function upsertClaudeMdBlock(filePath, block) {
   } else {
     next = `${block}\n`;
   }
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, next, 'utf8');
+  writeTextAtomic(filePath, next);
 }
 
 /** Remove the delimited LaPis block; delete the file when nothing else remains. */
 function removeClaudeMdBlock(filePath) {
-  let existing;
-  try {
-    existing = fs.readFileSync(filePath, 'utf8');
-  } catch (e) {
-    if (e.code === 'ENOENT') {
-      return false;
+  const { existed, content: existing } = readClaudeMdSafe(filePath);
+  if (!existed) {
+    // A bare symlink (no block to remove) — unlink the LINK only, never a target.
+    try {
+      if (fs.lstatSync(filePath).isSymbolicLink()) {
+        fs.unlinkSync(filePath);
+        return true;
+      }
+    } catch {
+      // already gone
     }
-    throw e;
+    return false;
   }
   const start = existing.indexOf(CLAUDE_MD_START);
   const end = existing.indexOf(CLAUDE_MD_END);
@@ -554,7 +603,7 @@ function removeClaudeMdBlock(filePath) {
   if (!next.trim()) {
     fs.unlinkSync(filePath);
   } else {
-    fs.writeFileSync(filePath, next, 'utf8');
+    writeTextAtomic(filePath, next);
   }
   return true;
 }
@@ -743,6 +792,8 @@ module.exports = {
   claudeMdBlock,
   upsertClaudeMdBlock,
   removeClaudeMdBlock,
+  readClaudeMdSafe,
+  writeTextAtomic,
   resolveIo,
   configPaths,
   routeTargets,
