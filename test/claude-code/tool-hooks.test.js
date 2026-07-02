@@ -305,6 +305,25 @@ describe('claude-code PostToolUse: tool-state mirroring', () => {
     expect(pending[0][1]).toEqual({ sessionId: 7, query: 'dispatch' });
   });
 
+  test('memory-search mirrors the real MCP JSON shape (content block, no markers)', async () => {
+    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), sessionId: 3 } });
+    const { dispatch } = dispatchOf();
+    await handlePostToolUse({
+      payload: {
+        session_id: 's',
+        tool_name: 'mcp__lapis__memory-search',
+        tool_input: { query: 'q' },
+        // src/mcp/translate-result.js JSON-stringifies the dispatch result.
+        tool_response: { content: [{ type: 'text', text: JSON.stringify({ results: [{ id: 8 }, { id: 9 }] }) }] },
+        cwd: '/proj/app',
+      },
+      dispatch,
+      getKnownRepos: reposFn,
+      stateStore,
+    });
+    expect(stateStore._peek('s').pendingRecallFeedback.map(([id]) => id)).toEqual([8, 9]);
+  });
+
   test('memory-get removes the consumed id (marked useful)', async () => {
     const stateStore = makeStateStore({
       s: {

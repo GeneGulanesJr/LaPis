@@ -53,6 +53,13 @@ describe('hooks-engine tool-response-parse: parseSearchResultIds', () => {
     expect(parseSearchResultIds(tr)).toEqual([5, 6]);
   });
 
+  test('handles the real MCP shape: JSON inside a content block', () => {
+    // src/mcp/translate-result.js JSON-stringifies dispatch results, and Claude
+    // Code wraps them as { content: [{ type:'text', text }] }.
+    const tr = { content: [{ type: 'text', text: JSON.stringify({ results: [{ id: 11 }, { id: 22 }] }) }] };
+    expect(parseSearchResultIds(tr)).toEqual([11, 22]);
+  });
+
   test('empty when no results', () => {
     expect(parseSearchResultIds('No memories found.')).toEqual([]);
   });
@@ -93,6 +100,11 @@ describe('hooks-engine tool-response-parse: wasSaveSuccessful', () => {
 
   test('structured fallback: false for potential_duplicate status', () => {
     expect(wasSaveSuccessful(JSON.stringify({ status: 'potential_duplicate', matches: [] }))).toBe(false);
+  });
+
+  test('real MCP shape: save-result JSON inside a content block is a success', () => {
+    const tr = { content: [{ type: 'text', text: JSON.stringify({ id: 77, title: 'x', created_at: 'now' }) }] };
+    expect(wasSaveSuccessful(tr)).toBe(true);
   });
 
   test('false for empty / unparseable', () => {
