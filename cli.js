@@ -163,6 +163,11 @@ if (isHelpRequest) {
         await runStop(subArgv);
         return;
       }
+      if (sub === 'gc') {
+        const { runGc } = require('./src/claude-code/state-store');
+        runGc(subArgv);
+        return;
+      }
     } catch (e) {
       process.stderr.write(`claude-code ${sub}: ${e instanceof Error ? e.message : String(e)}\n`);
       process.exitCode = 1;

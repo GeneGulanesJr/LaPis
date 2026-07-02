@@ -41,7 +41,6 @@ describe('dispatch-client', () => {
     expect(calls[0].body).toEqual({
       cmd: 'preflight',
       args: { query: 'auth', project: '/repo' },
-      project: '/repo',
     });
     expect(result.route).toBe('daemon');
   });
@@ -69,11 +68,15 @@ describe('dispatch-client', () => {
     };
     const directSpy = vi.fn(async () => ({ via: 'direct' }));
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const result = await dispatchClient.dispatch('search', { query: 'x' }, {
-      resolveDaemonUrl: () => 'http://127.0.0.1:9100',
-      fetch,
-      directDispatch: directSpy,
-    });
+    const result = await dispatchClient.dispatch(
+      'search',
+      { query: 'x' },
+      {
+        resolveDaemonUrl: () => 'http://127.0.0.1:9100',
+        fetch,
+        directDispatch: directSpy,
+      },
+    );
 
     expect(result).toEqual({ via: 'direct' });
     expect(directSpy).toHaveBeenCalledWith('search', { query: 'x' });
@@ -161,6 +164,42 @@ describe('daemon start/stop flags', () => {
 
     expect(stopSpy).toHaveBeenCalledWith(4242, expect.objectContaining({ lockfilePath }));
     expect(fs.existsSync(lockfilePath)).toBe(false);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('runStart warns and keeps the existing daemon when a different port is requested', async () => {
+    // #232: re-install with a different --daemon-port must not silently drop the
+    // flag nor relocate the running daemon; it warns loudly and keeps the old one.
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-port-'));
+    const lockfilePath = path.join(tmpDir, 'daemon.json');
+    daemon.writeLockfile({ pid: process.pid, port: 9100, host: '127.0.0.1' }, lockfilePath);
+    const lines = [];
+    const result = await daemon.runStart(['--detached', '--port', '9300'], {
+      lockfilePath,
+      log: (l) => lines.push(l),
+    });
+    expect(result.alreadyRunning).toBe(true);
+    expect(result.port).toBe(9100);
+    expect(result.requestedPort).toBe(9300);
+    expect(result.mismatch.portMismatch).toBe(true);
+    expect(lines.join('\n')).toContain('9300 was requested');
+    // Lockfile unchanged — the running daemon is preserved.
+    expect(daemon.readLockfile(lockfilePath).port).toBe(9100);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('runStart silently no-ops when the same port is requested', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-same-'));
+    const lockfilePath = path.join(tmpDir, 'daemon.json');
+    daemon.writeLockfile({ pid: process.pid, port: 9100, host: '127.0.0.1' }, lockfilePath);
+    const lines = [];
+    const result = await daemon.runStart(['--port', '9100'], {
+      lockfilePath,
+      log: (l) => lines.push(l),
+    });
+    expect(result.alreadyRunning).toBe(true);
+    expect(result.mismatch).toBeUndefined();
+    expect(lines.join('\n')).not.toContain('was requested');
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 });

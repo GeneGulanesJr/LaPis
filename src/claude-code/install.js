@@ -37,11 +37,6 @@ const DEFAULT_MCP_NAME = 'lapis';
 const CLAUDE_MD_START = '<!-- lapis:start -->';
 const CLAUDE_MD_END = '<!-- lapis:end -->';
 
-// Secondary bash-search guardrail: the `if` field holds exactly ONE permission
-// rule (no `||`), so each raw-discovery command gets its own handler. Mirrors
-// RAW_CODE_DISCOVERY_RE in src/hooks-engine/guardrail-utils.js.
-const BASH_GUARDRAIL_IF_RULES = ['Bash(grep *)', 'Bash(rg *)', 'Bash(ag *)', 'Bash(ack *)', 'Bash(find *)'];
-
 // --- flag parsing ---------------------------------------------------------
 
 /**
@@ -237,6 +232,13 @@ function hookHandler(invocation, event, { timeout, async: isAsync, ifRule, extra
  *   - Heavy handlers run `async: true`: git-trust (PostToolUse `--only`
  *     split so tracking/mirroring stays synchronous) and Stop
  *     (passive-capture + checkpoint + dream).
+ *
+ * Bash command-prefix `if` rules are intentionally NOT used: Claude Code
+ * evaluates `if` as a literal command-prefix match, so `cd repo && git pull`
+ * or `ls | grep foo` would bypass the guardrail entirely. The Bash matcher is
+ * a single bare `Bash` group and the handlers themselves do the real
+ * classification (GIT_TRUST_OP_RE / RAW_CODE_DISCOVERY_RE), returning null
+ * fast for non-matching commands (#225, #226).
  */
 function buildHookGroups(invocation, mcpName) {
   const h = (event, opts) => hookHandler(invocation, event, opts);
@@ -248,10 +250,7 @@ function buildHookGroups(invocation, mcpName) {
     UserPromptSubmit: [{ hooks: [h('UserPromptSubmit', { timeout: 30 })] }],
     PreToolUse: [
       { matcher: 'Read|Grep|Glob', hooks: [h('PreToolUse', { timeout: 15 })] },
-      {
-        matcher: 'Bash',
-        hooks: BASH_GUARDRAIL_IF_RULES.map((rule) => h('PreToolUse', { timeout: 15, ifRule: rule })),
-      },
+      { matcher: 'Bash', hooks: [h('PreToolUse', { timeout: 15 })] },
       { matcher: `mcp__${mcpName}__.*`, hooks: [h('PreToolUse', { timeout: 15 })] },
     ],
     PostToolUse: [
@@ -261,10 +260,11 @@ function buildHookGroups(invocation, mcpName) {
           // PreToolUse sees fresh state (edit-track, exploredFiles, recall).
           h('PostToolUse', { timeout: 15, extraArgs: ['--skip', 'git-trust'] }),
           // git-trust is heavy (sync-code-trust over the repo) → background.
+          // No `if` prefix rule: the handler's GIT_TRUST_OP_RE does the real
+          // check, so compound commands like `cd repo && git pull` are covered.
           h('PostToolUse', {
             timeout: 60,
             async: true,
-            ifRule: 'Bash(git *)',
             extraArgs: ['--only', 'git-trust'],
           }),
         ],
@@ -701,7 +701,15 @@ async function runInstall(argv, io) {
     const { runStart } = require('./daemon');
     daemon = await runStart(['--detached', '--port', String(flags.daemonPort)], io);
     log('');
-    log(`Daemon mode enabled (port ${flags.daemonPort}) — hooks will POST to /dispatch.`);
+    if (daemon?.alreadyRunning && daemon?.mismatch) {
+      // runStart already warned; report the port hooks will actually POST to.
+      log(
+        `Daemon mode requested port ${flags.daemonPort}, but the running daemon is on port ${daemon.port}` +
+          ` — hooks will POST to port ${daemon.port}. Run \`lapis claude-code stop\` to relocate it.`,
+      );
+    } else {
+      log(`Daemon mode enabled (port ${flags.daemonPort}) — hooks will POST to /dispatch.`);
+    }
     log('Stop with: lapis claude-code stop');
   }
 
@@ -713,7 +721,6 @@ module.exports = {
   DEFAULT_MCP_NAME,
   CLAUDE_MD_START,
   CLAUDE_MD_END,
-  BASH_GUARDRAIL_IF_RULES,
   parseFlags,
   resolveInvocation,
   hookInvocationFor,

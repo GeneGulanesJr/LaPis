@@ -43,8 +43,17 @@ function projectFromCwd(cwd) {
  * @returns {object|null}
  */
 function findMatchingRepo(resolvedCwd, repos) {
+  // Use path.sep (not a hardcoded "/") so a Windows cwd nested under an
+  // indexed repo still prefix-matches: the DB stores backslash paths there,
+  // and the old `${rp}/` check only ever matched on exact equality (#227).
   const abs = path.resolve(resolvedCwd).toLowerCase();
-  return repos.find((r) => abs.startsWith(`${r.path.toLowerCase()}/`) || abs === r.path.toLowerCase()) || null;
+  const sep = path.sep;
+  return (
+    repos.find((r) => {
+      const rp = r.path.toLowerCase();
+      return abs === rp || abs.startsWith(rp + sep);
+    }) || null
+  );
 }
 
 /**

@@ -75,16 +75,16 @@ describe('claude-code install: default (npx, project scope)', () => {
     }
   });
 
-  test('PreToolUse: Read|Grep|Glob (timeout 15), Bash gated by if-rules, mcp__lapis__.* cadence', async () => {
+  test('PreToolUse: Read|Grep|Glob (timeout 15), a single bare Bash matcher, mcp__lapis__.* cadence', async () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     const groups = settings.hooks.PreToolUse;
     expect(groups.map((g) => g.matcher)).toEqual(['Read|Grep|Glob', 'Bash', 'mcp__lapis__.*']);
     expect(groups[0].hooks[0].timeout).toBe(15);
-    const ifRules = groups[1].hooks.map((h) => h.if);
-    expect(ifRules).toEqual(['Bash(grep *)', 'Bash(rg *)', 'Bash(ag *)', 'Bash(ack *)', 'Bash(find *)']);
-    for (const h of groups[1].hooks) {
-      expect(h.timeout).toBe(15);
-    }
+    // Bash is one handler with NO `if` prefix rule — the handler classifies
+    // compound commands itself (#225, #226).
+    expect(groups[1].hooks).toHaveLength(1);
+    expect(groups[1].hooks[0].if).toBeUndefined();
+    expect(groups[1].hooks[0].timeout).toBe(15);
   });
 
   test('always-fire events carry NO matcher', async () => {
@@ -108,7 +108,9 @@ describe('claude-code install: default (npx, project scope)', () => {
     const asyncH = post.find((h) => h.async);
     expect(sync.args.slice(5)).toEqual(['--skip', 'git-trust']);
     expect(asyncH.args.slice(5)).toEqual(['--only', 'git-trust']);
-    expect(asyncH.if).toBe('Bash(git *)');
+    // No `if` prefix rule on git-trust: GIT_TRUST_OP_RE classifies compound
+    // commands like `cd repo && git pull` (#225).
+    expect(asyncH.if).toBeUndefined();
   });
 
   test('CLAUDE.md protocol block is written between delimiters', async () => {
@@ -636,6 +638,12 @@ describe('claude-code hook role filter', () => {
     return {
       loadState: (id) => map.get(id) || realStateStore.defaultState(),
       saveState: (id, s) => map.set(id, s),
+      mutateState: async (id, mutator) => {
+        const s = map.get(id) || realStateStore.defaultState();
+        const r = await mutator(s);
+        map.set(id, s);
+        return r;
+      },
       _peek: (id) => map.get(id),
     };
   }
@@ -670,7 +678,7 @@ describe('claude-code hook role filter', () => {
       stateStore,
       roleFilter: { skip: 'git-trust' },
     });
-    expect(stateStore._peek('s1').editedFiles).toEqual(['/proj/a.js']);
+    expect(stateStore._peek('s1').editedFiles).toEqual(['/proj/a.js', 'a.js']);
   });
 
   test('--only git-trust runs git-trust and nothing else', async () => {

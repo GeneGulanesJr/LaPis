@@ -5,9 +5,40 @@ const {
   isSpecificCodeFilePath,
   isBroadGlob,
   CONFIG_FILENAMES,
+  CODE_EXTENSIONS,
   RAW_CODE_DISCOVERY_RE,
   CODE_PATH_HINT_RE,
 } = require('../../src/hooks-engine/guardrail-utils');
+
+describe('hooks-engine guardrail-utils: CODE_EXTENSIONS (single source of truth)', () => {
+  test('classifies every extension in the shared list as a code file', () => {
+    for (const ext of CODE_EXTENSIONS) {
+      expect(isSpecificCodeFilePath(`src/thing.${ext}`)).toBe(true);
+    }
+  });
+
+  test('covers the extensions the bridge harvest regex previously lacked', () => {
+    // #230: the harvest CODE_PATH_RE was missing these vs SPECIFIC_CODE_FILE_RE.
+    for (const ext of [
+      'java',
+      'kt',
+      'rb',
+      'c',
+      'h',
+      'cpp',
+      'hpp',
+      'cs',
+      'scala',
+      'swift',
+      'php',
+      'cts',
+      'mts',
+      'pyi',
+    ]) {
+      expect(CODE_EXTENSIONS).toContain(ext);
+    }
+  });
+});
 
 describe('hooks-engine guardrail-utils: isTargetedSymbolLookup', () => {
   test('allows grep for single quoted symbol', () => {

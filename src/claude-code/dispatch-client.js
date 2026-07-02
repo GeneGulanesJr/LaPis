@@ -8,7 +8,7 @@
  *
  * Backends (auto-selected):
  *   1. Daemon mode — when LAPIS_DAEMON_URL or the daemon lockfile points at a
- *      live `lapis serve`, POST {cmd,args,project} to /dispatch (~ms latency).
+ *      live `lapis serve`, POST {cmd,args} to /dispatch (~ms latency).
  *   2. Direct mode — in-process gateway.dispatch (Phase 2 fallback).
  *
  * Handlers receive `dispatch` (writes) and the read helpers below. In tests
@@ -48,10 +48,11 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
   if (typeof fetchFn !== 'function') {
     throw new Error('fetch is unavailable for daemon dispatch');
   }
+  // args.project is already serialized into payload.args.project by
+  // stringifyArgs; the server's mergeDispatchArgs reads it from there. A
+  // redundant top-level `project` field was never consumed and only obscured
+  // the real source of truth (#229).
   const payload = { cmd, args: stringifyArgs(args) };
-  if (args?.project !== undefined && args?.project !== null && args?.project !== '') {
-    payload.project = String(args.project);
-  }
   const res = await fetchFn(`${baseUrl.replace(/\/$/, '')}/dispatch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

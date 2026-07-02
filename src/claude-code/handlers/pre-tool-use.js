@@ -35,6 +35,7 @@ const {
   CODE_PATH_HINT_RE,
 } = require('../../hooks-engine/guardrail-utils');
 const { preToolRole } = require('../tool-map');
+const { addNormalized } = require('../file-keys');
 
 /** Build the PreToolUse deny envelope. */
 function deny(reason) {
@@ -55,13 +56,7 @@ function addExploredFile(state, filePath) {
   if (!Array.isArray(state.exploredFiles)) {
     state.exploredFiles = [];
   }
-  const lower = String(filePath).toLowerCase();
-  const base = path.basename(lower);
-  for (const candidate of [lower, base]) {
-    if (candidate && !state.exploredFiles.includes(candidate)) {
-      state.exploredFiles.push(candidate);
-    }
-  }
+  addNormalized(state.exploredFiles, filePath);
 }
 
 /** Resolve the indexed repo the current cwd belongs to (cwd prefix or project name). */
@@ -208,14 +203,24 @@ async function handlePreToolUse({ payload, getKnownRepos, stateStore }) {
   const claudeSessionId = payload.session_id;
 
   // Memory-tool cadence bookkeeping (state mutations Pi's tool_call hook does).
+  // Routed through mutateState so a parallel memory-* tool can't lose the
+  // update (#228). Falls back to load/save when the injected store lacks it.
   if (role === 'memory-code-seed' || role === 'memory-reminder-reset') {
-    const state = stateStore.loadState(claudeSessionId);
-    state.lastMemoryToolCall = Date.now();
-    state.callsSinceLastMemory = 0;
-    if (role === 'memory-code-seed') {
-      addExploredFile(state, input.file);
-    }
-    stateStore.saveState(claudeSessionId, state);
+    const mutate = stateStore.mutateState
+      ? (mutator) => stateStore.mutateState(claudeSessionId, mutator)
+      : (mutator) => {
+          const state = stateStore.loadState(claudeSessionId);
+          const r = mutator(state);
+          stateStore.saveState(claudeSessionId, state);
+          return r;
+        };
+    await mutate((state) => {
+      state.lastMemoryToolCall = Date.now();
+      state.callsSinceLastMemory = 0;
+      if (role === 'memory-code-seed') {
+        addExploredFile(state, input.file);
+      }
+    });
     return null;
   }
 

@@ -182,7 +182,33 @@ function checkStateStore(deps) {
     const probe = path.join(dir, `.doctor-probe-${process.pid}`);
     fs.writeFileSync(probe, 'ok', 'utf8');
     fs.unlinkSync(probe);
-    return { name: 'session state store', ok: true, detail: `writable at ${dir}` };
+
+    // Observability into the state dir: TTL window + size + oldest file (#233).
+    const ttl = typeof stateStore.defaultTtlHours === 'function' ? stateStore.defaultTtlHours() : 24;
+    let bytes = 0;
+    let oldestName = null;
+    let oldestMs = Infinity;
+    try {
+      for (const entry of fs.readdirSync(dir)) {
+        if (!entry.endsWith('.json')) {
+          continue;
+        }
+        const full = path.join(dir, entry);
+        const stat = fs.statSync(full);
+        bytes += stat.size;
+        if (stat.mtimeMs < oldestMs) {
+          oldestMs = stat.mtimeMs;
+          oldestName = entry;
+        }
+      }
+    } catch {
+      // Ignore readdir/stat failures; the writability check above is the gate.
+    }
+    const kib = (bytes / 1024).toFixed(1);
+    const age =
+      oldestName && Number.isFinite(oldestMs) ? `${((Date.now() - oldestMs) / 3600000).toFixed(1)}h old` : 'none';
+    const detail = `writable at ${dir} · TTL ${ttl}h · ${kib} KiB across .json · oldest: ${oldestName || 'none'} (${age})`;
+    return { name: 'session state store', ok: true, detail };
   } catch (e) {
     return {
       name: 'session state store',

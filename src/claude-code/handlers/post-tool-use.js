@@ -28,12 +28,16 @@ const {
   extractToolResponseText,
 } = require('../../hooks-engine/tool-response-parse');
 const { resolveCwd, projectFromCwd } = require('../../hooks-engine/project');
+const { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils');
+const { addNormalized } = require('../file-keys');
 const { postToolRole } = require('../tool-map');
 
 const GIT_TRUST_OP_RE = /\bgit\s+(pull|checkout|merge|rebase|reset|stash\s+pop)\b/;
 // Harvest relative code paths from a memory-code response (parity with the Pi
-// tool_result handler in tool-guardrails.ts).
-const CODE_PATH_RE = /[\w/.-]+\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs)/g;
+// tool_result handler in tool-guardrails.ts). The extension alternation is the
+// same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
+// classifier (#230).
+const CODE_PATH_RE = new RegExp(`[\\w/.-]+\\.(${CODE_EXTENSIONS.join('|')})`, 'g');
 
 function addEditedFile(state, filePath) {
   if (!filePath) {
@@ -42,9 +46,7 @@ function addEditedFile(state, filePath) {
   if (!Array.isArray(state.editedFiles)) {
     state.editedFiles = [];
   }
-  if (!state.editedFiles.includes(filePath)) {
-    state.editedFiles.push(filePath);
-  }
+  addNormalized(state.editedFiles, filePath);
 }
 
 function addExploredPath(state, p) {
@@ -54,13 +56,7 @@ function addExploredPath(state, p) {
   if (!Array.isArray(state.exploredFiles)) {
     state.exploredFiles = [];
   }
-  const lower = String(p).toLowerCase();
-  const base = lower.split('/').pop();
-  for (const candidate of [lower, base]) {
-    if (candidate && !state.exploredFiles.includes(candidate)) {
-      state.exploredFiles.push(candidate);
-    }
-  }
+  addNormalized(state.exploredFiles, p);
 }
 
 /** Harvest file paths mentioned in a memory-code response into exploredFiles. */
@@ -142,46 +138,59 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore,
   const claudeSessionId = payload.session_id;
   const cwd = resolveCwd(payload.cwd);
 
-  const state = stateStore.loadState(claudeSessionId);
-  if (!state.currentProject) {
-    state.currentProject = projectFromCwd(cwd);
+  // git-trust only READS state (for currentProject), runs the heavy dispatch,
+  // and never writes back — writing a pre-dispatch snapshot after a slow
+  // sync-code-trust would clobber whatever the synchronous handler saved.
+  // Falls back to loadState when the injected store lacks mutateState.
+  if (role === 'git-trust') {
+    const state = stateStore.loadState(claudeSessionId);
+    await gitTrustSync({ input, dispatch, getKnownRepos, state, cwd });
+    return null;
   }
 
-  switch (role) {
-    case 'edit-track':
-      addEditedFile(state, input.file_path);
-      break;
-    case 'git-trust':
-      await gitTrustSync({ input, dispatch, getKnownRepos, state, cwd });
-      // Deliberately NO saveState: this role runs in the async split handler
-      // (install config `--only git-trust`), gitTrustSync never mutates state,
-      // and writing the pre-dispatch snapshot back after a slow sync-code-trust
-      // would clobber whatever the synchronous handler saved in the meantime.
-      return null;
-    case 'memory-save-mirror':
-      if (wasSaveSuccessful(toolResponse)) {
-        state.memoriesSavedThisSession = (state.memoriesSavedThisSession || 0) + 1;
-      }
-      break;
-    case 'memory-search-mirror':
-      recordSearchRecall(state, parseSearchResultIds(toolResponse), input.query);
-      break;
-    case 'memory-get-mirror': {
-      // memory-get / memory-delete both take a single `id`; prefer it, fall
-      // back to parsing the response for robustness.
-      const targetId = Number(input.id);
-      const ids = Number.isFinite(targetId) ? [targetId] : parseMemoryIds(toolResponse);
-      consumeRecall(state, ids);
-      break;
+  // All other roles are read-modify-write: route through mutateState so two
+  // parallel PostToolUse hooks can't both read N and both write N+1 (lost
+  // increment / clobbered set) (#228).
+  const mutate = stateStore.mutateState
+    ? (mutator) => stateStore.mutateState(claudeSessionId, mutator)
+    : (mutator) => {
+        const state = stateStore.loadState(claudeSessionId);
+        const r = mutator(state);
+        stateStore.saveState(claudeSessionId, state);
+        return r;
+      };
+
+  await mutate((state) => {
+    if (!state.currentProject) {
+      state.currentProject = projectFromCwd(cwd);
     }
-    case 'memory-code-harvest':
-      harvestExploredFiles(state, toolResponse);
-      break;
-    default:
-      return null;
-  }
-
-  stateStore.saveState(claudeSessionId, state);
+    switch (role) {
+      case 'edit-track':
+        addEditedFile(state, input.file_path);
+        return;
+      case 'memory-save-mirror':
+        if (wasSaveSuccessful(toolResponse)) {
+          state.memoriesSavedThisSession = (state.memoriesSavedThisSession || 0) + 1;
+        }
+        return;
+      case 'memory-search-mirror':
+        recordSearchRecall(state, parseSearchResultIds(toolResponse), input.query);
+        return;
+      case 'memory-get-mirror': {
+        // memory-get / memory-delete both take a single `id`; prefer it, fall
+        // back to parsing the response for robustness.
+        const targetId = Number(input.id);
+        const ids = Number.isFinite(targetId) ? [targetId] : parseMemoryIds(toolResponse);
+        consumeRecall(state, ids);
+        return;
+      }
+      case 'memory-code-harvest':
+        harvestExploredFiles(state, toolResponse);
+        return;
+      default:
+        return;
+    }
+  });
   return null; // silent — PostToolUse injects nothing
 }
 
