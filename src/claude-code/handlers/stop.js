@@ -13,6 +13,7 @@
  */
 
 const path = require('node:path');
+const { uniqueEditedPaths } = require('../file-keys');
 const { resolveCwd, projectFromCwd } = require('../../hooks-engine/project');
 const { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
 const { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher');
@@ -96,14 +97,14 @@ async function checkpoint({ dispatch, state, project }) {
     return;
   }
 
-  const summaryFiles = state.editedFiles
+  const editedPaths = uniqueEditedPaths(state.editedFiles).slice(0, 20);
+  const summaryFiles = editedPaths
     .slice(0, 10)
     .map((f) => `- ${path.basename(f)}`)
     .join('\n');
 
   let auditNote = '';
   try {
-    const editedPaths = state.editedFiles.slice(0, 20);
     if (editedPaths.length > 0) {
       const auditResult = await dispatch('audit-diff', {
         repo: project,
@@ -130,7 +131,7 @@ async function checkpoint({ dispatch, state, project }) {
     content: [
       `**What**: Auto-checkpoint at turn ${state.turnCount}`,
       `**Where**: Session ${state.sessionId}`,
-      `**Learned**: ${state.memoriesSavedThisSession} explicit memories saved, ${state.editedFiles.length} files edited`,
+      `**Learned**: ${state.memoriesSavedThisSession} explicit memories saved, ${editedPaths.length} files edited`,
       summaryFiles ? `Files touched:\n${summaryFiles}` : '',
       auditNote,
     ].join('\n'),

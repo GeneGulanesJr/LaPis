@@ -50,4 +50,31 @@ function addNormalized(arr, p) {
   }
 }
 
-module.exports = { fileKey, addNormalized };
+/**
+ * Collapse the dual {fullPath, basename} entries stored by addNormalized into
+ * one representative path per file for summaries, checkpoints, and audit-diff.
+ * Prefers the longest path in each basename group (typically the full path).
+ *
+ * @param {Iterable<string>|null|undefined} editedFiles
+ * @returns {string[]}
+ */
+function uniqueEditedPaths(editedFiles) {
+  if (!editedFiles) {
+    return [];
+  }
+  const byBase = new Map();
+  for (const entry of editedFiles instanceof Set ? editedFiles : editedFiles) {
+    if (!entry) {
+      continue;
+    }
+    const raw = String(entry);
+    const base = path.basename(raw.replace(/\\/g, '/')).toLowerCase();
+    const prev = byBase.get(base);
+    if (!prev || raw.length > prev.length) {
+      byBase.set(base, raw);
+    }
+  }
+  return [...byBase.values()];
+}
+
+module.exports = { fileKey, addNormalized, uniqueEditedPaths };

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Claude Code bridge — Phase 1–6 review polish** (#234 follow-up).
+  - `uniqueEditedPaths` dedupes dual full-path + basename `editedFiles` entries
+    before session summaries, checkpoints, and `audit-diff` (storage shape
+    unchanged for read-guardrail matching).
+  - Updated stale `post-tool-use.js` module comment to reflect `mutateState` locking.
+  - Test coverage for `mutateState` lock-timeout fail-open path.
+
 ### Added
 
 - **Claude Code bridge — Phase 6: docs + package.json + polish** (#211, part of #205).

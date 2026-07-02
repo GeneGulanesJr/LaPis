@@ -212,6 +212,25 @@ describe('claude-code state-store: locked mutateState', () => {
     expect(seen).toEqual(stateStore.defaultState());
     expect(fs.readdirSync(dir)).toEqual([]);
   });
+
+  test('mutateState proceeds unlocked when the lock cannot be acquired', async () => {
+    stateStore.saveState('m4', { ...stateStore.defaultState(), memoriesSavedThisSession: 0 }, { dir });
+    const lockPath = path.join(dir, 'm4.lock');
+    fs.writeFileSync(lockPath, '99999', 'utf8');
+    const now = Date.now();
+    fs.utimesSync(lockPath, now / 1000, now / 1000);
+
+    await stateStore.mutateState(
+      'm4',
+      (s) => {
+        s.memoriesSavedThisSession = 3;
+      },
+      { dir, lockTimeoutMs: 50 },
+    );
+
+    expect(stateStore.loadState('m4', { dir }).memoriesSavedThisSession).toBe(3);
+    fs.unlinkSync(lockPath);
+  });
 });
 
 describe('claude-code state-store: TTL + gc', () => {

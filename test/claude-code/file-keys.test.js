@@ -1,4 +1,4 @@
-const { fileKey, addNormalized } = require('../../src/claude-code/file-keys');
+const { fileKey, addNormalized, uniqueEditedPaths } = require('../../src/claude-code/file-keys');
 
 describe('claude-code file-keys: shared normalization', () => {
   test('fileKey lowercases and splits the basename', () => {
@@ -33,5 +33,16 @@ describe('claude-code file-keys: shared normalization', () => {
     const arr = ['x'];
     addNormalized(arr, '');
     expect(arr).toEqual(['x']);
+  });
+
+  test('uniqueEditedPaths collapses full path + basename to one entry per file', () => {
+    expect(uniqueEditedPaths(['/proj/a.js', 'a.js', '/proj/b.ts', 'b.ts'])).toEqual([
+      '/proj/a.js',
+      '/proj/b.ts',
+    ]);
+  });
+
+  test('uniqueEditedPaths accepts a Set and ignores empty entries', () => {
+    expect(uniqueEditedPaths(new Set(['/x/foo.js', 'foo.js', '']))).toEqual(['/x/foo.js']);
   });
 });

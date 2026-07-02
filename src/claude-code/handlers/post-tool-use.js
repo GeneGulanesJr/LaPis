@@ -16,9 +16,9 @@
  *   memory-get-mirror    memory-get|memory-delete → drop consumed ids (marked useful)
  *   memory-code-harvest  memory-code → harvest file paths into exploredFiles
  *
- * All state writes are load → mutate → save on the per-session state file.
- * lost-update under parallel PostToolUse is tolerated for counters (documented
- * risk); the set-like fields dedupe so a concurrent add is at worst a no-op.
+ * State writes that mutate counters or sets route through mutateState (locked
+ * read-modify-write, #228) so parallel PostToolUse hooks cannot lose increments
+ * or clobber each other. git-trust is read-only and never writes back.
  */
 
 const {

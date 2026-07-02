@@ -60,4 +60,19 @@ describe('hooks-engine session-summary: buildSessionSummary', () => {
     });
     expect(a).toContain('## Files Modified');
   });
+
+  test('dedupes dual full-path + basename editedFiles entries', () => {
+    const out = buildSessionSummary({
+      userMessages: [],
+      assistantCount: 0,
+      turnCount: 0,
+      memoriesSaved: 0,
+      editedFiles: ['/tmp/repo/src/a.js', 'a.js', '/tmp/repo/lib/b.ts', 'b.ts'],
+      cwd: '/tmp/repo',
+    });
+    expect(out).toContain('- src/a.js');
+    expect(out).toContain('- lib/b.ts');
+    expect(out.match(/- src\/a\.js/g)).toHaveLength(1);
+    expect(out.match(/- lib\/b\.ts/g)).toHaveLength(1);
+  });
 });
