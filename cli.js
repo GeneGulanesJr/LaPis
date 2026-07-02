@@ -139,7 +139,7 @@ if (isHelpRequest) {
     try {
       if (sub === 'install') {
         const { runInstall } = require('./src/claude-code/install');
-        runInstall(subArgv);
+        await runInstall(subArgv);
         return;
       }
       if (sub === 'uninstall') {
@@ -151,6 +151,16 @@ if (isHelpRequest) {
         const { runDoctor } = require('./src/claude-code/doctor');
         const { ok } = runDoctor(subArgv);
         process.exitCode = ok ? 0 : 1;
+        return;
+      }
+      if (sub === 'start') {
+        const { runStart } = require('./src/claude-code/daemon');
+        await runStart(subArgv);
+        return;
+      }
+      if (sub === 'stop') {
+        const { runStop } = require('./src/claude-code/daemon');
+        await runStop(subArgv);
         return;
       }
     } catch (e) {

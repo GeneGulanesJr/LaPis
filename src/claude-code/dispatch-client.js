@@ -1,17 +1,21 @@
 'use strict';
 
 /**
- * Claude Code bridge: dispatch-client (direct mode).
+ * Claude Code bridge: dispatch-client (direct + daemon mode).
  *
  * The single module owning process/DB access so the lifecycle handlers stay
- * transport-agnostic and unit-testable with a fake dispatch. Phase 2 ships
- * "direct" mode only — a lazy require of the in-process gateway (same seam as
- * src/mcp/server.js:49 and extensions/.../host/memory-client.ts:17). Daemon
- * mode (POST /dispatch) is Phase 5.
+ * transport-agnostic and unit-testable with a fake dispatch.
  *
- * Handlers receive a `dispatch` (writes) and the two read helpers below. In
- * tests both can be stubbed; nothing here touches the real DB unless invoked.
+ * Backends (auto-selected):
+ *   1. Daemon mode — when LAPIS_DAEMON_URL or the daemon lockfile points at a
+ *      live `lapis serve`, POST {cmd,args,project} to /dispatch (~ms latency).
+ *   2. Direct mode — in-process gateway.dispatch (Phase 2 fallback).
+ *
+ * Handlers receive `dispatch` (writes) and the read helpers below. In tests
+ * both can be stubbed; nothing here touches the real DB unless invoked.
  */
+
+const { resolveDaemonUrl } = require('./daemon');
 
 /**
  * Coerce an args bag into the string-only record the gateway expects.
@@ -27,18 +31,67 @@ function stringifyArgs(args) {
   return out;
 }
 
-let _dispatch = null;
+let _directDispatch = null;
+
+function loadDirectDispatch() {
+  if (!_directDispatch) {
+    _directDispatch = require('../cli/gateway').dispatch;
+  }
+  return _directDispatch;
+}
 
 /**
- * Direct (in-process) dispatch. Lazily loads the gateway so a fake dispatch in
- * tests never requires the DB.
+ * POST to a running daemon. Injectable fetch/http for tests.
  */
-function dispatch(cmd, args) {
-  if (!_dispatch) {
-    // Resolve relative to this file: claude-code/ → src/ → src/cli/gateway
-    _dispatch = require('../cli/gateway').dispatch;
+async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
+  const fetchFn = opts.fetch || globalThis.fetch;
+  if (typeof fetchFn !== 'function') {
+    throw new Error('fetch is unavailable for daemon dispatch');
   }
-  return _dispatch(cmd, stringifyArgs(args));
+  const payload = { cmd, args: stringifyArgs(args) };
+  if (args?.project !== undefined && args?.project !== null && args?.project !== '') {
+    payload.project = String(args.project);
+  }
+  const res = await fetchFn(`${baseUrl.replace(/\/$/, '')}/dispatch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    let message = `Daemon dispatch failed (${res.status})`;
+    try {
+      const errBody = await res.json();
+      if (errBody?.error?.message) {
+        message = errBody.error.message;
+      }
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(message);
+  }
+  return res.json();
+}
+
+/**
+ * Dispatch a gateway command. Uses daemon mode when available, else direct.
+ */
+async function dispatch(cmd, args, opts = {}) {
+  const resolveUrl = opts.resolveDaemonUrl || resolveDaemonUrl;
+  const daemonUrl = resolveUrl(opts);
+  if (daemonUrl && !opts.forceDirect) {
+    try {
+      return await dispatchViaDaemon(daemonUrl, cmd, args || {}, opts);
+    } catch (e) {
+      if (opts.requireDaemon) {
+        throw e;
+      }
+      process.stderr.write(
+        `claude-code: daemon dispatch failed, falling back to direct mode: ${e instanceof Error ? e.message : String(e)}\n`,
+      );
+    }
+  }
+  const directFn = opts.directDispatch || loadDirectDispatch();
+  return directFn(cmd, stringifyArgs(args));
 }
 
 /**
@@ -72,4 +125,11 @@ function getKnownRepos() {
   }
 }
 
-module.exports = { dispatch, countSessionMemories, getKnownRepos, stringifyArgs };
+module.exports = {
+  dispatch,
+  dispatchViaDaemon,
+  countSessionMemories,
+  getKnownRepos,
+  stringifyArgs,
+  loadDirectDispatch,
+};
