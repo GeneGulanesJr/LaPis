@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     `lapis claude-code stop` — manage the shared-dispatch daemon (wraps `lapis serve`).
   - `lapis claude-code install --daemon [--daemon-port 9100]` — opt-in perf tier that
     starts a detached daemon after install and writes the lockfile for hook handlers.
+  - Uninstall stops a running daemon when its lockfile is present; failed detached
+    starts kill the spawned child instead of leaving an orphan process.
 
 - **Claude Code bridge — Phase 4: install + CLI + doctor (direct dispatch)** (#209, part of #205).
   - `lapis claude-code install` — config writer for Claude Code's two separate

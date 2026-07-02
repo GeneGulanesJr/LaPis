@@ -144,7 +144,7 @@ if (isHelpRequest) {
       }
       if (sub === 'uninstall') {
         const { runUninstall } = require('./src/claude-code/uninstall');
-        runUninstall(subArgv);
+        await runUninstall(subArgv);
         return;
       }
       if (sub === 'doctor') {

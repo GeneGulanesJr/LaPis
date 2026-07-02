@@ -207,8 +207,18 @@ async function runStart(argv, io = {}) {
   }
 
   if (flags.detached) {
-    const child = spawnDetachedServe(flags);
-    await waitForHealth(flags.host, flags.port, io);
+    const spawnFn = io.spawnDetachedServe || spawnDetachedServe;
+    const waitFn = io.waitForHealth || waitForHealth;
+    const stopFn = io.stopProcess || stopProcess;
+    const child = spawnFn(flags);
+    try {
+      await waitFn(flags.host, flags.port, io);
+    } catch (e) {
+      if (child?.pid) {
+        await stopFn(child.pid, io);
+      }
+      throw e;
+    }
     const info = {
       pid: child.pid,
       port: flags.port,
@@ -297,4 +307,6 @@ module.exports = {
   waitForHealth,
   runStart,
   runStop,
+  stopProcess,
+  spawnDetachedServe,
 };

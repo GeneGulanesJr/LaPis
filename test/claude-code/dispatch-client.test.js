@@ -140,4 +140,27 @@ describe('daemon start/stop flags', () => {
     });
     expect(() => daemon.parseStartFlags(['--port', '0'])).toThrow(/port/);
   });
+
+  test('runStart kills spawned child when health check fails', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-start-'));
+    const lockfilePath = path.join(tmpDir, 'daemon.json');
+    const stopSpy = vi.fn().mockResolvedValue(true);
+    const child = { pid: 4242 };
+
+    await expect(
+      daemon.runStart(['--detached'], {
+        lockfilePath,
+        log: () => {},
+        spawnDetachedServe: () => child,
+        waitForHealth: async () => {
+          throw new Error('health timeout');
+        },
+        stopProcess: stopSpy,
+      }),
+    ).rejects.toThrow('health timeout');
+
+    expect(stopSpy).toHaveBeenCalledWith(4242, expect.objectContaining({ lockfilePath }));
+    expect(fs.existsSync(lockfilePath)).toBe(false);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 });

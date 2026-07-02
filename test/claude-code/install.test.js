@@ -282,6 +282,7 @@ describe('claude-code install: optional flags', () => {
     const result = await runInstall(['--daemon', '--daemon-port', '9200'], io);
     expect(startSpy).toHaveBeenCalledWith(['--detached', '--port', '9200'], io);
     expect(result.daemon.port).toBe(9200);
+    expect(io.lines.some((l) => l.includes('daemon dispatch'))).toBe(true);
     startSpy.mockRestore();
   });
 });
@@ -339,7 +340,7 @@ describe('claude-code install: leaves unrelated config intact', () => {
     const io = makeIo();
     seedForeignConfig(io);
     await runInstall(['--auto-allow'], io);
-    runUninstall([], io);
+    await runUninstall([], io);
 
     const mcp = readJson(path.join(io.cwd, '.mcp.json'));
     expect(mcp).toEqual({ mcpServers: { other: { command: 'other-tool', args: ['serve'] } } });
@@ -386,7 +387,7 @@ describe('claude-code install: leaves unrelated config intact', () => {
     let settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     expect(settings.hooks.Stop[0].hooks).toContainEqual(foreign);
 
-    runUninstall([], io);
+    await runUninstall([], io);
     settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     expect(settings).toEqual({ hooks: { Stop: [{ hooks: [foreign] }] } });
   });
@@ -411,7 +412,7 @@ describe('claude-code install: leaves unrelated config intact', () => {
     expect(claudeJson.mcpServers).toEqual(foreign.mcpServers); // user scope untouched
     expect(claudeJson.projects[io.cwd].mcpServers.lapis).toBeDefined();
 
-    runUninstall([], io);
+    await runUninstall([], io);
     claudeJson = readJson(claudeJsonPath);
     expect(claudeJson).toEqual(foreign);
   });
@@ -441,7 +442,7 @@ describe('claude-code uninstall', () => {
   test('a clean project install is fully reversed (files removed when empty)', async () => {
     const io = makeIo();
     await runInstall([], io);
-    const { cleaned } = runUninstall([], io);
+    const { cleaned } = await runUninstall([], io);
     expect(cleaned.length).toBeGreaterThan(0);
     expect(fs.existsSync(path.join(io.cwd, '.mcp.json'))).toBe(false);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.json'))).toBe(false);
@@ -451,7 +452,7 @@ describe('claude-code uninstall', () => {
   test('--global uninstall reverses a --global install', async () => {
     const io = makeIo();
     await runInstall(['--global'], io);
-    runUninstall(['--global'], io);
+    await runUninstall(['--global'], io);
     expect(fs.existsSync(path.join(io.home, '.claude', 'settings.json'))).toBe(false);
     expect(fs.existsSync(path.join(io.home, '.claude', 'CLAUDE.md'))).toBe(false);
     // ~/.claude.json is never deleted, but the lapis entry is gone.
@@ -465,7 +466,7 @@ describe('claude-code uninstall', () => {
     fs.mkdirSync(path.dirname(bin), { recursive: true });
     fs.writeFileSync(bin, '// stub', 'utf8');
     await runInstall(['--bin', bin], io);
-    runUninstall([], io);
+    await runUninstall([], io);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.local.json'))).toBe(false);
     const claudeJson = readJson(path.join(io.home, '.claude.json'));
     expect(claudeJson.projects?.[io.cwd]?.mcpServers?.lapis).toBeUndefined();
@@ -474,7 +475,7 @@ describe('claude-code uninstall', () => {
   test('uninstall without --mcp-name still reverses an install that used a custom name', async () => {
     const io = makeIo();
     await runInstall(['--mcp-name', 'pi-memory', '--auto-allow'], io);
-    runUninstall([], io);
+    await runUninstall([], io);
     expect(fs.existsSync(path.join(io.cwd, '.mcp.json'))).toBe(false);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.json'))).toBe(false);
   });
@@ -486,15 +487,29 @@ describe('claude-code uninstall', () => {
       JSON.stringify({ mcpServers: { lapis: { command: 'someone-elses-tool', args: ['start'] } } }),
       'utf8',
     );
-    runUninstall([], io);
+    await runUninstall([], io);
     const mcp = readJson(path.join(io.cwd, '.mcp.json'));
     expect(mcp.mcpServers.lapis).toEqual({ command: 'someone-elses-tool', args: ['start'] });
   });
 
   test('is a no-op on a machine with no LaPis config', async () => {
     const io = makeIo();
-    const { cleaned } = runUninstall([], io);
+    const { cleaned } = await runUninstall([], io);
     expect(cleaned).toEqual([]);
+  });
+
+  test('stops the daemon when a lockfile is present', async () => {
+    const io = makeIo();
+    const lockfilePath = path.join(io.root, 'claude-daemon.json');
+    const daemonMod = require('../../src/claude-code/daemon');
+    daemonMod.writeLockfile({ pid: 999999999, port: 9100, host: '127.0.0.1' }, lockfilePath);
+    const stopSpy = vi.spyOn(daemonMod, 'runStop').mockResolvedValue({ stopped: true });
+
+    await runInstall([], io);
+    await runUninstall([], { ...io, lockfilePath });
+
+    expect(stopSpy).toHaveBeenCalledWith([], expect.objectContaining({ lockfilePath }));
+    stopSpy.mockRestore();
   });
 });
 

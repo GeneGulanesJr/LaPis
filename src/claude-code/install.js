@@ -676,7 +676,8 @@ async function runInstall(argv, io) {
     written.push(targets.claudeMdFile);
   }
 
-  log(`Installed LaPis for Claude Code (${invocation.mode} dispatch).`);
+  const dispatchMode = flags.daemon ? 'daemon' : invocation.mode;
+  log(`Installed LaPis for Claude Code (${dispatchMode} dispatch).`);
   log(`  MCP server "${flags.mcpName}" (${targets.mcp.kind} scope) → ${targets.mcp.file}`);
   log(`  Hooks → ${targets.hooksFile}`);
   if (flags.claudeMd) {
