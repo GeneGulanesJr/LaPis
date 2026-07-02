@@ -23,6 +23,24 @@ describe('hooks-engine session-summary: buildSessionSummary', () => {
     expect(out).toContain('2 memories saved, 3 assistant turns, 12 total turns');
   });
 
+  test('Goal line reads string content (Claude Code transcript shape), not just content-block arrays', () => {
+    // Claude Code transcripts carry user messages as { message: { role, content: '<string>' } }.
+    // The Goal line previously used `.content[0].text`, which for a string returned the first
+    // CHARACTER and fell back to "Session work" — losing the goal for every Claude Code session.
+    const stringContentMessages = [{ message: { role: 'user', content: 'Fix the login bug in auth.ts' } }];
+    const out = buildSessionSummary({
+      userMessages: stringContentMessages,
+      assistantCount: 1,
+      turnCount: 1,
+      memoriesSaved: 0,
+      editedFiles: [],
+      cwd: process.cwd(),
+    });
+    expect(out).toContain('## Goal');
+    expect(out).toContain('Fix the login bug in auth.ts');
+    expect(out).not.toContain('Session work');
+  });
+
   test('includes Files Modified section when files present', () => {
     const out = buildSessionSummary({
       userMessages,
