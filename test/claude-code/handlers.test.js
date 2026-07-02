@@ -491,13 +491,68 @@ describe('claude-code router (hooks.js)', () => {
 
   test('unknown event is a no-op (never crashes the host)', async () => {
     const { dispatch, calls } = makeFakeDispatch();
-    await runHook(['hook', 'PreToolUse'], {
+    await runHook(['hook', 'Notification'], {
       ensureDb: false,
       stdin: JSON.stringify({ session_id: 'r-2' }),
       dispatch,
       stateStore: makeStateStore(),
     });
     expect(calls).toHaveLength(0);
+  });
+
+  test('PreToolUse Read deny is written to stdout as a permission decision', async () => {
+    const writes = [];
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk) => {
+      writes.push(String(chunk));
+      return true;
+    };
+    try {
+      const { dispatch } = makeFakeDispatch();
+      await runHook(['hook', 'PreToolUse'], {
+        ensureDb: false,
+        stdin: JSON.stringify({
+          session_id: 'r-pre',
+          tool_name: 'Read',
+          tool_input: { file_path: 'src/db.js' },
+          cwd: '/proj/app',
+        }),
+        dispatch,
+        getKnownRepos: () => [{ name: 'app', path: '/proj/app', indexed_at: 'now' }],
+        stateStore: makeStateStore(),
+      });
+    } finally {
+      process.stdout.write = origWrite;
+    }
+    const out = JSON.parse(writes.join('').trim());
+    expect(out.hookSpecificOutput.permissionDecision).toBe('deny');
+  });
+
+  test('PostToolUse writes nothing to stdout (silent)', async () => {
+    const writes = [];
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk) => {
+      writes.push(String(chunk));
+      return true;
+    };
+    try {
+      const { dispatch } = makeFakeDispatch();
+      await runHook(['hook', 'PostToolUse'], {
+        ensureDb: false,
+        stdin: JSON.stringify({
+          session_id: 'r-post',
+          tool_name: 'Write',
+          tool_input: { file_path: '/proj/app/src/x.js' },
+          cwd: '/proj/app',
+        }),
+        dispatch,
+        getKnownRepos: () => [],
+        stateStore: makeStateStore(),
+      });
+    } finally {
+      process.stdout.write = origWrite;
+    }
+    expect(writes.join('')).toBe('');
   });
 
   test('UserPromptSubmit clears its budget timer on the fast path', async () => {
