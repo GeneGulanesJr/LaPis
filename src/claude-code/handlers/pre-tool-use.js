@@ -116,7 +116,7 @@ function evaluateRead({ input, cwd, state, getKnownRepos }) {
   if (typeof filePath !== 'string' || !isCodeFile(filePath)) {
     return null;
   }
-  if (Object.prototype.hasOwnProperty.call(input, 'offset') || Object.prototype.hasOwnProperty.call(input, 'limit')) {
+  if (Object.hasOwn(input, 'offset') || Object.hasOwn(input, 'limit')) {
     return null;
   }
   const basename = path.basename(filePath);
@@ -133,10 +133,12 @@ function evaluateRead({ input, cwd, state, getKnownRepos }) {
   const matchedRepo = findRepoForPath(absPath, repos);
   if (!matchedRepo) {
     const projectName = state.currentProject || projectFromCwd(cwd);
-    return deny(
-      `Cannot read "${basename}" before indexing this project.\n` +
-        indexGuidance({ projectName, projectDir: path.resolve(cwd), noun: 'Whole-file code read' }),
-    );
+    const guidance = indexGuidance({
+      projectName,
+      projectDir: path.resolve(cwd),
+      noun: 'Whole-file code read',
+    });
+    return deny(`Cannot read "${basename}" before indexing this project.\n${guidance}`);
   }
 
   if (hasExploredFile(state, matchedRepo, absPath)) {

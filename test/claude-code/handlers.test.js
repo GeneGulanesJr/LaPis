@@ -224,7 +224,12 @@ describe('claude-code handlers: PreToolUse', () => {
     stateStore.saveState('claude-read', { ...realStateStore.defaultState(), currentProject: 'lapis' });
 
     const out = await handlePreToolUse({
-      payload: { session_id: 'claude-read', tool_name: 'Read', tool_input: { file_path: '/repo/src/foo.js' }, cwd: '/repo' },
+      payload: {
+        session_id: 'claude-read',
+        tool_name: 'Read',
+        tool_input: { file_path: '/repo/src/foo.js' },
+        cwd: '/repo',
+      },
       getKnownRepos: () => [{ name: 'lapis', path: '/repo' }],
       stateStore,
     });

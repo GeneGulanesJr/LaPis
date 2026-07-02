@@ -1,9 +1,20 @@
 'use strict';
 
 const path = require('node:path');
-const { normalizeToolResponseText, parseMemoryIds, parseSearchResultIds, wasSaveSuccessful } = require('../../hooks-engine');
+const {
+  normalizeToolResponseText,
+  parseMemoryIds,
+  parseSearchResultIds,
+  wasSaveSuccessful,
+} = require('../../hooks-engine');
 const { findMatchingRepo, resolveCwd } = require('../../hooks-engine/project');
-const { isEditTool, isGitTrustBash, isLapisMemoryCodeTool, isLapisMemoryTool, normalizeMemoryToolName } = require('../tool-map');
+const {
+  isEditTool,
+  isGitTrustBash,
+  isLapisMemoryCodeTool,
+  isLapisMemoryTool,
+  normalizeMemoryToolName,
+} = require('../tool-map');
 
 const CODE_PATH_RE = /[\w/.-]+\.(?:ts|js|tsx|jsx|mjs|cjs|py|go|rs)/g;
 
