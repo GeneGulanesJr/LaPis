@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     [`docs/SKILL.md`](docs/SKILL.md).
   - `package.json`: explicit `src/claude-code/` + `src/hooks-engine/` in `files`;
     `"./claude-code"` export; optional `lapis-cc` bin alias.
+  - Review polish: hook table adds `MultiEdit` and PostToolUse `memory-code` harvest;
+    documents `lapis-cc` alias; fixes relative doc links.
 
 - **Claude Code bridge — Phase 5: daemon mode + POST /dispatch (optional perf tier)** (#210, part of #205).
   - `POST /dispatch` on the existing HTTP server — wraps `gateway.dispatch(cmd, args)`

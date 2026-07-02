@@ -184,6 +184,7 @@ Commands for the [Claude Code CLI](https://code.claude.com/docs/en/overview) int
 
 ```bash
 node memory-store.js claude-code <subcommand> [flags]
+# or: lapis claude-code … / lapis-cc claude-code …
 ```
 
 | Subcommand | Purpose |

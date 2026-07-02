@@ -89,8 +89,9 @@ Re-install is idempotent: LaPis hook handlers are identified by a sentinel (`cla
 | `PreToolUse` `Grep` / `Glob` | **Primary** code-search guardrail (agent is instructed to prefer these over bash grep/find) |
 | `PreToolUse` `Bash` (search cmds) | Secondary search guardrail via `if`-field rules (`grep`, `rg`, `ag`, `ack`, `find`) |
 | `PreToolUse` `mcp__lapis__memory-code` | Seed `exploredFiles` |
-| `PostToolUse` `Write` \| `Edit` | Edit-track (sync) |
+| `PostToolUse` `Write` \| `Edit` \| `MultiEdit` | Edit-track (sync) |
 | `PostToolUse` `Bash` (git ops) | `sync-code-trust` (async) |
+| `PostToolUse` `mcp__lapis__memory-code` | Harvest file paths into `exploredFiles` |
 | `PostToolUse` `mcp__lapis__memory-save` \| `search` \| `get` \| `delete` | **Tool-state mirroring** (counters + recall feedback) — process-boundary fix |
 | `Stop` | Passive-capture + checkpoint + dream (silent, async) |
 | `SessionEnd` | `session-summary` + `session-end` (awaited, DB-derived count) |
@@ -183,14 +184,16 @@ Hooks auto-select daemon dispatch when `LAPIS_DAEMON_URL` is set or `~/.pi/memor
 
 ## Programmatic access
 
-The bridge is published as npm subpath exports:
+The hook router is published as an npm subpath export (install, doctor, and daemon lifecycle remain CLI-only via `lapis` / `lapis-cc`):
 
 ```js
 const { runHook } = require('@genegulanesjr/lapis/claude-code');
 const hooksEngine = require('@genegulanesjr/lapis/hooks-engine');
 ```
 
-See [`docs/MODULE_MAP.md`](MODULE_MAP.md) for module ownership.
+`lapis-cc` is a bin alias for `lapis` — both resolve to `memory-store.js`.
+
+See [`MODULE_MAP.md`](MODULE_MAP.md) for module ownership.
 
 ## Deferred: output compression
 
