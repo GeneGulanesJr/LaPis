@@ -13,8 +13,10 @@
  *
  * Command-resolution strategies (portability ladder):
  *   - npx (default): `npx -y @genegulanesjr/lapis …` — portable, committable.
- *   - global bin (`--bin lapis` or any bare name on PATH): fastest non-daemon
+ *   - global bin (`--bin lapis` or any bare name on PATH): fastest direct-mode
  *     spawn, still committable because it is PATH-relative.
+ *   - `--daemon`: after install, start a detached `lapis serve` and write the
+ *     daemon lockfile so hook handlers POST to `/dispatch` instead of cold-starting.
  *   - local clone (`--bin <path>`): machine-specific absolute path → hooks go
  *     to `settings.local.json`, MCP goes to `~/.claude.json` local scope. The
  *     committable files are NEVER touched with a machine-specific path.
@@ -53,6 +55,8 @@ function parseFlags(argv) {
     claudeMd: true,
     bin: null,
     autoAllow: false,
+    daemon: false,
+    daemonPort: 9100,
   };
   const args = Array.isArray(argv) ? argv : [];
   for (let i = 0; i < args.length; i++) {
@@ -75,6 +79,14 @@ function parseFlags(argv) {
       flags.bin = v;
     } else if (a === '--auto-allow') {
       flags.autoAllow = true;
+    } else if (a === '--daemon') {
+      flags.daemon = true;
+    } else if (a === '--daemon-port') {
+      const v = Number(args[++i]);
+      if (!Number.isInteger(v) || v <= 0 || v > 65535) {
+        throw new Error('--daemon-port requires an integer between 1 and 65535');
+      }
+      flags.daemonPort = v;
     } else {
       throw new Error(`Unknown flag: ${a}`);
     }
@@ -629,7 +641,7 @@ function mcpServersFor(config, target) {
  * @param {{ cwd?: string, home?: string, log?: Function }} [io]  injectable for tests
  * @returns {{ written: string[], mcpScope: string, mcpName: string }}
  */
-function runInstall(argv, io) {
+async function runInstall(argv, io) {
   const flags = parseFlags(argv);
   const { home, cwd, log } = resolveIo(io);
   const invocation = resolveInvocation(flags, { cwd });
@@ -664,7 +676,8 @@ function runInstall(argv, io) {
     written.push(targets.claudeMdFile);
   }
 
-  log(`Installed LaPis for Claude Code (${invocation.mode} dispatch).`);
+  const dispatchMode = flags.daemon ? 'daemon' : invocation.mode;
+  log(`Installed LaPis for Claude Code (${dispatchMode} dispatch).`);
   log(`  MCP server "${flags.mcpName}" (${targets.mcp.kind} scope) → ${targets.mcp.file}`);
   log(`  Hooks → ${targets.hooksFile}`);
   if (flags.claudeMd) {
@@ -683,7 +696,16 @@ function runInstall(argv, io) {
     log('Tip: pass --auto-allow to pre-approve mcp__' + flags.mcpName + '__* tool permissions.');
   }
 
-  return { written, mcpScope: targets.mcp.kind, mcpName: flags.mcpName, invocation };
+  let daemon = null;
+  if (flags.daemon) {
+    const { runStart } = require('./daemon');
+    daemon = await runStart(['--detached', '--port', String(flags.daemonPort)], io);
+    log('');
+    log(`Daemon mode enabled (port ${flags.daemonPort}) — hooks will POST to /dispatch.`);
+    log('Stop with: lapis claude-code stop');
+  }
+
+  return { written, mcpScope: targets.mcp.kind, mcpName: flags.mcpName, invocation, daemon };
 }
 
 module.exports = {

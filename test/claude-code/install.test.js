@@ -37,12 +37,12 @@ function allHandlers(settings, event) {
 
 describe('claude-code install: default (npx, project scope)', () => {
   let io;
-  beforeEach(() => {
+  beforeEach(async () => {
     io = makeIo();
-    runInstall([], io);
+    await runInstall([], io);
   });
 
-  test('.mcp.json gets the committable npx server entry', () => {
+  test('.mcp.json gets the committable npx server entry', async () => {
     const mcp = readJson(path.join(io.cwd, '.mcp.json'));
     expect(mcp.mcpServers.lapis).toEqual({
       command: 'npx',
@@ -50,19 +50,19 @@ describe('claude-code install: default (npx, project scope)', () => {
     });
   });
 
-  test('hooks land in .claude/settings.json, never settings.local.json', () => {
+  test('hooks land in .claude/settings.json, never settings.local.json', async () => {
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.json'))).toBe(true);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.local.json'))).toBe(false);
     expect(fs.existsSync(path.join(io.home, '.claude', 'settings.json'))).toBe(false);
   });
 
-  test('SessionStart has separate startup|resume|clear and compact matcher groups', () => {
+  test('SessionStart has separate startup|resume|clear and compact matcher groups', async () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     const matchers = settings.hooks.SessionStart.map((g) => g.matcher);
     expect(matchers).toEqual(['startup|resume|clear', 'compact']);
   });
 
-  test('every handler is exec-form (command + args array) invoking claude-code hook <Event>', () => {
+  test('every handler is exec-form (command + args array) invoking claude-code hook <Event>', async () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     for (const event of Object.keys(settings.hooks)) {
       for (const h of allHandlers(settings, event)) {
@@ -75,7 +75,7 @@ describe('claude-code install: default (npx, project scope)', () => {
     }
   });
 
-  test('PreToolUse: Read|Grep|Glob (timeout 15), Bash gated by if-rules, mcp__lapis__.* cadence', () => {
+  test('PreToolUse: Read|Grep|Glob (timeout 15), Bash gated by if-rules, mcp__lapis__.* cadence', async () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     const groups = settings.hooks.PreToolUse;
     expect(groups.map((g) => g.matcher)).toEqual(['Read|Grep|Glob', 'Bash', 'mcp__lapis__.*']);
@@ -87,7 +87,7 @@ describe('claude-code install: default (npx, project scope)', () => {
     }
   });
 
-  test('always-fire events carry NO matcher', () => {
+  test('always-fire events carry NO matcher', async () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     for (const event of ['UserPromptSubmit', 'PostToolUse', 'Stop', 'SessionEnd']) {
       for (const group of settings.hooks[event]) {
@@ -96,7 +96,7 @@ describe('claude-code install: default (npx, project scope)', () => {
     }
   });
 
-  test('heavy handlers are async: Stop, and the PostToolUse git-trust split', () => {
+  test('heavy handlers are async: Stop, and the PostToolUse git-trust split', async () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     const stop = allHandlers(settings, 'Stop');
     expect(stop).toHaveLength(1);
@@ -111,7 +111,7 @@ describe('claude-code install: default (npx, project scope)', () => {
     expect(asyncH.if).toBe('Bash(git *)');
   });
 
-  test('CLAUDE.md protocol block is written between delimiters', () => {
+  test('CLAUDE.md protocol block is written between delimiters', async () => {
     const md = fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8');
     expect(md).toContain('<!-- lapis:start -->');
     expect(md).toContain('<!-- lapis:end -->');
@@ -119,7 +119,7 @@ describe('claude-code install: default (npx, project scope)', () => {
     expect(md).toContain('memory-code');
   });
 
-  test('output surfaces the project .mcp.json first-use approval requirement', () => {
+  test('output surfaces the project .mcp.json first-use approval requirement', async () => {
     expect(io.lines.join('\n')).toContain('Pending approval');
   });
 });
@@ -129,32 +129,32 @@ describe('claude-code install: default (npx, project scope)', () => {
 // =====================================================================
 
 describe('claude-code install: idempotency', () => {
-  test('re-install produces byte-identical config (no duplicate handlers or servers)', () => {
+  test('re-install produces byte-identical config (no duplicate handlers or servers)', async () => {
     const io = makeIo();
-    runInstall(['--auto-allow'], io);
+    await runInstall(['--auto-allow'], io);
     const settingsPath = path.join(io.cwd, '.claude', 'settings.json');
     const mcpPath = path.join(io.cwd, '.mcp.json');
     const firstSettings = fs.readFileSync(settingsPath, 'utf8');
     const firstMcp = fs.readFileSync(mcpPath, 'utf8');
     const firstMd = fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8');
 
-    runInstall(['--auto-allow'], io);
+    await runInstall(['--auto-allow'], io);
     expect(fs.readFileSync(settingsPath, 'utf8')).toBe(firstSettings);
     expect(fs.readFileSync(mcpPath, 'utf8')).toBe(firstMcp);
     expect(fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8')).toBe(firstMd);
   });
 
-  test('renaming via --mcp-name removes the stale same-command entry (dedupe by command string)', () => {
+  test('renaming via --mcp-name removes the stale same-command entry (dedupe by command string)', async () => {
     const io = makeIo();
-    runInstall([], io);
-    runInstall(['--mcp-name', 'pi-memory'], io);
+    await runInstall([], io);
+    await runInstall(['--mcp-name', 'pi-memory'], io);
     const mcp = readJson(path.join(io.cwd, '.mcp.json'));
     expect(Object.keys(mcp.mcpServers)).toEqual(['pi-memory']);
   });
 
-  test('custom --mcp-name propagates to the PreToolUse MCP matcher', () => {
+  test('custom --mcp-name propagates to the PreToolUse MCP matcher', async () => {
     const io = makeIo();
-    runInstall(['--mcp-name', 'pi-memory'], io);
+    await runInstall(['--mcp-name', 'pi-memory'], io);
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     expect(settings.hooks.PreToolUse.map((g) => g.matcher)).toContain('mcp__pi-memory__.*');
   });
@@ -165,9 +165,9 @@ describe('claude-code install: idempotency', () => {
 // =====================================================================
 
 describe('claude-code install: --global', () => {
-  test('MCP goes to ~/.claude.json user scope, hooks to ~/.claude/settings.json', () => {
+  test('MCP goes to ~/.claude.json user scope, hooks to ~/.claude/settings.json', async () => {
     const io = makeIo();
-    runInstall(['--global'], io);
+    await runInstall(['--global'], io);
 
     const claudeJson = readJson(path.join(io.home, '.claude.json'));
     expect(claudeJson.mcpServers.lapis.command).toBe('npx');
@@ -190,13 +190,13 @@ describe('claude-code install: --global', () => {
 // =====================================================================
 
 describe('claude-code install: machine-specific --bin', () => {
-  test('hooks route to settings.local.json, MCP to ~/.claude.json local scope; committable files untouched', () => {
+  test('hooks route to settings.local.json, MCP to ~/.claude.json local scope; committable files untouched', async () => {
     const io = makeIo();
     const bin = path.join(io.root, 'clone', 'memory-store.js');
     fs.mkdirSync(path.dirname(bin), { recursive: true });
     fs.writeFileSync(bin, '// stub', 'utf8');
 
-    runInstall(['--bin', bin], io);
+    await runInstall(['--bin', bin], io);
 
     // NOT in committable files.
     expect(fs.existsSync(path.join(io.cwd, '.mcp.json'))).toBe(false);
@@ -215,13 +215,13 @@ describe('claude-code install: machine-specific --bin', () => {
     });
   });
 
-  test('a bin inside the project is rewritten to ${CLAUDE_PROJECT_DIR} in hook args only', () => {
+  test('a bin inside the project is rewritten to ${CLAUDE_PROJECT_DIR} in hook args only', async () => {
     const io = makeIo();
     const bin = path.join(io.cwd, 'vendor', 'lapis', 'memory-store.js');
     fs.mkdirSync(path.dirname(bin), { recursive: true });
     fs.writeFileSync(bin, '// stub', 'utf8');
 
-    runInstall(['--bin', bin], io);
+    await runInstall(['--bin', bin], io);
 
     const local = readJson(path.join(io.cwd, '.claude', 'settings.local.json'));
     const handler = local.hooks.SessionStart[0].hooks[0];
@@ -232,9 +232,9 @@ describe('claude-code install: machine-specific --bin', () => {
     expect(claudeJson.projects[io.cwd].mcpServers.lapis.args[0]).toBe(bin);
   });
 
-  test('a bare --bin name is treated as PATH-relative (committable global-bin mode)', () => {
+  test('a bare --bin name is treated as PATH-relative (committable global-bin mode)', async () => {
     const io = makeIo();
-    runInstall(['--bin', 'lapis'], io);
+    await runInstall(['--bin', 'lapis'], io);
     const mcp = readJson(path.join(io.cwd, '.mcp.json'));
     expect(mcp.mcpServers.lapis).toEqual({ command: 'lapis', args: ['mcp'] });
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
@@ -247,27 +247,43 @@ describe('claude-code install: machine-specific --bin', () => {
 // =====================================================================
 
 describe('claude-code install: optional flags', () => {
-  test('--auto-allow adds permissions.allow mcp__lapis__* (default off)', () => {
+  test('--auto-allow adds permissions.allow mcp__lapis__* (default off)', async () => {
     const io = makeIo();
-    runInstall([], io);
+    await runInstall([], io);
     let settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     expect(settings.permissions).toBeUndefined();
 
-    runInstall(['--auto-allow'], io);
+    await runInstall(['--auto-allow'], io);
     settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     expect(settings.permissions.allow).toEqual(['mcp__lapis__*']);
   });
 
-  test('--no-claude-md skips the CLAUDE.md block', () => {
+  test('--no-claude-md skips the CLAUDE.md block', async () => {
     const io = makeIo();
-    runInstall(['--no-claude-md'], io);
+    await runInstall(['--no-claude-md'], io);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'CLAUDE.md'))).toBe(false);
   });
 
-  test('unknown flags and malformed --mcp-name throw', () => {
+  test('unknown flags and malformed --mcp-name throw', async () => {
     expect(() => install.parseFlags(['--bogus'])).toThrow(/Unknown flag/);
     expect(() => install.parseFlags(['--mcp-name', 'bad name!'])).toThrow(/mcp-name/);
     expect(() => install.parseFlags(['--bin'])).toThrow(/--bin/);
+    expect(() => install.parseFlags(['--daemon-port', '0'])).toThrow(/daemon-port/);
+  });
+
+  test('--daemon invokes detached daemon start with --daemon-port', async () => {
+    const io = makeIo();
+    const daemonMod = require('../../src/claude-code/daemon');
+    const startSpy = vi.spyOn(daemonMod, 'runStart').mockResolvedValue({
+      pid: 12345,
+      port: 9200,
+      host: '127.0.0.1',
+    });
+    const result = await runInstall(['--daemon', '--daemon-port', '9200'], io);
+    expect(startSpy).toHaveBeenCalledWith(['--detached', '--port', '9200'], io);
+    expect(result.daemon.port).toBe(9200);
+    expect(io.lines.some((l) => l.includes('daemon dispatch'))).toBe(true);
+    startSpy.mockRestore();
   });
 });
 
@@ -297,10 +313,10 @@ describe('claude-code install: leaves unrelated config intact', () => {
     fs.writeFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), '# My project notes\n\nKeep these.\n', 'utf8');
   }
 
-  test('install keeps foreign servers, hooks, permissions, and CLAUDE.md prose', () => {
+  test('install keeps foreign servers, hooks, permissions, and CLAUDE.md prose', async () => {
     const io = makeIo();
     seedForeignConfig(io);
-    runInstall(['--auto-allow'], io);
+    await runInstall(['--auto-allow'], io);
 
     const mcp = readJson(path.join(io.cwd, '.mcp.json'));
     expect(mcp.mcpServers.other).toEqual({ command: 'other-tool', args: ['serve'] });
@@ -320,11 +336,11 @@ describe('claude-code install: leaves unrelated config intact', () => {
     expect(md).toContain('<!-- lapis:start -->');
   });
 
-  test('uninstall restores the foreign config exactly and drops lapis-only files', () => {
+  test('uninstall restores the foreign config exactly and drops lapis-only files', async () => {
     const io = makeIo();
     seedForeignConfig(io);
-    runInstall(['--auto-allow'], io);
-    runUninstall([], io);
+    await runInstall(['--auto-allow'], io);
+    await runUninstall([], io);
 
     const mcp = readJson(path.join(io.cwd, '.mcp.json'));
     expect(mcp).toEqual({ mcpServers: { other: { command: 'other-tool', args: ['serve'] } } });
@@ -343,17 +359,17 @@ describe('claude-code install: leaves unrelated config intact', () => {
     expect(md).not.toContain('<!-- lapis:start -->');
   });
 
-  test('refuses to clobber a corrupt settings file — and writes NOTHING (no partial install)', () => {
+  test('refuses to clobber a corrupt settings file — and writes NOTHING (no partial install)', async () => {
     const io = makeIo();
     fs.mkdirSync(path.join(io.cwd, '.claude'), { recursive: true });
     fs.writeFileSync(path.join(io.cwd, '.claude', 'settings.json'), '{ not json', 'utf8');
-    expect(() => runInstall([], io)).toThrow(/corrupt JSON/);
+    await expect(runInstall([], io)).rejects.toThrow(/corrupt JSON/);
     expect(fs.readFileSync(path.join(io.cwd, '.claude', 'settings.json'), 'utf8')).toBe('{ not json');
     // All reads happen before any write: .mcp.json must not have been created.
     expect(fs.existsSync(path.join(io.cwd, '.mcp.json'))).toBe(false);
   });
 
-  test('a user hook whose script path merely contains "claude-code"/"hook" survives install and uninstall', () => {
+  test('a user hook whose script path merely contains "claude-code"/"hook" survives install and uninstall', async () => {
     const io = makeIo();
     const foreign = {
       type: 'command',
@@ -367,16 +383,16 @@ describe('claude-code install: leaves unrelated config intact', () => {
       'utf8',
     );
 
-    runInstall([], io);
+    await runInstall([], io);
     let settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     expect(settings.hooks.Stop[0].hooks).toContainEqual(foreign);
 
-    runUninstall([], io);
+    await runUninstall([], io);
     settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
     expect(settings).toEqual({ hooks: { Stop: [{ hooks: [foreign] }] } });
   });
 
-  test('unrelated ~/.claude.json content (OAuth state, other projects) survives a --bin install + uninstall', () => {
+  test('unrelated ~/.claude.json content (OAuth state, other projects) survives a --bin install + uninstall', async () => {
     const io = makeIo();
     const claudeJsonPath = path.join(io.home, '.claude.json');
     const foreign = {
@@ -389,30 +405,30 @@ describe('claude-code install: leaves unrelated config intact', () => {
     fs.mkdirSync(path.dirname(bin), { recursive: true });
     fs.writeFileSync(bin, '// stub', 'utf8');
 
-    runInstall(['--bin', bin], io);
+    await runInstall(['--bin', bin], io);
     let claudeJson = readJson(claudeJsonPath);
     expect(claudeJson.oauthAccount).toEqual(foreign.oauthAccount);
     expect(claudeJson.projects['/other/project']).toEqual(foreign.projects['/other/project']);
     expect(claudeJson.mcpServers).toEqual(foreign.mcpServers); // user scope untouched
     expect(claudeJson.projects[io.cwd].mcpServers.lapis).toBeDefined();
 
-    runUninstall([], io);
+    await runUninstall([], io);
     claudeJson = readJson(claudeJsonPath);
     expect(claudeJson).toEqual(foreign);
   });
 
-  test('re-install with the same --bin is byte-identical in ~/.claude.json and settings.local.json', () => {
+  test('re-install with the same --bin is byte-identical in ~/.claude.json and settings.local.json', async () => {
     const io = makeIo();
     const bin = path.join(io.root, 'clone', 'memory-store.js');
     fs.mkdirSync(path.dirname(bin), { recursive: true });
     fs.writeFileSync(bin, '// stub', 'utf8');
-    runInstall(['--bin', bin], io);
+    await runInstall(['--bin', bin], io);
     const claudeJsonPath = path.join(io.home, '.claude.json');
     const localPath = path.join(io.cwd, '.claude', 'settings.local.json');
     const firstClaudeJson = fs.readFileSync(claudeJsonPath, 'utf8');
     const firstLocal = fs.readFileSync(localPath, 'utf8');
 
-    runInstall(['--bin', bin], io);
+    await runInstall(['--bin', bin], io);
     expect(fs.readFileSync(claudeJsonPath, 'utf8')).toBe(firstClaudeJson);
     expect(fs.readFileSync(localPath, 'utf8')).toBe(firstLocal);
   });
@@ -423,20 +439,20 @@ describe('claude-code install: leaves unrelated config intact', () => {
 // =====================================================================
 
 describe('claude-code uninstall', () => {
-  test('a clean project install is fully reversed (files removed when empty)', () => {
+  test('a clean project install is fully reversed (files removed when empty)', async () => {
     const io = makeIo();
-    runInstall([], io);
-    const { cleaned } = runUninstall([], io);
+    await runInstall([], io);
+    const { cleaned } = await runUninstall([], io);
     expect(cleaned.length).toBeGreaterThan(0);
     expect(fs.existsSync(path.join(io.cwd, '.mcp.json'))).toBe(false);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.json'))).toBe(false);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'CLAUDE.md'))).toBe(false);
   });
 
-  test('--global uninstall reverses a --global install', () => {
+  test('--global uninstall reverses a --global install', async () => {
     const io = makeIo();
-    runInstall(['--global'], io);
-    runUninstall(['--global'], io);
+    await runInstall(['--global'], io);
+    await runUninstall(['--global'], io);
     expect(fs.existsSync(path.join(io.home, '.claude', 'settings.json'))).toBe(false);
     expect(fs.existsSync(path.join(io.home, '.claude', 'CLAUDE.md'))).toBe(false);
     // ~/.claude.json is never deleted, but the lapis entry is gone.
@@ -444,42 +460,56 @@ describe('claude-code uninstall', () => {
     expect(claudeJson.mcpServers?.lapis).toBeUndefined();
   });
 
-  test('uninstall reverses a machine-specific --bin install (local scope entry removed)', () => {
+  test('uninstall reverses a machine-specific --bin install (local scope entry removed)', async () => {
     const io = makeIo();
     const bin = path.join(io.root, 'clone', 'memory-store.js');
     fs.mkdirSync(path.dirname(bin), { recursive: true });
     fs.writeFileSync(bin, '// stub', 'utf8');
-    runInstall(['--bin', bin], io);
-    runUninstall([], io);
+    await runInstall(['--bin', bin], io);
+    await runUninstall([], io);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.local.json'))).toBe(false);
     const claudeJson = readJson(path.join(io.home, '.claude.json'));
     expect(claudeJson.projects?.[io.cwd]?.mcpServers?.lapis).toBeUndefined();
   });
 
-  test('uninstall without --mcp-name still reverses an install that used a custom name', () => {
+  test('uninstall without --mcp-name still reverses an install that used a custom name', async () => {
     const io = makeIo();
-    runInstall(['--mcp-name', 'pi-memory', '--auto-allow'], io);
-    runUninstall([], io);
+    await runInstall(['--mcp-name', 'pi-memory', '--auto-allow'], io);
+    await runUninstall([], io);
     expect(fs.existsSync(path.join(io.cwd, '.mcp.json'))).toBe(false);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.json'))).toBe(false);
   });
 
-  test('does not remove a same-named server that is not LaPis (sentinel identity)', () => {
+  test('does not remove a same-named server that is not LaPis (sentinel identity)', async () => {
     const io = makeIo();
     fs.writeFileSync(
       path.join(io.cwd, '.mcp.json'),
       JSON.stringify({ mcpServers: { lapis: { command: 'someone-elses-tool', args: ['start'] } } }),
       'utf8',
     );
-    runUninstall([], io);
+    await runUninstall([], io);
     const mcp = readJson(path.join(io.cwd, '.mcp.json'));
     expect(mcp.mcpServers.lapis).toEqual({ command: 'someone-elses-tool', args: ['start'] });
   });
 
-  test('is a no-op on a machine with no LaPis config', () => {
+  test('is a no-op on a machine with no LaPis config', async () => {
     const io = makeIo();
-    const { cleaned } = runUninstall([], io);
+    const { cleaned } = await runUninstall([], io);
     expect(cleaned).toEqual([]);
+  });
+
+  test('stops the daemon when a lockfile is present', async () => {
+    const io = makeIo();
+    const lockfilePath = path.join(io.root, 'claude-daemon.json');
+    const daemonMod = require('../../src/claude-code/daemon');
+    daemonMod.writeLockfile({ pid: 999999999, port: 9100, host: '127.0.0.1' }, lockfilePath);
+    const stopSpy = vi.spyOn(daemonMod, 'runStop').mockResolvedValue({ stopped: true });
+
+    await runInstall([], io);
+    await runUninstall([], { ...io, lockfilePath });
+
+    expect(stopSpy).toHaveBeenCalledWith([], expect.objectContaining({ lockfilePath }));
+    stopSpy.mockRestore();
   });
 });
 
@@ -510,11 +540,11 @@ describe('claude-code doctor', () => {
     };
   }
 
-  test('all checks pass after an install when command/DB/state resolve', () => {
+  test('all checks pass after an install when command/DB/state resolve', async () => {
     const io = makeIo();
     // Fake `npx` on the doctor's PATH.
     fs.writeFileSync(path.join(io.root, 'npx'), '#!/bin/sh\n', { mode: 0o755 });
-    runInstall([], io);
+    await runInstall([], io);
 
     const { ok, checks } = doctor.runDoctor([], makeDoctorIo(io));
     expect(checks.map((c) => [c.name, c.ok])).toEqual([
@@ -527,7 +557,7 @@ describe('claude-code doctor', () => {
     expect(ok).toBe(true);
   });
 
-  test('fails with guidance when nothing is installed', () => {
+  test('fails with guidance when nothing is installed', async () => {
     const io = makeIo();
     const { ok, checks } = doctor.runDoctor([], makeDoctorIo(io));
     expect(ok).toBe(false);
@@ -537,18 +567,18 @@ describe('claude-code doctor', () => {
     expect(checks.find((c) => c.name === 'hooks config').ok).toBe(false);
   });
 
-  test('flags an MCP command that does not resolve on PATH', () => {
+  test('flags an MCP command that does not resolve on PATH', async () => {
     const io = makeIo();
-    runInstall([], io); // npx entry, but no npx on the fake PATH
+    await runInstall([], io); // npx entry, but no npx on the fake PATH
     const { checks } = doctor.runDoctor([], makeDoctorIo(io));
     const mcpCheck = checks.find((c) => c.name === 'MCP server config');
     expect(mcpCheck.ok).toBe(false);
     expect(mcpCheck.detail).toContain('not found on PATH');
   });
 
-  test('flags a broken native module and unwritable DB', () => {
+  test('flags a broken native module and unwritable DB', async () => {
     const io = makeIo();
-    runInstall([], io);
+    await runInstall([], io);
     const base = makeDoctorIo(io);
     const { checks } = doctor.runDoctor([], {
       ...base,
@@ -566,12 +596,12 @@ describe('claude-code doctor', () => {
     expect(checks.find((c) => c.name === 'database').detail).toContain('EACCES');
   });
 
-  test('validates a node-script (--bin) MCP entry by script existence', () => {
+  test('validates a node-script (--bin) MCP entry by script existence', async () => {
     const io = makeIo();
     const bin = path.join(io.root, 'clone', 'memory-store.js');
     fs.mkdirSync(path.dirname(bin), { recursive: true });
     fs.writeFileSync(bin, '// stub', 'utf8');
-    runInstall(['--bin', bin], io);
+    await runInstall(['--bin', bin], io);
 
     let result = doctor.runDoctor([], makeDoctorIo(io));
     expect(result.checks.find((c) => c.name === 'MCP server config').ok).toBe(true);
@@ -589,7 +619,7 @@ describe('claude-code doctor', () => {
 // =====================================================================
 
 describe('claude-code hook role filter', () => {
-  test('parseRoleFilter reads --only / --skip after the event name', () => {
+  test('parseRoleFilter reads --only / --skip after the event name', async () => {
     expect(parseRoleFilter(['hook', 'PostToolUse'])).toBeUndefined();
     expect(parseRoleFilter(['hook', 'PostToolUse', '--only', 'git-trust'])).toEqual({
       only: 'git-trust',

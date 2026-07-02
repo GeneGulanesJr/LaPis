@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Claude Code bridge — Phase 5: daemon mode + POST /dispatch (optional perf tier)** (#210, part of #205).
+  - `POST /dispatch` on the existing HTTP server — wraps `gateway.dispatch(cmd, args)`
+    and returns the raw gateway JSON (including `{error}` envelopes for unknown cmds).
+  - `dispatch-client.js` auto-selects daemon mode when `LAPIS_DAEMON_URL` or the
+    daemon lockfile (`~/.pi/memory/claude-daemon.json`) points at a live process;
+    falls back to direct in-process dispatch when unavailable.
+  - `lapis claude-code start [--port 9100] [--host 127.0.0.1] [--detached]` /
+    `lapis claude-code stop` — manage the shared-dispatch daemon (wraps `lapis serve`).
+  - `lapis claude-code install --daemon [--daemon-port 9100]` — opt-in perf tier that
+    starts a detached daemon after install and writes the lockfile for hook handlers.
+  - Uninstall stops a running daemon when its lockfile is present; failed detached
+    starts kill the spawned child instead of leaving an orphan process.
+
 - **Claude Code bridge — Phase 4: install + CLI + doctor (direct dispatch)** (#209, part of #205).
   - `lapis claude-code install` — config writer for Claude Code's two separate
     config systems (never mixed):

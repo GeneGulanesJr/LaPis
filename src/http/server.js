@@ -72,10 +72,14 @@ function buildRoutes(deps) {
   const settings = require('./handlers/settings');
   const codeIndex = require('./handlers/code-index');
   const todos = require('./handlers/todos');
+  const dispatch = require('./handlers/dispatch');
 
   return [
     // Health
     { method: 'GET', pattern: '/health', handler: health.healthCheck(deps) },
+
+    // Gateway dispatch (Claude Code daemon + external callers)
+    { method: 'POST', pattern: '/dispatch', handler: dispatch.dispatchCommand(deps) },
 
     // Missions
     { method: 'POST', pattern: '/missions', handler: missions.createMission(aurex) },

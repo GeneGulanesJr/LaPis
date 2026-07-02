@@ -141,11 +141,23 @@ function cleanClaudeJson(filePath, { user, projectKey }) {
  * @param {{ cwd?: string, home?: string, log?: Function }} [io]
  * @returns {{ cleaned: string[] }}
  */
-function runUninstall(argv, io) {
+async function runUninstall(argv, io) {
   const flags = parseFlags(argv);
   const { home, cwd, log } = resolveIo(io);
   const paths = configPaths({ home, cwd });
   const cleaned = [];
+
+  // Best-effort: stop a daemon left by `install --daemon` so hooks don't keep
+  // POSTing to a server whose config we just removed.
+  try {
+    const { readLockfile, runStop, defaultLockfilePath } = require('./daemon');
+    const lockfilePath = io?.lockfilePath || defaultLockfilePath();
+    if (readLockfile(lockfilePath)) {
+      await runStop([], { ...io, lockfilePath, log: () => {} });
+    }
+  } catch {
+    // Daemon stop must never block uninstall.
+  }
 
   if (flags.global) {
     // MCP first so auto-allow cleanup covers whatever names were removed
