@@ -162,11 +162,106 @@ const RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i;
 const CODE_PATH_HINT_RE =
   /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java)\b|(^|\s)(src|lib|app|test|tests|extensions|commands|data-access|services)\b/i;
 
+// --- native-tool search guardrails (Claude Code Grep / Glob) ---
+//
+// Claude Code's agent is *instructed* to prefer the Grep (ripgrep) and Glob
+// tools over bash grep/find, so the PRIMARY code-search guardrail lives on
+// those native tools rather than Bash. These helpers classify a Grep/Glob
+// tool_input as "targeted" (allow) vs "broad" (deny + memory-code guidance),
+// keeping parity with the Bash isTargetedSymbolLookup logic above.
+
+// Regex metacharacters that mark a Grep pattern as a broad/structural search
+// rather than a single-symbol lookup. Mirrors the check in
+// isTargetedSymbolLookup so Grep and Bash gate identically.
+const GREP_METACHAR_RE = /[.*+?|^$()[\]{}\\]/;
+const SPECIFIC_CODE_FILE_RE =
+  /\.(cjs|cts|js|jsx|mjs|mts|ts|tsx|py|pyi|go|rs|java|kt|rb|c|h|cpp|hpp|cs|scala|swift|php)$/i;
+
+/**
+ * True when a path points at a single concrete code file (not a directory,
+ * not a glob). A Grep scoped to one file is always allowed — it is the
+ * ripgrep equivalent of reading a targeted slice.
+ */
+function isSpecificCodeFilePath(p) {
+  if (typeof p !== 'string' || !p) {
+    return false;
+  }
+  if (p.includes('*') || p.includes('?')) {
+    return false;
+  }
+  return SPECIFIC_CODE_FILE_RE.test(p.trim());
+}
+
+/**
+ * Adapt isTargetedSymbolLookup to the Grep tool's structured input. A Grep is
+ * "targeted" (allowed) when it is scoped to a single code file OR its pattern
+ * is a plain single symbol (length >= MIN_SYMBOL_LENGTH, no regex metachars,
+ * no whitespace, no alternation). Everything else is a broad scan best served
+ * by `memory-code search`.
+ *
+ * @param {{pattern?: string, path?: string}} toolInput
+ * @returns {boolean}
+ */
+function isTargetedGrepLookup(toolInput = {}) {
+  const { pattern } = toolInput;
+  const p = toolInput.path;
+
+  if (isSpecificCodeFilePath(p)) {
+    return true;
+  }
+
+  if (typeof pattern !== 'string' || !pattern) {
+    return false;
+  }
+  const trimmed = pattern.trim();
+  if (trimmed.length < MIN_SYMBOL_LENGTH) {
+    return false;
+  }
+  if (/\s/.test(trimmed)) {
+    return false;
+  }
+  if (GREP_METACHAR_RE.test(trimmed)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * True for a Glob pattern that discovers code broadly across the whole repo
+ * (bare `**`, `**` + `/*`, or a top-level recursive code glob like `**​/*.ts`
+ * with no intermediate directory scoping). Scoped globs such as
+ * `src/**​/*.ts` or `**​/handlers/*.js` are NOT broad — they are allowed.
+ *
+ * @param {string} pattern
+ * @returns {boolean}
+ */
+function isBroadGlob(pattern) {
+  if (typeof pattern !== 'string') {
+    return false;
+  }
+  const p = pattern.trim();
+  if (!p) {
+    return false;
+  }
+  if (p === '**' || p === '**/*' || p === '*' || p === '**/**') {
+    return true;
+  }
+  if (p.startsWith('**/') && SPECIFIC_CODE_FILE_RE.test(p) && p.indexOf('/', 3) === -1) {
+    // e.g. **/*.ts — recursive, unscoped code discovery.
+    return true;
+  }
+  return false;
+}
+
 module.exports = {
   splitPipeline,
   isPipedOutputFilter,
   isTargetedSymbolLookup,
+  isSpecificCodeFilePath,
+  isTargetedGrepLookup,
+  isBroadGlob,
   CONFIG_FILENAMES,
   RAW_CODE_DISCOVERY_RE,
   CODE_PATH_HINT_RE,
+  MIN_SYMBOL_LENGTH,
 };

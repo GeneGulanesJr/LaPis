@@ -20,4 +20,5 @@ module.exports = {
   ...require('./session-summary'),
   ...require('./guardrail-utils'),
   ...require('./project'),
+  ...require('./tool-response-parse'),
 };
