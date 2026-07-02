@@ -11,8 +11,9 @@
  *   - all diagnostics → stderr
  *   - hooks fail open (a crash logs to stderr + exits 0, never blocks Claude Code)
  *
- * Phase 2 wires the high-value lifecycle only: SessionStart, UserPromptSubmit,
- * Stop, SessionEnd. PreToolUse / PostToolUse guardrails are Phase 3.
+ * Phase 2 wired the high-value lifecycle: SessionStart, UserPromptSubmit,
+ * Stop, SessionEnd. Phase 3 adds the tool-call cadence: PreToolUse guardrails
+ * and PostToolUse tracking + tool-state mirroring.
  */
 
 const { stripTuiArtifacts } = require('../mcp/translate-result');
@@ -22,12 +23,16 @@ const { handleSessionStart } = require('./handlers/session-start');
 const { handleUserPromptSubmit } = require('./handlers/user-prompt-submit');
 const { handleStop } = require('./handlers/stop');
 const { handleSessionEnd } = require('./handlers/session-end');
+const { handlePreToolUse } = require('./handlers/pre-tool-use');
+const { handlePostToolUse } = require('./handlers/post-tool-use');
 
 const HANDLERS = {
   SessionStart: handleSessionStart,
   UserPromptSubmit: handleUserPromptSubmit,
   Stop: handleStop,
   SessionEnd: handleSessionEnd,
+  PreToolUse: handlePreToolUse,
+  PostToolUse: handlePostToolUse,
 };
 
 function readStdin() {
