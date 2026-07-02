@@ -32,6 +32,27 @@ describe('hooks-engine guardrail-utils: isTargetedSymbolLookup', () => {
   });
 });
 
+describe('hooks-engine guardrail-utils: isTargetedGrepLookup', () => {
+  const { isTargetedGrepLookup, isBroadGlobDiscovery } = require('../../src/hooks-engine/guardrail-utils');
+
+  test('allows targeted Grep symbol', () => {
+    expect(isTargetedGrepLookup('rankObservations', '/proj/src')).toBe(true);
+  });
+
+  test('blocks regex metachar patterns', () => {
+    expect(isTargetedGrepLookup('context.*', '/proj/src')).toBe(false);
+  });
+
+  test('allows single-file scope', () => {
+    expect(isTargetedGrepLookup('foobar', '/proj/src/foo.ts')).toBe(true);
+  });
+
+  test('isBroadGlobDiscovery flags **/*', () => {
+    expect(isBroadGlobDiscovery('**/*')).toBe(true);
+    expect(isBroadGlobDiscovery('**/*.test.js')).toBe(false);
+  });
+});
+
 describe('hooks-engine guardrail-utils: isPipedOutputFilter', () => {
   test('allows grep when filtering command output', () => {
     expect(isPipedOutputFilter('npx oxlint 2>&1 | grep -iE "(lowercase|Unused)" || true')).toBe(true);

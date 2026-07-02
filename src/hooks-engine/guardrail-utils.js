@@ -162,10 +162,45 @@ const RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i;
 const CODE_PATH_HINT_RE =
   /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java)\b|(^|\s)(src|lib|app|test|tests|extensions|commands|data-access|services)\b/i;
 
+const SINGLE_FILE_SCOPE_RE = /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java|rb|swift|kt)$/i;
+const REGEX_METACHAR_RE = /[.*+?|^$()\[\]{}\\|]/;
+
+/**
+ * Adapt isTargetedSymbolLookup for Claude Code's native Grep tool.
+ * Targeted = identifier-length pattern, no regex metachars, or single-file scope.
+ */
+function isTargetedGrepLookup(pattern, searchPath) {
+  if (!pattern || typeof pattern !== 'string') {
+    return false;
+  }
+  if (pattern.length < MIN_SYMBOL_LENGTH) {
+    return false;
+  }
+  if (REGEX_METACHAR_RE.test(pattern)) {
+    return false;
+  }
+  if (searchPath && SINGLE_FILE_SCOPE_RE.test(searchPath)) {
+    return true;
+  }
+  const cmd = `grep -rn "${pattern}" ${searchPath || 'src/'}`;
+  return isTargetedSymbolLookup(cmd);
+}
+
+/** Broad file-discovery glob patterns that should use memory-code instead. */
+function isBroadGlobDiscovery(pattern) {
+  if (!pattern || typeof pattern !== 'string') {
+    return false;
+  }
+  const p = pattern.trim();
+  return p === '**' || p === '**/*' || p === '**/*.*' || /^\*\*\/\*$/.test(p);
+}
+
 module.exports = {
   splitPipeline,
   isPipedOutputFilter,
   isTargetedSymbolLookup,
+  isTargetedGrepLookup,
+  isBroadGlobDiscovery,
   CONFIG_FILENAMES,
   RAW_CODE_DISCOVERY_RE,
   CODE_PATH_HINT_RE,

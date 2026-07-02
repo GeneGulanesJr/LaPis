@@ -491,7 +491,7 @@ describe('claude-code router (hooks.js)', () => {
 
   test('unknown event is a no-op (never crashes the host)', async () => {
     const { dispatch, calls } = makeFakeDispatch();
-    await runHook(['hook', 'PreToolUse'], {
+    await runHook(['hook', 'PermissionRequest'], {
       ensureDb: false,
       stdin: JSON.stringify({ session_id: 'r-2' }),
       dispatch,
