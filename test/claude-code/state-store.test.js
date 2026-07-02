@@ -117,7 +117,9 @@ describe('claude-code state-store: unusable session_id (fail-open)', () => {
     expect(stateStore.sanitizeKey('')).toBeNull();
     expect(stateStore.sanitizeKey('   ')).toBeNull();
     expect(stateStore.sanitizeKey('undefined')).toBeNull();
+    expect(stateStore.sanitizeKey('Undefined')).toBeNull();
     expect(stateStore.sanitizeKey('null')).toBeNull();
+    expect(stateStore.sanitizeKey('NaN')).toBeNull();
     // A real uuid is fine.
     expect(stateStore.sanitizeKey('a1b2-c3d4')).toBe('a1b2-c3d4');
   });

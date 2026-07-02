@@ -18,12 +18,25 @@ const path = require('node:path');
  * @param {string} p
  * @returns {{ lower: string, base: string } | null}
  */
+/**
+ * Lowercase and normalize separators for stable path comparison (#230).
+ *
+ * @param {string} p
+ * @returns {string}
+ */
+function normalizePathForCompare(p) {
+  if (typeof p !== 'string' || !p) {
+    return '';
+  }
+  return p.toLowerCase().replace(/\\/g, '/');
+}
+
 function fileKey(p) {
   if (typeof p !== 'string' || !p) {
     return null;
   }
-  const lower = p.toLowerCase();
-  const base = path.basename(lower.replace(/\\/g, '/'));
+  const lower = normalizePathForCompare(p);
+  const base = path.basename(lower);
   if (!base) {
     return null;
   }
@@ -77,4 +90,4 @@ function uniqueEditedPaths(editedFiles) {
   return [...byBase.values()];
 }
 
-module.exports = { fileKey, addNormalized, uniqueEditedPaths };
+module.exports = { fileKey, addNormalized, uniqueEditedPaths, normalizePathForCompare };

@@ -42,16 +42,18 @@ function projectFromCwd(cwd) {
  * @param {Array<{path:string}>} repos
  * @returns {object|null}
  */
+function normalizeRepoPath(p) {
+  return path.resolve(p).toLowerCase().replace(/\\/g, '/');
+}
+
 function findMatchingRepo(resolvedCwd, repos) {
-  // Use path.sep (not a hardcoded "/") so a Windows cwd nested under an
-  // indexed repo still prefix-matches: the DB stores backslash paths there,
-  // and the old `${rp}/` check only ever matched on exact equality (#227).
-  const abs = path.resolve(resolvedCwd).toLowerCase();
-  const sep = path.sep;
+  // Normalize separators so a Windows cwd matches a DB path stored with `/`
+  // (or vice versa). Prefix match always uses `/` after normalization (#227).
+  const abs = normalizeRepoPath(resolvedCwd);
   return (
     repos.find((r) => {
-      const rp = r.path.toLowerCase();
-      return abs === rp || abs.startsWith(rp + sep);
+      const rp = normalizeRepoPath(r.path);
+      return abs === rp || abs.startsWith(`${rp}/`);
     }) || null
   );
 }
@@ -83,4 +85,5 @@ module.exports = {
   projectFromCwd,
   findMatchingRepo,
   findMatchingProject,
+  normalizeRepoPath,
 };

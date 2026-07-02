@@ -32,7 +32,7 @@ const { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils');
 const { addNormalized } = require('../file-keys');
 const { postToolRole } = require('../tool-map');
 
-const GIT_TRUST_OP_RE = /\bgit\s+(pull|checkout|merge|rebase|reset|stash\s+pop)\b/;
+const GIT_TRUST_OP_RE = /\bgit(?:\s+-C\s+\S+)?\s+(pull|checkout|merge|rebase|reset|stash\s+pop)\b/;
 // Harvest relative code paths from a memory-code response (parity with the Pi
 // tool_result handler in tool-guardrails.ts). The extension alternation is the
 // same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
@@ -166,7 +166,14 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore,
     }
     switch (role) {
       case 'edit-track':
-        addEditedFile(state, input.file_path);
+        addEditedFile(state, input.file_path || input.path);
+        if (Array.isArray(input.edits)) {
+          for (const edit of input.edits) {
+            if (edit && typeof edit.file_path === 'string') {
+              addEditedFile(state, edit.file_path);
+            }
+          }
+        }
         return;
       case 'memory-save-mirror':
         if (wasSaveSuccessful(toolResponse)) {

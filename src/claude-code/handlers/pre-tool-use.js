@@ -35,7 +35,7 @@ const {
   CODE_PATH_HINT_RE,
 } = require('../../hooks-engine/guardrail-utils');
 const { preToolRole } = require('../tool-map');
-const { addNormalized } = require('../file-keys');
+const { addNormalized, normalizePathForCompare } = require('../file-keys');
 
 /** Build the PreToolUse deny envelope. */
 function deny(reason) {
@@ -110,12 +110,15 @@ function readGuardrail({ input, repos, cwd, state }) {
     return null;
   }
 
-  const relPath = path.relative(matchedRepo.path, absPath).toLowerCase();
+  const relPath = normalizePathForCompare(path.relative(matchedRepo.path, absPath));
   const explored = Array.isArray(state.exploredFiles) ? state.exploredFiles : [];
+  const exploredNorm = explored.map(normalizePathForCompare);
+  const basenameNorm = basename.toLowerCase();
+  const absNorm = normalizePathForCompare(absPath);
   if (
-    explored.includes(basename.toLowerCase()) ||
-    explored.includes(relPath) ||
-    explored.includes(absPath.toLowerCase())
+    exploredNorm.includes(basenameNorm) ||
+    exploredNorm.includes(relPath) ||
+    exploredNorm.includes(absNorm)
   ) {
     return null;
   }

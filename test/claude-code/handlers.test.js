@@ -237,17 +237,6 @@ describe('claude-code handlers: Stop', () => {
     const { dispatch, calls } = makeFakeDispatch();
     const stateStore = makeStateStore();
     stateStore.saveState('claude-9', { ...realStateStore.defaultState(), sessionId: 1, turnCount: 4 });
-    await runStopCapture({
-      dispatch,
-      stateStore,
-      claudeSessionId: 'claude-9',
-      state: { ...stateStore.loadState('claude-9'), turnCount: 5 },
-      project: 'p',
-      now: Date.now(),
-      lastText: '',
-    });
-    // stop_hook_active is checked in handleStop, not runStopCapture; verify
-    // handleStop short-circuits before incrementing/persisting.
     const before = stateStore._peek('claude-9').turnCount;
     await handleStop({ payload: { session_id: 'claude-9', stop_hook_active: true, cwd: '/p' }, dispatch, stateStore });
     expect(stateStore._peek('claude-9').turnCount).toBe(before);
@@ -264,55 +253,53 @@ describe('claude-code handlers: Stop', () => {
     });
     const { dispatch, calls } = makeFakeDispatch();
 
-    const state = { ...stateStore.loadState('claude-10'), turnCount: 10, currentProject: 'p', editedFiles: [] };
     await runStopCapture({
       dispatch,
       stateStore,
       claudeSessionId: 'claude-10',
-      state,
+      turnCount: 10,
       project: 'p',
       now: Date.now(),
       lastText: '',
     });
 
     expect(hasCall(calls, 'save', (a) => a.type === 'progress')).toBe(true);
-    expect(stateStore._peek('claude-10').turnCount).toBe(10);
+    expect(stateStore._peek('claude-10').turnCount).toBe(9);
   });
 
   test('dream triggers at turn 50 once', async () => {
     const stateStore = makeStateStore();
     const { dispatch, calls } = makeFakeDispatch();
-    const state = {
-      ...realStateStore.defaultState(),
-      sessionId: 1,
-      turnCount: 50,
-      currentProject: 'p',
-      dreamTriggeredThisSession: false,
-    };
     await runStopCapture({
       dispatch,
       stateStore,
       claudeSessionId: 'x',
-      state,
+      turnCount: 50,
       project: 'p',
       now: Date.now(),
       lastText: '',
     });
     expect(hasCall(calls, 'dream')).toBe(true);
-    expect(state.dreamTriggeredThisSession).toBe(true);
+    expect(stateStore._peek('x').dreamTriggeredThisSession).toBe(true);
   });
 
   test('passive capture saves an auto-decision on a qualifying assistant message', async () => {
     const { dispatch, calls } = makeFakeDispatch();
-    const state = { ...realStateStore.defaultState(), sessionId: 1, turnCount: 3, lastAutoDecisionSave: 0 };
+    const stateStore = makeStateStore();
+    stateStore.saveState('y', {
+      ...realStateStore.defaultState(),
+      sessionId: 1,
+      turnCount: 3,
+      lastAutoDecisionSave: 0,
+    });
     const reasoning =
       'Analyzing the requirements and constraints of this subsystem in detail before proceeding. '.repeat(4);
     const longText = `${reasoning} Based on the tradeoffs, going with a queue-based design because it avoids head-of-line blocking.`;
     await runStopCapture({
       dispatch,
-      stateStore: makeStateStore(),
+      stateStore,
       claudeSessionId: 'y',
-      state,
+      turnCount: 3,
       project: 'p',
       now: Date.now(),
       lastText: longText,
@@ -369,23 +356,53 @@ describe('claude-code handlers: Stop', () => {
 
   test('negative-recall feedback is flushed', async () => {
     const { dispatch, calls } = makeFakeDispatch();
-    const state = {
+    const stateStore = makeStateStore();
+    stateStore.saveState('z', {
       ...realStateStore.defaultState(),
       sessionId: 1,
       turnCount: 3,
       pendingRecallFeedback: [[5, { sessionId: 1, query: 'q' }]],
-    };
+    });
     await runStopCapture({
       dispatch,
-      stateStore: makeStateStore(),
+      stateStore,
       claudeSessionId: 'z',
-      state,
+      turnCount: 3,
       project: 'p',
       now: Date.now(),
       lastText: '',
     });
     expect(hasCall(calls, 'log-negative-recall')).toBe(true);
-    expect(state.pendingRecallFeedback).toEqual([]);
+    expect(stateStore._peek('z').pendingRecallFeedback).toEqual([]);
+  });
+
+  test('runStopCapture does not clobber concurrent PostToolUse state', async () => {
+    const stateStore = makeStateStore();
+    stateStore.saveState('race', {
+      ...realStateStore.defaultState(),
+      sessionId: 1,
+      turnCount: 3,
+      editedFiles: [],
+    });
+    const { dispatch } = makeFakeDispatch();
+
+    const capture = runStopCapture({
+      dispatch,
+      stateStore,
+      claudeSessionId: 'race',
+      turnCount: 4,
+      project: 'p',
+      now: Date.now(),
+      lastText: '',
+    });
+
+    // Simulate a concurrent PostToolUse edit-track while capture is in flight.
+    await stateStore.mutateState('race', (s) => {
+      s.editedFiles.push('src/concurrent.js');
+    });
+
+    await capture;
+    expect(stateStore._peek('race').editedFiles).toContain('src/concurrent.js');
   });
 });
 

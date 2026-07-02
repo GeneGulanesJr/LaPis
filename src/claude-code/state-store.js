@@ -79,7 +79,7 @@ function sanitizeKey(sessionId) {
     return null;
   }
   const safe = raw.replace(/[^\w.-]/g, '_');
-  if (!safe || PLACEHOLDER_KEYS.has(safe) || /^_+$/.test(safe)) {
+  if (!safe || PLACEHOLDER_KEYS.has(safe.toLowerCase()) || /^_+$/.test(safe)) {
     return null;
   }
   return safe;
