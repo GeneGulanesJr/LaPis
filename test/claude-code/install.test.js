@@ -8,6 +8,8 @@ const { runUninstall } = require('../../src/claude-code/uninstall');
 const doctor = require('../../src/claude-code/doctor');
 const { parseRoleFilter } = require('../../src/claude-code/hooks');
 const { handlePostToolUse } = require('../../src/claude-code/handlers/post-tool-use');
+const realStateStore = require('../../src/claude-code/state-store');
+const { postToolRole, preToolRole, mcpToolName } = require('../../src/claude-code/tool-map');
 
 // ---- helpers ----
 
@@ -341,12 +343,78 @@ describe('claude-code install: leaves unrelated config intact', () => {
     expect(md).not.toContain('<!-- lapis:start -->');
   });
 
-  test('refuses to clobber a corrupt settings file', () => {
+  test('refuses to clobber a corrupt settings file — and writes NOTHING (no partial install)', () => {
     const io = makeIo();
     fs.mkdirSync(path.join(io.cwd, '.claude'), { recursive: true });
     fs.writeFileSync(path.join(io.cwd, '.claude', 'settings.json'), '{ not json', 'utf8');
     expect(() => runInstall([], io)).toThrow(/corrupt JSON/);
     expect(fs.readFileSync(path.join(io.cwd, '.claude', 'settings.json'), 'utf8')).toBe('{ not json');
+    // All reads happen before any write: .mcp.json must not have been created.
+    expect(fs.existsSync(path.join(io.cwd, '.mcp.json'))).toBe(false);
+  });
+
+  test('a user hook whose script path merely contains "claude-code"/"hook" survives install and uninstall', () => {
+    const io = makeIo();
+    const foreign = {
+      type: 'command',
+      command: '/home/me/.claude/claude-code-hook.sh',
+      args: ['--fast'],
+    };
+    fs.mkdirSync(path.join(io.cwd, '.claude'), { recursive: true });
+    fs.writeFileSync(
+      path.join(io.cwd, '.claude', 'settings.json'),
+      JSON.stringify({ hooks: { Stop: [{ hooks: [foreign] }] } }),
+      'utf8',
+    );
+
+    runInstall([], io);
+    let settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
+    expect(settings.hooks.Stop[0].hooks).toContainEqual(foreign);
+
+    runUninstall([], io);
+    settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
+    expect(settings).toEqual({ hooks: { Stop: [{ hooks: [foreign] }] } });
+  });
+
+  test('unrelated ~/.claude.json content (OAuth state, other projects) survives a --bin install + uninstall', () => {
+    const io = makeIo();
+    const claudeJsonPath = path.join(io.home, '.claude.json');
+    const foreign = {
+      oauthAccount: { accountUuid: 'abc-123', emailAddress: 'me@example.com' },
+      projects: { '/other/project': { allowedTools: ['Bash'], history: [{ display: 'hi' }] } },
+      mcpServers: { linear: { type: 'http', url: 'https://mcp.linear.app/sse' } },
+    };
+    fs.writeFileSync(claudeJsonPath, JSON.stringify(foreign), 'utf8');
+    const bin = path.join(io.root, 'clone', 'memory-store.js');
+    fs.mkdirSync(path.dirname(bin), { recursive: true });
+    fs.writeFileSync(bin, '// stub', 'utf8');
+
+    runInstall(['--bin', bin], io);
+    let claudeJson = readJson(claudeJsonPath);
+    expect(claudeJson.oauthAccount).toEqual(foreign.oauthAccount);
+    expect(claudeJson.projects['/other/project']).toEqual(foreign.projects['/other/project']);
+    expect(claudeJson.mcpServers).toEqual(foreign.mcpServers); // user scope untouched
+    expect(claudeJson.projects[io.cwd].mcpServers.lapis).toBeDefined();
+
+    runUninstall([], io);
+    claudeJson = readJson(claudeJsonPath);
+    expect(claudeJson).toEqual(foreign);
+  });
+
+  test('re-install with the same --bin is byte-identical in ~/.claude.json and settings.local.json', () => {
+    const io = makeIo();
+    const bin = path.join(io.root, 'clone', 'memory-store.js');
+    fs.mkdirSync(path.dirname(bin), { recursive: true });
+    fs.writeFileSync(bin, '// stub', 'utf8');
+    runInstall(['--bin', bin], io);
+    const claudeJsonPath = path.join(io.home, '.claude.json');
+    const localPath = path.join(io.cwd, '.claude', 'settings.local.json');
+    const firstClaudeJson = fs.readFileSync(claudeJsonPath, 'utf8');
+    const firstLocal = fs.readFileSync(localPath, 'utf8');
+
+    runInstall(['--bin', bin], io);
+    expect(fs.readFileSync(claudeJsonPath, 'utf8')).toBe(firstClaudeJson);
+    expect(fs.readFileSync(localPath, 'utf8')).toBe(firstLocal);
   });
 });
 
@@ -386,6 +454,14 @@ describe('claude-code uninstall', () => {
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.local.json'))).toBe(false);
     const claudeJson = readJson(path.join(io.home, '.claude.json'));
     expect(claudeJson.projects?.[io.cwd]?.mcpServers?.lapis).toBeUndefined();
+  });
+
+  test('uninstall without --mcp-name still reverses an install that used a custom name', () => {
+    const io = makeIo();
+    runInstall(['--mcp-name', 'pi-memory', '--auto-allow'], io);
+    runUninstall([], io);
+    expect(fs.existsSync(path.join(io.cwd, '.mcp.json'))).toBe(false);
+    expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.json'))).toBe(false);
   });
 
   test('does not remove a same-named server that is not LaPis (sentinel identity)', () => {
@@ -527,9 +603,8 @@ describe('claude-code hook role filter', () => {
 
   function makeStateStore() {
     const map = new Map();
-    const real = require('../../src/claude-code/state-store');
     return {
-      loadState: (id) => map.get(id) || real.defaultState(),
+      loadState: (id) => map.get(id) || realStateStore.defaultState(),
       saveState: (id, s) => map.set(id, s),
       _peek: (id) => map.get(id),
     };
@@ -599,5 +674,53 @@ describe('claude-code hook role filter', () => {
       roleFilter: { only: 'git-trust' },
     });
     expect(calls).toEqual([{ cmd: 'sync-code-trust', args: { repo: 'proj' } }]);
+  });
+
+  test('the git-trust role never writes state back (async handler must not clobber concurrent saves)', async () => {
+    const stateStore = makeStateStore();
+    // Simulate the synchronous handler having already recorded an edit.
+    stateStore.saveState('s3', {
+      ...realStateStore.defaultState(),
+      editedFiles: ['/proj/from-sync-handler.js'],
+    });
+    let saves = 0;
+    const originalSave = stateStore.saveState;
+    stateStore.saveState = (id, s) => {
+      saves++;
+      originalSave(id, s);
+    };
+
+    await handlePostToolUse({
+      payload: { session_id: 's3', tool_name: 'Bash', tool_input: { command: 'git pull' }, cwd: '/proj' },
+      dispatch: async () => ({ ok: true }),
+      getKnownRepos: () => [{ name: 'proj', path: '/proj' }],
+      stateStore,
+      roleFilter: { only: 'git-trust' },
+    });
+
+    expect(saves).toBe(0);
+    expect(stateStore._peek('s3').editedFiles).toEqual(['/proj/from-sync-handler.js']);
+  });
+
+  test('tool-state mirroring survives a --mcp-name rename (any mcp__<name>__ prefix maps)', async () => {
+    expect(mcpToolName('mcp__pi-memory__memory-search')).toBe('memory-search');
+    expect(postToolRole('mcp__pi-memory__memory-save')).toBe('memory-save-mirror');
+    expect(preToolRole('mcp__pi-memory__memory-code')).toBe('memory-code-seed');
+
+    const stateStore = makeStateStore();
+    await handlePostToolUse({
+      payload: {
+        session_id: 's4',
+        tool_name: 'mcp__pi-memory__memory-search',
+        tool_input: { query: 'auth flow' },
+        tool_response: { content: [{ type: 'text', text: '[#12] some memory\n[#34] another' }] },
+        cwd: '/proj',
+      },
+      dispatch: async () => ({ ok: true }),
+      getKnownRepos: () => [],
+      stateStore,
+    });
+    const ids = stateStore._peek('s4').pendingRecallFeedback.map(([id]) => id);
+    expect(ids).toEqual([12, 34]);
   });
 });

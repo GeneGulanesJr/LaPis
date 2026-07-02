@@ -10,8 +10,12 @@
  *
  * Native tools keep their Claude Code names (`Read`, `Grep`, `Glob`, `Bash`,
  * `Write`, `Edit`, `MultiEdit`). LaPis MCP tools arrive prefixed with
- * `mcp__lapis__` (see Claude Code MCP tool naming); mcpToolName() strips that
- * so the rest of the bridge reasons about the bare LaPis tool name.
+ * `mcp__<server>__` where the server name is `lapis` by default but
+ * user-configurable via `lapis claude-code install --mcp-name`; mcpToolName()
+ * strips any `mcp__<name>__` prefix so the rest of the bridge reasons about
+ * the bare LaPis tool name. The install config's PreToolUse/PostToolUse
+ * matchers are scoped to the installed server name, so in practice these
+ * hooks only ever see the LaPis server's tools.
  *
  * Verified hook → role mapping (issue #208):
  *   PreToolUse:
@@ -33,15 +37,21 @@
 
 const MCP_PREFIX = 'mcp__lapis__';
 
+// Any MCP server name (Claude Code prefixes tools with `mcp__<server>__`).
+// A hardcoded `mcp__lapis__` here would silently kill tool-state mirroring
+// and guardrail seeding for installs that renamed the server via --mcp-name.
+const MCP_TOOL_RE = /^mcp__[A-Za-z0-9_-]+__(.+)$/;
+
 /**
- * Strip the `mcp__lapis__` prefix, returning the bare LaPis tool name (e.g.
- * `memory-code`) or null when the tool is not a LaPis MCP tool.
+ * Strip the `mcp__<server>__` prefix, returning the bare tool name (e.g.
+ * `memory-code`) or null when the tool is not an MCP tool.
  */
 function mcpToolName(toolName) {
-  if (typeof toolName !== 'string' || !toolName.startsWith(MCP_PREFIX)) {
+  if (typeof toolName !== 'string') {
     return null;
   }
-  return toolName.slice(MCP_PREFIX.length);
+  const match = MCP_TOOL_RE.exec(toolName);
+  return match ? match[1] : null;
 }
 
 /** True for any LaPis memory-* MCP tool (memory-save, memory-search, …). */

@@ -32,8 +32,11 @@ const {
   configPaths,
 } = require('./install');
 
-/** Strip LaPis hooks + auto-allow from one settings file. Returns true if changed. */
-function cleanSettingsFile(filePath, mcpName) {
+/**
+ * Strip LaPis hooks + auto-allow rules for every removed server name from one
+ * settings file. Returns true if changed.
+ */
+function cleanSettingsFile(filePath, mcpNames) {
   if (!fs.existsSync(filePath)) {
     return false;
   }
@@ -43,7 +46,9 @@ function cleanSettingsFile(filePath, mcpName) {
   if (settings.hooks && typeof settings.hooks === 'object' && Object.keys(settings.hooks).length === 0) {
     delete settings.hooks;
   }
-  removeAutoAllow(settings, mcpName);
+  for (const name of mcpNames) {
+    removeAutoAllow(settings, name);
+  }
   if (JSON.stringify(settings) === before) {
     return false;
   }
@@ -52,58 +57,66 @@ function cleanSettingsFile(filePath, mcpName) {
 }
 
 /**
- * Delete the named server from an mcpServers map, but only when the sentinel
- * confirms it is a LaPis entry — a user's unrelated server that happens to
- * share the name is left alone. Returns removed names.
+ * Delete every LaPis server from an mcpServers map, whatever it was named —
+ * sentinel identity, not name-keyed lookup, so `uninstall` without
+ * `--mcp-name` still reverses an install that used a custom name. A user's
+ * unrelated server that merely shares the name is left alone (the sentinel
+ * requires the LaPis spawn signature). Returns removed names.
  */
-function removeLapisServers(servers, mcpName) {
+function removeLapisServers(servers) {
   if (!servers || typeof servers !== 'object') {
     return [];
   }
-  if (!(mcpName in servers) || !isLapisMcpEntry(servers[mcpName])) {
-    return [];
+  const removed = [];
+  for (const [name, entry] of Object.entries(servers)) {
+    if (isLapisMcpEntry(entry)) {
+      delete servers[name];
+      removed.push(name);
+    }
   }
-  delete servers[mcpName];
-  return [mcpName];
+  return removed;
 }
 
-/** Remove the project-scope entry from .mcp.json. */
-function cleanProjectMcp(filePath, mcpName) {
+/** Remove the project-scope entries from .mcp.json. Returns removed names. */
+function cleanProjectMcp(filePath) {
   if (!fs.existsSync(filePath)) {
-    return false;
+    return [];
   }
   const config = readJson(filePath);
-  const removed = removeLapisServers(config.mcpServers, mcpName);
+  const removed = removeLapisServers(config.mcpServers);
   if (removed.length === 0) {
-    return false;
+    return [];
   }
   if (config.mcpServers && Object.keys(config.mcpServers).length === 0) {
     delete config.mcpServers;
   }
   writeJsonOrRemove(filePath, config);
-  return true;
+  return removed;
 }
 
 /**
  * Remove LaPis entries from ~/.claude.json. That file also holds OAuth state
  * and per-project caches, so it is mutated surgically and never deleted.
+ * Returns removed server names.
  */
-function cleanClaudeJson(filePath, mcpName, { user, projectKey }) {
+function cleanClaudeJson(filePath, { user, projectKey }) {
   if (!fs.existsSync(filePath)) {
-    return false;
+    return [];
   }
   const config = readJson(filePath);
-  let changed = false;
-  if (user && removeLapisServers(config.mcpServers, mcpName).length > 0) {
-    changed = true;
-    if (Object.keys(config.mcpServers).length === 0) {
+  const removed = [];
+  if (user) {
+    const names = removeLapisServers(config.mcpServers);
+    removed.push(...names);
+    if (names.length > 0 && Object.keys(config.mcpServers).length === 0) {
       delete config.mcpServers;
     }
   }
   if (projectKey && config.projects && typeof config.projects === 'object') {
     const project = config.projects[projectKey];
-    if (project && removeLapisServers(project.mcpServers, mcpName).length > 0) {
-      changed = true;
+    const names = project ? removeLapisServers(project.mcpServers) : [];
+    removed.push(...names);
+    if (names.length > 0) {
       if (Object.keys(project.mcpServers).length === 0) {
         delete project.mcpServers;
       }
@@ -115,10 +128,10 @@ function cleanClaudeJson(filePath, mcpName, { user, projectKey }) {
       }
     }
   }
-  if (changed) {
+  if (removed.length > 0) {
     writeJson(filePath, config);
   }
-  return changed;
+  return removed;
 }
 
 /**
@@ -135,27 +148,34 @@ function runUninstall(argv, io) {
   const cleaned = [];
 
   if (flags.global) {
-    if (cleanSettingsFile(paths.userSettings, flags.mcpName)) {
-      cleaned.push(paths.userSettings);
-    }
-    if (cleanClaudeJson(paths.claudeJson, flags.mcpName, { user: true })) {
+    // MCP first so auto-allow cleanup covers whatever names were removed
+    // (an install renamed via --mcp-name is still fully reversed).
+    const removedNames = cleanClaudeJson(paths.claudeJson, { user: true });
+    if (removedNames.length > 0) {
       cleaned.push(paths.claudeJson);
+    }
+    const mcpNames = [...new Set([flags.mcpName, ...removedNames])];
+    if (cleanSettingsFile(paths.userSettings, mcpNames)) {
+      cleaned.push(paths.userSettings);
     }
     if (removeClaudeMdBlock(paths.userClaudeMd)) {
       cleaned.push(paths.userClaudeMd);
     }
   } else {
-    if (cleanProjectMcp(paths.projectMcp, flags.mcpName)) {
+    const removedNames = cleanProjectMcp(paths.projectMcp);
+    if (removedNames.length > 0) {
       cleaned.push(paths.projectMcp);
     }
-    if (cleanSettingsFile(paths.projectSettings, flags.mcpName)) {
+    const removedLocal = cleanClaudeJson(paths.claudeJson, { projectKey: cwd });
+    if (removedLocal.length > 0) {
+      cleaned.push(paths.claudeJson);
+    }
+    const mcpNames = [...new Set([flags.mcpName, ...removedNames, ...removedLocal])];
+    if (cleanSettingsFile(paths.projectSettings, mcpNames)) {
       cleaned.push(paths.projectSettings);
     }
-    if (cleanSettingsFile(paths.localSettings, flags.mcpName)) {
+    if (cleanSettingsFile(paths.localSettings, mcpNames)) {
       cleaned.push(paths.localSettings);
-    }
-    if (cleanClaudeJson(paths.claudeJson, flags.mcpName, { projectKey: cwd })) {
-      cleaned.push(paths.claudeJson);
     }
     if (removeClaudeMdBlock(paths.projectClaudeMd)) {
       cleaned.push(paths.projectClaudeMd);

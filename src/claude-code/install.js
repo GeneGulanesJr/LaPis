@@ -111,10 +111,12 @@ function resolveInvocation(flags, io) {
 
 /**
  * Rewrite a machine-specific invocation for HOOK entries: a bin path inside
- * the project becomes `${CLAUDE_PROJECT_DIR}/<rel>` — Claude Code sets that
- * env var on spawned hook processes and expands it in exec-form args. MCP
- * server processes do NOT get `CLAUDE_PROJECT_DIR`, so the MCP entry keeps
- * the absolute path; this only applies to the hooks config system.
+ * the project becomes `${CLAUDE_PROJECT_DIR}/<rel>` — Claude Code substitutes
+ * that placeholder in exec-form hooks (both the `command` field and each
+ * `args` element, per the hooks reference) and also exports it as an env var
+ * on the spawned process. Hook config placeholders are NOT expanded for MCP
+ * server entries, so the MCP entry keeps the absolute path; this only applies
+ * to the hooks config system.
  */
 function hookInvocationFor(invocation, { cwd, global: isGlobal }) {
   if (isGlobal || !invocation.machineSpecific) {
@@ -146,34 +148,50 @@ function commandString(entry) {
 // --- sentinel identity -----------------------------------------------------
 
 /**
- * True when a hook handler was written by LaPis. The `claude-code` + `hook`
- * argument grammar is the sentinel — it is LaPis's own subcommand shape, and
- * checking the args (not the command) keeps this true for every resolution
- * strategy including arbitrary `--bin` paths.
+ * True when a hook handler was written by LaPis. The sentinel is the exact
+ * argument grammar the installer emits — an args array containing the adjacent
+ * tokens `claude-code`, `hook`, `<Event>` — which holds for every resolution
+ * strategy (npx, global bin, `node <script>`, arbitrary `--bin` paths). A
+ * loose substring match would false-positive on user scripts with names like
+ * `claude-code-hook.sh` and get them deleted on install/uninstall.
  */
 function isLapisHookHandler(handler) {
-  if (!handler || typeof handler !== 'object') {
+  if (!handler || typeof handler !== 'object' || !Array.isArray(handler.args)) {
     return false;
   }
-  const joined = commandString(handler);
-  return joined.includes('claude-code') && /\bhook\b/.test(joined);
+  const i = handler.args.indexOf('claude-code');
+  return i !== -1 && handler.args[i + 1] === 'hook' && typeof handler.args[i + 2] === 'string';
 }
 
-/** True when an MCP server entry looks like a LaPis server (sentinel). */
+/** Does this path/name look like a LaPis executable or entry script? */
+function isLapisBinName(value) {
+  const base = path.basename(String(value || '')).toLowerCase();
+  return base.startsWith('lapis') || base.startsWith('memory-store') || base === 'cli.js';
+}
+
+/**
+ * True when an MCP server entry is a LaPis server (sentinel identity). This
+ * must be precise enough for name-independent removal on uninstall, so a
+ * generic `npx -y <other-package> mcp` or `node <other-server>.js mcp` must
+ * NOT match: the entry has to spawn `mcp` via the published package name or a
+ * LaPis-named bin/script.
+ */
 function isLapisMcpEntry(entry) {
   if (!entry || typeof entry !== 'object') {
     return false;
   }
-  const joined = commandString(entry);
-  if (joined.includes(PACKAGE_NAME)) {
+  if (commandString(entry).includes(PACKAGE_NAME)) {
     return true;
   }
   const args = Array.isArray(entry.args) ? entry.args : [];
-  const spawnsMcp = args[args.length - 1] === 'mcp';
+  if (args[args.length - 1] !== 'mcp') {
+    return false;
+  }
   const base = path.basename(String(entry.command || '')).toLowerCase();
-  return (
-    spawnsMcp && (base.startsWith('lapis') || base === 'node' || base === 'npx' || base.startsWith('memory-store'))
-  );
+  if (base === 'node' || base === 'node.exe') {
+    return isLapisBinName(args[0]);
+  }
+  return isLapisBinName(entry.command);
 }
 
 // --- hook config builder ---------------------------------------------------
@@ -370,9 +388,31 @@ function readJson(filePath) {
   }
 }
 
+/**
+ * Atomic write (temp file + rename, same pattern as state-store.js): a crash
+ * or ENOSPC mid-write must never leave a truncated config — `~/.claude.json`
+ * also holds the user's OAuth state. Preserves the existing file mode
+ * (`~/.claude.json` is typically 0600).
+ */
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  let mode;
+  try {
+    mode = fs.statSync(filePath).mode & 0o777;
+  } catch {
+    // New file → default mode.
+  }
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(
+    tmpPath,
+    `${JSON.stringify(value, null, 2)}\n`,
+    mode === undefined ? { encoding: 'utf8' } : { encoding: 'utf8', mode },
+  );
+  if (mode !== undefined) {
+    // writeFileSync's mode only applies at creation; enforce it explicitly.
+    fs.chmodSync(tmpPath, mode);
+  }
+  fs.renameSync(tmpPath, filePath);
 }
 
 /** True when a config object carries no meaningful keys anymore. */
@@ -597,16 +637,20 @@ function runInstall(argv, io) {
   const targets = routeTargets(flags, invocation, paths, cwd);
   const written = [];
 
-  // 1. MCP server config (one of the two config systems).
-  const mcpEntry = buildMcpEntry(invocation);
+  // READ PHASE — parse every target file before writing any of them, so a
+  // corrupt file aborts the whole install instead of leaving a half-installed
+  // state (readJson throws on corrupt JSON rather than clobbering it).
   const mcpConfig = readJson(targets.mcp.file);
-  upsertMcpServer(mcpServersFor(mcpConfig, targets.mcp), flags.mcpName, mcpEntry);
+  const settings = readJson(targets.hooksFile);
+
+  // WRITE PHASE.
+  // 1. MCP server config (one of the two config systems).
+  upsertMcpServer(mcpServersFor(mcpConfig, targets.mcp), flags.mcpName, buildMcpEntry(invocation));
   writeJson(targets.mcp.file, mcpConfig);
   written.push(targets.mcp.file);
 
   // 2. Hooks config (the other config system) — plus optional auto-allow.
   const groups = buildHookGroups(hookInvocationFor(invocation, { cwd, global: flags.global }), flags.mcpName);
-  const settings = readJson(targets.hooksFile);
   mergeHookGroups(settings, groups);
   if (flags.autoAllow) {
     addAutoAllow(settings, flags.mcpName);
