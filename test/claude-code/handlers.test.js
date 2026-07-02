@@ -6,6 +6,8 @@ const { handleSessionStart } = require('../../src/claude-code/handlers/session-s
 const { handleUserPromptSubmit } = require('../../src/claude-code/handlers/user-prompt-submit');
 const { handleStop, runStopCapture } = require('../../src/claude-code/handlers/stop');
 const { handleSessionEnd } = require('../../src/claude-code/handlers/session-end');
+const { handlePreToolUse } = require('../../src/claude-code/handlers/pre-tool-use');
+const { handlePostToolUse } = require('../../src/claude-code/handlers/post-tool-use');
 const { runHook } = require('../../src/claude-code/hooks');
 
 // ---- fakes ----
@@ -209,6 +211,287 @@ describe('claude-code handlers: UserPromptSubmit', () => {
     });
 
     expect(stateStore._peek('claude-7').hasInjectedContext).toBe(true);
+  });
+});
+
+// =====================================================================
+// PreToolUse — guardrails + memory-code explored seed
+// =====================================================================
+
+describe('claude-code handlers: PreToolUse', () => {
+  test('Read blocks whole-file code reads in indexed repos until memory-code explored it', async () => {
+    const stateStore = makeStateStore();
+    stateStore.saveState('claude-read', { ...realStateStore.defaultState(), currentProject: 'lapis' });
+
+    const out = await handlePreToolUse({
+      payload: { session_id: 'claude-read', tool_name: 'Read', tool_input: { file_path: '/repo/src/foo.js' }, cwd: '/repo' },
+      getKnownRepos: () => [{ name: 'lapis', path: '/repo' }],
+      stateStore,
+    });
+
+    expect(out.permissionDecision).toBe('deny');
+    expect(out.permissionDecisionReason).toContain('memory-code outline --repo lapis --file src/foo.js');
+  });
+
+  test('Read allows offset/limit, config files, cross-project reads, and explored files', async () => {
+    const stateStore = makeStateStore();
+    stateStore.saveState('claude-read-bypass', {
+      ...realStateStore.defaultState(),
+      exploredFiles: ['src/foo.js', 'foo.js'],
+    });
+    const base = {
+      getKnownRepos: () => [{ name: 'lapis', path: '/repo' }],
+      stateStore,
+    };
+
+    await expect(
+      handlePreToolUse({
+        ...base,
+        payload: {
+          session_id: 'claude-read-bypass',
+          tool_name: 'Read',
+          tool_input: { file_path: '/repo/src/foo.js', offset: 1 },
+          cwd: '/repo',
+        },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      handlePreToolUse({
+        ...base,
+        payload: {
+          session_id: 'claude-read-bypass',
+          tool_name: 'Read',
+          tool_input: { file_path: '/repo/package.json' },
+          cwd: '/repo',
+        },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      handlePreToolUse({
+        ...base,
+        payload: {
+          session_id: 'claude-read-bypass',
+          tool_name: 'Read',
+          tool_input: { file_path: '/elsewhere/src/foo.js' },
+          cwd: '/repo',
+        },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      handlePreToolUse({
+        ...base,
+        payload: {
+          session_id: 'claude-read-bypass',
+          tool_name: 'Read',
+          tool_input: { file_path: '/repo/src/foo.js' },
+          cwd: '/repo',
+        },
+      }),
+    ).resolves.toBeNull();
+  });
+
+  test('Grep blocks broad searches but allows targeted single-file lookup', async () => {
+    const stateStore = makeStateStore();
+    const base = {
+      getKnownRepos: () => [{ name: 'lapis', path: '/repo' }],
+      stateStore,
+    };
+
+    const blocked = await handlePreToolUse({
+      ...base,
+      payload: {
+        session_id: 'claude-grep',
+        tool_name: 'Grep',
+        tool_input: { pattern: 'function .*', path: '/repo/src' },
+        cwd: '/repo',
+      },
+    });
+    expect(blocked.permissionDecision).toBe('deny');
+    expect(blocked.permissionDecisionReason).toContain('memory-code search --repo lapis');
+
+    const allowed = await handlePreToolUse({
+      ...base,
+      payload: {
+        session_id: 'claude-grep',
+        tool_name: 'Grep',
+        tool_input: { pattern: 'rankObservations', path: '/repo/src/ranking.js' },
+        cwd: '/repo',
+      },
+    });
+    expect(allowed).toBeNull();
+  });
+
+  test('Bash search guardrail allows piped filters and blocks raw find', async () => {
+    const stateStore = makeStateStore();
+    const base = {
+      getKnownRepos: () => [{ name: 'lapis', path: '/repo' }],
+      stateStore,
+    };
+
+    await expect(
+      handlePreToolUse({
+        ...base,
+        payload: {
+          session_id: 'claude-bash',
+          tool_name: 'Bash',
+          tool_input: { command: 'npm test 2>&1 | grep failed' },
+          cwd: '/repo',
+        },
+      }),
+    ).resolves.toBeNull();
+
+    const blocked = await handlePreToolUse({
+      ...base,
+      payload: {
+        session_id: 'claude-bash',
+        tool_name: 'Bash',
+        tool_input: { command: 'find src -name "*.js"' },
+        cwd: '/repo',
+      },
+    });
+    expect(blocked.permissionDecision).toBe('deny');
+  });
+
+  test('mcp memory-code seeds exploredFiles and resets reminder cadence', async () => {
+    const stateStore = makeStateStore();
+    stateStore.saveState('claude-memory-code', { ...realStateStore.defaultState(), callsSinceLastMemory: 4 });
+
+    const out = await handlePreToolUse({
+      payload: {
+        session_id: 'claude-memory-code',
+        tool_name: 'mcp__lapis__memory-code',
+        tool_input: { file: 'src/foo.js' },
+      },
+      getKnownRepos: () => [{ name: 'lapis', path: '/repo' }],
+      stateStore,
+    });
+
+    expect(out).toBeNull();
+    const state = stateStore._peek('claude-memory-code');
+    expect(state.callsSinceLastMemory).toBe(0);
+    expect(state.lastMemoryToolCall).toBeGreaterThan(0);
+    expect(state.exploredFiles).toContain('src/foo.js');
+    expect(state.exploredFiles).toContain('foo.js');
+  });
+});
+
+// =====================================================================
+// PostToolUse — tracking + process-boundary memory state mirroring
+// =====================================================================
+
+describe('claude-code handlers: PostToolUse', () => {
+  test('tracks edited files for Write/Edit/MultiEdit tools', async () => {
+    const stateStore = makeStateStore();
+    await handlePostToolUse({
+      payload: { session_id: 'claude-edit', tool_name: 'Edit', tool_input: { file_path: '/repo/src/foo.js' } },
+      dispatch: makeFakeDispatch().dispatch,
+      getKnownRepos: () => [],
+      stateStore,
+    });
+    expect(stateStore._peek('claude-edit').editedFiles).toEqual(['/repo/src/foo.js']);
+  });
+
+  test('mirrors memory-save success but not duplicate warnings', async () => {
+    const stateStore = makeStateStore();
+    const base = {
+      dispatch: makeFakeDispatch().dispatch,
+      getKnownRepos: () => [],
+      stateStore,
+    };
+
+    await handlePostToolUse({
+      ...base,
+      payload: {
+        session_id: 'claude-save',
+        tool_name: 'mcp__lapis__memory-save',
+        tool_response: 'Memory saved: [#5] Decision',
+      },
+    });
+    expect(stateStore._peek('claude-save').memoriesSavedThisSession).toBe(1);
+
+    await handlePostToolUse({
+      ...base,
+      payload: {
+        session_id: 'claude-save',
+        tool_name: 'mcp__lapis__memory-save',
+        tool_response: 'Potential duplicate detected:\n- [#5] Existing',
+      },
+    });
+    expect(stateStore._peek('claude-save').memoriesSavedThisSession).toBe(1);
+  });
+
+  test('mirrors memory-search pending recall and memory-get removes useful ids', async () => {
+    const stateStore = makeStateStore();
+    stateStore.saveState('claude-search', { ...realStateStore.defaultState(), sessionId: 42 });
+    const base = {
+      dispatch: makeFakeDispatch().dispatch,
+      getKnownRepos: () => [],
+      stateStore,
+    };
+
+    await handlePostToolUse({
+      ...base,
+      payload: {
+        session_id: 'claude-search',
+        tool_name: 'mcp__lapis__memory-search',
+        tool_input: { query: 'bridge state' },
+        tool_response: 'Found 2 memories:\n- [#5] [decision] A\n- [#6] [bugfix] B',
+      },
+    });
+    expect(stateStore._peek('claude-search').pendingRecallFeedback).toEqual([
+      [5, { sessionId: 42, query: 'bridge state' }],
+      [6, { sessionId: 42, query: 'bridge state' }],
+    ]);
+
+    await handlePostToolUse({
+      ...base,
+      payload: {
+        session_id: 'claude-search',
+        tool_name: 'mcp__lapis__memory-get',
+        tool_input: { id: 5 },
+        tool_response: '## #5 - A',
+      },
+    });
+    expect(stateStore._peek('claude-search').pendingRecallFeedback).toEqual([
+      [6, { sessionId: 42, query: 'bridge state' }],
+    ]);
+  });
+
+  test('harvests explored files from memory-code responses', async () => {
+    const stateStore = makeStateStore();
+    await handlePostToolUse({
+      payload: {
+        session_id: 'claude-code',
+        tool_name: 'mcp__lapis__memory-code',
+        tool_response: '**File outline**\nsrc/foo.js: function foo\nextensions/bar.ts',
+      },
+      dispatch: makeFakeDispatch().dispatch,
+      getKnownRepos: () => [],
+      stateStore,
+    });
+    expect(stateStore._peek('claude-code').exploredFiles).toEqual(
+      expect.arrayContaining(['src/foo.js', 'foo.js', 'extensions/bar.ts', 'bar.ts']),
+    );
+  });
+
+  test('dispatches sync-code-trust after git operations', async () => {
+    const stateStore = makeStateStore();
+    stateStore.saveState('claude-git', { ...realStateStore.defaultState(), currentProject: 'lapis' });
+    const { dispatch, calls } = makeFakeDispatch();
+
+    await handlePostToolUse({
+      payload: {
+        session_id: 'claude-git',
+        tool_name: 'Bash',
+        tool_input: { command: 'git pull origin main' },
+        cwd: '/repo',
+      },
+      dispatch,
+      getKnownRepos: () => [{ name: 'lapis', path: '/repo' }],
+      stateStore,
+    });
+
+    expect(hasCall(calls, 'sync-code-trust', (a) => a.repo === 'lapis')).toBe(true);
   });
 });
 
@@ -491,7 +774,7 @@ describe('claude-code router (hooks.js)', () => {
 
   test('unknown event is a no-op (never crashes the host)', async () => {
     const { dispatch, calls } = makeFakeDispatch();
-    await runHook(['hook', 'PreToolUse'], {
+    await runHook(['hook', 'ImaginaryEvent'], {
       ensureDb: false,
       stdin: JSON.stringify({ session_id: 'r-2' }),
       dispatch,

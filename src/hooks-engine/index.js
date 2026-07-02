@@ -19,5 +19,6 @@ module.exports = {
   ...require('./passive-capture'),
   ...require('./session-summary'),
   ...require('./guardrail-utils'),
+  ...require('./tool-response-parse'),
   ...require('./project'),
 };

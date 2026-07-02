@@ -1,6 +1,9 @@
 const {
   isPipedOutputFilter,
+  isTargetedGrepPattern,
   isTargetedSymbolLookup,
+  isBroadGlobPattern,
+  isCodeFile,
   CONFIG_FILENAMES,
   RAW_CODE_DISCOVERY_RE,
   CODE_PATH_HINT_RE,
@@ -39,6 +42,33 @@ describe('hooks-engine guardrail-utils: isPipedOutputFilter', () => {
 
   test('does not treat direct grep as output filtering', () => {
     expect(isPipedOutputFilter('grep -rn "rankObservations" src/')).toBe(false);
+  });
+});
+
+describe('hooks-engine guardrail-utils: isTargetedGrepPattern', () => {
+  test('allows a simple symbol scoped to a single code file', () => {
+    expect(isTargetedGrepPattern('rankObservations', 'src/ranking.js')).toBe(true);
+  });
+
+  test('blocks regex patterns and directory-wide scope', () => {
+    expect(isTargetedGrepPattern('rank.*Observations', 'src/ranking.js')).toBe(false);
+    expect(isTargetedGrepPattern('rankObservations', 'src')).toBe(false);
+  });
+});
+
+describe('hooks-engine guardrail-utils: isBroadGlobPattern', () => {
+  test('detects broad repository discovery globs', () => {
+    expect(isBroadGlobPattern('**/*')).toBe(true);
+    expect(isBroadGlobPattern('src/**/*.js')).toBe(true);
+    expect(isBroadGlobPattern('*.md')).toBe(false);
+  });
+});
+
+describe('hooks-engine guardrail-utils: isCodeFile', () => {
+  test('matches the memory-layer code-file extension set', () => {
+    expect(isCodeFile('src/foo.ts')).toBe(true);
+    expect(isCodeFile('lib/foo.rb')).toBe(true);
+    expect(isCodeFile('README.md')).toBe(false);
   });
 });
 

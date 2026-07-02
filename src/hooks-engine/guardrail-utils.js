@@ -1,5 +1,7 @@
 'use strict';
 
+const path = require('node:path');
+
 /**
  * hooks-engine: guardrail-utils
  *
@@ -161,11 +163,88 @@ const CONFIG_FILENAMES = new Set([
 const RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i;
 const CODE_PATH_HINT_RE =
   /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java)\b|(^|\s)(src|lib|app|test|tests|extensions|commands|data-access|services)\b/i;
+const REGEX_META_RE = /[.*+?|^$()[\]{}\\]/;
+const BROAD_GLOB_RE = /^(?:\*\*\/\*|\*\*\/\*\.\*|\*|\*\.\*|\.|\.\/*)$/;
+
+const CODE_EXTENSIONS = new Set([
+  '.js',
+  '.ts',
+  '.tsx',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.py',
+  '.pyi',
+  '.pyx',
+  '.go',
+  '.rs',
+  '.sh',
+  '.bash',
+  '.json',
+  '.jsonc',
+  '.yaml',
+  '.yml',
+  '.rb',
+  '.java',
+  '.kt',
+  '.swift',
+  '.c',
+  '.h',
+  '.cpp',
+  '.hpp',
+  '.cs',
+  '.scala',
+  '.clj',
+  '.ex',
+  '.exs',
+  '.erl',
+  '.hs',
+  '.ml',
+  '.zig',
+]);
+
+function isCodeFile(filePath) {
+  if (typeof filePath !== 'string' || !filePath) {
+    return false;
+  }
+  return CODE_EXTENSIONS.has(path.extname(filePath).toLowerCase());
+}
+
+function isTargetedGrepPattern(pattern, searchPath) {
+  if (typeof pattern !== 'string') {
+    return false;
+  }
+  const trimmed = pattern.trim();
+  if (trimmed.length < MIN_SYMBOL_LENGTH) {
+    return false;
+  }
+  if (REGEX_META_RE.test(trimmed) || trimmed.includes('|')) {
+    return false;
+  }
+  if (typeof searchPath !== 'string' || !searchPath.trim()) {
+    return false;
+  }
+  return isCodeFile(searchPath.trim());
+}
+
+function isBroadGlobPattern(pattern) {
+  if (typeof pattern !== 'string') {
+    return false;
+  }
+  const trimmed = pattern.trim();
+  if (BROAD_GLOB_RE.test(trimmed)) {
+    return true;
+  }
+  return /\*\*\/\*/.test(trimmed) && !/\.(?:md|txt|json|jsonc|yaml|yml)$/.test(trimmed);
+}
 
 module.exports = {
   splitPipeline,
   isPipedOutputFilter,
   isTargetedSymbolLookup,
+  isTargetedGrepPattern,
+  isBroadGlobPattern,
+  isCodeFile,
   CONFIG_FILENAMES,
   RAW_CODE_DISCOVERY_RE,
   CODE_PATH_HINT_RE,
