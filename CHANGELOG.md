@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Claude Code bridge — Phase 6: docs + package.json + polish** (#211, part of #205).
+  - New [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md) — install guide, hook → feature mapping,
+    two-config layout, state storage, first-use MCP approval, deliberate Pi divergences,
+    troubleshooting (silent DB init, stdio-only errors, hooks fail open), and deferred
+    output-compression follow-up.
+  - README "Use with Claude Code" install subsection; updates to
+    [`docs/COMMANDS.md`](docs/COMMANDS.md), [`docs/INDEX.md`](docs/INDEX.md),
+    [`docs/SKILL.md`](docs/SKILL.md).
+  - `package.json`: explicit `src/claude-code/` + `src/hooks-engine/` in `files`;
+    `"./claude-code"` export; optional `lapis-cc` bin alias.
+  - Review polish: hook table adds `MultiEdit` and PostToolUse `memory-code` harvest;
+    documents `lapis-cc` alias; fixes relative doc links.
+
 - **Claude Code bridge — Phase 5: daemon mode + POST /dispatch (optional perf tier)** (#210, part of #205).
   - `POST /dispatch` on the existing HTTP server — wraps `gateway.dispatch(cmd, args)`
     and returns the raw gateway JSON (including `{error}` envelopes for unknown cmds).

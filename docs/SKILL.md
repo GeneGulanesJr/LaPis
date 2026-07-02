@@ -6,6 +6,8 @@ This is the companion skill doc for the `skills/memory-layer/SKILL.md` extension
 
 The memory layer provides persistent memory capabilities for the Pi coding agent. It runs as a Pi extension with a local SQLite backend, providing observation CRUD, code indexing, code analysis, doc indexing, trust scoring, and session lifecycle management — all without cloud dependencies or API keys.
 
+The same backend also powers a [Claude Code CLI](https://code.claude.com/docs/en/overview) integration (`lapis claude-code install`) that wires MCP tools plus lifecycle hooks for context injection, guardrails, passive capture, and session tracking. See [`CLAUDE_CODE.md`](CLAUDE_CODE.md).
+
 ## Key Capabilities
 
 - **Declarative memory** — save, search, update, and delete observations (decisions, bugfixes, patterns, discoveries).
@@ -15,8 +17,11 @@ The memory layer provides persistent memory capabilities for the Pi coding agent
 - **Trust scoring** — memories linked to changed code lose confidence; stable linked code recovers trust.
 - **HTTP server** — optional REST API for programmatic access to the Aurex domain model and code analysis.
 - **Auto-detection** — the extension automatically captures decisions, bugfixes, and discoveries from assistant messages.
+- **Claude Code bridge** — first-class CLI integration via MCP + hooks (`lapis claude-code install`).
 
 ## See Also
+
+- [`CLAUDE_CODE.md`](CLAUDE_CODE.md) — Claude Code install, hook mapping, troubleshooting
 
 - [`../skills/memory-layer/SKILL.md`](../skills/memory-layer/SKILL.md) — complete extension skill reference
 - [`API.md`](API.md) — HTTP API and CLI reference

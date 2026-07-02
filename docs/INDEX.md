@@ -28,6 +28,7 @@ Run `npm test` to regenerate. The previous numbers (89 / 1454 / 1455) reflected 
 | Step-by-step usage tutorial          | [`docs/TUTORIAL.md`](TUTORIAL.md)                |
 | Async code indexing                  | [`docs/code-indexing.md`](code-indexing.md)      |
 | Extension skill overview             | [`docs/SKILL.md`](SKILL.md)                      |
+| Claude Code CLI integration          | [`docs/CLAUDE_CODE.md`](CLAUDE_CODE.md)          |
 | Memory layer skill (authoritative)   | [`../skills/memory-layer/SKILL.md`](../skills/memory-layer/SKILL.md) |
 | Token efficiency benchmark           | [`../bench/README.md`](../bench/README.md)       |
 | Module boundaries diagram            | [`docs/diagrams/lapis-module-boundaries.png`](diagrams/lapis-module-boundaries.png) |
@@ -51,6 +52,7 @@ Grouped by router under `src/cli/commands/`. Full syntax in [`docs/COMMANDS.md`]
 - **Agent intel**: `preflight`, `agent-pack`, `dupes`, `enrich-symbols`, `symbol-meta`, `audit-diff`, `runtime-ingest`, `hot-symbols`, `cold-symbols`, `blast`, `stale-flags`
 - **Token saver**: `run`, `token-saver-stats`, `token-saver-clear`
 - **Top-level**: `serve` (HTTP)
+- **Claude Code bridge**: `claude-code install`, `uninstall`, `doctor`, `start`, `stop`, `hook <event>`
 
 ### HTTP endpoints
 

@@ -18,7 +18,8 @@
   "bin": {
     "lapis": "./memory-store.js",
     "memory-store": "./memory-store.js",
-    "lapis-mcp": "./memory-store.js"
+    "lapis-mcp": "./memory-store.js",
+    "lapis-cc": "./memory-store.js"
   },
   "directories": {
     "doc": "docs"
@@ -42,6 +43,8 @@
     "data-access/",
     "services/",
     "src/",
+    "src/claude-code/",
+    "src/hooks-engine/",
     "extensions/",
     "skills/",
     "grammars/",
@@ -53,6 +56,7 @@
     ".": "./memory-store.js",
     "./cli": "./cli.js",
     "./memory-store": "./memory-store.js",
+    "./claude-code": "./src/claude-code/hooks.js",
     "./hooks-engine": "./src/hooks-engine/index.js",
     "./extension": "./extensions/memory-layer/index.ts",
     "./code-analysis": "./src/code-analysis/index.js",

@@ -54,6 +54,19 @@ LaPis does not install npm dependencies at runtime. If you are running from a lo
 npm install
 ```
 
+### Use with Claude Code
+
+LaPis also integrates with the [Claude Code CLI](https://code.claude.com/docs/en/overview) — same persistent memory, code guardrails, and session lifecycle as the Pi extension, wired through Claude Code's MCP + hooks config.
+
+```bash
+npx -y @genegulanesjr/lapis claude-code install
+npx -y @genegulanesjr/lapis claude-code doctor   # verify install
+```
+
+This writes `.mcp.json` (MCP tools) and `.claude/settings.json` (lifecycle hooks). On first use, approve the LaPis MCP server via `/mcp` in an interactive `claude` session.
+
+Full setup, hook mapping, troubleshooting, and install flags: [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md).
+
 ## What It Does
 
 - **Remembers across sessions** - decisions, bugfixes, patterns, discoveries, and constraints persist.
