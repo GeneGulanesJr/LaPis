@@ -98,9 +98,9 @@ Durable, non-obvious notes for developing LaPis in the Cursor Cloud VM. The star
 
 ### Node runtime (pinned to 26.4.0)
 
-- The dev runtime is **Node 26.4.0** (nvm default: `nvm alias default 26.4.0`). Older nvm Node 22 has been removed.
-- Gotcha: the base image's `~/.bashrc` sources nvm and then prepends Pi's bundled Node (`~/.local/share/pi-node/.../v22.23.1/bin`), which would otherwise win. A trailing line in `~/.bashrc` re-prepends `~/.nvm/versions/node/v26.4.0/bin` so **login/interactive shells resolve to 26.4.0**. Verify with `bash -lc 'node -v'` → `v26.4.0`.
-- Two Node 22 binaries intentionally remain and must **not** be deleted: `/exec-daemon/node` (backs the agent shell/tooling) and `~/.local/share/pi-node/...v22.23.1` (Pi's bundled runtime + the `pi` launcher). They are overridden on `PATH`, not removed.
+- The dev runtime is **Node 26.4.0** (nvm default: `nvm alias default 26.4.0`). The older nvm Node 22 and Pi's bundled Node `v22.23.1` have both been removed.
+- A trailing line in `~/.bashrc` prepends `~/.nvm/versions/node/v26.4.0/bin` so **login/interactive shells resolve to 26.4.0** regardless of other node shims. Verify with `bash -lc 'node -v'` → `v26.4.0`.
+- One Node 22 binary intentionally remains and must **not** be deleted: `/exec-daemon/node` (v22.14.0) backs the agent shell/tooling. It is owned by another uid and is overridden on `PATH`, not removed. (`nvm ls` reports it as `system`.)
 - `better-sqlite3` is a native module. If the Node major version changes, run `npm install` again so the binding matches the running ABI (empirically the prebuilt binary loads across Node 22 and 26, but reinstalling is the safe path).
 
 ### Running / testing (standard commands — see `CONTRIBUTING.md` and `docs/API.md`)
@@ -112,5 +112,6 @@ Durable, non-obvious notes for developing LaPis in the Cursor Cloud VM. The star
 
 ### Pi extension
 
-- Install/refresh into Pi with `pi install git:github.com/GeneGulanesJr/LaPis`; `pi list` shows it as a user package. Pi is configured with the `minimax` provider.
-- Pi launches the extension via `#!/usr/bin/env node`, so with the `PATH` setup above it runs on Node 26.4.0. Non-interactive runs use `pi --print --mode json` (text `--print` buffers output until the turn completes, so a killed/timed-out run prints nothing — prefer `--mode json` for streaming/inspection).
+- Pi (`@earendil-works/pi-coding-agent`) is installed **globally under Node 26** (`~/.nvm/versions/node/v26.4.0/bin/pi`), not via the removed bundled `pi-node` runtime. Reinstall with `npm i -g @earendil-works/pi-coding-agent` if needed.
+- Install/refresh the LaPis extension into Pi with `pi install git:github.com/GeneGulanesJr/LaPis`; `pi list` shows it as a user package. Pi is configured with the `minimax` provider.
+- Pi launches via `#!/usr/bin/env node`, so it runs on Node 26.4.0. Non-interactive runs use `pi --print --mode json` (text `--print` buffers output until the turn completes, so a killed/timed-out run prints nothing — prefer `--mode json` for streaming/inspection).
