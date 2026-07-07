@@ -13,7 +13,6 @@
  * registerSessionCompact.
  */
 
-const path = require('node:path');
 const { resolveCwd } = require('../../hooks-engine/project');
 const { resolveProjectForCwd } = require('../project-resolve');
 const { buildInjectedContext } = require('../context-inject');

@@ -12,12 +12,14 @@
  * Mirrors extensions/.../hooks/session-lifecycle.ts registerSessionShutdown.
  */
 
+const { resolveCwd } = require('../../hooks-engine/project');
 const { resolveProjectForCwd } = require('../project-resolve');
 const { buildSessionSummary } = require('../../hooks-engine/session-summary');
 const { readTranscript } = require('../hooks-engine/transcript-reader');
 
 async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore, getKnownRepos, getKnownProjects }) {
-  const { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
+  const cwd = resolveCwd(payload.cwd);
+  const { project } = resolveProjectForCwd(cwd, getKnownRepos, getKnownProjects);
   const claudeSessionId = payload.session_id;
 
   const state = stateStore.loadState(claudeSessionId);
@@ -39,7 +41,7 @@ async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore,
     turnCount: state.turnCount,
     memoriesSaved: memories,
     editedFiles: state.editedFiles,
-    cwd: payload.cwd,
+    cwd,
   });
 
   try {

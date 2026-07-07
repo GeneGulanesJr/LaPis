@@ -27,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     when several indexed repos overlap.
   - **Compact cwd refresh:** `SessionStart(compact)` updates `currentProject`
     when cwd resolves to a different project key.
+  - **Polish:** MCP `detectMcpProject` reuses `dispatch-client` DB helpers;
+    `SessionEnd` summary uses `resolveCwd` for relative file paths.
 
 - **Claude Code bridge — issue #205 post-review hardening** (follow-up to #234).
   - **Stop / UserPromptSubmit state races (#228):** Stop and UserPromptSubmit now

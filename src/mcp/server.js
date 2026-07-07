@@ -15,6 +15,7 @@ const { ListToolsRequestSchema, CallToolRequestSchema } = require('@modelcontext
 const { tools } = require('./tools');
 const { toCallToolResult } = require('./translate-result');
 const { resolveCwd, projectFromCwd, resolveProjectKey } = require('../hooks-engine/project');
+const { getKnownRepos, getKnownProjects } = require('../claude-code/dispatch-client');
 
 const SERVER_NAME = 'lapis';
 const SERVER_VERSION = require('../../package.json').version || '0.0.0';
@@ -27,18 +28,7 @@ const SERVER_VERSION = require('../../package.json').version || '0.0.0';
 function detectMcpProject(cwd) {
   const resolved = path.resolve(resolveCwd(cwd));
   try {
-    const { sqlJson } = require('../../db');
-    const repos = sqlJson('SELECT name, path, indexed_at FROM code_repos') || [];
-    const rows =
-      sqlJson(`
-        SELECT project
-        FROM observations
-        WHERE deleted_at IS NULL AND type != 'skill'
-          AND project IS NOT NULL AND project != ''
-        GROUP BY project
-      `) || [];
-    const knownProjects = rows.map((r) => r.project).filter(Boolean);
-    return resolveProjectKey(resolved, repos, knownProjects);
+    return resolveProjectKey(resolved, getKnownRepos(), getKnownProjects());
   } catch {
     return projectFromCwd(resolved);
   }
