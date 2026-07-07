@@ -171,7 +171,6 @@ See [`docs/MCP.md`](MCP.md) for capability comparison and host configuration.
 
 - [`CLAUDE_CODE.md`](CLAUDE_CODE.md) — Claude Code install and hooks
 - [`MCP.md`](MCP.md) — standalone MCP server
-
 - [`API.md`](API.md) — full HTTP API and CLI reference
 - [`COMMANDS.md`](COMMANDS.md) — complete CLI command reference
 - [`CONFIGURATION.md`](CONFIGURATION.md) — configuration options

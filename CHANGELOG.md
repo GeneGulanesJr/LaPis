@@ -22,6 +22,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Documentation review nits (PR #240)**
+  - [`docs/MCP.md`](docs/MCP.md) — `lapis-mcp` requires the `mcp` subcommand; fix source links for `hooks-engine/project` and `project-db`; add `index-status` tool; clarify no `./mcp` npm export.
+  - [`docs/COMMANDS.md`](docs/COMMANDS.md), [`docs/INDEX.md`](docs/INDEX.md) — align MCP bin invocation with CLI routing.
+  - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — tidy See Also list formatting.
+
 - **Claude Code bridge — issue #205 review follow-ups**
   - **Monorepo project detection:** `resolveProjectKey` / `resolveIndexedRepo` in
     `hooks-engine/project.js` prefer indexed repo path prefix over cwd basename,

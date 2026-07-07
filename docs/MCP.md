@@ -12,13 +12,14 @@ From a project directory:
 npx -y @genegulanesjr/lapis mcp
 ```
 
-Or via the `lapis-mcp` bin alias:
+Or with the published bin aliases (the `mcp` subcommand is required — the bins delegate to `memory-store.js`):
 
 ```bash
-lapis-mcp
+lapis mcp
+lapis-mcp mcp
 ```
 
-The server speaks MCP over **stdio**. Configure your MCP host to spawn the command above (see each host's MCP config format).
+The server speaks MCP over **stdio**. Configure your MCP host to spawn one of the commands above (see each host's MCP config format).
 
 ### Claude Code project config
 
@@ -57,7 +58,7 @@ The MCP server derives the active project key from the client's working director
 2. **Known memory projects** — basename walk over parent directories against `list-projects` names.
 3. **Basename fallback** — lowercased directory basename (same heuristic as early MCP builds).
 
-This uses the shared [`hooks-engine/project`](MODULE_MAP.md) helpers and [`platform/project-db`](MODULE_MAP.md) cache — the same resolution path as the Claude Code bridge.
+This uses the shared [`src/hooks-engine/project.js`](../src/hooks-engine/project.js) helpers and [`src/platform/project-db.js`](../src/platform/project-db.js) cache — the same resolution path as the Claude Code bridge.
 
 Set `CLAUDE_PROJECT_DIR` when the MCP host runs LaPis from a different cwd than the project root (Claude Code sets this automatically).
 
@@ -68,6 +69,7 @@ Tools are defined in `src/mcp/tools.js` and map to `gateway.dispatch()` commands
 - **Memory**: `memory-save`, `memory-update`, `memory-delete`, `memory-get`, `memory-search`, `memory-related`, `memory-load-context`, `memory-sync-code-trust`
 - **Code**: `memory-code` (modes: search, outline, callers, callees, …)
 - **Docs**: `memory-doc` (modes: search, outline, backlinks, …)
+- **Indexing**: `index-status` (poll async `index-repo` jobs)
 
 Full tool schemas are returned by the MCP `list_tools` request at runtime.
 
@@ -83,14 +85,15 @@ MCP host
 
 `src/mcp/server.js` owns framing, tool listing, and result translation (`translate-result.js`). It does **not** contain feature logic, SQL, or hook behavior. See [`MODULE_MAP.md`](MODULE_MAP.md).
 
-## npm export
+## Programmatic use
+
+MCP is started via the CLI (`lapis mcp`). There is no `./mcp` subpath in `package.json` exports. For tests or custom hosts in a local clone:
 
 ```js
-// Programmatic server construction (tests, custom hosts)
-const { createServer } = require('@genegulanesjr/lapis/mcp'); // if exported — otherwise require('./src/mcp/server')
+const { createServer } = require('./src/mcp/server');
 ```
 
-The published package exposes MCP via the `lapis mcp` / `lapis-mcp` CLI entry point (`memory-store.js` → `cli.js`).
+Published npm installs should spawn `npx -y @genegulanesjr/lapis mcp` (or `lapis mcp` / `lapis-mcp mcp` on PATH) rather than requiring the module directly.
 
 ## Shared storage
 

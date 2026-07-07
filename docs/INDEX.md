@@ -9,7 +9,7 @@ LaPis ships one backend with three client integrations:
 | Transport | Entry point | Config | Hooks & guardrails |
 | --- | --- | --- | --- |
 | **Pi extension** (primary) | `pi install git:github.com/GeneGulanesJr/LaPis` | Pi extension registry | Full — in-process hooks, tools, session lifecycle |
-| **MCP server** (tools only) | `lapis mcp` / `lapis-mcp` | Host-specific MCP config | Tool surface only |
+| **MCP server** (tools only) | `lapis mcp` (or `lapis-mcp mcp`) | Host-specific MCP config | Tool surface only |
 | **Claude Code** (MCP + hooks) | `lapis claude-code install` | `.mcp.json` + `.claude/settings.json` | Full parity with Pi via hook bridge |
 
 Shared hook logic lives in [`src/hooks-engine/`](../src/hooks-engine/) and is consumed by both the Pi extension and the Claude Code bridge. See [`docs/ARCHITECTURE.md`](ARCHITECTURE.md).

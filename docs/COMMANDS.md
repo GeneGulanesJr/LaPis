@@ -184,7 +184,7 @@ Expose LaPis tools over the Model Context Protocol (stdio). Tools only — no ho
 
 ```bash
 node memory-store.js mcp
-# or: lapis-mcp
+# or: lapis mcp / lapis-mcp mcp
 ```
 
 Full setup, project detection, and capability comparison: [`MCP.md`](MCP.md).
