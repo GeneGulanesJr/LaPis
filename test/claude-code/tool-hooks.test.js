@@ -295,6 +295,27 @@ describe('claude-code PostToolUse: edit-track + git-trust', () => {
     expect(calls.some((c) => c.cmd === 'sync-code-trust' && c.args.repo === 'app')).toBe(true);
   });
 
+  test('git pull from a monorepo subdir resolves repo by path prefix (#205 review)', async () => {
+    const monorepoRepos = () => [{ name: 'my-monorepo', path: '/proj/my-monorepo' }];
+    const stateStore = makeStateStore({
+      s: { ...realStateStore.defaultState(), currentProject: 'foo' },
+    });
+    const { dispatch, calls } = makeFakeDispatch();
+    await handlePostToolUse({
+      payload: {
+        session_id: 's',
+        tool_name: 'Bash',
+        tool_input: { command: 'git pull origin main' },
+        cwd: '/proj/my-monorepo/packages/foo',
+      },
+      dispatch,
+      getKnownRepos: monorepoRepos,
+      stateStore,
+      roleFilter: { only: 'git-trust' },
+    });
+    expect(calls.some((c) => c.cmd === 'sync-code-trust' && c.args.repo === 'my-monorepo')).toBe(true);
+  });
+
   test('MultiEdit records each edited file path', async () => {
     const stateStore = makeStateStore();
     const { dispatch } = makeFakeDispatch();

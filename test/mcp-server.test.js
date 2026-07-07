@@ -269,6 +269,30 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
     expect(projectFromCwd('/home/user/MyProject')).toBe('myproject');
     expect(projectFromCwd('/tmp/lapis-test')).toBe('lapis-test');
   });
+
+  it('detectMcpProject prefers indexed repo path over cwd basename', () => {
+    const dbPath = require.resolve('../db');
+    const realDb = require(dbPath);
+    const prev = require.cache[dbPath].exports;
+    require.cache[dbPath].exports = {
+      ...realDb,
+      sqlJson: (sql) => {
+        if (sql.includes('code_repos')) {
+          return [{ name: 'my-monorepo', path: '/repos/my-monorepo', indexed_at: '2026-01-01' }];
+        }
+        if (sql.includes('FROM observations')) {
+          return [];
+        }
+        return realDb.sqlJson ? realDb.sqlJson(sql) : [];
+      },
+    };
+    try {
+      const { detectMcpProject } = require('../src/mcp/server');
+      expect(detectMcpProject('/repos/my-monorepo/packages/foo')).toBe('my-monorepo');
+    } finally {
+      require.cache[dbPath].exports = prev;
+    }
+  });
 });
 
 // --- startMcpServer error handling ---

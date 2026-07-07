@@ -153,6 +153,26 @@ describe('claude-code handlers: SessionStart', () => {
     expect(out.hookSpecificOutput.hookEventName).toBe('SessionStart');
   });
 
+  test('compact refreshes currentProject when cwd resolves to a different indexed repo', async () => {
+    const stateStore = makeStateStore();
+    stateStore.saveState('claude-compact', {
+      ...realStateStore.defaultState(),
+      sessionId: 77,
+      currentProject: 'foo',
+    });
+    const monorepoRepos = () => [{ name: 'my-monorepo', path: '/repos/my-monorepo' }];
+    const { dispatch } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
+
+    await handleSessionStart({
+      payload: { session_id: 'claude-compact', source: 'compact', cwd: '/repos/my-monorepo/packages/foo' },
+      dispatch,
+      getKnownRepos: monorepoRepos,
+      stateStore,
+    });
+
+    expect(stateStore._peek('claude-compact').currentProject).toBe('my-monorepo');
+  });
+
   test('startup passes the stored numeric sessionId as session-id to context', async () => {
     const { dispatch, calls } = makeFakeDispatch({
       'session-start': () => ({ sessionId: 55, sessionCount: 0 }),
@@ -525,6 +545,40 @@ describe('claude-code handlers: SessionEnd', () => {
     });
 
     expect(hasCall(calls, 'session-end', (a) => a.memories === '2')).toBe(true);
+    const summaryCall = calls.find((c) => c.cmd === 'session-summary');
+    expect(summaryCall?.args?.content).toMatch(/2 memories saved/);
+  });
+
+  test('summary relative paths use resolveCwd (CLAUDE_PROJECT_DIR)', async () => {
+    const prev = process.env.CLAUDE_PROJECT_DIR;
+    process.env.CLAUDE_PROJECT_DIR = '/resolved/project';
+    try {
+      const stateStore = makeStateStore();
+      stateStore.saveState('claude-cwd', {
+        ...realStateStore.defaultState(),
+        sessionId: 1,
+        editedFiles: ['/resolved/project/src/a.js'],
+      });
+      const { dispatch, calls } = makeFakeDispatch();
+      const dispatchClient = { countSessionMemories: () => 0 };
+
+      await handleSessionEnd({
+        payload: { session_id: 'claude-cwd', cwd: '/ignored', transcript_path: '' },
+        dispatch,
+        dispatchClient,
+        stateStore,
+      });
+
+      const summaryCall = calls.find((c) => c.cmd === 'session-summary');
+      expect(summaryCall?.args?.content).toContain('- src/a.js');
+      expect(summaryCall?.args?.content).not.toMatch(/ignored/);
+    } finally {
+      if (prev === undefined) {
+        delete process.env.CLAUDE_PROJECT_DIR;
+      } else {
+        process.env.CLAUDE_PROJECT_DIR = prev;
+      }
+    }
   });
 
   test('no-op when no session was started', async () => {

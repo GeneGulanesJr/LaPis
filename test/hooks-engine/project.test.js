@@ -1,12 +1,24 @@
-const { resolveCwd, projectFromCwd, findMatchingRepo, findMatchingProject } = require('../../src/hooks-engine/project');
+const {
+  resolveCwd,
+  projectFromCwd,
+  findMatchingRepo,
+  findMatchingProject,
+  resolveIndexedRepo,
+  resolveProjectKey,
+} = require('../../src/hooks-engine/project');
 
 describe('hooks-engine project: resolveCwd', () => {
   afterEach(() => {
     delete process.env.CLAUDE_PROJECT_DIR;
   });
 
-  test('prefers explicit hint', () => {
+  test('prefers CLAUDE_PROJECT_DIR over an explicit hint when set', () => {
     process.env.CLAUDE_PROJECT_DIR = '/from/env';
+    expect(resolveCwd('/hint')).toBe('/from/env');
+  });
+
+  test('uses explicit hint when CLAUDE_PROJECT_DIR is unset', () => {
+    delete process.env.CLAUDE_PROJECT_DIR;
     expect(resolveCwd('/hint')).toBe('/hint');
   });
 
@@ -63,6 +75,14 @@ describe('hooks-engine project: findMatchingRepo', () => {
     const mixed = [{ name: 'win', path: 'C:/repos/win' }];
     expect(findMatchingRepo('C:\\repos\\win\\src', mixed)?.name).toBe('win');
   });
+
+  test('prefers the deepest path when several repos match (nested indexes)', () => {
+    const nested = [
+      { name: 'monorepo', path: '/repos/monorepo' },
+      { name: 'monorepo-pkg', path: '/repos/monorepo/packages/pkg' },
+    ];
+    expect(findMatchingRepo('/repos/monorepo/packages/pkg/src', nested)?.name).toBe('monorepo-pkg');
+  });
 });
 
 describe('hooks-engine project: findMatchingProject', () => {
@@ -76,5 +96,36 @@ describe('hooks-engine project: findMatchingProject', () => {
 
   test('returns null when no ancestor matches', () => {
     expect(findMatchingProject('/home/unknown', ['lapis'])).toBeNull();
+  });
+});
+
+describe('hooks-engine project: resolveIndexedRepo', () => {
+  const repos = [
+    { name: 'my-monorepo', path: '/repos/my-monorepo' },
+    { name: 'other', path: '/repos/other' },
+  ];
+
+  test('prefers path prefix over mismatched currentProject basename', () => {
+    expect(resolveIndexedRepo('/repos/my-monorepo/packages/foo', repos, 'foo')?.name).toBe('my-monorepo');
+  });
+
+  test('falls back to currentProject name when cwd is outside indexed paths', () => {
+    expect(resolveIndexedRepo('/elsewhere', repos, 'other')?.name).toBe('other');
+  });
+});
+
+describe('hooks-engine project: resolveProjectKey', () => {
+  const repos = [{ name: 'my-monorepo', path: '/repos/my-monorepo' }];
+
+  test('returns indexed repo name for monorepo subdirectories', () => {
+    expect(resolveProjectKey('/repos/my-monorepo/packages/foo', repos)).toBe('my-monorepo');
+  });
+
+  test('falls back to basename when no repo matches', () => {
+    expect(resolveProjectKey('/tmp/standalone', repos)).toBe('standalone');
+  });
+
+  test('uses knownProjects up-tree walk before basename', () => {
+    expect(resolveProjectKey('/home/me/lapis/src', [], ['lapis'])).toBe('lapis');
   });
 });

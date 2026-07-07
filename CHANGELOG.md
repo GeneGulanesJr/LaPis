@@ -8,6 +8,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Claude Code bridge — issue #205 review follow-ups**
+  - **Monorepo project detection:** `resolveProjectKey` / `resolveIndexedRepo` in
+    `hooks-engine/project.js` prefer indexed repo path prefix over cwd basename,
+    so git-trust sync and guardrails work from subdirectories like
+    `packages/foo` when the repo is indexed as `my-monorepo`.
+  - **Session summary count:** `SessionEnd` summary text now uses the same
+    DB-derived memory count as `session-end` dispatch (not the mirrored counter).
+  - **Stop checkpoint race:** progress checkpoints snapshot state under
+    `mutateState` instead of an unlocked `loadState`.
+  - **State lock budget:** `mutateState` lock timeout raised to 5s to reduce
+    fail-open races under parallel PostToolUse hooks.
+  - **MCP project key:** `detectMcpProject()` uses hooks-engine path-prefix
+    resolution so MCP and the Claude Code bridge agree in monorepos.
+  - **knownProjects fallback:** handlers and MCP load memory project names from
+    the DB (list-projects parity) when cwd is not inside an indexed code repo.
+  - **Nested repo match:** `findMatchingRepo` prefers the deepest matching path
+    when several indexed repos overlap.
+  - **Compact cwd refresh:** `SessionStart(compact)` updates `currentProject`
+    when cwd resolves to a different project key.
+  - **Polish:** MCP `detectMcpProject` reuses `dispatch-client` DB helpers;
+    `SessionEnd` summary uses `resolveCwd` for relative file paths.
+  - **Shared project DB reads:** `src/platform/project-db.js` centralizes
+    `getKnownRepos` / `getKnownProjects` (5 min in-process cache); MCP no
+    longer imports from `claude-code/`.
+  - **Context injection:** `assembleContextLines` honors `CLAUDE_PROJECT_DIR`
+    via `resolveCwd` for repo matching and index hints.
+  - **`resolveCwd`:** prefers `CLAUDE_PROJECT_DIR` over payload `cwd` when set
+    (aligns with hooks-engine module contract).
+
 - **Claude Code bridge — issue #205 post-review hardening** (follow-up to #234).
   - **Stop / UserPromptSubmit state races (#228):** Stop and UserPromptSubmit now
     route all state writes through `mutateState` instead of unlocked load/save,

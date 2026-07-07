@@ -15,7 +15,8 @@
 
 const path = require('node:path');
 const { CONTEXT } = require('../../../constants');
-const { resolveCwd, projectFromCwd, findMatchingRepo } = require('../../hooks-engine/project');
+const { findMatchingRepo } = require('../../hooks-engine/project');
+const { resolveProjectForCwd } = require('../project-resolve');
 const { isPreflightWorthyPrompt } = require('../../hooks-engine/prompt-classifiers');
 const {
   appendPreflightBlock,
@@ -70,10 +71,13 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt }) {
   }
 }
 
-async function run({ payload, dispatch, getKnownRepos, stateStore, isCancelled }) {
+async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, isCancelled }) {
   const prompt = payload.prompt || '';
-  const cwd = resolveCwd(payload.cwd);
-  const project = projectFromCwd(cwd);
+  const { resolvedCwd, repos, project } = resolveProjectForCwd(
+    payload.cwd,
+    getKnownRepos,
+    getKnownProjects,
+  );
   const claudeSessionId = payload.session_id;
 
   const state = stateStore.loadState(claudeSessionId);
@@ -83,7 +87,7 @@ async function run({ payload, dispatch, getKnownRepos, stateStore, isCancelled }
     dispatch,
     getKnownRepos,
     project,
-    cwd,
+    cwd: payload.cwd,
     query: prompt,
     sessionId,
   }).catch(() => null);
@@ -93,7 +97,7 @@ async function run({ payload, dispatch, getKnownRepos, stateStore, isCancelled }
   }
 
   const lines = assembled ? assembled.lines : [];
-  const cwdRepo = assembled ? assembled.cwdRepo : findMatchingRepo(path.resolve(cwd), getKnownRepos());
+  const cwdRepo = assembled ? assembled.cwdRepo : findMatchingRepo(resolvedCwd, repos);
 
   // Preflight / coding context (best-effort, timeout-safe).
   await appendPreflight({ lines, dispatch, cwdRepo, prompt });

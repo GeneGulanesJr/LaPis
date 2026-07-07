@@ -16,6 +16,7 @@
  */
 
 const { resolveDaemonUrl } = require('./daemon');
+const { getKnownRepos, getKnownProjects } = require('../platform/project-db');
 
 /**
  * Coerce an args bag into the string-only record the gateway expects.
@@ -113,24 +114,12 @@ function countSessionMemories(sessionId) {
   }
 }
 
-/**
- * Known indexed code repos, for cwd-repo resolution + preflight gating.
- * Mirrors extensions/.../host/project-detector.ts getKnownRepos(). Best-effort.
- */
-function getKnownRepos() {
-  try {
-    const { sqlJson } = require('../../db');
-    return sqlJson('SELECT name, path, indexed_at FROM code_repos') || [];
-  } catch {
-    return [];
-  }
-}
-
 module.exports = {
   dispatch,
   dispatchViaDaemon,
   countSessionMemories,
   getKnownRepos,
+  getKnownProjects,
   stringifyArgs,
   loadDirectDispatch,
 };

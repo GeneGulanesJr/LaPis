@@ -21,13 +21,15 @@
  * or clobber each other. git-trust is read-only and never writes back.
  */
 
+const path = require('node:path');
 const {
   parseSearchResultIds,
   parseMemoryIds,
   wasSaveSuccessful,
   extractToolResponseText,
 } = require('../../hooks-engine/tool-response-parse');
-const { resolveCwd, projectFromCwd } = require('../../hooks-engine/project');
+const { resolveIndexedRepo } = require('../../hooks-engine/project');
+const { resolveProjectForCwd } = require('../project-resolve');
 const { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils');
 const { addNormalized } = require('../file-keys');
 const { postToolRole } = require('../tool-map');
@@ -99,17 +101,12 @@ function consumeRecall(state, ids) {
  * Git-trust sync. Best-effort and awaited (a per-event hook process would exit
  * before a fire-and-forget dispatch ran). Never throws.
  */
-async function gitTrustSync({ input, dispatch, getKnownRepos, state, cwd }) {
+async function gitTrustSync({ input, dispatch, repos, state, cwd }) {
   const cmd = typeof input.command === 'string' ? input.command : '';
   if (!cmd || !GIT_TRUST_OP_RE.test(cmd)) {
     return;
   }
-  const project = state.currentProject || projectFromCwd(cwd);
-  if (!project) {
-    return;
-  }
-  const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
-  const repo = repos.find((r) => r.name && r.name.toLowerCase() === project.toLowerCase());
+  const repo = resolveIndexedRepo(path.resolve(cwd), repos, state.currentProject);
   if (!repo) {
     return;
   }
@@ -120,7 +117,7 @@ async function gitTrustSync({ input, dispatch, getKnownRepos, state, cwd }) {
   }
 }
 
-async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore, roleFilter }) {
+async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, roleFilter }) {
   const toolName = payload.tool_name;
   const role = postToolRole(toolName);
   if (!role) {
@@ -136,7 +133,11 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore,
   const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {};
   const toolResponse = payload.tool_response;
   const claudeSessionId = payload.session_id;
-  const cwd = resolveCwd(payload.cwd);
+  const { resolvedCwd, repos, project } = resolveProjectForCwd(
+    payload.cwd,
+    getKnownRepos,
+    getKnownProjects,
+  );
 
   // git-trust only READS state (for currentProject), runs the heavy dispatch,
   // and never writes back — writing a pre-dispatch snapshot after a slow
@@ -144,7 +145,7 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore,
   // Falls back to loadState when the injected store lacks mutateState.
   if (role === 'git-trust') {
     const state = stateStore.loadState(claudeSessionId);
-    await gitTrustSync({ input, dispatch, getKnownRepos, state, cwd });
+    await gitTrustSync({ input, dispatch, repos, state, cwd: resolvedCwd });
     return null;
   }
 
@@ -162,7 +163,7 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore,
 
   await mutate((state) => {
     if (!state.currentProject) {
-      state.currentProject = projectFromCwd(cwd);
+      state.currentProject = project;
     }
     switch (role) {
       case 'edit-track':

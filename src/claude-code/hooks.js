@@ -126,6 +126,7 @@ async function runHook(argv, opts = {}) {
   const resolvedDispatchClient = opts.dispatchClient || dispatchClient;
   const dispatch = opts.dispatch || resolvedDispatchClient.dispatch;
   const getKnownRepos = opts.getKnownRepos || resolvedDispatchClient.getKnownRepos;
+  const getKnownProjects = opts.getKnownProjects || resolvedDispatchClient.getKnownProjects;
   const resolvedStateStore = opts.stateStore || stateStore;
 
   // ensureDb once — mirrors src/mcp/server.js:118-130.
@@ -148,6 +149,7 @@ async function runHook(argv, opts = {}) {
       dispatch,
       dispatchClient: resolvedDispatchClient,
       getKnownRepos,
+      getKnownProjects,
       stateStore: resolvedStateStore,
       roleFilter,
     });
