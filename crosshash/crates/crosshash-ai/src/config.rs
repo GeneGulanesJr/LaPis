@@ -105,10 +105,14 @@ impl AiConfig {
             config.api_key_env = v;
         }
         if let Ok(v) = std::env::var("CROSSHASH_AI_TEMPERATURE") {
-            if let Ok(t) = v.parse() { config.temperature = t; }
+            if let Ok(t) = v.parse() {
+                config.temperature = t;
+            }
         }
         if let Ok(v) = std::env::var("CROSSHASH_AI_MAX_TOKENS") {
-            if let Ok(t) = v.parse() { config.max_tokens = t; }
+            if let Ok(t) = v.parse() {
+                config.max_tokens = t;
+            }
         }
         Ok(config)
     }

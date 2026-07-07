@@ -204,6 +204,7 @@ function context(deps, args) {
       memoryId: o.id,
       sessionId: String(sessionId),
       query: recallQuery,
+      wasUseful: false,
     }));
     insertRecallLog(entries);
   }

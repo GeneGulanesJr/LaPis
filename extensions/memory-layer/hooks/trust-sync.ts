@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { createGitTrustSyncAdapter } from '../../../src/trust-sync/change-detector';
+import { matchesGitTrustOperation } from '../../../src/hooks-engine/git-trust.js';
 import { getKnownRepos } from '../host/project-detector';
 import { mem } from '../host/memory-client';
 import { state } from '../state';
@@ -15,7 +16,7 @@ export function registerTrustSync(pi: ExtensionAPI, deps: TrustSyncDeps) {
     if (event.toolName === 'bash') {
       const input = event.input as { command?: string };
       const cmd = input?.command || '';
-      if (/\bgit\s+(pull|checkout|merge|rebase|reset|stash\s+pop)\b/.test(cmd) && deps.state.currentProject) {
+      if (matchesGitTrustOperation(cmd) && deps.state.currentProject) {
         const repos = await deps.getKnownRepos();
         const repo = repos.find((r) => r.name.toLowerCase() === deps.state.currentProject!.toLowerCase());
         if (repo) {

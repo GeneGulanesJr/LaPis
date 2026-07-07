@@ -6,6 +6,8 @@ const { hashContent } = require('../../utils');
 const { createCodeIndexRepository } = require('./repos');
 const { scanRepository } = require('./scanner');
 const { SKIP_FILE_RE } = require('./scanner');
+const { resolveRepoScopedPath } = require('./path-guards');
+const { withRepoIndexLock } = require('./repo-lock');
 const { createParserRegistry, getLanguageForFile } = require('./parser-registry');
 const { extractSymbolsSplit, normalizeSymbolHot } = require('./symbol-extractor');
 const {
@@ -149,6 +151,7 @@ function parseChangedPathsInput(input, repoPath) {
   }
   const changed = new Set();
   const deleted = new Set();
+  const rejected = [];
   for (const entry of entries) {
     let status = 'modified';
     let filePath = entry;
@@ -157,10 +160,15 @@ function parseChangedPathsInput(input, repoPath) {
       filePath = entry.path || entry.file || entry.filePath || entry[1];
     }
     if (!filePath || typeof filePath !== 'string') {
+      rejected.push({ path: String(filePath), reason: 'invalid_path' });
       // oxlint-disable-next-line no-continue
       continue;
     }
-    const abs = path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(repoPath, filePath);
+    const abs = resolveRepoScopedPath(repoPath, filePath, rejected);
+    if (!abs) {
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
     if (/delete|remove|unlink/i.test(status) || !fs.existsSync(abs)) {
       deleted.add(abs);
     } else {
@@ -170,6 +178,7 @@ function parseChangedPathsInput(input, repoPath) {
   return {
     changed: [...changed],
     deleted: [...deleted],
+    rejected,
     renamed: [],
     currentHead: getHeadCommit(repoPath),
     source: 'changed-paths',
@@ -195,6 +204,7 @@ function getGitDelta(repoPath, baseCommit) {
     const changed = new Set();
     const deleted = new Set();
     const renamed = [];
+    const rejected = [];
     for (const line of output.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed) {
@@ -204,16 +214,28 @@ function getGitDelta(repoPath, baseCommit) {
       const parts = trimmed.split('\t');
       const status = parts[0];
       if (status.startsWith('D') && parts[1]) {
-        deleted.add(path.resolve(repoPath, parts[1]));
+        const abs = resolveRepoScopedPath(repoPath, parts[1], rejected);
+        if (abs) {
+          deleted.add(abs);
+        }
       } else if (status.startsWith('R') && parts[1] && parts[2]) {
-        deleted.add(path.resolve(repoPath, parts[1]));
-        changed.add(path.resolve(repoPath, parts[2]));
+        const fromAbs = resolveRepoScopedPath(repoPath, parts[1], rejected);
+        const toAbs = resolveRepoScopedPath(repoPath, parts[2], rejected);
+        if (fromAbs) {
+          deleted.add(fromAbs);
+        }
+        if (toAbs) {
+          changed.add(toAbs);
+        }
         renamed.push({ from: parts[1], to: parts[2], status });
       } else if (parts[1]) {
-        changed.add(path.resolve(repoPath, parts[1]));
+        const abs = resolveRepoScopedPath(repoPath, parts[1], rejected);
+        if (abs) {
+          changed.add(abs);
+        }
       }
     }
-    return { currentHead, changed: [...changed], deleted: [...deleted], renamed };
+    return { currentHead, changed: [...changed], deleted: [...deleted], renamed, rejected };
   } catch {
     return null;
   }
@@ -240,7 +262,10 @@ function fileRecordToParams(repoId, record) {
   };
 }
 
-function recordDiagnostic(repository, repoId, record, status, message, symbolCount = 0) {
+function recordDiagnostic(repository, repoId, record, status, message, symbolCount = 0, options = {}) {
+  if (options.defer) {
+    return;
+  }
   if (typeof repository.upsertFileDiagnostic !== 'function') {
     return;
   }
@@ -559,6 +584,90 @@ async function scanPhase(repoPath, options, args) {
   return { files: scanResult.files, absPath, skipReport: scanResult.skipReport };
 }
 
+function commitParsedBatch(repository, repoId, parsedRecords, ctx) {
+  const { args, repoRoot, registry, scopeDb, insideTransaction = false } = ctx;
+  const batchSymbols = [];
+
+  for (const { record, hotSymbols, coldSymbols, tree: parsedTree } of parsedRecords) {
+    try {
+      const fileId = repository.insertFile(fileRecordToParams(repoId, record));
+      for (let si = 0; si < hotSymbols.length; si++) {
+        const hot = hotSymbols[si];
+        const cold = coldSymbols[si] || {};
+        batchSymbols.push({
+          repoId,
+          fileId,
+          filePath: record.filePath,
+          name: hot.name,
+          kind: hot.kind,
+          qualifiedName: hot.qualified_name,
+          startLine: hot.start_line,
+          endLine: hot.end_line,
+          startByte: hot.start_byte,
+          endByte: hot.end_byte,
+          signature: cold.signature || '',
+          docstring: cold.docstring || '',
+          bodyPreview: cold.body_preview || '',
+          language: cold.language || '',
+          parentName: cold.parent_name || '',
+          stableSymbolId: cold.stable_symbol_id || '',
+          contentHash: cold.content_hash || '',
+          summary: cold.summary || '',
+          decoratorsJson: cold.decorators_json || '[]',
+          keywordsJson: cold.keywords_json || '[]',
+          callReferencesJson: cold.call_references_json || '[]',
+          ecosystemContext: cold.ecosystem_context || '',
+        });
+      }
+      ctx.symbolCount += hotSymbols.length;
+      ctx.fileCount++;
+
+      try {
+        const scopeBuilder = require('./scope-builder').getScopeBuilder;
+        const builder = scopeBuilder(record.filePath);
+        if (builder && scopeDb) {
+          let tree = parsedTree || null;
+          if (!tree) {
+            const fallback = registry.parseTree(record.filePath, record.content);
+            tree = fallback ? fallback.tree : null;
+          }
+          if (tree) {
+            const scopeBindings = builder(tree, record.content, record.filePath);
+            if (scopeBindings.length > 0) {
+              insertScopeBindings(scopeDb, repoId, fileId, scopeBindings);
+            }
+            tree.delete();
+          }
+        }
+      } catch {}
+
+      if (args && shouldEmitFileProgress(ctx.fileCount, ctx.totalFiles)) {
+        emitProgress(
+          args,
+          'parsing',
+          {
+            step: 'store-index',
+            current_file: progressPath(record.filePath, repoRoot),
+            message: `Stored index ${ctx.fileCount}/${ctx.totalFiles}: ${progressPath(record.filePath, repoRoot)} (${hotSymbols.length} symbols)`,
+          },
+          { files_total: ctx.totalFiles, files_done: ctx.fileCount, symbols: ctx.symbolCount },
+        );
+      }
+    } catch (e) {
+      ctx.skipped.push({ file: record.filePath, error: e.message });
+      recordDiagnostic(repository, repoId, record, 'error', e.message, 0);
+    }
+  }
+
+  if (batchSymbols.length > 0) {
+    if (insideTransaction) {
+      repository.insertSymbolBulk(batchSymbols);
+    } else {
+      repository.insertSymbolBatch(batchSymbols);
+    }
+  }
+}
+
 async function parsePhase(files, deps, repoId, args) {
   const registry = deps.parserRegistry || createParserRegistry();
   const repository = deps.repository || createCodeIndexRepository(require('../../db'));
@@ -589,6 +698,9 @@ async function parsePhase(files, deps, repoId, args) {
   let symbolCount = 0;
   let fileCount = 0;
   const skipped = [];
+  const deferredBatches = [];
+  const deferIndexWrites = Boolean(args.deferIndexWrites);
+  const scopeDb = args.scopeDb || null;
 
   function validateSymbols(record, symbols) {
     if (symbols.length === 0 && record.content.trim().length > 0) {
@@ -628,7 +740,9 @@ async function parsePhase(files, deps, repoId, args) {
             return await readFileRecord(fp);
           } catch (e) {
             skipped.push({ file: fp, error: e.message });
-            recordDiagnostic(repository, repoId, { filePath: fp, content: '' }, 'error', e.message, 0);
+            recordDiagnostic(repository, repoId, { filePath: fp, content: '' }, 'error', e.message, 0, {
+              defer: args.deferIndexWrites,
+            });
             return null;
           }
         }),
@@ -665,6 +779,7 @@ async function parsePhase(files, deps, repoId, args) {
                 ? 'No symbols extracted from non-empty file'
                 : '',
               symbols.length,
+              { defer: args.deferIndexWrites },
             );
             const hotSymbols = symbols.map((s) => normalizeSymbolHot(s, record.filePath));
             parsedRecords.push({ record, hotSymbols, coldSymbols: symbols, tree: null });
@@ -695,6 +810,7 @@ async function parsePhase(files, deps, repoId, args) {
             symbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
             symbols.length === 0 && record.content.trim().length > 0 ? 'No symbols extracted from non-empty file' : '',
             symbols.length,
+            { defer: args.deferIndexWrites },
           );
           parsedRecords.push({ record, hotSymbols, coldSymbols, tree });
           parsedInBatch++;
@@ -718,112 +834,47 @@ async function parsePhase(files, deps, repoId, args) {
         args,
         'parsing',
         {
-          step: 'store-index',
+          step: deferIndexWrites ? 'buffer-index' : 'store-index',
           current_file: parsedRecords[0] ? progressPath(parsedRecords[0].record.filePath, repoRoot) : firstBatchPath,
-          message: `Storing index records for batch ${batchNum}/${totalBatches}: ${parsedRecords.length} files`,
+          message: deferIndexWrites
+            ? `Buffered index records for batch ${batchNum}/${totalBatches}: ${parsedRecords.length} files`
+            : `Storing index records for batch ${batchNum}/${totalBatches}: ${parsedRecords.length} files`,
         },
         { files_total: totalFiles, files_done: fileCount, symbols: symbolCount },
       );
 
-      // PERF: AoS→SoA split (issue #130) — hot loop iterates compact 8-field objects;
-      // Cold data (JSON blobs, hashes, summaries) is read from a parallel array only
-      // When building the insert payload. Do NOT merge hot/cold back into a single
-      // Object before this loop; the split exists to reduce cache-line waste during
-      // The tight file×symbol iteration.
-      const batchSymbols = [];
-      const writeRecords = (insideTransaction = false) => {
-        for (const { record, hotSymbols, coldSymbols, tree: parsedTree } of parsedRecords) {
-          try {
-            const fileId = repository.insertFile(fileRecordToParams(repoId, record));
-            for (let si = 0; si < hotSymbols.length; si++) {
-              const hot = hotSymbols[si];
-              const cold = coldSymbols[si] || {};
-              batchSymbols.push({
-                repoId,
-                fileId,
-                filePath: record.filePath,
-                name: hot.name,
-                kind: hot.kind,
-                qualifiedName: hot.qualified_name,
-                startLine: hot.start_line,
-                endLine: hot.end_line,
-                startByte: hot.start_byte,
-                endByte: hot.end_byte,
-                signature: cold.signature || '',
-                docstring: cold.docstring || '',
-                bodyPreview: cold.body_preview || '',
-                language: cold.language || '',
-                parentName: cold.parent_name || '',
-                stableSymbolId: cold.stable_symbol_id || '',
-                contentHash: cold.content_hash || '',
-                summary: cold.summary || '',
-                decoratorsJson: cold.decorators_json || '[]',
-                keywordsJson: cold.keywords_json || '[]',
-                callReferencesJson: cold.call_references_json || '[]',
-                ecosystemContext: cold.ecosystem_context || '',
-              });
-            }
-            symbolCount += hotSymbols.length;
-            fileCount++;
-
-            // ── Scope bindings extraction (v10) ──────────────
-            // Build scope bindings from the same tree-sitter AST.
-            try {
-              const scopeBuilder = require('./scope-builder').getScopeBuilder;
-              const builder = scopeBuilder(record.filePath);
-              if (builder) {
-                let tree = parsedTree || null;
-                if (!tree) {
-                  const fallback = registry.parseTree(record.filePath, record.content);
-                  tree = fallback ? fallback.tree : null;
-                }
-                if (tree) {
-                  const scopeBindings = builder(tree, record.content, record.filePath);
-                  if (scopeBindings.length > 0) {
-                    insertScopeBindings(db, repoId, fileId, scopeBindings);
-                  }
-                  tree.delete();
-                }
-              }
-            } catch {
-              // Scope binding extraction is best-effort; don't fail the batch
-            }
-            if (shouldEmitFileProgress(fileCount, totalFiles)) {
-              emitProgress(
-                args,
-                'parsing',
-                {
-                  step: 'store-index',
-                  current_file: progressPath(record.filePath, repoRoot),
-                  message: `Stored index ${fileCount}/${totalFiles}: ${progressPath(record.filePath, repoRoot)} (${hotSymbols.length} symbols)`,
-                },
-                { files_total: totalFiles, files_done: fileCount, symbols: symbolCount },
-              );
-            }
-          } catch (e) {
-            skipped.push({ file: record.filePath, error: e.message });
-            recordDiagnostic(repository, repoId, record, 'error', e.message, 0);
-          }
+      if (deferIndexWrites) {
+        for (const entry of parsedRecords) {
+          symbolCount += entry.hotSymbols.length;
+          fileCount++;
         }
+        deferredBatches.push(parsedRecords);
+        // oxlint-disable-next-line no-continue
+        continue;
+      }
 
-        if (batchSymbols.length > 0) {
-          // PERF: Use prepared-statement bulk insert (issue #139).
-          // InsertSymbolBulk reuses a single prepared statement for all symbols,
-          // Avoiding 10K+ redundant prepare() calls per batch. The transactional
-          // Path already has an outer withTransaction(), so insertSymbolBulk skips
-          // Its own transaction wrapper. Do NOT revert to per-symbol insertSymbol().
-          if (insideTransaction) {
-            repository.insertSymbolBulk(batchSymbols);
-          } else {
-            repository.insertSymbolBatch(batchSymbols);
-          }
-        }
+      const writeCtx = {
+        fileCount,
+        symbolCount,
+        skipped,
+        totalFiles,
+        args,
+        repoRoot,
+        registry,
+        scopeDb,
+        insideTransaction: false,
       };
-
       if (typeof repository.withTransaction === 'function') {
-        repository.withTransaction(() => writeRecords(true));
+        repository.withTransaction(() => {
+          writeCtx.insideTransaction = true;
+          commitParsedBatch(repository, repoId, parsedRecords, writeCtx);
+          fileCount = writeCtx.fileCount;
+          symbolCount = writeCtx.symbolCount;
+        });
       } else {
-        writeRecords(false);
+        commitParsedBatch(repository, repoId, parsedRecords, writeCtx);
+        fileCount = writeCtx.fileCount;
+        symbolCount = writeCtx.symbolCount;
       }
     }
   } catch (parseError) {
@@ -840,7 +891,7 @@ async function parsePhase(files, deps, repoId, args) {
     }
   }
 
-  return { fileCount, symbolCount, skipped };
+  return { fileCount, symbolCount, skipped, deferredBatches };
 }
 
 async function derivedPhase(db, repoId, args, totalFiles, fileCount, symbolCount, changedFileIds, deletedFileIds) {
@@ -848,129 +899,179 @@ async function derivedPhase(db, repoId, args, totalFiles, fileCount, symbolCount
 }
 
 async function indexRepository(deps, repoPath, repoName) {
-  const { db } = deps;
-  const args = deps.args || {};
-  const repository = deps.repository || createCodeIndexRepository(require('../../db'));
-  const registry = deps.parserRegistry || createParserRegistry();
-  const t0 = Date.now();
+  return withRepoIndexLock(repoName, async () => {
+    const { db } = deps;
+    const args = deps.args || {};
+    const repository = deps.repository || createCodeIndexRepository(require('../../db'));
+    const registry = deps.parserRegistry || createParserRegistry();
+    const t0 = Date.now();
 
-  if (!(await registry.ensureReady())) {
-    return {
-      error: `WASM tree-sitter parser not available. Run: cd ${path.resolve(__dirname, '..', '..')} && npm install web-tree-sitter`,
-    };
-  }
+    if (!(await registry.ensureReady())) {
+      return {
+        error: `WASM tree-sitter parser not available. Run: cd ${path.resolve(__dirname, '..', '..')} && npm install web-tree-sitter`,
+      };
+    }
 
-  emitProgress(args, 'init', { step: 'prepare-parser', message: 'Step 1/5: preparing tree-sitter parsers...' });
-  emitProgress(args, 'discovery', { step: 'discover-files', message: 'Step 2/5: discovering code files to index...' });
-  const scanResult = await scanPhase(repoPath, {}, args);
-  if (scanResult.error) {
-    return { error: scanResult.error };
-  }
-  const { files, absPath, skipReport } = scanResult;
-  const scanMs = Date.now() - t0;
-  const skipSummary = formatSkipReport(skipReport);
+    emitProgress(args, 'init', { step: 'prepare-parser', message: 'Step 1/5: preparing tree-sitter parsers...' });
+    emitProgress(args, 'discovery', { step: 'discover-files', message: 'Step 2/5: discovering code files to index...' });
+    const scanResult = await scanPhase(repoPath, {}, args);
+    if (scanResult.error) {
+      return { error: scanResult.error };
+    }
+    const { files, absPath, skipReport } = scanResult;
+    const scanMs = Date.now() - t0;
+    const skipSummary = formatSkipReport(skipReport);
 
-  emitProgress(args, 'discovery', {
-    message: `Found ${files.length} code files to index (${scanMs}ms)`,
-    files_total: files.length,
-    detail: skipSummary,
-  });
-  if (skipSummary) {
-    emitProgress(args, 'discovery', { message: skipSummary });
-  }
+    emitProgress(args, 'discovery', {
+      message: `Found ${files.length} code files to index (${scanMs}ms)`,
+      files_total: files.length,
+      detail: skipSummary,
+    });
+    if (skipSummary) {
+      emitProgress(args, 'discovery', { message: skipSummary });
+    }
 
-  const repoId = repository.upsertRepo({ name: repoName, path: absPath });
-  emitProgress(args, 'reset-index', {
-    step: 'clear-index',
-    message: `Step 3/5: clearing existing index rows for ${repoName}...`,
-  });
-  const clearT0 = Date.now();
-  const clearTotals = repository.clearRepoIndex(repoId, {
-    onProgress: (progress) => {
+    const repoId = repository.upsertRepo({ name: repoName, path: absPath });
+    emitProgress(args, 'reset-index', {
+      step: 'clear-index',
+      message: `Step 3/5: will clear existing index rows for ${repoName} immediately before writing rebuilt data...`,
+    });
+
+    emitProgress(args, 'parsing', {
+      step: 'parse-and-store',
+      message: `Step 4/5: reading files, extracting symbols, and storing index rows for ${files.length} files...`,
+      files_total: files.length,
+    });
+    const parseT0 = Date.now();
+    let parseResult;
+    try {
+      parseResult = await parsePhase(files, { parserRegistry: registry, repository }, repoId, {
+        ...args,
+        repoRoot: absPath,
+        deferIndexWrites: true,
+        scopeDb: db,
+      });
       emitProgress(args, 'reset-index', {
         step: 'clear-index',
-        message: `Step 3/5: ${progress.message}`,
-        rows_deleted: progress.deleted,
+        message: `Step 3/5: committing rebuilt index for ${repoName} in a single transaction...`,
       });
-    },
-  });
-  emitProgress(args, 'reset-index', {
-    step: 'clear-index',
-    message: `Step 3/5: cleared existing index rows for ${repoName} (${Date.now() - clearT0}ms)`,
-    clear_totals: clearTotals,
-  });
+      const writeCtx = {
+        fileCount: 0,
+        symbolCount: 0,
+        skipped: parseResult.skipped,
+        totalFiles: files.length,
+        args,
+        repoRoot: absPath,
+        registry,
+        scopeDb: db,
+        insideTransaction: true,
+      };
+      const clearT0 = Date.now();
+      let clearTotals = {};
+      repository.withTransaction(() => {
+        clearTotals = repository.clearRepoIndexCore(repoId, {
+          onProgress: (progress) => {
+            emitProgress(args, 'reset-index', {
+              step: 'clear-index',
+              message: `Step 3/5: ${progress.message}`,
+              rows_deleted: progress.deleted,
+            });
+          },
+        });
+        for (const batch of parseResult.deferredBatches || []) {
+          commitParsedBatch(repository, repoId, batch, writeCtx);
+        }
+      });
+      emitProgress(args, 'reset-index', {
+        step: 'clear-index',
+        message: `Step 3/5: committed rebuilt index rows for ${repoName} (${Date.now() - clearT0}ms)`,
+        clear_totals: clearTotals,
+      });
+      parseResult.fileCount = writeCtx.fileCount;
+      parseResult.symbolCount = writeCtx.symbolCount;
+      parseResult.skipped = writeCtx.skipped;
+    } catch (parseError) {
+      const phase = parseResult ? 'commit' : 'parse';
+      console.error(`[indexer] indexRepository: ${phase} phase failed: ${parseError.message}`);
+      emitProgress(args, 'error', {
+        step: phase === 'parse' ? 'parse-failed' : 'commit-failed',
+        message:
+          phase === 'parse'
+            ? `Fatal: parse phase failed before index write: ${parseError.message}. Existing index preserved.`
+            : `Fatal: index commit failed: ${parseError.message}. Existing index preserved.`,
+      });
+      return {
+        error: `Index rebuild failed during ${phase} phase: ${parseError.message}. The existing index for "${repoName}" was preserved.`,
+        repo: repoName,
+      };
+    }
+    const parseMs = Date.now() - parseT0;
 
-  emitProgress(args, 'parsing', {
-    step: 'parse-and-store',
-    message: `Step 4/5: reading files, extracting symbols, and storing index rows for ${files.length} files...`,
-    files_total: files.length,
-  });
-  const parseT0 = Date.now();
-  let parseResult;
-  try {
-    parseResult = await parsePhase(files, { parserRegistry: registry, repository }, repoId, {
-      ...args,
-      repoRoot: absPath,
+    emitProgress(args, 'analysis', {
+      step: 'derived-indexes',
+      message: 'Step 5/5: building derived indexes (imports, calls, complexity)...',
     });
-  } catch (parseError) {
-    console.error(
-      `[indexer] indexRepository: parsePhase threw after clearRepoIndex - repo may be empty: ${parseError.message}`,
-    );
-    emitProgress(args, 'error', {
-      step: 'parse-failed',
-      message: `Fatal: parse phase failed after clearing index: ${parseError.message}. Run reindex again to restore.`,
+    const derivedT0 = Date.now();
+    const headCommit = getHeadCommit(absPath);
+    let derived;
+    try {
+      derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
+    } catch (derivedError) {
+      console.error(`[indexer] indexRepository: derived phase failed after commit: ${derivedError.message}`);
+      emitProgress(args, 'error', {
+        step: 'derived-failed',
+        message: `Symbols committed but derived indexes failed: ${derivedError.message}. Run reindex-repo to rebuild derived indexes.`,
+      });
+      return {
+        error: `Index symbols committed but derived indexes failed: ${derivedError.message}. Run reindex-repo to rebuild derived indexes.`,
+        repo: repoName,
+        partial: true,
+        files_indexed: parseResult.fileCount,
+        symbols_extracted: parseResult.symbolCount,
+      };
+    }
+    repository.updateRepoStats({
+      repoId,
+      headCommit,
+      currentBranch: getCurrentBranch(absPath),
+      baseHead: headCommit,
     });
-    // Return error so caller knows index is empty
-    return {
-      error: `Index rebuild failed during parse phase: ${parseError.message}. The index for "${repoName}" is now empty. Please re-run reindex to restore it.`,
+    const derivedMs = Date.now() - derivedT0;
+
+    const totalMs = Date.now() - t0;
+    const result = {
+      success: true,
       repo: repoName,
-      files_cleared: clearTotals,
+      path: absPath,
+      files_indexed: parseResult.fileCount,
+      symbols_extracted: parseResult.symbolCount,
+      files_skipped: parseResult.skipped.length,
+      import_edges: derived.importEdges,
+      call_edges: derived.callEdges,
+      complexity_symbols: derived.complexityCount,
+      name: repoName,
+      file_count: parseResult.fileCount,
+      symbol_count: parseResult.symbolCount,
+      skipped: parseResult.skipped,
+      skip_report: skipReport,
+      timing_ms: { scan: scanMs, parse: parseMs, derived: derivedMs, total: totalMs },
     };
-  }
-  const parseMs = Date.now() - parseT0;
 
-  emitProgress(args, 'analysis', {
-    step: 'derived-indexes',
-    message: 'Step 5/5: building derived indexes (imports, calls, complexity)...',
+    emitProgress(
+      args,
+      'done',
+      {
+        message: `Done: ${parseResult.fileCount} files, ${parseResult.symbolCount} symbols (${(totalMs / 1000).toFixed(1)}s)`,
+      },
+      { files_total: files.length, files_done: parseResult.fileCount, symbols: parseResult.symbolCount },
+    );
+    return result;
   });
-  const derivedT0 = Date.now();
-  const headCommit = getHeadCommit(absPath);
-  repository.updateRepoStats({ repoId, headCommit, currentBranch: getCurrentBranch(absPath), baseHead: headCommit });
-  const derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
-  const derivedMs = Date.now() - derivedT0;
-
-  const totalMs = Date.now() - t0;
-  const result = {
-    success: true,
-    repo: repoName,
-    path: absPath,
-    files_indexed: parseResult.fileCount,
-    symbols_extracted: parseResult.symbolCount,
-    files_skipped: parseResult.skipped.length,
-    import_edges: derived.importEdges,
-    call_edges: derived.callEdges,
-    complexity_symbols: derived.complexityCount,
-    name: repoName,
-    file_count: parseResult.fileCount,
-    symbol_count: parseResult.symbolCount,
-    skipped: parseResult.skipped,
-    skip_report: skipReport,
-    timing_ms: { scan: scanMs, parse: parseMs, derived: derivedMs, total: totalMs },
-  };
-
-  emitProgress(
-    args,
-    'done',
-    {
-      message: `Done: ${parseResult.fileCount} files, ${parseResult.symbolCount} symbols (${(totalMs / 1000).toFixed(1)}s)`,
-    },
-    { files_total: files.length, files_done: parseResult.fileCount, symbols: parseResult.symbolCount },
-  );
-  return result;
 }
 
 async function reindexRepository(deps, repo, mode = 'incremental') {
-  const { db } = deps;
+  return withRepoIndexLock(repo, async () => {
+    const { db } = deps;
   const args = deps.args || {};
   const repository = deps.repository || createCodeIndexRepository(require('../../db'));
   const registry = deps.parserRegistry || createParserRegistry();
@@ -1003,6 +1104,7 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
   const gitChangedFiles = gitDelta
     ? gitDelta.changed.filter(
         (filePath) =>
+          resolveRepoScopedPath(existing.path, filePath) &&
           fs.existsSync(filePath) &&
           registry.canParseFile(filePath) &&
           !SKIP_FILE_RE.test(filePath.replace(/\\/g, '/')),
@@ -1034,6 +1136,12 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
   });
   if (skipSummary) {
     emitProgress(args, 'discovery', { message: skipSummary });
+  }
+  if (gitDelta?.rejected?.length) {
+    emitProgress(args, 'discovery', {
+      message: `Skipped ${gitDelta.rejected.length} git/changed-path entries outside the repo or blocked as secret files`,
+      rejected_paths: gitDelta.rejected,
+    });
   }
 
   const existingFiles = new Map(repository.listFiles(existing.id).map((file) => [file.path, file]));
@@ -1238,6 +1346,15 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
 
   if (changedRecords.length === 0 && unchanged === totalFiles && staleFiles.length === 0) {
     const totalMs = Date.now() - t0;
+    const currentHead = gitDelta?.currentHead || getHeadCommit(existing.path);
+    if (currentHead && currentHead !== existing.head_commit) {
+      repository.updateRepoStats({
+        repoId: existing.id,
+        headCommit: currentHead,
+        currentBranch: getCurrentBranch(existing.path),
+        baseHead: existing.head_commit || null,
+      });
+    }
     const existingSymbolCount = (() => {
       try {
         const r = db.prepare('SELECT symbol_count FROM code_repos WHERE id = ?').get(existing.id);
@@ -1270,8 +1387,8 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
       symbols_extracted: 0,
       strategy: gitDelta ? 'git-diff' : 'scan-hash',
       derived_scope: 'none',
-      git_base: gitDelta ? existing.head_commit : null,
-      git_head: gitDelta ? gitDelta.currentHead : null,
+      git_base: existing.head_commit || null,
+      git_head: gitDelta?.currentHead || getHeadCommit(existing.path),
       git_renames: gitDelta ? gitDelta.renamed : [],
       import_edges: 0,
       call_edges: 0,
@@ -1291,12 +1408,6 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
     step: 'derived-indexes',
     message: 'Step 5/5: rebuilding derived indexes (imports, calls, complexity)...',
   });
-  repository.updateRepoStats({
-    repoId: existing.id,
-    headCommit: gitDelta?.currentHead || getHeadCommit(existing.path),
-    currentBranch: getCurrentBranch(existing.path),
-    baseHead: existing.head_commit || null,
-  });
   const derived = rebuildDerivedIndexes(
     db,
     existing.id,
@@ -1307,6 +1418,12 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
     changedFileIds,
     deletedFileIds,
   );
+  repository.updateRepoStats({
+    repoId: existing.id,
+    headCommit: gitDelta?.currentHead || getHeadCommit(existing.path),
+    currentBranch: getCurrentBranch(existing.path),
+    baseHead: existing.head_commit || null,
+  });
 
   const totalMs = Date.now() - t0;
   emitProgress(
@@ -1348,7 +1465,9 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
     skipped,
     skip_report: skipReport,
     timing_ms: { total: totalMs },
+    ...(gitDelta?.rejected?.length ? { rejected_paths: gitDelta.rejected } : {}),
   };
+  });
 }
 
 async function getCodeRepoHealth(deps, repo) {

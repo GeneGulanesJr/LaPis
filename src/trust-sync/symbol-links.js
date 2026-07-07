@@ -149,7 +149,10 @@ function syncCodeTrust(deps, args) {
 
   // No changed symbols in the index — update head_commit and return
   if (detected.changedSet.size === 0) {
-    deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE name = ?', [detected.new_head, repo]);
+    const tx = deps.withTransaction || require('../../db').withTransaction;
+    tx(() => {
+      deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE name = ?', [detected.new_head, repo]);
+    });
     return {
       ok: true,
       repo,
@@ -165,21 +168,24 @@ function syncCodeTrust(deps, args) {
   const allLinks = repository.getAnchoredLinks(repo);
   const evaluated = evaluateTrustSync(allLinks, detected.changedSet);
 
-  for (const operation of evaluated.operations) {
-    repository.updateLinkTrust({
-      memoryId: operation.link.memory_id,
-      symbolId: operation.link.symbol_id,
-      newTrust: operation.newTrust,
-    });
-    repository.insertTrustAdjustment({
-      memoryId: operation.link.memory_id,
-      reason: operation.reason,
-      delta: operation.delta,
-    });
-  }
+  const applyTrustUpdates = () => {
+    for (const operation of evaluated.operations) {
+      repository.updateLinkTrust({
+        memoryId: operation.link.memory_id,
+        symbolId: operation.link.symbol_id,
+        newTrust: operation.newTrust,
+      });
+      repository.insertTrustAdjustment({
+        memoryId: operation.link.memory_id,
+        reason: operation.reason,
+        delta: operation.delta,
+      });
+    }
+    deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE name = ?', [detected.new_head, repo]);
+  };
 
-  // Update head_commit to current
-  deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE name = ?', [detected.new_head, repo]);
+  const tx = deps.withTransaction || require('../../db').withTransaction;
+  tx(applyTrustUpdates);
 
   const result = stripOperations(evaluated);
   result.changed_symbols = detected.changedSet.size;

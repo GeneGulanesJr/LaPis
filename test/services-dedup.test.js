@@ -101,6 +101,17 @@ describe('services/dedup: markDuplicate', () => {
     expect(result.error).toContain('source');
   });
 
+  it('should reject identical source and target', () => {
+    const deps = {
+      sqlJson: vi.fn(),
+      sqlRun: vi.fn(),
+      softDeleteObservation: vi.fn(),
+    };
+    const result = markDuplicate(deps, { source: '10', target: '10' });
+    expect(result.error).toMatch(/different/i);
+    expect(deps.softDeleteObservation).not.toHaveBeenCalled();
+  });
+
   it('should call softDeleteObservation with target', () => {
     const deps = {
       sqlJson: vi.fn(),

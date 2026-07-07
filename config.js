@@ -27,6 +27,7 @@ const DEFAULTS = {
   // Auto-switch `index-repo` to async when file count exceeds this threshold.
   // Override with the LAPIS_ASYNC_INDEX_THRESHOLD env var or via config.jsonc.
   async_index_file_threshold: 500,
+  http_api_key: null,
   output_compression: {
     enabled: true,               // Master toggle — set false to disable auto-compression
     min_chars: 2000,             // Don't compress output shorter than this

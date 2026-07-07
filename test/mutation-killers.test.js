@@ -248,6 +248,11 @@ describe('dedupe.js mutation killers', () => {
     expect(softDelete).toHaveBeenCalledWith(20);
   });
 
+  it('markDuplicate: rejects identical source and target', () => {
+    const result = markDuplicate(mockDeps(), { source: '7', target: '7' });
+    expect(result.error).toMatch(/different/i);
+  });
+
   it('markDuplicate: returns ok with merged info', () => {
     const result = markDuplicate(
       { sqlRun: vi.fn(), softDeleteObservation: vi.fn() },

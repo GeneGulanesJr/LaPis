@@ -22,7 +22,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- **Documentation review nits (PR #240)**
+- **Code review security and correctness fixes**
+  - Incremental reindex `changed-paths` now enforces repo path boundaries and secret-file skips (parity with full scanner).
+  - Full reindex defers `clearRepoIndex` until the first successful write batch so parse failures preserve the existing index.
+  - Per-repo index locks prevent concurrent full/incremental rebuilds from interleaving writes.
+  - Dream Cycle "never recalled" cleanup now counts only `was_useful = 1` recalls; context injection logs passive recalls as not useful.
+  - `markDuplicate` rejects identical source/target IDs.
+  - Pi trust-sync hook recognizes `git -C <path>` commands (parity with Claude Code bridge).
+  - Trust sync applies adjustments in a transaction and initializes `head_commit` on first sync without a one-commit diff penalty.
+  - Trust sync adapter notifies only after successful sync.
+  - HTTP server supports optional API key auth (`--api-key`, `LAPIS_HTTP_API_KEY`) and refuses `0.0.0.0` binds without a key.
+  - `claimNextReadyTodo` uses an atomic update to prevent duplicate claims.
+  - Bash guardrail no longer blocks grep outside indexed repos based on `currentProject` alone.
+  - Session quit waits up to 2s for shutdown persistence work.
+  - `schema.sql` synced with `expires_at` on observations and the `index_jobs` table.
+  - crosshash `serve` refuses unspecified bind addresses without `--api-key`.
+  - Full reindex parses to memory first, then clears and writes in one SQLite transaction.
+  - Cross-process repo index locks stored in `repo_index_locks` (SQLite).
+  - Incremental `changed-paths` responses include `rejected_paths` for blocked entries.
+  - HTTP auth documented in `docs/CONFIGURATION.md`; `::` bind requires API key.
+  - Second review pass: defer diagnostics during buffered full rebuild; git delta path guards; derived-phase failure returns partial error; constant-time API key compare.
+  - Third review pass: `updateRepoStats` runs after derived indexes succeed; incremental no-op reindex advances `head_commit` when git moved; trust sync resolves git-relative paths to indexed absolute paths; shared git-trust matcher supports quoted `-C` paths; HTTP auth accepts array-shaped headers.
+  - Fourth review pass: trust sync uses `git diff --name-status` (rename old+new paths); scan-hash no-op reindex advances `head_commit`; HTTP Bearer scheme is case-insensitive.
+
+- **Documentation review nits (PR #241)**
   - [`docs/MCP.md`](docs/MCP.md) — `lapis-mcp` requires the `mcp` subcommand; fix source links for `hooks-engine/project` and `project-db`; add `index-status` tool; clarify no `./mcp` npm export.
   - [`docs/COMMANDS.md`](docs/COMMANDS.md), [`docs/INDEX.md`](docs/INDEX.md) — align MCP bin invocation with CLI routing.
   - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — tidy See Also list formatting.

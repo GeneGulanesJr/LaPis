@@ -1533,11 +1533,14 @@ fn detect_workspace_type(root: &Path, workspace_aware: bool) -> WorkspaceType {
 fn load_ai_config() -> crosshash_ai::AiConfig {
     let candidates: Vec<PathBuf> = [
         Some(PathBuf::from("config/default.toml")),
-        std::env::current_exe().ok().and_then(|exe| {
-            exe.parent().map(|p| p.join("config").join("default.toml"))
-        }),
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|p| p.join("config").join("default.toml"))),
         std::env::var("CROSSHASH_CONFIG").ok().map(PathBuf::from),
-    ].into_iter().flatten().collect();
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
     for candidate in &candidates {
         if candidate.exists() {
             if let Ok(config) = crosshash_ai::AiConfig::load(candidate) {
@@ -1554,12 +1557,17 @@ async fn execute_serve(
     cmd: ServeCommand,
 ) -> Result<()> {
     let storage = open_storage(db)?;
+    let addr: std::net::SocketAddr = cmd.addr.parse()?;
+    if addr.ip().is_unspecified() && cmd.api_key.is_none() {
+        anyhow::bail!(
+            "refusing to bind crosshash API to {addr} without --api-key; use 127.0.0.1 or pass --api-key"
+        );
+    }
     let config = crosshash_api::ApiConfig {
         api_key: cmd.api_key,
         max_requests_per_minute: 60,
     };
     let app = crosshash_api::api_router_with_storage(config, storage);
-    let addr: std::net::SocketAddr = cmd.addr.parse()?;
     eprintln!("crosshash API server listening on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;

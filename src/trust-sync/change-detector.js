@@ -1,4 +1,75 @@
+const fs = require('fs');
+const path = require('path');
 const { execFileSync } = require('child_process');
+
+/**
+ * Map git-relative paths to absolute paths stored in the code index.
+ * Includes realpath variants so symlinked repo roots still match indexed rows.
+ */
+function resolveIndexedFilePaths(repoPath, gitPaths) {
+  const root = path.resolve(repoPath);
+  const resolved = new Set();
+  for (const entry of gitPaths) {
+    if (!entry || typeof entry !== 'string') {
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
+    const candidates = path.isAbsolute(entry) ? [path.resolve(entry)] : [path.resolve(root, entry)];
+    for (const candidate of candidates) {
+      resolved.add(candidate);
+      try {
+        resolved.add(fs.realpathSync(candidate));
+      } catch {
+        // Best-effort: indexed paths may not exist on disk anymore.
+      }
+    }
+  }
+  return [...resolved];
+}
+
+/**
+ * Parse `git diff --name-status` output into repo-relative changed paths.
+ * Includes both sides of renames so indexed symbols on old paths are detected.
+ */
+function parseGitDiffNameStatus(output) {
+  const changed = new Set();
+  for (const line of output.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
+    const parts = trimmed.split('\t');
+    const status = parts[0];
+    if (status.startsWith('R') && parts[1] && parts[2]) {
+      changed.add(parts[1]);
+      changed.add(parts[2]);
+    } else if (status.startsWith('D') && parts[1]) {
+      changed.add(parts[1]);
+    } else if (parts[1]) {
+      changed.add(parts[1]);
+    }
+  }
+  return [...changed];
+}
+
+function updateHeadCommit(deps, repoId, headCommit) {
+  let withTransaction = deps.withTransaction;
+  if (!withTransaction) {
+    try {
+      withTransaction = require('../../db').withTransaction;
+    } catch {
+      withTransaction = null;
+    }
+  }
+  if (typeof withTransaction === 'function') {
+    withTransaction(() => {
+      deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [headCommit, repoId]);
+    });
+  } else {
+    deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [headCommit, repoId]);
+  }
+}
 
 /**
  * Detects changed symbols by comparing stored head_commit against current HEAD.
@@ -26,8 +97,21 @@ function detectChangedSymbols(deps, repoName) {
     return { error: jsonErrNoExit(`Cannot read HEAD commit from ${repoPath}. Is it a git repo?`) };
   }
 
+  // No stored baseline — establish head_commit without penalizing linked memories.
+  if (!storedHead) {
+    updateHeadCommit(deps, repoId, currentHead);
+    return {
+      ok: true,
+      repo: repoName,
+      message: 'Initialized head_commit baseline',
+      old_head: null,
+      new_head: currentHead,
+      changedSet: new Set(),
+    };
+  }
+
   // No changes if HEAD hasn't moved
-  if (storedHead && storedHead === currentHead) {
+  if (storedHead === currentHead) {
     return {
       ok: true,
       repo: repoName,
@@ -39,30 +123,26 @@ function detectChangedSymbols(deps, repoName) {
   }
 
   // Determine the base commit for diff
-  const baseCommit = storedHead || null;
+  const baseCommit = storedHead;
 
-  // Get changed files via git diff
+  // Get changed files via git diff (name-status captures renames and deletes).
   let changedFiles = [];
   try {
-    const diffRange = baseCommit ? `${baseCommit}..HEAD` : 'HEAD~1..HEAD';
-    const output = execFileSync('git', ['diff', '--name-only', diffRange], {
+    const diffRange = `${baseCommit}..HEAD`;
+    const output = execFileSync('git', ['diff', '--name-status', diffRange], {
       cwd: repoPath,
       encoding: 'utf-8',
       timeout: 10000,
       maxBuffer: 10 * 1024 * 1024,
     });
-    changedFiles = output
-      .trim()
-      .split('\n')
-      .map((f) => f.trim())
-      .filter(Boolean);
+    changedFiles = parseGitDiffNameStatus(output);
   } catch {
     return { error: jsonErrNoExit('Failed to run git diff to determine changed files') };
   }
 
   if (changedFiles.length === 0) {
     // Update head_commit even if no file changes
-    sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [currentHead, repoId]);
+    updateHeadCommit(deps, repoId, currentHead);
     return {
       ok: true,
       repo: repoName,
@@ -73,13 +153,26 @@ function detectChangedSymbols(deps, repoName) {
     };
   }
 
-  // Build set of changed symbol names from the code index
+  // Build set of changed symbol names from the code index.
+  // Git reports repo-relative paths; the index stores absolute file paths.
+  const indexedPaths = resolveIndexedFilePaths(repoPath, changedFiles);
   const changedSet = new Set();
-  const placeholders = changedFiles.map(() => '?').join(',');
+  if (indexedPaths.length === 0) {
+    return {
+      ok: true,
+      repo: repoName,
+      old_head: storedHead,
+      new_head: currentHead,
+      changed_files: changedFiles.length,
+      changed_symbols: 0,
+      changedSet,
+    };
+  }
+  const placeholders = indexedPaths.map(() => '?').join(',');
   const changedSymbols = sqlJson(
     `SELECT DISTINCT name, qualified_name FROM code_symbols
      WHERE repo_id = ? AND file_path IN (${placeholders})`,
-    [repoId, ...changedFiles],
+    [repoId, ...indexedPaths],
   );
   for (const sym of changedSymbols) {
     changedSet.add(sym.name);
@@ -182,17 +275,19 @@ function createGitTrustSyncAdapter(mem, notify) {
         // Repo not indexed yet — silently skip
         return;
       }
+      if (notify) {
+        notify(`Memory: synced trust scores after git operation on ${repo}`, 'info');
+      }
     } catch {
       // Non-critical — trust sync failure should not break the session
-    }
-    if (notify) {
-      notify(`Memory: syncing trust scores after git operation on ${repo}`, 'info');
     }
   };
 }
 
 module.exports = {
   detectChangedSymbols,
+  resolveIndexedFilePaths,
+  parseGitDiffNameStatus,
   extractSymbolKey,
   collectChangedSymbols,
   parseChangedSymbolsJson,

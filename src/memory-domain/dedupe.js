@@ -73,6 +73,9 @@ function markDuplicate(deps, args) {
   if (!source || !target) {
     return { error: 'Missing --source and --target' };
   }
+  if (source === target) {
+    return { error: 'Source and target must be different observations' };
+  }
 
   sqlRun(
     'INSERT OR REPLACE INTO observation_relations (source_id, target_id, relation, confidence) VALUES (?, ?, ?, ?)',

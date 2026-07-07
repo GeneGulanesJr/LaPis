@@ -325,4 +325,13 @@ function scanRepository(repoPath, options = {}) {
   return { files: results, skipReport };
 }
 
-module.exports = { isBinaryFile, isCodeFile, scanRepository, shouldSkipDir, loadGitignoreRules, SKIP_FILE_RE };
+module.exports = {
+  isBinaryFile,
+  isCodeFile,
+  scanRepository,
+  shouldSkipDir,
+  loadGitignoreRules,
+  pathIsInside,
+  SECRET_FILE_RE,
+  SKIP_FILE_RE,
+};
