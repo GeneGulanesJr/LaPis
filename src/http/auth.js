@@ -48,8 +48,11 @@ function isAuthorized(req, apiKey) {
     return true;
   }
   const auth = headerValue(req.headers.authorization);
-  if (auth && auth.startsWith('Bearer ')) {
-    return keysMatch(auth.slice('Bearer '.length), apiKey);
+  if (auth) {
+    const bearerMatch = auth.match(/^Bearer\s+(.+)$/i);
+    if (bearerMatch && keysMatch(bearerMatch[1], apiKey)) {
+      return true;
+    }
   }
   return false;
 }

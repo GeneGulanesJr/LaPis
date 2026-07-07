@@ -72,6 +72,22 @@ describe('HTTP auth middleware', () => {
     });
     expect(res.status).not.toBe(401);
   });
+
+  it('accepts case-insensitive Bearer authorization', async () => {
+    server = createHttpServer({
+      repositories: { aurex: {} },
+      sqlJson: () => [],
+      sqlRun: () => {},
+      apiKey: 'test-key',
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const res = await request(server, {
+      method: 'POST',
+      path: '/dispatch',
+      headers: { authorization: 'bearer test-key', 'content-type': 'application/json' },
+    });
+    expect(res.status).not.toBe(401);
+  });
 });
 
 describe('HTTP serve host policy', () => {

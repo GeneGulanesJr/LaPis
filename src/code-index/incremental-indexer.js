@@ -1346,10 +1346,11 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
 
   if (changedRecords.length === 0 && unchanged === totalFiles && staleFiles.length === 0) {
     const totalMs = Date.now() - t0;
-    if (gitDelta?.currentHead && gitDelta.currentHead !== existing.head_commit) {
+    const currentHead = gitDelta?.currentHead || getHeadCommit(existing.path);
+    if (currentHead && currentHead !== existing.head_commit) {
       repository.updateRepoStats({
         repoId: existing.id,
-        headCommit: gitDelta.currentHead,
+        headCommit: currentHead,
         currentBranch: getCurrentBranch(existing.path),
         baseHead: existing.head_commit || null,
       });
@@ -1386,8 +1387,8 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
       symbols_extracted: 0,
       strategy: gitDelta ? 'git-diff' : 'scan-hash',
       derived_scope: 'none',
-      git_base: gitDelta ? existing.head_commit : null,
-      git_head: gitDelta ? gitDelta.currentHead : null,
+      git_base: existing.head_commit || null,
+      git_head: gitDelta?.currentHead || getHeadCommit(existing.path),
       git_renames: gitDelta ? gitDelta.renamed : [],
       import_edges: 0,
       call_edges: 0,

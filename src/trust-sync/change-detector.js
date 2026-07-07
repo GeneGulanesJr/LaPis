@@ -28,6 +28,50 @@ function resolveIndexedFilePaths(repoPath, gitPaths) {
 }
 
 /**
+ * Parse `git diff --name-status` output into repo-relative changed paths.
+ * Includes both sides of renames so indexed symbols on old paths are detected.
+ */
+function parseGitDiffNameStatus(output) {
+  const changed = new Set();
+  for (const line of output.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
+    const parts = trimmed.split('\t');
+    const status = parts[0];
+    if (status.startsWith('R') && parts[1] && parts[2]) {
+      changed.add(parts[1]);
+      changed.add(parts[2]);
+    } else if (status.startsWith('D') && parts[1]) {
+      changed.add(parts[1]);
+    } else if (parts[1]) {
+      changed.add(parts[1]);
+    }
+  }
+  return [...changed];
+}
+
+function updateHeadCommit(deps, repoId, headCommit) {
+  let withTransaction = deps.withTransaction;
+  if (!withTransaction) {
+    try {
+      withTransaction = require('../../db').withTransaction;
+    } catch {
+      withTransaction = null;
+    }
+  }
+  if (typeof withTransaction === 'function') {
+    withTransaction(() => {
+      deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [headCommit, repoId]);
+    });
+  } else {
+    deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [headCommit, repoId]);
+  }
+}
+
+/**
  * Detects changed symbols by comparing stored head_commit against current HEAD.
  * Uses git diff + the built-in code index (zero external dependencies).
  */
@@ -55,7 +99,7 @@ function detectChangedSymbols(deps, repoName) {
 
   // No stored baseline — establish head_commit without penalizing linked memories.
   if (!storedHead) {
-    sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [currentHead, repoId]);
+    updateHeadCommit(deps, repoId, currentHead);
     return {
       ok: true,
       repo: repoName,
@@ -81,28 +125,24 @@ function detectChangedSymbols(deps, repoName) {
   // Determine the base commit for diff
   const baseCommit = storedHead;
 
-  // Get changed files via git diff
+  // Get changed files via git diff (name-status captures renames and deletes).
   let changedFiles = [];
   try {
     const diffRange = `${baseCommit}..HEAD`;
-    const output = execFileSync('git', ['diff', '--name-only', diffRange], {
+    const output = execFileSync('git', ['diff', '--name-status', diffRange], {
       cwd: repoPath,
       encoding: 'utf-8',
       timeout: 10000,
       maxBuffer: 10 * 1024 * 1024,
     });
-    changedFiles = output
-      .trim()
-      .split('\n')
-      .map((f) => f.trim())
-      .filter(Boolean);
+    changedFiles = parseGitDiffNameStatus(output);
   } catch {
     return { error: jsonErrNoExit('Failed to run git diff to determine changed files') };
   }
 
   if (changedFiles.length === 0) {
     // Update head_commit even if no file changes
-    sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [currentHead, repoId]);
+    updateHeadCommit(deps, repoId, currentHead);
     return {
       ok: true,
       repo: repoName,
@@ -247,6 +287,7 @@ function createGitTrustSyncAdapter(mem, notify) {
 module.exports = {
   detectChangedSymbols,
   resolveIndexedFilePaths,
+  parseGitDiffNameStatus,
   extractSymbolKey,
   collectChangedSymbols,
   parseChangedSymbolsJson,

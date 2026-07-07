@@ -1,7 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { resolveIndexedFilePaths } = require('../src/trust-sync/change-detector');
+const { resolveIndexedFilePaths, parseGitDiffNameStatus } = require('../src/trust-sync/change-detector');
 
 describe('resolveIndexedFilePaths', () => {
   it('maps git-relative paths to absolute indexed paths', () => {
@@ -31,5 +31,17 @@ describe('resolveIndexedFilePaths', () => {
         // ignore
       }
     }
+  });
+});
+
+describe('parseGitDiffNameStatus', () => {
+  it('includes both sides of a rename', () => {
+    const paths = parseGitDiffNameStatus('R100\told.js\tnew.js\n');
+    expect(paths.sort()).toEqual(['new.js', 'old.js']);
+  });
+
+  it('includes deleted and modified paths', () => {
+    const paths = parseGitDiffNameStatus('M\tsrc/a.js\nD\tsrc/b.js\nA\tsrc/c.js\n');
+    expect(paths.sort()).toEqual(['src/a.js', 'src/b.js', 'src/c.js']);
   });
 });
