@@ -149,7 +149,10 @@ function syncCodeTrust(deps, args) {
 
   // No changed symbols in the index — update head_commit and return
   if (detected.changedSet.size === 0) {
-    deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE name = ?', [detected.new_head, repo]);
+    const tx = deps.withTransaction || require('../../db').withTransaction;
+    tx(() => {
+      deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE name = ?', [detected.new_head, repo]);
+    });
     return {
       ok: true,
       repo,

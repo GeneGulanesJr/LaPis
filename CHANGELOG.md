@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Cross-process repo index locks stored in `repo_index_locks` (SQLite).
   - Incremental `changed-paths` responses include `rejected_paths` for blocked entries.
   - HTTP auth documented in `docs/CONFIGURATION.md`; `::` bind requires API key.
+  - Second review pass: defer diagnostics during buffered full rebuild; git delta path guards; derived-phase failure returns partial error; constant-time API key compare.
 
 - **Documentation review nits (PR #241)**
   - [`docs/MCP.md`](docs/MCP.md) — `lapis-mcp` requires the `mcp` subcommand; fix source links for `hooks-engine/project` and `project-db`; add `index-status` tool; clarify no `./mcp` npm export.

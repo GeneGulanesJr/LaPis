@@ -85,3 +85,12 @@ describe('HTTP serve host policy', () => {
     expect(() => assertServeHostPolicy('::', null)).toThrow(/API key/);
   });
 });
+
+describe('HTTP key comparison', () => {
+  it('uses constant-time comparison', () => {
+    const { keysMatch } = require('../src/http/auth');
+    expect(keysMatch('secret-key', 'secret-key')).toBe(true);
+    expect(keysMatch('secret-key', 'secret-kez')).toBe(false);
+    expect(keysMatch('short', 'much-longer-key')).toBe(false);
+  });
+});

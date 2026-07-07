@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { jsonError } = require('./errors');
 
 function resolveHttpApiKey(opts = {}) {
@@ -16,17 +17,29 @@ function resolveHttpApiKey(opts = {}) {
   }
 }
 
+function keysMatch(provided, expected) {
+  if (typeof provided !== 'string' || typeof expected !== 'string') {
+    return false;
+  }
+  const providedBuf = Buffer.from(provided);
+  const expectedBuf = Buffer.from(expected);
+  if (providedBuf.length !== expectedBuf.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(providedBuf, expectedBuf);
+}
+
 function isAuthorized(req, apiKey) {
   if (!apiKey) {
     return true;
   }
   const headerKey = req.headers['x-api-key'];
-  if (typeof headerKey === 'string' && headerKey === apiKey) {
+  if (typeof headerKey === 'string' && keysMatch(headerKey, apiKey)) {
     return true;
   }
   const auth = req.headers.authorization;
   if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
-    return auth.slice('Bearer '.length) === apiKey;
+    return keysMatch(auth.slice('Bearer '.length), apiKey);
   }
   return false;
 }
@@ -61,4 +74,5 @@ module.exports = {
   isAuthorized,
   requireHttpAuth,
   assertServeHostPolicy,
+  keysMatch,
 };

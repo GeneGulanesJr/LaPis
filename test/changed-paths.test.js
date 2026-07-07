@@ -19,11 +19,12 @@ describe('parseChangedPathsInput rejected paths', () => {
     const outside = path.join(os.tmpdir(), 'outside.js');
     fs.writeFileSync(outside, 'export const nope = 1;');
     const delta = parseChangedPathsInput(
-      JSON.stringify([{ path: 'inside.js' }, { path: outside }]),
+      JSON.stringify([{ path: 'inside.js' }, { path: outside }, { path: 123 }]),
       repoRoot,
     );
     expect(delta.changed).toHaveLength(1);
-    expect(delta.rejected).toHaveLength(1);
-    expect(delta.rejected[0].reason).toBe('outside_repo');
+    expect(delta.rejected).toHaveLength(2);
+    expect(delta.rejected.some((r) => r.reason === 'outside_repo')).toBe(true);
+    expect(delta.rejected.some((r) => r.reason === 'invalid_path')).toBe(true);
   });
 });

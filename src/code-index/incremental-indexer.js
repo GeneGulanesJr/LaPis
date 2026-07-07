@@ -160,6 +160,7 @@ function parseChangedPathsInput(input, repoPath) {
       filePath = entry.path || entry.file || entry.filePath || entry[1];
     }
     if (!filePath || typeof filePath !== 'string') {
+      rejected.push({ path: String(filePath), reason: 'invalid_path' });
       // oxlint-disable-next-line no-continue
       continue;
     }
@@ -203,6 +204,7 @@ function getGitDelta(repoPath, baseCommit) {
     const changed = new Set();
     const deleted = new Set();
     const renamed = [];
+    const rejected = [];
     for (const line of output.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed) {
@@ -212,16 +214,28 @@ function getGitDelta(repoPath, baseCommit) {
       const parts = trimmed.split('\t');
       const status = parts[0];
       if (status.startsWith('D') && parts[1]) {
-        deleted.add(path.resolve(repoPath, parts[1]));
+        const abs = resolveRepoScopedPath(repoPath, parts[1], rejected);
+        if (abs) {
+          deleted.add(abs);
+        }
       } else if (status.startsWith('R') && parts[1] && parts[2]) {
-        deleted.add(path.resolve(repoPath, parts[1]));
-        changed.add(path.resolve(repoPath, parts[2]));
+        const fromAbs = resolveRepoScopedPath(repoPath, parts[1], rejected);
+        const toAbs = resolveRepoScopedPath(repoPath, parts[2], rejected);
+        if (fromAbs) {
+          deleted.add(fromAbs);
+        }
+        if (toAbs) {
+          changed.add(toAbs);
+        }
         renamed.push({ from: parts[1], to: parts[2], status });
       } else if (parts[1]) {
-        changed.add(path.resolve(repoPath, parts[1]));
+        const abs = resolveRepoScopedPath(repoPath, parts[1], rejected);
+        if (abs) {
+          changed.add(abs);
+        }
       }
     }
-    return { currentHead, changed: [...changed], deleted: [...deleted], renamed };
+    return { currentHead, changed: [...changed], deleted: [...deleted], renamed, rejected };
   } catch {
     return null;
   }
@@ -248,7 +262,10 @@ function fileRecordToParams(repoId, record) {
   };
 }
 
-function recordDiagnostic(repository, repoId, record, status, message, symbolCount = 0) {
+function recordDiagnostic(repository, repoId, record, status, message, symbolCount = 0, options = {}) {
+  if (options.defer) {
+    return;
+  }
   if (typeof repository.upsertFileDiagnostic !== 'function') {
     return;
   }
@@ -723,7 +740,9 @@ async function parsePhase(files, deps, repoId, args) {
             return await readFileRecord(fp);
           } catch (e) {
             skipped.push({ file: fp, error: e.message });
-            recordDiagnostic(repository, repoId, { filePath: fp, content: '' }, 'error', e.message, 0);
+            recordDiagnostic(repository, repoId, { filePath: fp, content: '' }, 'error', e.message, 0, {
+              defer: args.deferIndexWrites,
+            });
             return null;
           }
         }),
@@ -760,6 +779,7 @@ async function parsePhase(files, deps, repoId, args) {
                 ? 'No symbols extracted from non-empty file'
                 : '',
               symbols.length,
+              { defer: args.deferIndexWrites },
             );
             const hotSymbols = symbols.map((s) => normalizeSymbolHot(s, record.filePath));
             parsedRecords.push({ record, hotSymbols, coldSymbols: symbols, tree: null });
@@ -790,6 +810,7 @@ async function parsePhase(files, deps, repoId, args) {
             symbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
             symbols.length === 0 && record.content.trim().length > 0 ? 'No symbols extracted from non-empty file' : '',
             symbols.length,
+            { defer: args.deferIndexWrites },
           );
           parsedRecords.push({ record, hotSymbols, coldSymbols, tree });
           parsedInBatch++;
@@ -957,7 +978,7 @@ async function indexRepository(deps, repoPath, repoName) {
             });
           },
         });
-        for (const batch of parseResult.deferredBatches) {
+        for (const batch of parseResult.deferredBatches || []) {
           commitParsedBatch(repository, repoId, batch, writeCtx);
         }
       });
@@ -993,7 +1014,23 @@ async function indexRepository(deps, repoPath, repoName) {
     const derivedT0 = Date.now();
     const headCommit = getHeadCommit(absPath);
     repository.updateRepoStats({ repoId, headCommit, currentBranch: getCurrentBranch(absPath), baseHead: headCommit });
-    const derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
+    let derived;
+    try {
+      derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
+    } catch (derivedError) {
+      console.error(`[indexer] indexRepository: derived phase failed after commit: ${derivedError.message}`);
+      emitProgress(args, 'error', {
+        step: 'derived-failed',
+        message: `Symbols committed but derived indexes failed: ${derivedError.message}. Run reindex-repo to rebuild derived indexes.`,
+      });
+      return {
+        error: `Index symbols committed but derived indexes failed: ${derivedError.message}. Run reindex-repo to rebuild derived indexes.`,
+        repo: repoName,
+        partial: true,
+        files_indexed: parseResult.fileCount,
+        symbols_extracted: parseResult.symbolCount,
+      };
+    }
     const derivedMs = Date.now() - derivedT0;
 
     const totalMs = Date.now() - t0;
@@ -1097,7 +1134,7 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
   }
   if (gitDelta?.rejected?.length) {
     emitProgress(args, 'discovery', {
-      message: `Skipped ${gitDelta.rejected.length} changed-path entries outside the repo or blocked as secret files`,
+      message: `Skipped ${gitDelta.rejected.length} git/changed-path entries outside the repo or blocked as secret files`,
       rejected_paths: gitDelta.rejected,
     });
   }
