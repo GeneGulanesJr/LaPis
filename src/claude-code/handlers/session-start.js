@@ -13,7 +13,8 @@
  * registerSessionCompact.
  */
 
-const { resolveCwd, projectFromCwd } = require('../../hooks-engine/project');
+const path = require('node:path');
+const { resolveCwd, resolveProjectKey } = require('../../hooks-engine/project');
 const { buildInjectedContext } = require('../context-inject');
 
 /**
@@ -29,7 +30,8 @@ const { buildInjectedContext } = require('../context-inject');
 async function handleSessionStart({ payload, dispatch, getKnownRepos, stateStore }) {
   const source = payload.source || 'startup';
   const cwd = resolveCwd(payload.cwd);
-  const project = projectFromCwd(cwd);
+  const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
+  const project = resolveProjectKey(path.resolve(cwd), repos);
   const claudeSessionId = payload.session_id;
 
   let state = stateStore.loadState(claudeSessionId);

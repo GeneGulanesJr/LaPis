@@ -15,7 +15,7 @@
 
 const path = require('node:path');
 const { CONTEXT } = require('../../../constants');
-const { resolveCwd, projectFromCwd, findMatchingRepo } = require('../../hooks-engine/project');
+const { resolveCwd, resolveProjectKey, findMatchingRepo } = require('../../hooks-engine/project');
 const { isPreflightWorthyPrompt } = require('../../hooks-engine/prompt-classifiers');
 const {
   appendPreflightBlock,
@@ -73,7 +73,8 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt }) {
 async function run({ payload, dispatch, getKnownRepos, stateStore, isCancelled }) {
   const prompt = payload.prompt || '';
   const cwd = resolveCwd(payload.cwd);
-  const project = projectFromCwd(cwd);
+  const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
+  const project = resolveProjectKey(path.resolve(cwd), repos);
   const claudeSessionId = payload.session_id;
 
   const state = stateStore.loadState(claudeSessionId);

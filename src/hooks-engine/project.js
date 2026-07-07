@@ -80,10 +80,58 @@ function findMatchingProject(resolvedCwd, knownProjects) {
   return null;
 }
 
+/**
+ * Resolve the indexed code repo for a cwd. Path-prefix match wins (monorepo
+ * subdirs whose basename differs from the repo name); then name match on the
+ * stored project hint.
+ *
+ * @param {string} resolvedCwd
+ * @param {Array<{name:string,path:string}>} repos
+ * @param {string|null|undefined} [currentProject]
+ * @returns {object|null}
+ */
+function resolveIndexedRepo(resolvedCwd, repos, currentProject) {
+  const byPath = findMatchingRepo(resolvedCwd, repos);
+  if (byPath) {
+    return byPath;
+  }
+  if (currentProject) {
+    const key = String(currentProject).toLowerCase();
+    return repos.find((r) => r.name && r.name.toLowerCase() === key) || null;
+  }
+  return null;
+}
+
+/**
+ * Best-effort memory project key: indexed repo name when cwd is inside one,
+ * else a known project basename from the up-tree walk, else cwd basename.
+ * Mirrors the fallback chain in detectProject() without async DB calls.
+ *
+ * @param {string} resolvedCwd
+ * @param {Array<{name:string,path:string}>} repos
+ * @param {string[]} [knownProjects]
+ * @returns {string}
+ */
+function resolveProjectKey(resolvedCwd, repos, knownProjects) {
+  const repo = findMatchingRepo(resolvedCwd, repos);
+  if (repo?.name) {
+    return repo.name.toLowerCase();
+  }
+  if (Array.isArray(knownProjects) && knownProjects.length > 0) {
+    const fromTree = findMatchingProject(resolvedCwd, knownProjects);
+    if (fromTree) {
+      return fromTree.toLowerCase();
+    }
+  }
+  return projectFromCwd(resolvedCwd);
+}
+
 module.exports = {
   resolveCwd,
   projectFromCwd,
   findMatchingRepo,
   findMatchingProject,
   normalizeRepoPath,
+  resolveIndexedRepo,
+  resolveProjectKey,
 };

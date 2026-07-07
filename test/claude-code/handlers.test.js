@@ -525,6 +525,8 @@ describe('claude-code handlers: SessionEnd', () => {
     });
 
     expect(hasCall(calls, 'session-end', (a) => a.memories === '2')).toBe(true);
+    const summaryCall = calls.find((c) => c.cmd === 'session-summary');
+    expect(summaryCall?.args?.content).toMatch(/2 memories saved/);
   });
 
   test('no-op when no session was started', async () => {

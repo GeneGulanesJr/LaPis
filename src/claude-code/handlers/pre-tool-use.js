@@ -24,7 +24,7 @@
 
 const path = require('node:path');
 const { isCodeFile } = require('../../code-index/scanner');
-const { resolveCwd, projectFromCwd, findMatchingRepo, normalizeRepoPath } = require('../../hooks-engine/project');
+const { resolveCwd, resolveIndexedRepo, resolveProjectKey, normalizeRepoPath } = require('../../hooks-engine/project');
 const {
   isPipedOutputFilter,
   isTargetedSymbolLookup,
@@ -59,16 +59,9 @@ function addExploredFile(state, filePath) {
   addNormalized(state.exploredFiles, filePath);
 }
 
-/** Resolve the indexed repo the current cwd belongs to (cwd prefix or project name). */
+/** Resolve the indexed repo the current cwd belongs to (path prefix or project name). */
 function resolveRepo(resolvedCwd, repos, currentProject) {
-  const byPath = findMatchingRepo(resolvedCwd, repos);
-  if (byPath) {
-    return byPath;
-  }
-  if (currentProject) {
-    return repos.find((r) => r.name && r.name.toLowerCase() === currentProject.toLowerCase()) || null;
-  }
-  return null;
+  return resolveIndexedRepo(resolvedCwd, repos, currentProject);
 }
 
 // --- guardrails ---------------------------------------------------------
@@ -231,7 +224,7 @@ async function handlePreToolUse({ payload, getKnownRepos, stateStore }) {
   const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
   const state = stateStore.loadState(claudeSessionId);
   if (!state.currentProject) {
-    state.currentProject = projectFromCwd(cwd);
+    state.currentProject = resolveProjectKey(cwd, repos);
   }
 
   const args = { input, repos, cwd, state };

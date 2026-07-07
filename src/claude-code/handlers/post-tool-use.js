@@ -21,13 +21,14 @@
  * or clobber each other. git-trust is read-only and never writes back.
  */
 
+const path = require('node:path');
 const {
   parseSearchResultIds,
   parseMemoryIds,
   wasSaveSuccessful,
   extractToolResponseText,
 } = require('../../hooks-engine/tool-response-parse');
-const { resolveCwd, projectFromCwd } = require('../../hooks-engine/project');
+const { resolveCwd, resolveIndexedRepo, resolveProjectKey } = require('../../hooks-engine/project');
 const { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils');
 const { addNormalized } = require('../file-keys');
 const { postToolRole } = require('../tool-map');
@@ -104,12 +105,9 @@ async function gitTrustSync({ input, dispatch, getKnownRepos, state, cwd }) {
   if (!cmd || !GIT_TRUST_OP_RE.test(cmd)) {
     return;
   }
-  const project = state.currentProject || projectFromCwd(cwd);
-  if (!project) {
-    return;
-  }
   const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
-  const repo = repos.find((r) => r.name && r.name.toLowerCase() === project.toLowerCase());
+  const resolvedCwd = path.resolve(cwd);
+  const repo = resolveIndexedRepo(resolvedCwd, repos, state.currentProject);
   if (!repo) {
     return;
   }
@@ -162,7 +160,8 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, stateStore,
 
   await mutate((state) => {
     if (!state.currentProject) {
-      state.currentProject = projectFromCwd(cwd);
+      const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
+      state.currentProject = resolveProjectKey(path.resolve(cwd), repos);
     }
     switch (role) {
       case 'edit-track':

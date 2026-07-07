@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Claude Code bridge — issue #205 review follow-ups**
+  - **Monorepo project detection:** `resolveProjectKey` / `resolveIndexedRepo` in
+    `hooks-engine/project.js` prefer indexed repo path prefix over cwd basename,
+    so git-trust sync and guardrails work from subdirectories like
+    `packages/foo` when the repo is indexed as `my-monorepo`.
+  - **Session summary count:** `SessionEnd` summary text now uses the same
+    DB-derived memory count as `session-end` dispatch (not the mirrored counter).
+  - **Stop checkpoint race:** progress checkpoints snapshot state under
+    `mutateState` instead of an unlocked `loadState`.
+  - **State lock budget:** `mutateState` lock timeout raised to 5s to reduce
+    fail-open races under parallel PostToolUse hooks.
+  - **MCP project key:** `detectMcpProject()` uses hooks-engine path-prefix
+    resolution so MCP and the Claude Code bridge agree in monorepos.
+
 - **Claude Code bridge — issue #205 post-review hardening** (follow-up to #234).
   - **Stop / UserPromptSubmit state races (#228):** Stop and UserPromptSubmit now
     route all state writes through `mutateState` instead of unlocked load/save,

@@ -12,13 +12,15 @@
  * Mirrors extensions/.../hooks/session-lifecycle.ts registerSessionShutdown.
  */
 
-const { resolveCwd, projectFromCwd } = require('../../hooks-engine/project');
+const path = require('node:path');
+const { resolveCwd, resolveProjectKey } = require('../../hooks-engine/project');
 const { buildSessionSummary } = require('../../hooks-engine/session-summary');
 const { readTranscript } = require('../hooks-engine/transcript-reader');
 
-async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore }) {
+async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore, getKnownRepos }) {
   const cwd = resolveCwd(payload.cwd);
-  const project = projectFromCwd(cwd);
+  const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
+  const project = resolveProjectKey(path.resolve(cwd), repos);
   const claudeSessionId = payload.session_id;
 
   const state = stateStore.loadState(claudeSessionId);
@@ -31,17 +33,17 @@ async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore 
 
   const transcript = readTranscript(payload.transcript_path);
 
+  // DB-derived count is authoritative for both summary text and session-end.
+  const memories = dispatchClient.countSessionMemories(state.sessionId);
+
   const summaryContent = buildSessionSummary({
     userMessages: transcript.userMessages,
     assistantCount: transcript.assistantMessageCount,
     turnCount: state.turnCount,
-    memoriesSaved: state.memoriesSavedThisSession,
+    memoriesSaved: memories,
     editedFiles: state.editedFiles,
     cwd,
   });
-
-  // DB-derived count, not the in-process counter (issue #207).
-  const memories = dispatchClient.countSessionMemories(state.sessionId);
 
   try {
     await dispatch('session-summary', { content: summaryContent, project });

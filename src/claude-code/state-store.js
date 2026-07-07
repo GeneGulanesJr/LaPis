@@ -32,7 +32,7 @@ const DEFAULT_TTL_HOURS = 24;
 // Lock tuning for mutateState (#228). A crashed holder leaves a lockfile; it is
 // broken once older than LOCK_STALE_MS so a wedged lock never permanently
 // blocks the fast path.
-const LOCK_TIMEOUT_MS = 2000;
+const LOCK_TIMEOUT_MS = 5000;
 const LOCK_POLL_MS = 25;
 const LOCK_STALE_MS = 10_000;
 
