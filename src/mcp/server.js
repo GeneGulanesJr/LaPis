@@ -29,7 +29,16 @@ function detectMcpProject(cwd) {
   try {
     const { sqlJson } = require('../../db');
     const repos = sqlJson('SELECT name, path, indexed_at FROM code_repos') || [];
-    return resolveProjectKey(resolved, repos);
+    const rows =
+      sqlJson(`
+        SELECT project
+        FROM observations
+        WHERE deleted_at IS NULL AND type != 'skill'
+          AND project IS NOT NULL AND project != ''
+        GROUP BY project
+      `) || [];
+    const knownProjects = rows.map((r) => r.project).filter(Boolean);
+    return resolveProjectKey(resolved, repos, knownProjects);
   } catch {
     return projectFromCwd(resolved);
   }

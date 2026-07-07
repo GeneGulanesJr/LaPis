@@ -8,8 +8,7 @@
  * extensions/memory-layer/host/project-detector.ts and tool-guardrails.ts.
  *
  * IMPORTANT: prefers process.env.CLAUDE_PROJECT_DIR over cwd/basename so the
- * Claude Code bridge and MCP agree on the project key (resolves the TODO at
- * src/mcp/server.js:30-34). NOT yet wired into mcp/server.js (Phase 2+).
+ * Claude Code bridge and MCP agree on the project key.
  */
 
 const path = require('node:path');
@@ -49,13 +48,25 @@ function normalizeRepoPath(p) {
 function findMatchingRepo(resolvedCwd, repos) {
   // Normalize separators so a Windows cwd matches a DB path stored with `/`
   // (or vice versa). Prefix match always uses `/` after normalization (#227).
+  // When several indexed repos match (nested paths), prefer the deepest/longest
+  // path — mirrors detectProject()'s depth tie-break in project-detector.ts.
   const abs = normalizeRepoPath(resolvedCwd);
-  return (
-    repos.find((r) => {
-      const rp = normalizeRepoPath(r.path);
-      return abs === rp || abs.startsWith(`${rp}/`);
-    }) || null
-  );
+  let best = null;
+  let bestLen = -1;
+  for (const r of repos) {
+    if (!r?.path) {
+      continue;
+    }
+    const rp = normalizeRepoPath(r.path);
+    if (abs !== rp && !abs.startsWith(`${rp}/`)) {
+      continue;
+    }
+    if (rp.length > bestLen) {
+      best = r;
+      bestLen = rp.length;
+    }
+  }
+  return best;
 }
 
 /**

@@ -280,6 +280,9 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
         if (sql.includes('code_repos')) {
           return [{ name: 'my-monorepo', path: '/repos/my-monorepo', indexed_at: '2026-01-01' }];
         }
+        if (sql.includes('FROM observations')) {
+          return [];
+        }
         return realDb.sqlJson ? realDb.sqlJson(sql) : [];
       },
     };

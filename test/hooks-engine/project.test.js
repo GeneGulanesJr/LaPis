@@ -70,6 +70,14 @@ describe('hooks-engine project: findMatchingRepo', () => {
     const mixed = [{ name: 'win', path: 'C:/repos/win' }];
     expect(findMatchingRepo('C:\\repos\\win\\src', mixed)?.name).toBe('win');
   });
+
+  test('prefers the deepest path when several repos match (nested indexes)', () => {
+    const nested = [
+      { name: 'monorepo', path: '/repos/monorepo' },
+      { name: 'monorepo-pkg', path: '/repos/monorepo/packages/pkg' },
+    ];
+    expect(findMatchingRepo('/repos/monorepo/packages/pkg/src', nested)?.name).toBe('monorepo-pkg');
+  });
 });
 
 describe('hooks-engine project: findMatchingProject', () => {

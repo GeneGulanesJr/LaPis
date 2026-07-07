@@ -153,6 +153,26 @@ describe('claude-code handlers: SessionStart', () => {
     expect(out.hookSpecificOutput.hookEventName).toBe('SessionStart');
   });
 
+  test('compact refreshes currentProject when cwd resolves to a different indexed repo', async () => {
+    const stateStore = makeStateStore();
+    stateStore.saveState('claude-compact', {
+      ...realStateStore.defaultState(),
+      sessionId: 77,
+      currentProject: 'foo',
+    });
+    const monorepoRepos = () => [{ name: 'my-monorepo', path: '/repos/my-monorepo' }];
+    const { dispatch } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
+
+    await handleSessionStart({
+      payload: { session_id: 'claude-compact', source: 'compact', cwd: '/repos/my-monorepo/packages/foo' },
+      dispatch,
+      getKnownRepos: monorepoRepos,
+      stateStore,
+    });
+
+    expect(stateStore._peek('claude-compact').currentProject).toBe('my-monorepo');
+  });
+
   test('startup passes the stored numeric sessionId as session-id to context', async () => {
     const { dispatch, calls } = makeFakeDispatch({
       'session-start': () => ({ sessionId: 55, sessionCount: 0 }),

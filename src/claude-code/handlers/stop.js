@@ -19,7 +19,8 @@
 const path = require('node:path');
 const { uniqueEditedPaths } = require('../file-keys');
 const { makeMutate } = require('../state-mutate');
-const { resolveCwd, resolveProjectKey } = require('../../hooks-engine/project');
+const { resolveCwd } = require('../../hooks-engine/project');
+const { resolveProjectForCwd } = require('../project-resolve');
 const { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
 const { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher');
 const { readTranscriptStream } = require('../hooks-engine/transcript-reader');
@@ -121,7 +122,7 @@ async function checkpoint({ dispatch, state, project }) {
   });
 }
 
-async function handleStop({ payload, dispatch, stateStore, getKnownRepos }) {
+async function handleStop({ payload, dispatch, stateStore, getKnownRepos, getKnownProjects }) {
   // Avoid re-entrancy: Claude Code sets stop_hook_active when already inside a
   // stop continuation. Bail out so we never create a feedback loop.
   if (payload?.stop_hook_active) {
@@ -129,8 +130,7 @@ async function handleStop({ payload, dispatch, stateStore, getKnownRepos }) {
   }
 
   const cwd = resolveCwd(payload.cwd);
-  const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
-  const project = resolveProjectKey(path.resolve(cwd), repos);
+  const { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
   const claudeSessionId = payload.session_id;
   const now = Date.now();
   const mutate = makeMutate(stateStore, claudeSessionId);

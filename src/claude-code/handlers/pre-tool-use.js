@@ -24,7 +24,8 @@
 
 const path = require('node:path');
 const { isCodeFile } = require('../../code-index/scanner');
-const { resolveCwd, resolveIndexedRepo, resolveProjectKey, normalizeRepoPath } = require('../../hooks-engine/project');
+const { resolveIndexedRepo, normalizeRepoPath } = require('../../hooks-engine/project');
+const { resolveProjectForCwd } = require('../project-resolve');
 const {
   isPipedOutputFilter,
   isTargetedSymbolLookup,
@@ -188,7 +189,7 @@ function bashGuardrail({ input, repos, cwd, state }) {
   );
 }
 
-async function handlePreToolUse({ payload, getKnownRepos, stateStore }) {
+async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stateStore }) {
   const toolName = payload.tool_name;
   const role = preToolRole(toolName);
   if (!role) {
@@ -220,11 +221,14 @@ async function handlePreToolUse({ payload, getKnownRepos, stateStore }) {
     return null;
   }
 
-  const cwd = path.resolve(resolveCwd(payload.cwd));
-  const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
+  const { resolvedCwd: cwd, repos, project } = resolveProjectForCwd(
+    payload.cwd,
+    getKnownRepos,
+    getKnownProjects,
+  );
   const state = stateStore.loadState(claudeSessionId);
   if (!state.currentProject) {
-    state.currentProject = resolveProjectKey(cwd, repos);
+    state.currentProject = project;
   }
 
   const args = { input, repos, cwd, state };

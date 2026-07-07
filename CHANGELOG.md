@@ -21,6 +21,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     fail-open races under parallel PostToolUse hooks.
   - **MCP project key:** `detectMcpProject()` uses hooks-engine path-prefix
     resolution so MCP and the Claude Code bridge agree in monorepos.
+  - **knownProjects fallback:** handlers and MCP load memory project names from
+    the DB (list-projects parity) when cwd is not inside an indexed code repo.
+  - **Nested repo match:** `findMatchingRepo` prefers the deepest matching path
+    when several indexed repos overlap.
+  - **Compact cwd refresh:** `SessionStart(compact)` updates `currentProject`
+    when cwd resolves to a different project key.
 
 - **Claude Code bridge — issue #205 post-review hardening** (follow-up to #234).
   - **Stop / UserPromptSubmit state races (#228):** Stop and UserPromptSubmit now

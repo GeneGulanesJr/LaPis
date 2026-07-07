@@ -14,7 +14,8 @@
  */
 
 const path = require('node:path');
-const { resolveCwd, resolveProjectKey } = require('../../hooks-engine/project');
+const { resolveCwd } = require('../../hooks-engine/project');
+const { resolveProjectForCwd } = require('../project-resolve');
 const { buildInjectedContext } = require('../context-inject');
 
 /**
@@ -27,11 +28,10 @@ const { buildInjectedContext } = require('../context-inject');
  * @param {object} ctx.stateStore        { loadState, saveState, sweepStaleSessions }
  * @returns {Promise<object|null>}       Claude Code JSON or null
  */
-async function handleSessionStart({ payload, dispatch, getKnownRepos, stateStore }) {
+async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore }) {
   const source = payload.source || 'startup';
+  const { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
   const cwd = resolveCwd(payload.cwd);
-  const repos = (typeof getKnownRepos === 'function' ? getKnownRepos() : []) || [];
-  const project = resolveProjectKey(path.resolve(cwd), repos);
   const claudeSessionId = payload.session_id;
 
   let state = stateStore.loadState(claudeSessionId);
@@ -79,6 +79,10 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, stateStore
       state.projectSessionCount = result.sessionCount || 0;
     }
     // Orphan recovery is automatic server-side; surface only if returned.
+    stateStore.saveState(claudeSessionId, state);
+  } else if (state.currentProject !== project) {
+    // Compact re-inject: refresh project when cwd moved (e.g. monorepo subdir).
+    state.currentProject = project;
     stateStore.saveState(claudeSessionId, state);
   }
 

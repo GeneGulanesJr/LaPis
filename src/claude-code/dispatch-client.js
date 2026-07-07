@@ -126,11 +126,34 @@ function getKnownRepos() {
   }
 }
 
+/**
+ * Known memory project names (observations grouped by project). Used by
+ * resolveProjectKey when cwd is not inside an indexed code repo — mirrors the
+ * list-projects fallback in project-detector.ts detectProject().
+ */
+function getKnownProjects() {
+  try {
+    const { sqlJson } = require('../../db');
+    const rows =
+      sqlJson(`
+        SELECT project
+        FROM observations
+        WHERE deleted_at IS NULL AND type != 'skill'
+          AND project IS NOT NULL AND project != ''
+        GROUP BY project
+      `) || [];
+    return rows.map((r) => r.project).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 module.exports = {
   dispatch,
   dispatchViaDaemon,
   countSessionMemories,
   getKnownRepos,
+  getKnownProjects,
   stringifyArgs,
   loadDirectDispatch,
 };
