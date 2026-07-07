@@ -1533,11 +1533,14 @@ fn detect_workspace_type(root: &Path, workspace_aware: bool) -> WorkspaceType {
 fn load_ai_config() -> crosshash_ai::AiConfig {
     let candidates: Vec<PathBuf> = [
         Some(PathBuf::from("config/default.toml")),
-        std::env::current_exe().ok().and_then(|exe| {
-            exe.parent().map(|p| p.join("config").join("default.toml"))
-        }),
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|p| p.join("config").join("default.toml"))),
         std::env::var("CROSSHASH_CONFIG").ok().map(PathBuf::from),
-    ].into_iter().flatten().collect();
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
     for candidate in &candidates {
         if candidate.exists() {
             if let Ok(config) = crosshash_ai::AiConfig::load(candidate) {
