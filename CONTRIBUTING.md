@@ -37,6 +37,10 @@ Start with the feature area, then add code in the owning module. If a change app
 | Pi lifecycle hooks, tool schemas, repo detection, native health checks, or tool result formatting                                                           | `extensions/memory-layer/`                                     | The extension is an adapter/composition layer; keep backend behavior in feature modules.              |
 | Agent-facing coding intelligence, preflight checks, agent-pack planning, audit-diff, or symbol enrichment                                                   | `src/agent-intel/`                                             | Read-only orchestration layer. Must not mutate memory or code indexes.                                |
 | Output compression, command classification, token estimation, or savings tracking                                                                           | `src/token-saver/`                                             | Standalone module with no feature service dependencies.                                               |
+| Shared hook logic (Pi + Claude Code)                                                                                                                        | `src/hooks-engine/`                                            | Transport-agnostic pattern matching, context build, guardrails, passive capture. No SQL or Pi API.   |
+| Claude Code hooks bridge, install, daemon                                                                                                                   | `src/claude-code/`                                             | Hook router, disk-backed session state, dispatch client, installer. Consumes hooks-engine.          |
+| MCP stdio transport adapter                                                                                                                                 | `src/mcp/`                                                     | Tool catalog and MCP framing only. No hooks. Maps CallTool → gateway.dispatch.                       |
+| Cached repo/project DB reads (MCP + Claude Code)                                                                                                              | `src/platform/project-db.js`                                   | Shared getKnownRepos/getKnownProjects with in-process cache.                                        |
 | Memory observability dashboard or health statistics                                                                                                         | `src/cli/commands/dashboard.js` and `data-access/dashboard.js` | Dashboard is a CLI/router concern; depends on data-access helpers only.                               |
 | Rust code-intelligence experiments or Crosshash engine work                                                                                                 | `crosshash/`                                                   | Keep Crosshash behind a process/API boundary until it becomes the canonical backend.                  |
 
@@ -57,6 +61,9 @@ src/doc-index/           # Documentation indexing and doc intelligence feature m
 src/agent-intel/         # Agent intelligence and preflight orchestration (read-only)
 src/token-saver/         # Output compression and token savings tracking (standalone)
 src/trust-sync/          # Memory/code trust integration feature module
+src/hooks-engine/        # Shared hook primitives (Pi extension + Claude Code bridge)
+src/claude-code/         # Claude Code CLI hooks bridge, install, daemon
+src/mcp/                 # MCP stdio transport adapter (tools only)
 src/platform/            # Shared storage/protocol/platform adapters and repository construction
 data-access/             # Repository-style SQL access modules used by legacy/runtime code
 test/                    # Vitest unit/integration tests and CLI smoke tests
@@ -87,6 +94,8 @@ Follow these rules when adding or moving code:
 9. Crosshash should stay behind a command/API boundary until it fully replaces the JavaScript code-intelligence path.
 10. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
 11. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
+12. `hooks-engine` is pure JS with no transport, SQL, or Pi API dependencies.
+13. `src/mcp/` and `src/claude-code/` are transport adapters only; they delegate to `gateway.dispatch` and must not embed feature business logic.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the concise architecture overview and [`docs/ARCHITECTURE_MODULARIZATION.md`](docs/ARCHITECTURE_MODULARIZATION.md) for the detailed extraction rationale.
 

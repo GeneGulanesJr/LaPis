@@ -174,9 +174,20 @@ LaPis includes an optional HTTP server for programmatic access. Start it with:
 node memory-store.js serve [--host HOST] [--port PORT]
 ```
 
-Defaults to `127.0.0.1:9100`. The server exposes REST endpoints for missions, milestones, working units, handoffs, contracts, verdicts, broadcasts, findings, sessions, memory search, costs, retry/rescope, compression, checkpoints, settings, code indexing/analysis, and the todo/ledger domain. See [`API.md`](API.md) for the full endpoint reference.
+Defaults to `127.0.0.1:9100`. The server exposes REST endpoints for missions, milestones, working units, handoffs, contracts, verdicts, broadcasts, findings, sessions, memory search, costs, retry/rescope, compression, checkpoints, settings, code indexing/analysis, the todo/ledger domain, and `POST /dispatch` (gateway dispatch for Claude Code daemon mode). See [`API.md`](API.md) for the full endpoint reference.
 
 See [`DREAM_CYCLE.md`](DREAM_CYCLE.md) for the cleanup policy behind `dream`.
+
+## MCP Server
+
+Expose LaPis tools over the Model Context Protocol (stdio). Tools only — no hooks or session lifecycle.
+
+```bash
+node memory-store.js mcp
+# or: lapis mcp / lapis-mcp mcp
+```
+
+Full setup, project detection, and capability comparison: [`MCP.md`](MCP.md).
 
 ## Claude Code Bridge
 
@@ -190,8 +201,11 @@ node memory-store.js claude-code <subcommand> [flags]
 | Subcommand | Purpose |
 | --- | --- |
 | `install` | Write Claude Code config: MCP server (`.mcp.json` or `~/.claude.json`) + hooks (`.claude/settings.json`). Flags: `--global`, `--mcp-name <name>`, `--no-claude-md`, `--bin <path>`, `--auto-allow`, `--daemon`, `--daemon-port <port>`. |
-| `uninstall` | Remove LaPis-owned MCP entries and hook handlers (sentinel-based; unrelated config left intact). |
-| `doctor` | Install self-check: `better-sqlite3` loads, DB writable, MCP `command`/`args` resolve, hooks present, session state store writable. Exit code 1 on failure. |
+| `uninstall` | Remove LaPis-owned MCP entries and hook handlers (sentinel-based; unrelated config left intact). Stops daemon if lockfile present. |
+| `doctor` | Install self-check: `better-sqlite3` loads, DB writable, MCP `command`/`args` resolve, hooks present, session state store writable (reports TTL and directory size). Exit code 1 on failure. |
 | `start` | Start the optional dispatch daemon (`lapis serve`). Flags: `--port`, `--host`, `--detached`. |
 | `stop` | Stop the dispatch daemon and remove the lockfile. |
+| `gc` | Sweep stale per-session state files from `~/.pi/memory/claude-sessions/`. Flag: `--max-age-hours N` (default from `LAPIS_SESSION_TTL_HOURS` or 24). |
 | `hook <event>` | Internal hook router (invoked by Claude Code, not manually). Events: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `SessionEnd`. Optional `--only <role>` / `--skip <role>` for split handlers. |
+
+**Note:** Bash hooks use a single bare `Bash` matcher; compound commands like `cd repo && git pull` are classified inside the handler (not via install-time `if` prefix rules). See [`CLAUDE_CODE.md`](CLAUDE_CODE.md#hook--feature-mapping).

@@ -91,3 +91,17 @@ Pi's footer shows `cache` usage — but this is **NOT** the persistent memory la
 **Why the confusion?** The `PI_CACHE_RENTENTION` name suggests it controls Pi's memory retention, but it only controls the LLM API's prompt cache (a cost-saving feature). The memory layer has no retention setting — it's permanent by design.
 
 > **Bottom line:** The `cache` stat in the footer is transient API optimization. The memory layer (`memory-*` tools) is your permanent knowledge base that grows across sessions.
+
+## 4. Claude Code CLI — Same rules, different transport
+
+When working in [Claude Code](https://code.claude.com/docs/en/overview) with LaPis installed (`lapis claude-code install`), the same retrieval and memory protocols apply. Tools arrive as `mcp__lapis__*` (or `mcp__<custom-name>__*` if renamed at install). Hooks enforce the guardrails Pi applies in-process:
+
+- **Code** → `mcp__lapis__memory-code` (same modes as Pi's `memory-code`)
+- **Docs** → `mcp__lapis__memory-doc`
+- **Memory** → `mcp__lapis__memory-save`, `memory-search`, `memory-get`, etc.
+
+Guardrails run via Claude Code `PreToolUse` hooks (not MCP): whole-file `Read` blocks, `Grep`/`Glob` search redirects, and secondary `Bash` search detection. Prefer native `Grep`/`Glob` over bash `grep`/`find` in indexed repos.
+
+Claude Code spawns a **fresh process per hook**, so session state (`turnCount`, `editedFiles`, recall feedback) lives on disk at `~/.pi/memory/claude-sessions/`, not in-process. The SQLite database at `~/.pi/memory/memory.db` is **shared** with Pi — same memories and indexes.
+
+Full setup: [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md). Verify with `lapis claude-code doctor`.
