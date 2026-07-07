@@ -29,16 +29,26 @@ function keysMatch(provided, expected) {
   return crypto.timingSafeEqual(providedBuf, expectedBuf);
 }
 
+function headerValue(value) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value) && typeof value[0] === 'string') {
+    return value[0];
+  }
+  return null;
+}
+
 function isAuthorized(req, apiKey) {
   if (!apiKey) {
     return true;
   }
-  const headerKey = req.headers['x-api-key'];
-  if (typeof headerKey === 'string' && keysMatch(headerKey, apiKey)) {
+  const headerKey = headerValue(req.headers['x-api-key']);
+  if (headerKey && keysMatch(headerKey, apiKey)) {
     return true;
   }
-  const auth = req.headers.authorization;
-  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+  const auth = headerValue(req.headers.authorization);
+  if (auth && auth.startsWith('Bearer ')) {
     return keysMatch(auth.slice('Bearer '.length), apiKey);
   }
   return false;

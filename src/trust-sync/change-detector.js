@@ -1,4 +1,31 @@
+const fs = require('fs');
+const path = require('path');
 const { execFileSync } = require('child_process');
+
+/**
+ * Map git-relative paths to absolute paths stored in the code index.
+ * Includes realpath variants so symlinked repo roots still match indexed rows.
+ */
+function resolveIndexedFilePaths(repoPath, gitPaths) {
+  const root = path.resolve(repoPath);
+  const resolved = new Set();
+  for (const entry of gitPaths) {
+    if (!entry || typeof entry !== 'string') {
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
+    const candidates = path.isAbsolute(entry) ? [path.resolve(entry)] : [path.resolve(root, entry)];
+    for (const candidate of candidates) {
+      resolved.add(candidate);
+      try {
+        resolved.add(fs.realpathSync(candidate));
+      } catch {
+        // Best-effort: indexed paths may not exist on disk anymore.
+      }
+    }
+  }
+  return [...resolved];
+}
 
 /**
  * Detects changed symbols by comparing stored head_commit against current HEAD.
@@ -86,13 +113,26 @@ function detectChangedSymbols(deps, repoName) {
     };
   }
 
-  // Build set of changed symbol names from the code index
+  // Build set of changed symbol names from the code index.
+  // Git reports repo-relative paths; the index stores absolute file paths.
+  const indexedPaths = resolveIndexedFilePaths(repoPath, changedFiles);
   const changedSet = new Set();
-  const placeholders = changedFiles.map(() => '?').join(',');
+  if (indexedPaths.length === 0) {
+    return {
+      ok: true,
+      repo: repoName,
+      old_head: storedHead,
+      new_head: currentHead,
+      changed_files: changedFiles.length,
+      changed_symbols: 0,
+      changedSet,
+    };
+  }
+  const placeholders = indexedPaths.map(() => '?').join(',');
   const changedSymbols = sqlJson(
     `SELECT DISTINCT name, qualified_name FROM code_symbols
      WHERE repo_id = ? AND file_path IN (${placeholders})`,
-    [repoId, ...changedFiles],
+    [repoId, ...indexedPaths],
   );
   for (const sym of changedSymbols) {
     changedSet.add(sym.name);
@@ -206,6 +246,7 @@ function createGitTrustSyncAdapter(mem, notify) {
 
 module.exports = {
   detectChangedSymbols,
+  resolveIndexedFilePaths,
   extractSymbolKey,
   collectChangedSymbols,
   parseChangedSymbolsJson,

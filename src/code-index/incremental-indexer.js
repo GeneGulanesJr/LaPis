@@ -1013,7 +1013,6 @@ async function indexRepository(deps, repoPath, repoName) {
     });
     const derivedT0 = Date.now();
     const headCommit = getHeadCommit(absPath);
-    repository.updateRepoStats({ repoId, headCommit, currentBranch: getCurrentBranch(absPath), baseHead: headCommit });
     let derived;
     try {
       derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
@@ -1031,6 +1030,12 @@ async function indexRepository(deps, repoPath, repoName) {
         symbols_extracted: parseResult.symbolCount,
       };
     }
+    repository.updateRepoStats({
+      repoId,
+      headCommit,
+      currentBranch: getCurrentBranch(absPath),
+      baseHead: headCommit,
+    });
     const derivedMs = Date.now() - derivedT0;
 
     const totalMs = Date.now() - t0;
@@ -1341,6 +1346,14 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
 
   if (changedRecords.length === 0 && unchanged === totalFiles && staleFiles.length === 0) {
     const totalMs = Date.now() - t0;
+    if (gitDelta?.currentHead && gitDelta.currentHead !== existing.head_commit) {
+      repository.updateRepoStats({
+        repoId: existing.id,
+        headCommit: gitDelta.currentHead,
+        currentBranch: getCurrentBranch(existing.path),
+        baseHead: existing.head_commit || null,
+      });
+    }
     const existingSymbolCount = (() => {
       try {
         const r = db.prepare('SELECT symbol_count FROM code_repos WHERE id = ?').get(existing.id);
@@ -1394,12 +1407,6 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
     step: 'derived-indexes',
     message: 'Step 5/5: rebuilding derived indexes (imports, calls, complexity)...',
   });
-  repository.updateRepoStats({
-    repoId: existing.id,
-    headCommit: gitDelta?.currentHead || getHeadCommit(existing.path),
-    currentBranch: getCurrentBranch(existing.path),
-    baseHead: existing.head_commit || null,
-  });
   const derived = rebuildDerivedIndexes(
     db,
     existing.id,
@@ -1410,6 +1417,12 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
     changedFileIds,
     deletedFileIds,
   );
+  repository.updateRepoStats({
+    repoId: existing.id,
+    headCommit: gitDelta?.currentHead || getHeadCommit(existing.path),
+    currentBranch: getCurrentBranch(existing.path),
+    baseHead: existing.head_commit || null,
+  });
 
   const totalMs = Date.now() - t0;
   emitProgress(

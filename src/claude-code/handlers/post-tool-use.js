@@ -34,7 +34,7 @@ const { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils');
 const { addNormalized } = require('../file-keys');
 const { postToolRole } = require('../tool-map');
 
-const GIT_TRUST_OP_RE = /\bgit(?:\s+-C\s+\S+)?\s+(pull|checkout|merge|rebase|reset|stash\s+pop)\b/;
+const { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust');
 // Harvest relative code paths from a memory-code response (parity with the Pi
 // tool_result handler in tool-guardrails.ts). The extension alternation is the
 // same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
@@ -103,7 +103,7 @@ function consumeRecall(state, ids) {
  */
 async function gitTrustSync({ input, dispatch, repos, state, cwd }) {
   const cmd = typeof input.command === 'string' ? input.command : '';
-  if (!cmd || !GIT_TRUST_OP_RE.test(cmd)) {
+  if (!cmd || !matchesGitTrustOperation(cmd)) {
     return;
   }
   const repo = resolveIndexedRepo(path.resolve(cwd), repos, state.currentProject);

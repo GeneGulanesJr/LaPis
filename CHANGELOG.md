@@ -42,6 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Incremental `changed-paths` responses include `rejected_paths` for blocked entries.
   - HTTP auth documented in `docs/CONFIGURATION.md`; `::` bind requires API key.
   - Second review pass: defer diagnostics during buffered full rebuild; git delta path guards; derived-phase failure returns partial error; constant-time API key compare.
+  - Third review pass: `updateRepoStats` runs after derived indexes succeed; incremental no-op reindex advances `head_commit` when git moved; trust sync resolves git-relative paths to indexed absolute paths; shared git-trust matcher supports quoted `-C` paths; HTTP auth accepts array-shaped headers.
 
 - **Documentation review nits (PR #241)**
   - [`docs/MCP.md`](docs/MCP.md) — `lapis-mcp` requires the `mcp` subcommand; fix source links for `hooks-engine/project` and `project-db`; add `index-status` tool; clarify no `./mcp` npm export.
