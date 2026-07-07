@@ -228,6 +228,14 @@ CREATE TABLE IF NOT EXISTS index_jobs (
 CREATE INDEX IF NOT EXISTS idx_index_jobs_status ON index_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_index_jobs_repo ON index_jobs(repo_name, started_at DESC);
 
+CREATE TABLE IF NOT EXISTS repo_index_locks (
+  repo_name   TEXT PRIMARY KEY,
+  holder_id   TEXT NOT NULL,
+  host        TEXT NOT NULL DEFAULT '',
+  acquired_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_repo_index_locks_acquired ON repo_index_locks(acquired_at);
+
 -- ═══════════════════════════════════════════════════════════
 -- CODE-INDEX REPOSITORY: CODE FILES  (v3 — raw content + mtime tracking)
 -- ═══════════════════════════════════════════════════════════

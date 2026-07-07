@@ -85,7 +85,7 @@ function createCodeIndexRepository(deps) {
       }
       return this.createRepo({ name, path });
     },
-    clearRepoIndex(repoId, options = {}) {
+    clearRepoIndexCore(repoId, options = {}) {
       const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
       const emit = (message, extra = {}) => {
         if (onProgress) {
@@ -94,48 +94,53 @@ function createCodeIndexRepository(deps) {
       };
 
       const totals = {};
+      emit('Clearing complexity rows...');
+      const complexityResult = sqlRun(
+        'DELETE FROM symbol_complexity WHERE symbol_id IN (SELECT id FROM code_symbols WHERE repo_id = ?)',
+        [repoId],
+      );
+      totals.symbolComplexity = complexityResult.changes || 0;
+
+      emit('Clearing call edges...');
+      const callsResult = sqlRun('DELETE FROM code_calls WHERE repo_id = ?', [repoId]);
+      totals.calls = callsResult.changes || 0;
+
+      emit('Clearing import edges...');
+      const importsResult = sqlRun('DELETE FROM code_imports WHERE repo_id = ?', [repoId]);
+      totals.imports = importsResult.changes || 0;
+
+      emit('Clearing churn rows...');
+      const churnResult = sqlRun('DELETE FROM churn_metrics WHERE repo_id = ?', [repoId]);
+      totals.churn = churnResult.changes || 0;
+
+      emit('Clearing diagnostics...');
+      const diagResult = sqlRun('DELETE FROM code_file_diagnostics WHERE repo_id = ?', [repoId]);
+      totals.diagnostics = diagResult.changes || 0;
+
+      emit('Clearing scope resolutions...');
+      const scopeResResult = sqlRun(
+        'DELETE FROM scope_resolution WHERE binding_id IN (SELECT id FROM file_scope_bindings WHERE repo_id = ?)',
+        [repoId],
+      );
+      totals.scopeResolution = scopeResResult.changes || 0;
+
+      emit('Clearing scope bindings...');
+      const scopeBindResult = sqlRun('DELETE FROM file_scope_bindings WHERE repo_id = ?', [repoId]);
+      totals.scopeBindings = scopeBindResult.changes || 0;
+
+      emit('Clearing symbols...');
+      const symbolsResult = sqlRun('DELETE FROM code_symbols WHERE repo_id = ?', [repoId]);
+      totals.symbols = symbolsResult.changes || 0;
+
+      emit('Clearing files...');
+      const filesResult = sqlRun('DELETE FROM code_files WHERE repo_id = ?', [repoId]);
+      totals.files = filesResult.changes || 0;
+      return totals;
+    },
+    clearRepoIndex(repoId, options = {}) {
+      const totals = {};
       _withTransaction(() => {
-        emit('Clearing complexity rows...');
-        const complexityResult = sqlRun(
-          'DELETE FROM symbol_complexity WHERE symbol_id IN (SELECT id FROM code_symbols WHERE repo_id = ?)',
-          [repoId],
-        );
-        totals.symbolComplexity = complexityResult.changes || 0;
-
-        emit('Clearing call edges...');
-        const callsResult = sqlRun('DELETE FROM code_calls WHERE repo_id = ?', [repoId]);
-        totals.calls = callsResult.changes || 0;
-
-        emit('Clearing import edges...');
-        const importsResult = sqlRun('DELETE FROM code_imports WHERE repo_id = ?', [repoId]);
-        totals.imports = importsResult.changes || 0;
-
-        emit('Clearing churn rows...');
-        const churnResult = sqlRun('DELETE FROM churn_metrics WHERE repo_id = ?', [repoId]);
-        totals.churn = churnResult.changes || 0;
-
-        emit('Clearing diagnostics...');
-        const diagResult = sqlRun('DELETE FROM code_file_diagnostics WHERE repo_id = ?', [repoId]);
-        totals.diagnostics = diagResult.changes || 0;
-
-        emit('Clearing scope resolutions...');
-        const scopeResResult = sqlRun(
-          'DELETE FROM scope_resolution WHERE binding_id IN (SELECT id FROM file_scope_bindings WHERE repo_id = ?)',
-          [repoId],
-        );
-        totals.scopeResolution = scopeResResult.changes || 0;
-
-        emit('Clearing scope bindings...');
-        const scopeBindResult = sqlRun('DELETE FROM file_scope_bindings WHERE repo_id = ?', [repoId]);
-        totals.scopeBindings = scopeBindResult.changes || 0;
-
-        emit('Clearing symbols...');
-        const symbolsResult = sqlRun('DELETE FROM code_symbols WHERE repo_id = ?', [repoId]);
-        totals.symbols = symbolsResult.changes || 0;
-
-        emit('Clearing files...');
-        const filesResult = sqlRun('DELETE FROM code_files WHERE repo_id = ?', [repoId]);
-        totals.files = filesResult.changes || 0;
+        Object.assign(totals, this.clearRepoIndexCore(repoId, options));
       });
       return totals;
     },

@@ -75,8 +75,13 @@ describe('HTTP auth middleware', () => {
 });
 
 describe('HTTP serve host policy', () => {
-  it('refuses 0.0.0.0 without api key', async () => {
+  it('refuses 0.0.0.0 without api key', () => {
     const { assertServeHostPolicy } = require('../src/http/auth');
     expect(() => assertServeHostPolicy('0.0.0.0', null)).toThrow(/API key/);
+  });
+
+  it('refuses :: without api key', () => {
+    const { assertServeHostPolicy } = require('../src/http/auth');
+    expect(() => assertServeHostPolicy('::', null)).toThrow(/API key/);
   });
 });

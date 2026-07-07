@@ -89,15 +89,35 @@ LaPis supports tool access tiers to control which commands are available to the 
 The optional HTTP server can be started via the `serve` command:
 
 ```bash
-node memory-store.js serve [--host HOST] [--port PORT]
+node memory-store.js serve [--host HOST] [--port PORT] [--api-key KEY]
 ```
 
-| Option   | Default       | Description                                         |
-| -------- | ------------- | --------------------------------------------------- |
-| `--host` | `127.0.0.1`   | Bind address. Use `0.0.0.0` to expose on network (prints warning). |
-| `--port` | `9100`        | Port number.                                        |
+| Option      | Default     | Description                                                                 |
+| ----------- | ----------- | --------------------------------------------------------------------------- |
+| `--host`    | `127.0.0.1` | Bind address. Use `0.0.0.0` or `::` to expose on the network.               |
+| `--port`    | `9100`      | Port number.                                                                |
+| `--api-key` | (unset)     | Require `x-api-key` or `Authorization: Bearer` on all routes except `/health`. |
 
-Binding to `0.0.0.0` exposes memory APIs on your network. Use only on trusted networks or behind a proxy.
+### HTTP authentication
+
+When an API key is configured, every route except `GET /health` requires one of:
+
+- Header: `x-api-key: <your-key>`
+- Header: `Authorization: Bearer <your-key>`
+
+Configure the key via (first match wins):
+
+1. CLI flag: `--api-key`
+2. Environment variable: `LAPIS_HTTP_API_KEY`
+3. Config file: `http_api_key` in `~/.pi/memory/config.jsonc`
+
+**Security defaults:**
+
+- `127.0.0.1` without a key remains open to local processes (intentional for single-user dev).
+- Binding to `0.0.0.0` or `::` **without** an API key is refused at startup.
+- When exposed on the network, always set an API key or place the server behind a reverse proxy with auth.
+
+Binding to an unrestricted address exposes memory APIs on your network. Use only on trusted networks or behind a proxy.
 
 ## Claude Code bridge configuration
 

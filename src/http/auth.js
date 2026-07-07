@@ -48,9 +48,10 @@ function requireHttpAuth(apiKey) {
 }
 
 function assertServeHostPolicy(host, apiKey) {
-  if (host === '0.0.0.0' && !apiKey) {
+  const unrestricted = host === '0.0.0.0' || host === '::';
+  if (unrestricted && !apiKey) {
     throw new Error(
-      'Refusing to bind HTTP server to 0.0.0.0 without an API key. Pass --api-key, set LAPIS_HTTP_API_KEY, or bind to 127.0.0.1.',
+      'Refusing to bind HTTP server to an unrestricted address without an API key. Pass --api-key, set LAPIS_HTTP_API_KEY, or bind to 127.0.0.1.',
     );
   }
 }

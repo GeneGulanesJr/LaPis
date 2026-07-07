@@ -37,8 +37,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Session quit waits up to 2s for shutdown persistence work.
   - `schema.sql` synced with `expires_at` on observations and the `index_jobs` table.
   - crosshash `serve` refuses unspecified bind addresses without `--api-key`.
+  - Full reindex parses to memory first, then clears and writes in one SQLite transaction.
+  - Cross-process repo index locks stored in `repo_index_locks` (SQLite).
+  - Incremental `changed-paths` responses include `rejected_paths` for blocked entries.
+  - HTTP auth documented in `docs/CONFIGURATION.md`; `::` bind requires API key.
 
-- **Documentation review nits (PR #240)**
+- **Documentation review nits (PR #241)**
   - [`docs/MCP.md`](docs/MCP.md) — `lapis-mcp` requires the `mcp` subcommand; fix source links for `hooks-engine/project` and `project-db`; add `index-status` tool; clarify no `./mcp` npm export.
   - [`docs/COMMANDS.md`](docs/COMMANDS.md), [`docs/INDEX.md`](docs/INDEX.md) — align MCP bin invocation with CLI routing.
   - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — tidy See Also list formatting.

@@ -26,12 +26,16 @@ describe('code-index path guards', () => {
 
   it('rejects paths that escape the repo', () => {
     const outside = path.join(os.tmpdir(), 'outside-secret.env');
-    expect(resolveRepoScopedPath(tmpRoot, outside)).toBeNull();
-    expect(resolveRepoScopedPath(tmpRoot, '../outside-secret.env')).toBeNull();
+    const rejections = [];
+    expect(resolveRepoScopedPath(tmpRoot, outside, rejections)).toBeNull();
+    expect(resolveRepoScopedPath(tmpRoot, '../outside-secret.env', rejections)).toBeNull();
+    expect(rejections.some((r) => r.reason === 'outside_repo')).toBe(true);
   });
 
   it('rejects secret filenames even when inside the repo', () => {
     fs.writeFileSync(path.join(tmpRoot, '.env'), 'SECRET=1');
-    expect(resolveRepoScopedPath(tmpRoot, '.env')).toBeNull();
+    const rejections = [];
+    expect(resolveRepoScopedPath(tmpRoot, '.env', rejections)).toBeNull();
+    expect(rejections[0].reason).toBe('secret_file');
   });
 });

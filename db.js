@@ -354,6 +354,10 @@ const _CRITICAL_TABLES = [
     'scope_resolution',
     `CREATE TABLE IF NOT EXISTS scope_resolution (binding_id INTEGER PRIMARY KEY REFERENCES file_scope_bindings(id) ON DELETE CASCADE, resolved_symbol_id INTEGER NULL, resolved_file_id INTEGER NULL, status TEXT NOT NULL, resolved_at_pass INTEGER NOT NULL, confidence REAL NOT NULL DEFAULT 1.0)`,
   ],
+  [
+    'repo_index_locks',
+    `CREATE TABLE IF NOT EXISTS repo_index_locks (repo_name TEXT PRIMARY KEY, holder_id TEXT NOT NULL, host TEXT NOT NULL DEFAULT '', acquired_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+  ],
 ];
 
 function ensureCriticalTables() {
@@ -411,6 +415,7 @@ function _createTableIndexes(name, db) {
       'CREATE INDEX IF NOT EXISTS idx_sr_status ON scope_resolution(status)',
       'CREATE INDEX IF NOT EXISTS idx_sr_pass ON scope_resolution(resolved_at_pass)',
     ],
+    repo_index_locks: ['CREATE INDEX IF NOT EXISTS idx_repo_index_locks_acquired ON repo_index_locks(acquired_at)'],
     doc_sections: [
       'CREATE INDEX IF NOT EXISTS idx_ds_file ON doc_sections(file_id)',
       'CREATE INDEX IF NOT EXISTS idx_ds_parent ON doc_sections(parent_id)',
@@ -475,6 +480,7 @@ function runMigrations() {
     { to: 20, run: runMigrationV20 },
     { to: 21, run: runMigrationV21 },
     { to: 22, run: runMigrationV22 },
+    { to: 23, run: runMigrationV23 },
   ];
 
   const fromVersion = version;
@@ -1350,6 +1356,25 @@ function runMigrationV22() {
     });
   } catch (e) {
     errors.push(`V22: ${e.message}`);
+  }
+  return errors;
+}
+
+function runMigrationV23() {
+  const errors = [];
+  try {
+    withTransaction(() => {
+      sqlRaw(`CREATE TABLE IF NOT EXISTS repo_index_locks (
+        repo_name   TEXT PRIMARY KEY,
+        holder_id   TEXT NOT NULL,
+        host        TEXT NOT NULL DEFAULT '',
+        acquired_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`);
+      sqlRaw('CREATE INDEX IF NOT EXISTS idx_repo_index_locks_acquired ON repo_index_locks(acquired_at)');
+      sqlRaw('PRAGMA user_version = 23');
+    });
+  } catch (e) {
+    errors.push(`V23: ${e.message}`);
   }
   return errors;
 }
