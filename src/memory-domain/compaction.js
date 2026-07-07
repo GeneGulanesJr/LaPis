@@ -162,7 +162,9 @@ function dream(deps, args = {}) {
       FROM observations o
       LEFT JOIN (
         SELECT memory_id, COUNT(*) as recall_count
-        FROM recall_log GROUP BY memory_id
+        FROM recall_log
+        WHERE was_useful = 1
+        GROUP BY memory_id
       ) rl ON rl.memory_id = o.id
       WHERE o.type = ? AND o.deleted_at IS NULL
         AND (rl.recall_count IS NULL OR rl.recall_count = 0)
@@ -186,7 +188,9 @@ function dream(deps, args = {}) {
       FROM observations o
       LEFT JOIN (
         SELECT memory_id, COUNT(*) as recall_count
-        FROM recall_log GROUP BY memory_id
+        FROM recall_log
+        WHERE was_useful = 1
+        GROUP BY memory_id
       ) rl ON rl.memory_id = o.id
       LEFT JOIN (
         SELECT memory_id, MAX(trust_score) as trust_score

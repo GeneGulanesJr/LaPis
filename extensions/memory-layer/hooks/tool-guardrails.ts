@@ -81,9 +81,7 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
       if (RAW_CODE_DISCOVERY_RE.test(cmd)) {
         const repos = await deps.getKnownRepos();
         const resolvedCwd = path.resolve(process.cwd());
-        const matchedRepo =
-          repos.find((r) => resolvedCwd.startsWith(path.resolve(r.path))) ||
-          repos.find((r) => deps.state.currentProject?.toLowerCase() === r.name.toLowerCase());
+        const matchedRepo = repos.find((r) => resolvedCwd.startsWith(path.resolve(r.path)));
         if (matchedRepo) {
           // Allow grep/rg/etc. When they are only filtering another command's stdout,
           // Such as `npx oxlint 2>&1 | grep -i unused`.

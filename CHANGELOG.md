@@ -22,6 +22,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Code review security and correctness fixes**
+  - Incremental reindex `changed-paths` now enforces repo path boundaries and secret-file skips (parity with full scanner).
+  - Full reindex defers `clearRepoIndex` until the first successful write batch so parse failures preserve the existing index.
+  - Per-repo index locks prevent concurrent full/incremental rebuilds from interleaving writes.
+  - Dream Cycle "never recalled" cleanup now counts only `was_useful = 1` recalls; context injection logs passive recalls as not useful.
+  - `markDuplicate` rejects identical source/target IDs.
+  - Pi trust-sync hook recognizes `git -C <path>` commands (parity with Claude Code bridge).
+  - Trust sync applies adjustments in a transaction and initializes `head_commit` on first sync without a one-commit diff penalty.
+  - Trust sync adapter notifies only after successful sync.
+  - HTTP server supports optional API key auth (`--api-key`, `LAPIS_HTTP_API_KEY`) and refuses `0.0.0.0` binds without a key.
+  - `claimNextReadyTodo` uses an atomic update to prevent duplicate claims.
+  - Bash guardrail no longer blocks grep outside indexed repos based on `currentProject` alone.
+  - Session quit waits up to 2s for shutdown persistence work.
+  - `schema.sql` synced with `expires_at` on observations and the `index_jobs` table.
+  - crosshash `serve` refuses unspecified bind addresses without `--api-key`.
+
 - **Documentation review nits (PR #240)**
   - [`docs/MCP.md`](docs/MCP.md) — `lapis-mcp` requires the `mcp` subcommand; fix source links for `hooks-engine/project` and `project-db`; add `index-status` tool; clarify no `./mcp` npm export.
   - [`docs/COMMANDS.md`](docs/COMMANDS.md), [`docs/INDEX.md`](docs/INDEX.md) — align MCP bin invocation with CLI routing.

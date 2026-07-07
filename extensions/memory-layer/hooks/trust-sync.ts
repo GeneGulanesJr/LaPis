@@ -15,7 +15,7 @@ export function registerTrustSync(pi: ExtensionAPI, deps: TrustSyncDeps) {
     if (event.toolName === 'bash') {
       const input = event.input as { command?: string };
       const cmd = input?.command || '';
-      if (/\bgit\s+(pull|checkout|merge|rebase|reset|stash\s+pop)\b/.test(cmd) && deps.state.currentProject) {
+      if (/\bgit(?:\s+-C\s+\S+)?\s+(pull|checkout|merge|rebase|reset|stash\s+pop)\b/.test(cmd) && deps.state.currentProject) {
         const repos = await deps.getKnownRepos();
         const repo = repos.find((r) => r.name.toLowerCase() === deps.state.currentProject!.toLowerCase());
         if (repo) {

@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS observations (
   project    TEXT,
   scope      TEXT    NOT NULL DEFAULT 'project',
   topic_key  TEXT,
+  expires_at TEXT,
   created_at TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT    NOT NULL DEFAULT (datetime('now')),
   deleted_at TEXT
@@ -45,6 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_obs_scope     ON observations(scope);
 CREATE INDEX IF NOT EXISTS idx_obs_topic    ON observations(topic_key, project, scope, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_obs_created  ON observations(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_obs_deleted  ON observations(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_obs_expires ON observations(expires_at) WHERE expires_at IS NOT NULL;
 
 -- FTS5 for observations
 CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
@@ -209,6 +211,22 @@ CREATE TABLE IF NOT EXISTS code_repos (
   current_branch TEXT,
   base_head     TEXT
 );
+
+CREATE TABLE IF NOT EXISTS index_jobs (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_name           TEXT NOT NULL,
+  mode                TEXT NOT NULL DEFAULT 'full',
+  status              TEXT NOT NULL DEFAULT 'pending',
+  files_total         INTEGER NOT NULL DEFAULT 0,
+  files_done          INTEGER NOT NULL DEFAULT 0,
+  current_file        TEXT,
+  language_breakdown  TEXT NOT NULL DEFAULT '{}',
+  started_at          TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at        TEXT,
+  error               TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_index_jobs_status ON index_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_index_jobs_repo ON index_jobs(repo_name, started_at DESC);
 
 -- ═══════════════════════════════════════════════════════════
 -- CODE-INDEX REPOSITORY: CODE FILES  (v3 — raw content + mtime tracking)

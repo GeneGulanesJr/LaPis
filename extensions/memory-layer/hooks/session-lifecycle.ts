@@ -186,10 +186,10 @@ export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {
     };
 
     if (isQuit) {
-      // Fire-and-forget: let Pi exit immediately. Give the in-process gateway
-      // a short grace window to flush the cheap deletes (no VACUUM on most
-      // exits thanks to the session-count gate), but never block on it.
-      void runShutdownWork();
+      await Promise.race([
+        runShutdownWork(),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
     } else {
       // Reload / new / resume / fork: the next session needs this data in place.
       await runShutdownWork();

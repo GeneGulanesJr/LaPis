@@ -6,6 +6,8 @@ const { hashContent } = require('../../utils');
 const { createCodeIndexRepository } = require('./repos');
 const { scanRepository } = require('./scanner');
 const { SKIP_FILE_RE } = require('./scanner');
+const { resolveRepoScopedPath } = require('./path-guards');
+const { withRepoIndexLock } = require('./repo-lock');
 const { createParserRegistry, getLanguageForFile } = require('./parser-registry');
 const { extractSymbolsSplit, normalizeSymbolHot } = require('./symbol-extractor');
 const {
@@ -160,7 +162,11 @@ function parseChangedPathsInput(input, repoPath) {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    const abs = path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(repoPath, filePath);
+    const abs = resolveRepoScopedPath(repoPath, filePath);
+    if (!abs) {
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
     if (/delete|remove|unlink/i.test(status) || !fs.existsSync(abs)) {
       deleted.add(abs);
     } else {
@@ -589,6 +595,7 @@ async function parsePhase(files, deps, repoId, args) {
   let symbolCount = 0;
   let fileCount = 0;
   const skipped = [];
+  let fullRebuildPrepared = false;
 
   function validateSymbols(record, symbols) {
     if (symbols.length === 0 && record.content.trim().length > 0) {
@@ -821,8 +828,18 @@ async function parsePhase(files, deps, repoId, args) {
       };
 
       if (typeof repository.withTransaction === 'function') {
-        repository.withTransaction(() => writeRecords(true));
+        repository.withTransaction(() => {
+          if (!fullRebuildPrepared && typeof args.fullRebuildPrepare === 'function') {
+            args.fullRebuildPrepare();
+            fullRebuildPrepared = true;
+          }
+          writeRecords(true);
+        });
       } else {
+        if (!fullRebuildPrepared && typeof args.fullRebuildPrepare === 'function') {
+          args.fullRebuildPrepare();
+          fullRebuildPrepared = true;
+        }
         writeRecords(false);
       }
     }
@@ -848,129 +865,130 @@ async function derivedPhase(db, repoId, args, totalFiles, fileCount, symbolCount
 }
 
 async function indexRepository(deps, repoPath, repoName) {
-  const { db } = deps;
-  const args = deps.args || {};
-  const repository = deps.repository || createCodeIndexRepository(require('../../db'));
-  const registry = deps.parserRegistry || createParserRegistry();
-  const t0 = Date.now();
+  return withRepoIndexLock(repoName, async () => {
+    const { db } = deps;
+    const args = deps.args || {};
+    const repository = deps.repository || createCodeIndexRepository(require('../../db'));
+    const registry = deps.parserRegistry || createParserRegistry();
+    const t0 = Date.now();
 
-  if (!(await registry.ensureReady())) {
-    return {
-      error: `WASM tree-sitter parser not available. Run: cd ${path.resolve(__dirname, '..', '..')} && npm install web-tree-sitter`,
-    };
-  }
+    if (!(await registry.ensureReady())) {
+      return {
+        error: `WASM tree-sitter parser not available. Run: cd ${path.resolve(__dirname, '..', '..')} && npm install web-tree-sitter`,
+      };
+    }
 
-  emitProgress(args, 'init', { step: 'prepare-parser', message: 'Step 1/5: preparing tree-sitter parsers...' });
-  emitProgress(args, 'discovery', { step: 'discover-files', message: 'Step 2/5: discovering code files to index...' });
-  const scanResult = await scanPhase(repoPath, {}, args);
-  if (scanResult.error) {
-    return { error: scanResult.error };
-  }
-  const { files, absPath, skipReport } = scanResult;
-  const scanMs = Date.now() - t0;
-  const skipSummary = formatSkipReport(skipReport);
+    emitProgress(args, 'init', { step: 'prepare-parser', message: 'Step 1/5: preparing tree-sitter parsers...' });
+    emitProgress(args, 'discovery', { step: 'discover-files', message: 'Step 2/5: discovering code files to index...' });
+    const scanResult = await scanPhase(repoPath, {}, args);
+    if (scanResult.error) {
+      return { error: scanResult.error };
+    }
+    const { files, absPath, skipReport } = scanResult;
+    const scanMs = Date.now() - t0;
+    const skipSummary = formatSkipReport(skipReport);
 
-  emitProgress(args, 'discovery', {
-    message: `Found ${files.length} code files to index (${scanMs}ms)`,
-    files_total: files.length,
-    detail: skipSummary,
-  });
-  if (skipSummary) {
-    emitProgress(args, 'discovery', { message: skipSummary });
-  }
+    emitProgress(args, 'discovery', {
+      message: `Found ${files.length} code files to index (${scanMs}ms)`,
+      files_total: files.length,
+      detail: skipSummary,
+    });
+    if (skipSummary) {
+      emitProgress(args, 'discovery', { message: skipSummary });
+    }
 
-  const repoId = repository.upsertRepo({ name: repoName, path: absPath });
-  emitProgress(args, 'reset-index', {
-    step: 'clear-index',
-    message: `Step 3/5: clearing existing index rows for ${repoName}...`,
-  });
-  const clearT0 = Date.now();
-  const clearTotals = repository.clearRepoIndex(repoId, {
-    onProgress: (progress) => {
-      emitProgress(args, 'reset-index', {
-        step: 'clear-index',
-        message: `Step 3/5: ${progress.message}`,
-        rows_deleted: progress.deleted,
+    const repoId = repository.upsertRepo({ name: repoName, path: absPath });
+    emitProgress(args, 'reset-index', {
+      step: 'clear-index',
+      message: `Step 3/5: will clear existing index rows for ${repoName} immediately before writing rebuilt data...`,
+    });
+
+    emitProgress(args, 'parsing', {
+      step: 'parse-and-store',
+      message: `Step 4/5: reading files, extracting symbols, and storing index rows for ${files.length} files...`,
+      files_total: files.length,
+    });
+    const parseT0 = Date.now();
+    let parseResult;
+    try {
+      parseResult = await parsePhase(files, { parserRegistry: registry, repository }, repoId, {
+        ...args,
+        repoRoot: absPath,
+        fullRebuildPrepare: () => {
+          const clearT0 = Date.now();
+          const clearTotals = repository.clearRepoIndex(repoId, {
+            onProgress: (progress) => {
+              emitProgress(args, 'reset-index', {
+                step: 'clear-index',
+                message: `Step 3/5: ${progress.message}`,
+                rows_deleted: progress.deleted,
+              });
+            },
+          });
+          emitProgress(args, 'reset-index', {
+            step: 'clear-index',
+            message: `Step 3/5: cleared existing index rows for ${repoName} (${Date.now() - clearT0}ms)`,
+            clear_totals: clearTotals,
+          });
+        },
       });
-    },
-  });
-  emitProgress(args, 'reset-index', {
-    step: 'clear-index',
-    message: `Step 3/5: cleared existing index rows for ${repoName} (${Date.now() - clearT0}ms)`,
-    clear_totals: clearTotals,
-  });
+    } catch (parseError) {
+      console.error(`[indexer] indexRepository: parsePhase threw before index write completed: ${parseError.message}`);
+      emitProgress(args, 'error', {
+        step: 'parse-failed',
+        message: `Fatal: parse phase failed before index write: ${parseError.message}. Existing index preserved.`,
+      });
+      return {
+        error: `Index rebuild failed during parse phase: ${parseError.message}. The existing index for "${repoName}" was preserved.`,
+        repo: repoName,
+      };
+    }
+    const parseMs = Date.now() - parseT0;
 
-  emitProgress(args, 'parsing', {
-    step: 'parse-and-store',
-    message: `Step 4/5: reading files, extracting symbols, and storing index rows for ${files.length} files...`,
-    files_total: files.length,
-  });
-  const parseT0 = Date.now();
-  let parseResult;
-  try {
-    parseResult = await parsePhase(files, { parserRegistry: registry, repository }, repoId, {
-      ...args,
-      repoRoot: absPath,
+    emitProgress(args, 'analysis', {
+      step: 'derived-indexes',
+      message: 'Step 5/5: building derived indexes (imports, calls, complexity)...',
     });
-  } catch (parseError) {
-    console.error(
-      `[indexer] indexRepository: parsePhase threw after clearRepoIndex - repo may be empty: ${parseError.message}`,
-    );
-    emitProgress(args, 'error', {
-      step: 'parse-failed',
-      message: `Fatal: parse phase failed after clearing index: ${parseError.message}. Run reindex again to restore.`,
-    });
-    // Return error so caller knows index is empty
-    return {
-      error: `Index rebuild failed during parse phase: ${parseError.message}. The index for "${repoName}" is now empty. Please re-run reindex to restore it.`,
+    const derivedT0 = Date.now();
+    const headCommit = getHeadCommit(absPath);
+    repository.updateRepoStats({ repoId, headCommit, currentBranch: getCurrentBranch(absPath), baseHead: headCommit });
+    const derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
+    const derivedMs = Date.now() - derivedT0;
+
+    const totalMs = Date.now() - t0;
+    const result = {
+      success: true,
       repo: repoName,
-      files_cleared: clearTotals,
+      path: absPath,
+      files_indexed: parseResult.fileCount,
+      symbols_extracted: parseResult.symbolCount,
+      files_skipped: parseResult.skipped.length,
+      import_edges: derived.importEdges,
+      call_edges: derived.callEdges,
+      complexity_symbols: derived.complexityCount,
+      name: repoName,
+      file_count: parseResult.fileCount,
+      symbol_count: parseResult.symbolCount,
+      skipped: parseResult.skipped,
+      skip_report: skipReport,
+      timing_ms: { scan: scanMs, parse: parseMs, derived: derivedMs, total: totalMs },
     };
-  }
-  const parseMs = Date.now() - parseT0;
 
-  emitProgress(args, 'analysis', {
-    step: 'derived-indexes',
-    message: 'Step 5/5: building derived indexes (imports, calls, complexity)...',
+    emitProgress(
+      args,
+      'done',
+      {
+        message: `Done: ${parseResult.fileCount} files, ${parseResult.symbolCount} symbols (${(totalMs / 1000).toFixed(1)}s)`,
+      },
+      { files_total: files.length, files_done: parseResult.fileCount, symbols: parseResult.symbolCount },
+    );
+    return result;
   });
-  const derivedT0 = Date.now();
-  const headCommit = getHeadCommit(absPath);
-  repository.updateRepoStats({ repoId, headCommit, currentBranch: getCurrentBranch(absPath), baseHead: headCommit });
-  const derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
-  const derivedMs = Date.now() - derivedT0;
-
-  const totalMs = Date.now() - t0;
-  const result = {
-    success: true,
-    repo: repoName,
-    path: absPath,
-    files_indexed: parseResult.fileCount,
-    symbols_extracted: parseResult.symbolCount,
-    files_skipped: parseResult.skipped.length,
-    import_edges: derived.importEdges,
-    call_edges: derived.callEdges,
-    complexity_symbols: derived.complexityCount,
-    name: repoName,
-    file_count: parseResult.fileCount,
-    symbol_count: parseResult.symbolCount,
-    skipped: parseResult.skipped,
-    skip_report: skipReport,
-    timing_ms: { scan: scanMs, parse: parseMs, derived: derivedMs, total: totalMs },
-  };
-
-  emitProgress(
-    args,
-    'done',
-    {
-      message: `Done: ${parseResult.fileCount} files, ${parseResult.symbolCount} symbols (${(totalMs / 1000).toFixed(1)}s)`,
-    },
-    { files_total: files.length, files_done: parseResult.fileCount, symbols: parseResult.symbolCount },
-  );
-  return result;
 }
 
 async function reindexRepository(deps, repo, mode = 'incremental') {
-  const { db } = deps;
+  return withRepoIndexLock(repo, async () => {
+    const { db } = deps;
   const args = deps.args || {};
   const repository = deps.repository || createCodeIndexRepository(require('../../db'));
   const registry = deps.parserRegistry || createParserRegistry();
@@ -1003,6 +1021,7 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
   const gitChangedFiles = gitDelta
     ? gitDelta.changed.filter(
         (filePath) =>
+          resolveRepoScopedPath(existing.path, filePath) &&
           fs.existsSync(filePath) &&
           registry.canParseFile(filePath) &&
           !SKIP_FILE_RE.test(filePath.replace(/\\/g, '/')),
@@ -1349,6 +1368,7 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
     skip_report: skipReport,
     timing_ms: { total: totalMs },
   };
+  });
 }
 
 async function getCodeRepoHealth(deps, repo) {

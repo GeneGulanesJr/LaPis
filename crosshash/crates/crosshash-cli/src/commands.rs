@@ -1554,12 +1554,17 @@ async fn execute_serve(
     cmd: ServeCommand,
 ) -> Result<()> {
     let storage = open_storage(db)?;
+    let addr: std::net::SocketAddr = cmd.addr.parse()?;
+    if addr.ip().is_unspecified() && cmd.api_key.is_none() {
+        anyhow::bail!(
+            "refusing to bind crosshash API to {addr} without --api-key; use 127.0.0.1 or pass --api-key"
+        );
+    }
     let config = crosshash_api::ApiConfig {
         api_key: cmd.api_key,
         max_requests_per_minute: 60,
     };
     let app = crosshash_api::api_router_with_storage(config, storage);
-    let addr: std::net::SocketAddr = cmd.addr.parse()?;
     eprintln!("crosshash API server listening on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;

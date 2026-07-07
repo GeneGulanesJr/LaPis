@@ -122,6 +122,7 @@ if (isHelpRequest) {
     await startHttpServer({
       host: args.host ?? '127.0.0.1',
       port: Number(args.port ?? 9100),
+      apiKey: args['api-key'] ?? args.apiKey ?? null,
     });
     return;
   }

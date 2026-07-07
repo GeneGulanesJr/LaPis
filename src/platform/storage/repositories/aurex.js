@@ -588,15 +588,32 @@ function createAurexRepository(deps) {
     },
     claimNextReadyTodo(missionId, workerId) {
       const rows = sqlJson(
-        "SELECT * FROM todo_items WHERE mission_id = ? AND status = 'ready' ORDER BY priority DESC, created_at LIMIT 1",
-        [missionId],
+        `UPDATE todo_items
+         SET status = 'in_progress',
+             assigned_worker_id = ?,
+             updated_at = datetime('now')
+         WHERE id = (
+           SELECT id FROM todo_items
+           WHERE mission_id = ? AND status = 'ready'
+           ORDER BY priority DESC, created_at
+           LIMIT 1
+         )
+         RETURNING *`,
+        [workerId, missionId],
       ).map(mapTodoRow);
       if (rows.length === 0) {
         return [];
       }
       const todo = rows[0];
-      this.assignTodo(todo.id, workerId);
-      return this.setTodoStatus(todo.id, 'in_progress');
+      this.recordTodoEvent(todo.id, {
+        eventType: 'todo_assigned',
+        payload: { from: null, to: workerId || null },
+      });
+      this.recordTodoEvent(todo.id, {
+        eventType: 'todo_status_changed',
+        payload: { from: 'ready', to: 'in_progress' },
+      });
+      return this.getTodo(todo.id);
     },
     getTodoContextQuery(todoId) {
       const todo = this.getTodo(todoId)[0];

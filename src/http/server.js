@@ -1,11 +1,17 @@
 const http = require('http');
 const { matchRoute } = require('./routes');
 const { jsonError } = require('./errors');
+const { resolveHttpApiKey, requireHttpAuth, assertServeHostPolicy } = require('./auth');
 
 function createHttpServer(deps) {
   const routes = buildRoutes(deps);
+  const authorize = requireHttpAuth(deps.apiKey || null);
 
   const server = http.createServer(async (req, res) => {
+    if (!authorize(req, res)) {
+      return;
+    }
+
     const parsed = new URL(req.url, `http://${req.headers.host}`);
     const match = matchRoute(req.method, parsed.pathname, routes);
 
@@ -190,7 +196,10 @@ function buildRoutes(deps) {
 }
 
 async function startHttpServer(opts) {
-  const { host = '127.0.0.1', port = 9100 } = opts;
+  const host = opts.host ?? '127.0.0.1';
+  const port = Number(opts.port ?? 9100);
+  const apiKey = resolveHttpApiKey(opts);
+  assertServeHostPolicy(host, apiKey);
 
   const db = require('../../db');
   db.ensureDb();
@@ -203,11 +212,17 @@ async function startHttpServer(opts) {
     repositories: { aurex },
     sqlJson,
     sqlRun,
+    apiKey,
   });
 
   if (host === '0.0.0.0') {
     console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
     console.log('[lapis serve] Use only on trusted networks or behind a proxy.');
+    if (apiKey) {
+      console.log('[lapis serve] API key authentication is enabled (x-api-key or Authorization: Bearer).');
+    }
+  } else if (apiKey) {
+    console.log('[lapis serve] API key authentication is enabled (x-api-key or Authorization: Bearer).');
   }
 
   await new Promise((resolve) => server.listen(port, host, resolve));

@@ -26,8 +26,21 @@ function detectChangedSymbols(deps, repoName) {
     return { error: jsonErrNoExit(`Cannot read HEAD commit from ${repoPath}. Is it a git repo?`) };
   }
 
+  // No stored baseline — establish head_commit without penalizing linked memories.
+  if (!storedHead) {
+    sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [currentHead, repoId]);
+    return {
+      ok: true,
+      repo: repoName,
+      message: 'Initialized head_commit baseline',
+      old_head: null,
+      new_head: currentHead,
+      changedSet: new Set(),
+    };
+  }
+
   // No changes if HEAD hasn't moved
-  if (storedHead && storedHead === currentHead) {
+  if (storedHead === currentHead) {
     return {
       ok: true,
       repo: repoName,
@@ -39,12 +52,12 @@ function detectChangedSymbols(deps, repoName) {
   }
 
   // Determine the base commit for diff
-  const baseCommit = storedHead || null;
+  const baseCommit = storedHead;
 
   // Get changed files via git diff
   let changedFiles = [];
   try {
-    const diffRange = baseCommit ? `${baseCommit}..HEAD` : 'HEAD~1..HEAD';
+    const diffRange = `${baseCommit}..HEAD`;
     const output = execFileSync('git', ['diff', '--name-only', diffRange], {
       cwd: repoPath,
       encoding: 'utf-8',
@@ -182,11 +195,11 @@ function createGitTrustSyncAdapter(mem, notify) {
         // Repo not indexed yet — silently skip
         return;
       }
+      if (notify) {
+        notify(`Memory: synced trust scores after git operation on ${repo}`, 'info');
+      }
     } catch {
       // Non-critical — trust sync failure should not break the session
-    }
-    if (notify) {
-      notify(`Memory: syncing trust scores after git operation on ${repo}`, 'info');
     }
   };
 }
