@@ -16,7 +16,7 @@ Source composition lives at [`repo-media/html-video/lapis-slideshow/index.html`]
 
 ## Architecture
 
-LaPis is a modular monolith: one installable extension with clear internal ownership between Pi adapters, CLI routing, feature services, and shared platform/storage code. The extension calls the backend through in-process `dispatch()` when possible, with child-process fallback for streaming operations such as indexing.
+LaPis is a modular monolith: one installable Pi extension with clear internal ownership between Pi adapters, CLI routing, feature services, and shared platform/storage code. The same backend also serves an MCP stdio server (`lapis mcp`) and a Claude Code hooks bridge (`lapis claude-code install`). The Pi extension calls the backend through in-process `dispatch()` when possible, with child-process fallback for streaming operations such as indexing.
 
 All three architecture views are interactive HTML — clickable nodes, themeable (light/dark), and animated request paths with marching dashes on highlighted edges.
 
@@ -66,6 +66,16 @@ npx -y @genegulanesjr/lapis claude-code doctor   # verify install
 This writes `.mcp.json` (MCP tools) and `.claude/settings.json` (lifecycle hooks). On first use, approve the LaPis MCP server via `/mcp` in an interactive `claude` session.
 
 Full setup, hook mapping, troubleshooting, and install flags: [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md).
+
+### MCP server (tools only)
+
+For MCP hosts that need LaPis tools without hooks:
+
+```bash
+npx -y @genegulanesjr/lapis mcp
+```
+
+See [`docs/MCP.md`](docs/MCP.md).
 
 ## What It Does
 
@@ -183,7 +193,7 @@ The paired benchmark also reports behavior counters. In the latest run, memory-o
 
 ## Documentation
 
-- [`docs/INDEX.md`](docs/INDEX.md) - documentation map and verified counts.
+- [`docs/INDEX.md`](docs/INDEX.md) - documentation map and integration transports.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) - contributor workflow and checks.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - architecture overview and dependency rules.
 - [`docs/MODULE_MAP.md`](docs/MODULE_MAP.md) - module ownership and entry points.
@@ -191,6 +201,8 @@ The paired benchmark also reports behavior counters. In the latest run, memory-o
 - [`docs/COMMANDS.md`](docs/COMMANDS.md) - command reference.
 - [`docs/API.md`](docs/API.md) - HTTP API and CLI reference.
 - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) - config file and stored data.
+- [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md) - Claude Code CLI integration (MCP + hooks).
+- [`docs/MCP.md`](docs/MCP.md) - standalone MCP server (tools only).
 - [`docs/DREAM_CYCLE.md`](docs/DREAM_CYCLE.md) - stale-memory cleanup behavior.
 - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) - step-by-step usage guide.
 

@@ -99,6 +99,35 @@ node memory-store.js serve [--host HOST] [--port PORT]
 
 Binding to `0.0.0.0` exposes memory APIs on your network. Use only on trusted networks or behind a proxy.
 
+## Claude Code bridge configuration
+
+These environment variables tune the Claude Code hooks bridge. They are optional; defaults work for most installs.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CLAUDE_PROJECT_DIR` | (unset) | When set by Claude Code, overrides hook payload `cwd` for repo matching and context injection. Also honored by the MCP server. |
+| `LAPIS_SESSION_TTL_HOURS` | `24` | Age threshold for automatic stale-session sweep on `SessionStart` and manual `lapis claude-code gc`. |
+| `LAPIS_DAEMON_URL` | (derived from lockfile) | Force hook handlers to POST dispatch to this URL (e.g. `http://127.0.0.1:9100`). |
+| `LAPIS_DAEMON_LOCKFILE` | `~/.pi/memory/claude-daemon.json` | Override daemon lockfile path. |
+
+### Per-session hook state (Claude Code only)
+
+Claude Code spawns a fresh process per hook event. LaPis persists session-scoped fields separately from the main database:
+
+```text
+~/.pi/memory/claude-sessions/<claude_session_id>.json
+```
+
+Fields include `sessionId`, `turnCount`, `editedFiles`, `exploredFiles`, `memoriesSavedThisSession`, `pendingRecallFeedback`, and related counters. The main SQLite database (`db_path`) stores observations, indexes, and trust data shared across Pi, MCP, and Claude Code.
+
+Sweep stale files manually:
+
+```bash
+lapis claude-code gc [--max-age-hours N]
+```
+
+See [`CLAUDE_CODE.md`](CLAUDE_CODE.md) for install, hook mapping, and troubleshooting.
+
 ## What Gets Stored
 
 LaPis stores data locally in the configured SQLite database. It can store:

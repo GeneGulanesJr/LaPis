@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Documentation sync — three transports and Claude Code integration**
+  - New [`docs/MCP.md`](docs/MCP.md) — standalone MCP server setup, capability comparison, project detection, troubleshooting.
+  - [`docs/INDEX.md`](docs/INDEX.md) — integration transports table, updated doc map (MCP, interactive diagrams), bridge env vars, refreshed test-count guidance.
+  - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — transport diagram, `hooks-engine`, MCP adapter, Claude Code bridge, `POST /dispatch`.
+  - [`docs/MODULE_MAP.md`](docs/MODULE_MAP.md) — `src/mcp/`, `src/platform/project-db.js` ownership rows.
+  - [`docs/COMMANDS.md`](docs/COMMANDS.md) — `mcp` and `claude-code gc` subcommands; Bash handler classification note.
+  - [`docs/API.md`](docs/API.md) — `POST /dispatch` daemon endpoint.
+  - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) — Claude Code bridge env vars and per-session state paths.
+  - [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md) — daemon port re-install, `gc`, doctor observability cross-links.
+  - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — Claude Code and MCP tutorial sections.
+  - [`README.md`](README.md), [`AGENTS.md`](AGENTS.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`docs/SKILL.md`](docs/SKILL.md) — transport overview and cross-links.
+
 ### Fixed
 
 - **Claude Code bridge — issue #205 review follow-ups**

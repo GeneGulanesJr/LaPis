@@ -47,6 +47,22 @@ Defaults to `127.0.0.1:9100`. Binding to `0.0.0.0` prints a network exposure war
 | ------ | ------------- | ---------------- |
 | GET    | `/health`     | Health check.    |
 
+### Gateway dispatch (daemon mode)
+
+| Method | Endpoint     | Purpose |
+| ------ | ------------ | ------- |
+| POST   | `/dispatch`  | Execute a gateway command. Body: `{ "cmd": "<command>", "args": { ... } }`. Returns the raw gateway JSON envelope (including `{ "error": ... }` for unknown commands). Used by Claude Code hook handlers when daemon mode is active (`lapis claude-code start` or `install --daemon`). |
+
+Example:
+
+```bash
+curl -X POST http://127.0.0.1:9100/dispatch \
+  -H "Content-Type: application/json" \
+  -d '{"cmd":"session-start","args":{"project":"my-app"}}'
+```
+
+See [`CLAUDE_CODE.md`](CLAUDE_CODE.md) for daemon configuration and lockfile layout.
+
 ### Missions
 
 | Method | Endpoint                  | Purpose                      |

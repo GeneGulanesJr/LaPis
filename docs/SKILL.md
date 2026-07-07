@@ -22,6 +22,7 @@ The same backend also powers a [Claude Code CLI](https://code.claude.com/docs/en
 ## See Also
 
 - [`CLAUDE_CODE.md`](CLAUDE_CODE.md) — Claude Code install, hook mapping, troubleshooting
+- [`MCP.md`](MCP.md) — standalone MCP server (tools only)
 
 - [`../skills/memory-layer/SKILL.md`](../skills/memory-layer/SKILL.md) — complete extension skill reference
 - [`API.md`](API.md) — HTTP API and CLI reference

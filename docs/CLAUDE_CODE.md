@@ -182,6 +182,18 @@ Run `lapis claude-code doctor`. Common causes:
 
 Hooks auto-select daemon dispatch when `LAPIS_DAEMON_URL` is set or `~/.pi/memory/claude-daemon.json` points at a live process. Otherwise they cold-start direct dispatch. Start the daemon with `lapis claude-code start --detached` or install with `--daemon`.
 
+Re-installing with a different `--daemon-port` does **not** relocate a running daemon — the lockfile is the source of truth. Run `lapis claude-code stop` first, then re-install or restart with the new port.
+
+### Stale session state files
+
+Per-session JSON files accumulate under `~/.pi/memory/claude-sessions/`. They are swept automatically on `SessionStart` (default: older than 24h, configurable via `LAPIS_SESSION_TTL_HOURS`). Manual cleanup:
+
+```bash
+lapis claude-code gc [--max-age-hours 48]
+```
+
+`lapis claude-code doctor` reports the state directory size and configured TTL.
+
 ## Programmatic access
 
 The hook router is published as an npm subpath export (install, doctor, and daemon lifecycle remain CLI-only via `lapis` / `lapis-cc`):
@@ -203,7 +215,8 @@ A follow-up option: emit the compressed summary as `additionalContext` on the sa
 
 ## See also
 
+- [`docs/MCP.md`](MCP.md) — standalone MCP server (tools only)
 - [`docs/COMMANDS.md`](COMMANDS.md) — `claude-code` subcommand reference
-- [`docs/CONFIGURATION.md`](CONFIGURATION.md) — `~/.pi/memory/config.jsonc`
+- [`docs/CONFIGURATION.md`](CONFIGURATION.md) — `~/.pi/memory/config.jsonc` and bridge env vars
 - [`docs/MODULE_MAP.md`](MODULE_MAP.md) — `src/claude-code/` and `src/hooks-engine/` ownership
 - [Epic #205](https://github.com/GeneGulanesJr/LaPis/issues/205) — full phased breakdown

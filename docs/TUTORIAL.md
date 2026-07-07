@@ -131,7 +131,46 @@ Detected patterns include:
 3. **Session end** — summary is auto-saved, trust recovery runs
 4. **Dream Cycle** — runs at turn 50 of each session (and again at `session-end` if it did not run) to consolidate `session_summary` observations and clean stale memories. Use `node memory-store.js cleanup-sessions` for a one-shot retroactive cleanup of pre-#194 databases.
 
+## Using LaPis with Claude Code
+
+LaPis provides the same memory, guardrails, and session lifecycle in [Claude Code](https://code.claude.com/docs/en/overview) via MCP tools plus hooks:
+
+```bash
+npx -y @genegulanesjr/lapis claude-code install
+npx -y @genegulanesjr/lapis claude-code doctor
+```
+
+This writes:
+
+- `.mcp.json` — LaPis MCP tools (`mcp__lapis__memory-save`, `memory-code`, …)
+- `.claude/settings.json` — lifecycle hooks (context injection, guardrails, passive capture)
+
+Start `claude` in the project root. Approve the MCP server on first use (`/mcp`). Memories and indexes are stored in the same `~/.pi/memory/memory.db` database Pi uses — no separate Claude Code database.
+
+Optional performance tier — keep a warm dispatch daemon instead of cold-starting Node per hook:
+
+```bash
+lapis claude-code install --daemon
+# or manage separately:
+lapis claude-code start --detached
+```
+
+Full hook mapping, install flags, troubleshooting, and deliberate Pi divergences: [`docs/CLAUDE_CODE.md`](CLAUDE_CODE.md).
+
+## Using LaPis as an MCP server (other hosts)
+
+For MCP clients that only need tools (no hooks), run:
+
+```bash
+npx -y @genegulanesjr/lapis mcp
+```
+
+See [`docs/MCP.md`](MCP.md) for capability comparison and host configuration.
+
 ## See Also
+
+- [`CLAUDE_CODE.md`](CLAUDE_CODE.md) — Claude Code install and hooks
+- [`MCP.md`](MCP.md) — standalone MCP server
 
 - [`API.md`](API.md) — full HTTP API and CLI reference
 - [`COMMANDS.md`](COMMANDS.md) — complete CLI command reference
