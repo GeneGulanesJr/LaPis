@@ -16,7 +16,7 @@
 const path = require('node:path');
 const { CONTEXT } = require('../../constants');
 const { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder');
-const { findMatchingRepo } = require('../hooks-engine/project');
+const { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
 
 /**
  * Fetch project context, falling back to cross-project if empty.
@@ -73,7 +73,7 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
 
   // Staleness check is deferred to Phase 2's best-effort posture.
   const repos = getKnownRepos();
-  const resolvedCwd = path.resolve(cwd);
+  const resolvedCwd = path.resolve(resolveCwd(cwd));
   const cwdRepo = findMatchingRepo(resolvedCwd, repos);
   const isStale = false;
 
@@ -86,7 +86,7 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
   const lines = buildContextBlock({
     promptQuery: query,
     currentProject: project,
-    projectDir: cwdRepo?.path || cwd,
+    projectDir: cwdRepo?.path || resolvedCwd,
     cwdRepo,
     isStale,
     isNewProject,
@@ -102,11 +102,11 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
   if (!cwdRepo) {
     lines.push('');
     lines.push(
-      `⚠️ **Code not indexed:** Project "${project}" has no code index yet. Index it first: \`memory-code index-repo --path ${cwd} --name ${project}\``,
+      `⚠️ **Code not indexed:** Project "${project}" has no code index yet. Index it first: \`memory-code index-repo --path ${resolvedCwd} --name ${project}\``,
     );
   }
 
-  appendExtensionHint(lines, cwd);
+  appendExtensionHint(lines, resolvedCwd);
   return { lines, cwdRepo };
 }
 

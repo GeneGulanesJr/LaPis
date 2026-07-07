@@ -29,6 +29,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     when cwd resolves to a different project key.
   - **Polish:** MCP `detectMcpProject` reuses `dispatch-client` DB helpers;
     `SessionEnd` summary uses `resolveCwd` for relative file paths.
+  - **Shared project DB reads:** `src/platform/project-db.js` centralizes
+    `getKnownRepos` / `getKnownProjects` (5 min in-process cache); MCP no
+    longer imports from `claude-code/`.
+  - **Context injection:** `assembleContextLines` honors `CLAUDE_PROJECT_DIR`
+    via `resolveCwd` for repo matching and index hints.
+  - **`resolveCwd`:** prefers `CLAUDE_PROJECT_DIR` over payload `cwd` when set
+    (aligns with hooks-engine module contract).
 
 - **Claude Code bridge — issue #205 post-review hardening** (follow-up to #234).
   - **Stop / UserPromptSubmit state races (#228):** Stop and UserPromptSubmit now

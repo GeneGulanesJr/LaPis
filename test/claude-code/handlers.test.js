@@ -570,8 +570,8 @@ describe('claude-code handlers: SessionEnd', () => {
       });
 
       const summaryCall = calls.find((c) => c.cmd === 'session-summary');
-      expect(summaryCall?.args?.content).toContain('src/a.js');
-      expect(summaryCall?.args?.content).not.toContain('/ignored/');
+      expect(summaryCall?.args?.content).toContain('- src/a.js');
+      expect(summaryCall?.args?.content).not.toMatch(/ignored/);
     } finally {
       if (prev === undefined) {
         delete process.env.CLAUDE_PROJECT_DIR;

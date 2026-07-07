@@ -18,10 +18,13 @@ const path = require('node:path');
  * CLAUDE_PROJECT_DIR; Pi/MCP default to process.cwd().
  */
 function resolveCwd(hint) {
+  if (process.env.CLAUDE_PROJECT_DIR) {
+    return process.env.CLAUDE_PROJECT_DIR;
+  }
   if (hint) {
     return hint;
   }
-  return process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  return process.cwd();
 }
 
 /**

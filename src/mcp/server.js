@@ -15,7 +15,7 @@ const { ListToolsRequestSchema, CallToolRequestSchema } = require('@modelcontext
 const { tools } = require('./tools');
 const { toCallToolResult } = require('./translate-result');
 const { resolveCwd, projectFromCwd, resolveProjectKey } = require('../hooks-engine/project');
-const { getKnownRepos, getKnownProjects } = require('../claude-code/dispatch-client');
+const { getKnownRepos, getKnownProjects } = require('../platform/project-db');
 
 const SERVER_NAME = 'lapis';
 const SERVER_VERSION = require('../../package.json').version || '0.0.0';

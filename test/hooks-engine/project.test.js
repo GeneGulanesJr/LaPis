@@ -12,8 +12,13 @@ describe('hooks-engine project: resolveCwd', () => {
     delete process.env.CLAUDE_PROJECT_DIR;
   });
 
-  test('prefers explicit hint', () => {
+  test('prefers CLAUDE_PROJECT_DIR over an explicit hint when set', () => {
     process.env.CLAUDE_PROJECT_DIR = '/from/env';
+    expect(resolveCwd('/hint')).toBe('/from/env');
+  });
+
+  test('uses explicit hint when CLAUDE_PROJECT_DIR is unset', () => {
+    delete process.env.CLAUDE_PROJECT_DIR;
     expect(resolveCwd('/hint')).toBe('/hint');
   });
 

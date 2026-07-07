@@ -16,6 +16,7 @@
  */
 
 const { resolveDaemonUrl } = require('./daemon');
+const { getKnownRepos, getKnownProjects } = require('../platform/project-db');
 
 /**
  * Coerce an args bag into the string-only record the gateway expects.
@@ -110,41 +111,6 @@ function countSessionMemories(sessionId) {
     return Number(row?.n) || 0;
   } catch {
     return 0;
-  }
-}
-
-/**
- * Known indexed code repos, for cwd-repo resolution + preflight gating.
- * Mirrors extensions/.../host/project-detector.ts getKnownRepos(). Best-effort.
- */
-function getKnownRepos() {
-  try {
-    const { sqlJson } = require('../../db');
-    return sqlJson('SELECT name, path, indexed_at FROM code_repos') || [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Known memory project names (observations grouped by project). Used by
- * resolveProjectKey when cwd is not inside an indexed code repo — mirrors the
- * list-projects fallback in project-detector.ts detectProject().
- */
-function getKnownProjects() {
-  try {
-    const { sqlJson } = require('../../db');
-    const rows =
-      sqlJson(`
-        SELECT project
-        FROM observations
-        WHERE deleted_at IS NULL AND type != 'skill'
-          AND project IS NOT NULL AND project != ''
-        GROUP BY project
-      `) || [];
-    return rows.map((r) => r.project).filter(Boolean);
-  } catch {
-    return [];
   }
 }
 
