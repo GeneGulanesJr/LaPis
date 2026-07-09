@@ -27,39 +27,39 @@ function emit(type, payload = {}) {
 async function main() {
   const { jobId, mode, repoPath, repoName } = workerData;
 
-  // Open the database. ensureDb() is idempotent; it migrates the schema
-  // (including the V18 index_jobs table) before we touch it.
-  dbModule.ensureDb();
-  const rawDb = dbModule.getDb();
-  const deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
-
-  const languageCounters = new Map();
-  let lastWrite = 0;
-  const writeThrottleMs = 1000;
-
-  function onProgress({ phase, files_total, files_done, current_file, language }) {
-    if (cancelled) throw new Error('cancelled');
-    // Derive language from current_file if not provided by the indexer.
-    const lang = language || (current_file ? safeGetLanguage(current_file) : null);
-    if (lang) {
-      languageCounters.set(lang, (languageCounters.get(lang) || 0) + 1);
-    }
-    const now = Date.now();
-    // Throttle SQLite writes — at most once per second, plus a final write at completion.
-    if (now - lastWrite >= writeThrottleMs || (files_total && files_done >= files_total)) {
-      try {
-        jobStore.updateProgress(deps, jobId, {
-          filesDone: files_done || 0,
-          currentFile: current_file,
-          languageBreakdown: Object.fromEntries(languageCounters),
-        });
-      } catch (_) { /* best-effort */ }
-      lastWrite = now;
-    }
-    emit('progress', { phase, files_total, files_done, current_file, language });
-  }
-
   try {
+    // Open the database. ensureDb() is idempotent; it migrates the schema
+    // (including the V18 index_jobs table) before we touch it.
+    dbModule.ensureDb();
+    const rawDb = dbModule.getDb();
+    const deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
+
+    const languageCounters = new Map();
+    let lastWrite = 0;
+    const writeThrottleMs = 1000;
+
+    function onProgress({ phase, files_total, files_done, current_file, language }) {
+      if (cancelled) throw new Error('cancelled');
+      // Derive language from current_file if not provided by the indexer.
+      const lang = language || (current_file ? safeGetLanguage(current_file) : null);
+      if (lang) {
+        languageCounters.set(lang, (languageCounters.get(lang) || 0) + 1);
+      }
+      const now = Date.now();
+      // Throttle SQLite writes — at most once per second, plus a final write at completion.
+      if (now - lastWrite >= writeThrottleMs || (files_total && files_done >= files_total)) {
+        try {
+          jobStore.updateProgress(deps, jobId, {
+            filesDone: files_done || 0,
+            currentFile: current_file,
+            languageBreakdown: Object.fromEntries(languageCounters),
+          });
+        } catch (_) { /* best-effort */ }
+        lastWrite = now;
+      }
+      emit('progress', { phase, files_total, files_done, current_file, language });
+    }
+
     // We pass the raw better-sqlite3 handle as `db` because the indexer
     // uses db.exec/db.prepare/db.transaction directly. `args.onProgress` is
     // the new hook Task 4 wires through emitProgress.
@@ -90,7 +90,10 @@ async function main() {
     emit('done', { result, languageBreakdown: Object.fromEntries(languageCounters) });
   } catch (e) {
     const status = cancelled ? 'cancelled' : 'error';
-    try { jobStore.completeJob(deps, jobId, { status, error: e.message }); } catch (_) {}
+    try {
+      const deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
+      jobStore.completeJob(deps, jobId, { status, error: e.message });
+    } catch (_) {}
     if (cancelled) emit('cancelled');
     else emit('error', { error: e.message });
   } finally {
@@ -98,4 +101,7 @@ async function main() {
   }
 }
 
-main();
+main().catch((e) => {
+  emit('error', { error: e.message });
+  process.exit(1);
+});

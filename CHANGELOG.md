@@ -22,11 +22,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Code review correctness fixes (ranking, trust, migrations, security)**
+  - Stop passive context injection from writing to `recall_log` (was poisoning `useful_ratio` ranking every turn).
+  - FTS search path now includes `useful_count` (parity with LIKE fallback).
+  - `trustRecovery` reads recalled memories from `recall_log` as well as `session_recalls`.
+  - Migration guard corrected (`version >= 23`) so V23 (`repo_index_locks`) runs for DBs at version 22.
+  - Consolidated orphan recovery uses a real `session_log.id` instead of an observation id.
+  - Dream cycle uses cheap compact only (no mid-session `VACUUM`); `report.ok` reflects compact success.
+  - Dream config cleanup requires an explicit `supersedes`/`duplicate` relation (not topic_key alone).
+  - `pr-risk` uses `execFileSync` with git ref validation (prevents shell injection via `--branch`/`--base`).
+  - HTTP server rejects request bodies larger than 1MB.
+  - Ranking handles timestamps that already include a `Z` suffix.
+  - Index worker wraps `ensureDb()` in error handling.
+
 - **Code review security and correctness fixes**
   - Incremental reindex `changed-paths` now enforces repo path boundaries and secret-file skips (parity with full scanner).
   - Full reindex defers `clearRepoIndex` until the first successful write batch so parse failures preserve the existing index.
   - Per-repo index locks prevent concurrent full/incremental rebuilds from interleaving writes.
-  - Dream Cycle "never recalled" cleanup now counts only `was_useful = 1` recalls; context injection logs passive recalls as not useful.
+  - Dream Cycle "never recalled" cleanup counts only `was_useful = 1` recalls.
   - `markDuplicate` rejects identical source/target IDs.
   - Pi trust-sync hook recognizes `git -C <path>` commands (parity with Claude Code bridge).
   - Trust sync applies adjustments in a transaction and initializes `head_commit` on first sync without a one-commit diff penalty.

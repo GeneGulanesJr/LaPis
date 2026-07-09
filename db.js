@@ -454,7 +454,7 @@ function runMigrations() {
     console.error('[db] Failed to read user_version:', e.message);
   }
 
-  if (version >= 22) {
+  if (version >= 23) {
     return { migrated: false, version };
   }
 
