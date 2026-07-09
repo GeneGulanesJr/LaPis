@@ -563,6 +563,7 @@ CREATE TABLE IF NOT EXISTS file_scope_bindings (
   origin          TEXT NOT NULL,
   source_file_id  INTEGER NULL REFERENCES code_files(id) ON DELETE SET NULL,
   source_name     TEXT NULL,
+  source_module   TEXT NULL,
   line_start      INTEGER NOT NULL,
   line_end        INTEGER NOT NULL,
   scope_depth     INTEGER NOT NULL DEFAULT 0,

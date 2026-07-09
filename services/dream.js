@@ -27,4 +27,12 @@ function trustRecovery(args) {
   return compactionDomain.trustRecovery(defaultDeps(), args);
 }
 
-module.exports = { runCompact, compact, dream, trustRecovery };
+function runCompactCheap(deps = defaultDeps()) {
+  return compactionDomain.runCompactCheap(deps);
+}
+
+function runVacuum(deps = defaultDeps()) {
+  return compactionDomain.runVacuum(deps);
+}
+
+module.exports = { runCompact, runCompactCheap, runVacuum, compact, dream, trustRecovery };

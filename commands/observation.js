@@ -169,7 +169,12 @@ function getStats(deps) {
 }
 
 function logNegativeRecall(deps, args) {
-  const entries = JSON.parse(args.entries || '[]');
+  let entries;
+  try {
+    entries = JSON.parse(args.entries || '[]');
+  } catch {
+    return { error: 'Invalid --entries JSON' };
+  }
   if (!entries.length) {
     return { logged: 0 };
   }

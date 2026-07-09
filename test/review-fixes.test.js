@@ -20,7 +20,7 @@ describe('review fixes', () => {
       dbModule.ensureDb();
     });
 
-    it('advances user_version from 22 to 23 and creates repo_index_locks', () => {
+    it('advances user_version from 22 through V23/V24 migrations', () => {
       tmpDb = path.join(os.tmpdir(), `lapis-v23-${Date.now()}.db`);
       dbModule.resetDb();
       dbModule.createDb({ db_path: tmpDb });
@@ -37,8 +37,13 @@ describe('review fixes', () => {
       const table = reopened
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='repo_index_locks'")
         .get();
-      expect(version).toBe(23);
+      const sourceModuleCol = reopened
+        .prepare('PRAGMA table_info(file_scope_bindings)')
+        .all()
+        .some((c) => c.name === 'source_module');
+      expect(version).toBe(24);
       expect(table).toBeTruthy();
+      expect(sourceModuleCol).toBe(true);
     });
   });
 

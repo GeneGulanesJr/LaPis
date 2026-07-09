@@ -115,8 +115,12 @@ function sessionEnd(deps, args) {
   if (deps.runVacuum) {
     let vacuumDue = true;
     try {
+      const sessionRows = deps.sqlJson('SELECT project FROM session_log WHERE id = ?', [parseInt(id, 10)]);
+      const project = sessionRows[0]?.project;
       const compactInterval = getConfig().compact_every_n_sessions || 5;
-      const row = deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE ended_at IS NOT NULL');
+      const row = project
+        ? deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ? AND ended_at IS NOT NULL', [project])
+        : deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE ended_at IS NOT NULL');
       const ended = row && row[0] ? parseInt(row[0].cnt, 10) : 0;
       vacuumDue = ended > 0 && ended % compactInterval === 0;
     } catch (_e) {

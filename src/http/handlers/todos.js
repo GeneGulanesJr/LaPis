@@ -1,4 +1,5 @@
 const { jsonOk, jsonCreated, jsonError } = require('../errors');
+const { mapSearchRows } = require('./memory');
 
 function createMissionLedger(repo) {
   return async (req, res, ctx) => {
@@ -221,15 +222,11 @@ function getContextForTodo(repo, deps) {
     const search = require('../../memory-domain/search').search;
     const limit = ctx.query.get('limit') || '10';
     const result = search(searchDeps, { query: todo.lapisContextQuery, limit });
-    const context = (Array.isArray(result) ? result : []).map((r) => ({
-      id: r.id,
-      title: r.title || '',
-      content: r.snippet || r.content || '',
-      type: r.type || '',
-      scope: r.scope || '',
-      topicKey: r.topic_key || null,
-    }));
-    jsonOk(res, { todoId: todo.id, query: todo.lapisContextQuery, context });
+    if (result?.error) {
+      jsonError(res, 400, 'search_failed', result.error);
+      return;
+    }
+    jsonOk(res, { todoId: todo.id, query: todo.lapisContextQuery, context: mapSearchRows(result?.results) });
   };
 }
 

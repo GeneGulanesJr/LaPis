@@ -36,8 +36,8 @@ function insertScopeBindings(db, repoId, fileId, bindings) {
   db.prepare('DELETE FROM file_scope_bindings WHERE file_id = ?').run(fileId);
 
   const stmt = db.prepare(
-    `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, line_start, line_end, scope_depth, byte_start, byte_end, first_seen_pass)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+    `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, source_module, line_start, line_end, scope_depth, byte_start, byte_end, first_seen_pass)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
   );
 
   for (const b of bindings) {
@@ -47,8 +47,9 @@ function insertScopeBindings(db, repoId, fileId, bindings) {
       b.name,
       b.kind,
       b.origin,
-      b.sourceModule ? null : null, // Source_file_id resolved in derived phase
+      null, // source_file_id resolved in derived phase from code_imports
       b.sourceName || null,
+      b.sourceModule || null,
       b.lineStart,
       b.lineEnd,
       b.scopeDepth || 0,
@@ -56,6 +57,10 @@ function insertScopeBindings(db, repoId, fileId, bindings) {
       b.byteEnd || null,
     );
   }
+}
+
+function logDerivedError(step, e) {
+  console.error(`[indexer] derived phase failed (${step}): ${e.message}`);
 }
 
 function emitProgress(args, phase, detail, stats) {
@@ -329,7 +334,9 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
     if (ig.success) {
       importEdges = ig.edges;
     }
-  } catch {}
+  } catch (e) {
+    logDerivedError('import-graph', e);
+  }
 
   // ── Scope resolution (v10) ────────────────────────────────
   let scopeResolved = 0;
@@ -349,7 +356,9 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
       },
     });
     scopeResolved = sr.resolved;
-  } catch {}
+  } catch (e) {
+    logDerivedError('scope-resolution', e);
+  }
 
   emitProgress(args, 'analysis', { step: 'build-call-graph', message: 'Step 5/5: building call graph...' }, stats);
   try {
@@ -369,7 +378,9 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
     if (cg.success) {
       callEdges = cg.calls;
     }
-  } catch {}
+  } catch (e) {
+    logDerivedError('call-graph', e);
+  }
   emitProgress(
     args,
     'analysis',
@@ -381,7 +392,9 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
     if (cc.success) {
       complexityCount = cc.symbols;
     }
-  } catch {}
+  } catch (e) {
+    logDerivedError('complexity', e);
+  }
 
   let relationEdges = 0;
   emitProgress(args, 'analysis', { step: 'build-relations', message: 'Step 5/5: building relation edges...' }, stats);
@@ -390,7 +403,9 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
     if (re.success) {
       relationEdges = re.count;
     }
-  } catch {}
+  } catch (e) {
+    logDerivedError('relations', e);
+  }
 
   let cochangeEdges = 0;
   emitProgress(args, 'analysis', { step: 'build-cochange', message: 'Step 5/5: building co-change edges...' }, stats);
@@ -399,7 +414,9 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
     if (cc2.success) {
       cochangeEdges = cc2.count;
     }
-  } catch {}
+  } catch (e) {
+    logDerivedError('cochange', e);
+  }
 
   return {
     importEdges,
@@ -433,7 +450,9 @@ function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, dele
     if (ig.success) {
       importEdges = ig.edges;
     }
-  } catch {}
+  } catch (e) {
+    logDerivedError('import-graph-incremental', e);
+  }
 
   // ── Scope resolution (v10) ────────────────────────────────
   let scopeResolved = 0;
@@ -449,7 +468,9 @@ function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, dele
   try {
     const sr = resolveScopeBindingsForFiles(db, repoId, changedFileIds, deletedFileIds);
     scopeResolved = sr.resolved || 0;
-  } catch {}
+  } catch (e) {
+    logDerivedError('scope-resolution-incremental', e);
+  }
 
   emitProgress(
     args,
@@ -477,7 +498,9 @@ function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, dele
     if (cg.success) {
       callEdges = cg.calls;
     }
-  } catch {}
+  } catch (e) {
+    logDerivedError('call-graph-incremental', e);
+  }
 
   emitProgress(
     args,
@@ -493,7 +516,9 @@ function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, dele
     if (cc.success) {
       complexityCount = cc.symbols;
     }
-  } catch {}
+  } catch (e) {
+    logDerivedError('complexity-incremental', e);
+  }
 
   let relationEdges = 0;
   try {
@@ -501,7 +526,9 @@ function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, dele
     if (re.success) {
       relationEdges = re.count;
     }
-  } catch {}
+  } catch (e) {
+    logDerivedError('relations-incremental', e);
+  }
 
   return {
     importEdges,
@@ -1129,7 +1156,7 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
   const skipSummary = formatSkipReport(skipReport);
   emitProgress(args, 'discovery', {
     message: gitDelta
-      ? `Git diff from ${existing.head_commit.slice(0, 8)} to ${gitDelta.currentHead.slice(0, 8)} found ${files.length} changed code files and ${gitDeletedFiles.length} deleted files`
+      ? `Git diff from ${String(existing.head_commit || 'unknown').slice(0, 8)} to ${String(gitDelta.currentHead || 'unknown').slice(0, 8)} found ${files.length} changed code files and ${gitDeletedFiles.length} deleted files`
       : `Found ${files.length} code files to check`,
     files_total: files.length,
     detail: skipSummary,

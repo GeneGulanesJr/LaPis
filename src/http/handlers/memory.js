@@ -1,4 +1,15 @@
-const { jsonOk } = require('../errors');
+const { jsonOk, jsonError } = require('../errors');
+
+function mapSearchRows(rows) {
+  return (rows || []).map((r) => ({
+    id: r.id,
+    title: r.title || '',
+    content: r.snippet || r.content || '',
+    type: r.type || '',
+    scope: r.scope || '',
+    topicKey: r.topic_key || null,
+  }));
+}
 
 function searchMemory(deps) {
   return async (req, res, ctx) => {
@@ -6,16 +17,11 @@ function searchMemory(deps) {
     const searchDeps = { sqlJson: deps.sqlJson, sqlRun: deps.sqlRun, jsonErrNoExit: (msg) => ({ error: msg }) };
     const search = require('../../memory-domain/search').search;
     const result = search(searchDeps, { query, limit: String(limit || 10) });
-    const mapped = (Array.isArray(result) ? result : []).map((r) => ({
-      id: r.id,
-      title: r.title || '',
-      content: r.snippet || r.content || '',
-      type: r.type || '',
-      scope: r.scope || '',
-      topicKey: r.topic_key || null,
-    }));
-    jsonOk(res, mapped);
+    if (result?.error) {
+      return jsonError(res, 400, 'invalid_search', result.error);
+    }
+    jsonOk(res, mapSearchRows(result?.results));
   };
 }
 
-module.exports = { searchMemory };
+module.exports = { searchMemory, mapSearchRows };

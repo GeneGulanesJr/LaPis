@@ -22,6 +22,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Code correctness review fixes**
+  - Export `runCompactCheap` / `runVacuum` from `services/dream.js` so `session-end` runs cheap compact and gated vacuum again.
+  - Add `source_module` column to `file_scope_bindings` (migration V24); persist module paths in `insertScopeBindings`.
+  - Scope resolver resolves import targets via `source_module` before falling back to `LIMIT 1`.
+  - HTTP `POST /memory/search` and `GET /todos/:id/context` read `search().results` instead of treating the object as an array.
+  - `listMissionLedgers` includes todos; `claimNextReadyTodo` honors `depends_on` completion.
+  - Incremental reindex progress guards null `head_commit`; derived-index failures log to stderr.
+  - Session-end vacuum gate uses per-project ended-session count (matches `sessionStart` cadence).
+  - `log-negative-recall` returns a structured error for invalid `--entries` JSON.
+
 - **Code review correctness fixes (ranking, trust, migrations, security)**
   - Stop passive context injection from writing to `recall_log` (was poisoning `useful_ratio` ranking every turn).
   - FTS search path now includes `useful_count` (parity with LIKE fallback).
