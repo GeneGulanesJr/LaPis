@@ -24,6 +24,7 @@ import {
   isHistoricalMemoryPrompt,
   isPreflightWorthyPrompt,
 } from '../../../src/hooks-engine/prompt-classifiers.js';
+import { resolveIndexedRepo } from '../../../src/hooks-engine/project.js';
 
 // Re-exported for existing tests that import from this file.
 export { extractFilePaths } from '../../../src/hooks-engine/context-builder.js';
@@ -125,13 +126,17 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
 
     const stats = effectiveContext.stats as { total_memories: number; total_personal: number };
 
-    // Resolve repo staleness
+    // Resolve repo staleness (anchored, deepest path match — mirrors detectProject)
     const repos = await deps.getKnownRepos();
     const resolvedCwd = path.resolve(ctx.cwd);
-    const cwdRepo =
-      repos.find((r) => resolvedCwd.startsWith(path.resolve(r.path))) ||
-      repos.find((r) => r.name.toLowerCase() === deps.state.currentProject?.toLowerCase());
+    const cwdRepo = resolveIndexedRepo(resolvedCwd, repos, deps.state.currentProject);
     const isStale = cwdRepo ? deps.isRepoStale(cwdRepo) : false;
+
+    // Self-heal stale session-start project key when path-resolved repo name differs.
+    // Context for this turn was fetched with the stale key; counts catch up next turn.
+    if (cwdRepo && cwdRepo.name.toLowerCase() !== (deps.state.currentProject || '').toLowerCase()) {
+      deps.state.currentProject = cwdRepo.name;
+    }
 
     const isNewProject = crossProjectResult !== null && !projectContext;
     let effectiveObservations: any[] = [];

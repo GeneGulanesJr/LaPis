@@ -12,6 +12,7 @@
  */
 
 const path = require('node:path');
+const { resolveIndexedRepo } = require('./project');
 const fs = require('node:fs');
 const { CONTEXT } = require('../../constants');
 const { isNavigationPrompt } = require('./prompt-classifiers');
@@ -108,9 +109,7 @@ function appendExtensionHint(lines, cwd) {
 
 function buildSourceLookupGuidance(repos, cwd, currentProject) {
   const resolvedCwd = path.resolve(cwd);
-  const cwdRepo =
-    repos.find((r) => resolvedCwd.startsWith(path.resolve(r.path))) ||
-    repos.find((r) => r.name.toLowerCase() === currentProject?.toLowerCase());
+  const cwdRepo = resolveIndexedRepo(resolvedCwd, repos, currentProject);
 
   if (!cwdRepo) {
     return null;

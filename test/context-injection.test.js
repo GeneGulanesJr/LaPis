@@ -266,9 +266,61 @@ describe('rich context injection', () => {
     const content = result.message.content;
 
     expect(content.length).toBeLessThanOrEqual(1800);
-    expect(content).toContain('Project: **TestProject**');
+    expect(content).toContain('Project: **TestRepo**');
     expect(content).toContain('[decision] Use SQLite FTS5');
     expect(content).toContain('What: Use FTS5');
+  });
+
+  test('self-heals stale currentProject when path-resolved repo name differs', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-self-heal-rename-'));
+    const deps = buildDeps({
+      state: { currentProject: 'work', hasInjectedContext: false, sessionId: 1 },
+      getKnownRepos: vi.fn().mockResolvedValue([
+        {
+          name: 'netcrawl',
+          path: tempDir,
+          file_count: 10,
+          symbol_count: 50,
+          indexed_at: '2026-05-29T00:00:00Z',
+        },
+      ]),
+    });
+    const handler = extractHandler(deps);
+
+    await handler({}, { cwd: tempDir });
+
+    expect(deps.state.currentProject).toBe('netcrawl');
+  });
+
+  test('does not self-heal to a parent repo when cwd is inside a nested child repo', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-self-heal-nested-'));
+    const parentDir = path.join(root, 'work');
+    const childDir = path.join(parentDir, 'netcrawl');
+    fs.mkdirSync(childDir, { recursive: true });
+    const deps = buildDeps({
+      state: { currentProject: 'netcrawl', hasInjectedContext: false, sessionId: 1 },
+      getKnownRepos: vi.fn().mockResolvedValue([
+        {
+          name: 'work',
+          path: parentDir,
+          file_count: 100,
+          symbol_count: 500,
+          indexed_at: '2026-05-29T00:00:00Z',
+        },
+        {
+          name: 'netcrawl',
+          path: childDir,
+          file_count: 20,
+          symbol_count: 80,
+          indexed_at: '2026-05-29T00:00:00Z',
+        },
+      ]),
+    });
+    const handler = extractHandler(deps);
+
+    await handler({}, { cwd: childDir });
+
+    expect(deps.state.currentProject).toBe('netcrawl');
   });
 
   test('navigation prompts can include two related memories but no more', async () => {
