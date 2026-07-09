@@ -742,9 +742,22 @@ describe('Aurex HTTP Server', () => {
     });
 
     it('searches memory', async () => {
-      const res = await req('POST', '/memory/search', { query: 'test', limit: 5 });
+      const token = `http-e2e-search-${Date.now()}`;
+      sqlRun(
+        "INSERT INTO observations (session_id, type, title, content, project, scope) VALUES ('1', 'decision', 'HTTP search seed', ?, 'e2e', 'project')",
+        [token],
+      );
+      const res = await req('POST', '/memory/search', { query: token, limit: 5 });
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body[0].title).toBe('HTTP search seed');
+    });
+
+    it('rejects memory search without query', async () => {
+      const res = await req('POST', '/memory/search', { limit: 5 });
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('invalid_search');
     });
 
     it('GET /health still works after all operations', async () => {

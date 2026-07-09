@@ -322,8 +322,8 @@ function runReexportResolution(db, repoId, passNum) {
       .all(repoId);
 
     const insertBinding = db.prepare(
-      `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, line_start, line_end, scope_depth, first_seen_pass)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, source_module, line_start, line_end, scope_depth, first_seen_pass)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const insertResolution = db.prepare(
       `INSERT INTO scope_resolution (binding_id, resolved_symbol_id, resolved_file_id, status, resolved_at_pass, confidence) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -351,6 +351,7 @@ function runReexportResolution(db, repoId, passNum) {
           'external_file',
           binding.source_file_id,
           sym.name,
+          binding.source_module || null,
           // Use the wildcard import's line range
           ...getBindingLineRange(db, binding.id),
           0,

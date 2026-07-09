@@ -29,8 +29,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - HTTP `POST /memory/search` and `GET /todos/:id/context` read `search().results` instead of treating the object as an array.
   - `listMissionLedgers` includes todos; `claimNextReadyTodo` honors `depends_on` completion.
   - Incremental reindex progress guards null `head_commit`; derived-index failures log to stderr.
-  - Session-end vacuum gate uses per-project ended-session count (matches `sessionStart` cadence).
+  - Session-end vacuum gate uses per-project session count (same query as `sessionStart`).
   - `log-negative-recall` returns a structured error for invalid `--entries` JSON.
+  - Document `claim-next` dependency semantics in `docs/API.md`; wildcard synthetic bindings inherit `source_module`.
+  - HTTP E2E test asserts non-empty `POST /memory/search` results.
 
 - **Code review correctness fixes (ranking, trust, migrations, security)**
   - Stop passive context injection from writing to `recall_log` (was poisoning `useful_ratio` ranking every turn).

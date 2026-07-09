@@ -106,9 +106,8 @@ function sessionEnd(deps, args) {
   ]);
 
   // Always run the cheap, lock-light cleanup (DELETEs + trust decay).
-  // The expensive VACUUM + FTS 'optimize' is gated by session count so quitting
-  // Pi doesn't block for seconds on large DBs. The gate matches sessionStart's
-  // compact_every_n_sessions so the heavy work lands on the same cadence.
+  // The expensive VACUUM + FTS 'optimize' is gated by per-project session count
+  // (same query as sessionStart) so heavy work lands on the same cadence.
   const cheapResult = deps.runCompactCheap ? deps.runCompactCheap() : null;
 
   let vacuumResult = null;
@@ -119,10 +118,10 @@ function sessionEnd(deps, args) {
       const project = sessionRows[0]?.project;
       const compactInterval = getConfig().compact_every_n_sessions || 5;
       const row = project
-        ? deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ? AND ended_at IS NOT NULL', [project])
-        : deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE ended_at IS NOT NULL');
-      const ended = row && row[0] ? parseInt(row[0].cnt, 10) : 0;
-      vacuumDue = ended > 0 && ended % compactInterval === 0;
+        ? deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [project])
+        : deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log');
+      const sessionCount = row && row[0] ? parseInt(row[0].cnt, 10) : 0;
+      vacuumDue = sessionCount > 0 && sessionCount % compactInterval === 0;
     } catch (_e) {
       // If the count query fails, skip vacuum rather than block exit.
       vacuumDue = false;

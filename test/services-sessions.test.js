@@ -163,12 +163,12 @@ describe('services/sessions', () => {
       const trustRecovery = vi.fn(() => ({ ok: true }));
       const runCompactCheap = vi.fn(() => ({ ok: true, startedAt: 't', steps: { expiredPurged: true } }));
       const runVacuum = vi.fn(() => ({ ok: true, steps: { vacuumed: true } }));
-      // Vacuum is gated by per-project ended session count.
+      // Vacuum is gated by per-project session count (same query as sessionStart).
       const sqlJson = vi.fn((query) => {
         if (/SELECT project FROM session_log WHERE id = \?/i.test(query)) {
           return [{ project: 'test-project' }];
         }
-        if (/COUNT\(\*\) as cnt FROM session_log WHERE project = \? AND ended_at IS NOT NULL/i.test(query)) {
+        if (/COUNT\(\*\) as cnt FROM session_log WHERE project = \?$/i.test(query)) {
           return [{ cnt: 10 }];
         }
         return [];
@@ -188,12 +188,12 @@ describe('services/sessions', () => {
       const trustRecovery = vi.fn(() => ({ ok: true }));
       const runCompactCheap = vi.fn(() => ({ ok: true, steps: { expiredPurged: true } }));
       const runVacuum = vi.fn(() => ({ ok: true }));
-      // 7 ended sessions → not divisible by 5 → vacuum NOT due.
+      // 7 sessions → not divisible by 5 → vacuum NOT due.
       const sqlJson = vi.fn((query) => {
         if (/SELECT project FROM session_log WHERE id = \?/i.test(query)) {
           return [{ project: 'test-project' }];
         }
-        if (/COUNT\(\*\) as cnt FROM session_log WHERE project = \? AND ended_at IS NOT NULL/i.test(query)) {
+        if (/COUNT\(\*\) as cnt FROM session_log WHERE project = \?$/i.test(query)) {
           return [{ cnt: 7 }];
         }
         return [];
