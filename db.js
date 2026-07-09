@@ -348,7 +348,7 @@ const _CRITICAL_TABLES = [
   // V10: scope-aware edge extraction
   [
     'file_scope_bindings',
-    `CREATE TABLE IF NOT EXISTS file_scope_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, repo_id INTEGER NOT NULL REFERENCES code_repos(id) ON DELETE CASCADE, file_id INTEGER NOT NULL REFERENCES code_files(id) ON DELETE CASCADE, name TEXT NOT NULL, kind TEXT NOT NULL, origin TEXT NOT NULL, source_file_id INTEGER NULL, source_name TEXT NULL, line_start INTEGER NOT NULL, line_end INTEGER NOT NULL, scope_depth INTEGER NOT NULL DEFAULT 0, byte_start INTEGER NULL, byte_end INTEGER NULL, first_seen_pass INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE TABLE IF NOT EXISTS file_scope_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, repo_id INTEGER NOT NULL REFERENCES code_repos(id) ON DELETE CASCADE, file_id INTEGER NOT NULL REFERENCES code_files(id) ON DELETE CASCADE, name TEXT NOT NULL, kind TEXT NOT NULL, origin TEXT NOT NULL, source_file_id INTEGER NULL, source_name TEXT NULL, source_module TEXT NULL, line_start INTEGER NOT NULL, line_end INTEGER NOT NULL, scope_depth INTEGER NOT NULL DEFAULT 0, byte_start INTEGER NULL, byte_end INTEGER NULL, first_seen_pass INTEGER NOT NULL DEFAULT 0)`,
   ],
   [
     'scope_resolution',
@@ -454,7 +454,7 @@ function runMigrations() {
     console.error('[db] Failed to read user_version:', e.message);
   }
 
-  if (version >= 23) {
+  if (version >= 24) {
     return { migrated: false, version };
   }
 
@@ -481,6 +481,7 @@ function runMigrations() {
     { to: 21, run: runMigrationV21 },
     { to: 22, run: runMigrationV22 },
     { to: 23, run: runMigrationV23 },
+    { to: 24, run: runMigrationV24 },
   ];
 
   const fromVersion = version;
@@ -778,6 +779,7 @@ function runMigrationV10() {
         origin          TEXT NOT NULL,
         source_file_id  INTEGER NULL REFERENCES code_files(id) ON DELETE SET NULL,
         source_name     TEXT NULL,
+        source_module   TEXT NULL,
         line_start      INTEGER NOT NULL,
         line_end        INTEGER NOT NULL,
         scope_depth     INTEGER NOT NULL DEFAULT 0,
@@ -1375,6 +1377,23 @@ function runMigrationV23() {
     });
   } catch (e) {
     errors.push(`V23: ${e.message}`);
+  }
+  return errors;
+}
+
+function runMigrationV24() {
+  const errors = [];
+  try {
+    withTransaction(() => {
+      const cols = sqlJson('PRAGMA table_info(file_scope_bindings)');
+      const hasSourceModule = cols.some((c) => c.name === 'source_module');
+      if (!hasSourceModule) {
+        sqlRaw('ALTER TABLE file_scope_bindings ADD COLUMN source_module TEXT NULL');
+      }
+      sqlRaw('PRAGMA user_version = 24');
+    });
+  } catch (e) {
+    errors.push(`V24: ${e.message}`);
   }
   return errors;
 }

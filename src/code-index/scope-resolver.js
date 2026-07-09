@@ -21,6 +21,28 @@ const _path = require('path');
 const MAX_RESOLUTION_PASSES = 10;
 const WILDCARD_EXPANSION_CAP = 50;
 
+function resolveTargetFileId(db, binding) {
+  if (binding.source_file_id) {
+    return binding.source_file_id;
+  }
+  if (binding.source_module) {
+    const moduleMatch = db
+      .prepare(
+        `SELECT target_file_id FROM code_imports WHERE source_file_id = ? AND target_module = ? AND target_file_id IS NOT NULL LIMIT 1`,
+      )
+      .get(binding.file_id, binding.source_module);
+    if (moduleMatch?.target_file_id) {
+      return moduleMatch.target_file_id;
+    }
+  }
+  const fallback = db
+    .prepare(
+      `SELECT target_file_id FROM code_imports WHERE source_file_id = ? AND target_file_id IS NOT NULL LIMIT 1`,
+    )
+    .get(binding.file_id);
+  return fallback?.target_file_id || null;
+}
+
 /**
  * Run multi-pass scope resolution for a repo.
  * @param {object} db - native database handle
@@ -157,15 +179,7 @@ function runDirectResolution(db, repoId) {
 
         // If no source_file_id yet, try to resolve from import edges
         if (!targetFileId) {
-          // Try via code_imports
-          const impRow = db
-            .prepare(
-              `SELECT target_file_id FROM code_imports WHERE source_file_id = ? AND target_file_id IS NOT NULL LIMIT 1`,
-            )
-            .get(binding.file_id);
-          if (impRow) {
-            targetFileId = impRow.target_file_id;
-          }
+          targetFileId = resolveTargetFileId(db, binding);
         }
 
         if (targetFileId) {
@@ -308,8 +322,8 @@ function runReexportResolution(db, repoId, passNum) {
       .all(repoId);
 
     const insertBinding = db.prepare(
-      `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, line_start, line_end, scope_depth, first_seen_pass)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, source_module, line_start, line_end, scope_depth, first_seen_pass)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const insertResolution = db.prepare(
       `INSERT INTO scope_resolution (binding_id, resolved_symbol_id, resolved_file_id, status, resolved_at_pass, confidence) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -337,6 +351,7 @@ function runReexportResolution(db, repoId, passNum) {
           'external_file',
           binding.source_file_id,
           sym.name,
+          binding.source_module || null,
           // Use the wildcard import's line range
           ...getBindingLineRange(db, binding.id),
           0,
@@ -500,14 +515,7 @@ function resolveBindingDirect(db, binding, passNum) {
   } else if (binding.origin === 'external_file') {
     let targetFileId = binding.source_file_id;
     if (!targetFileId) {
-      const impRow = db
-        .prepare(
-          `SELECT target_file_id FROM code_imports WHERE source_file_id = ? AND target_file_id IS NOT NULL LIMIT 1`,
-        )
-        .get(binding.file_id);
-      if (impRow) {
-        targetFileId = impRow.target_file_id;
-      }
+      targetFileId = resolveTargetFileId(db, binding);
     }
     if (targetFileId) {
       const sourceName = binding.source_name || binding.name;

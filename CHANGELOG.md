@@ -22,6 +22,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Code correctness review fixes**
+  - Export `runCompactCheap` / `runVacuum` from `services/dream.js` so `session-end` runs cheap compact and gated vacuum again.
+  - Add `source_module` column to `file_scope_bindings` (migration V24); persist module paths in `insertScopeBindings`.
+  - Scope resolver resolves import targets via `source_module` before falling back to `LIMIT 1`.
+  - HTTP `POST /memory/search` and `GET /todos/:id/context` read `search().results` instead of treating the object as an array.
+  - `listMissionLedgers` includes todos; `claimNextReadyTodo` honors `depends_on` completion.
+  - Incremental reindex progress guards null `head_commit`; derived-index failures log to stderr.
+  - Session-end vacuum gate uses per-project session count (same query as `sessionStart`).
+  - `log-negative-recall` returns a structured error for invalid `--entries` JSON.
+  - Document `claim-next` dependency semantics in `docs/API.md`; wildcard synthetic bindings inherit `source_module`.
+  - HTTP E2E test asserts non-empty `POST /memory/search` results.
+  - `listMissionLedgers` batch-loads todos in one query (no per-ledger N+1).
+  - `claim-next` treats `implemented` dependencies as satisfied.
+  - V10 migration DDL includes `source_module` on `file_scope_bindings`.
+
 - **Code review correctness fixes (ranking, trust, migrations, security)**
   - Stop passive context injection from writing to `recall_log` (was poisoning `useful_ratio` ranking every turn).
   - FTS search path now includes `useful_count` (parity with LIKE fallback).
