@@ -3,6 +3,8 @@ const { matchRoute } = require('./routes');
 const { jsonError } = require('./errors');
 const { resolveHttpApiKey, requireHttpAuth, assertServeHostPolicy } = require('./auth');
 
+const MAX_BODY_BYTES = 1024 * 1024;
+
 function createHttpServer(deps) {
   const routes = buildRoutes(deps);
   const authorize = requireHttpAuth(deps.apiKey || null);
@@ -40,17 +42,39 @@ function createHttpServer(deps) {
 function parseBody(req, res) {
   return new Promise((resolve) => {
     let raw = '';
-    req.on('data', (chunk) => (raw += chunk));
+    let totalBytes = 0;
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
+    req.on('data', (chunk) => {
+      totalBytes += chunk.length;
+      if (totalBytes > MAX_BODY_BYTES) {
+        jsonError(res, 413, 'payload_too_large', 'Request body exceeds 1MB limit');
+        req.destroy();
+        finish(undefined);
+        return;
+      }
+      raw += chunk;
+    });
     req.on('end', () => {
+      if (settled) {
+        return;
+      }
       if (!raw) {
-        resolve({});
+        finish({});
         return;
       }
       try {
-        resolve(JSON.parse(raw));
+        finish(JSON.parse(raw));
       } catch {
         jsonError(res, 400, 'bad_request', 'Invalid JSON body');
-        resolve(undefined);
+        finish(undefined);
       }
     });
   });

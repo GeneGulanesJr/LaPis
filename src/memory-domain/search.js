@@ -43,7 +43,8 @@ function rankObservations(rows, query = '') {
         const hits = queryWords.filter((w) => title.includes(w)).length;
         ftsScore = queryWords.length > 0 ? (hits / queryWords.length) * 2 : 0;
       }
-      const ageMs = now - new Date(`${row.created_at}Z`).getTime();
+      const createdAt = row.created_at || '';
+      const ageMs = now - new Date(createdAt.endsWith('Z') ? createdAt : `${createdAt}Z`).getTime();
       const recencyScore = Math.exp(-ageMs / TIME_WINDOWS.RECENCY_HALF_LIFE_MS);
       const trustScore =
         row.trust_score !== undefined && row.trust_score !== null ? row.trust_score : RANKING.DEFAULT_TRUST_SCORE;
@@ -226,7 +227,8 @@ function search(deps, args) {
                snippet(observations_fts, 0, '»', '«', '…', 32) as snippet,
                rank,
                sl.trust_score,
-               COALESCE(rl.recall_count, 0) as recall_count
+               COALESCE(rl.recall_count, 0) as recall_count,
+               COALESCE(rl.useful_count, 0) as useful_count
         FROM observations o
         JOIN observations_fts fts ON o.id = fts.rowid
         ${TRUST_RECALL_JOINS}

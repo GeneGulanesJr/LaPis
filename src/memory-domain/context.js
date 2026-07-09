@@ -70,7 +70,6 @@ function buildTopicQueryMatch(needles) {
 
 function context(deps, args) {
   const { sqlJson, jsonErrNoExit } = deps;
-  const insertRecallLog = deps.insertRecallLog || (() => {});
   const countObservationsByProjectAndType = deps.countObservationsByProjectAndType || (() => 0);
 
   const project = args.project || null;
@@ -78,7 +77,6 @@ function context(deps, args) {
   const rawBudget = parseInt(args['token-budget'], 10);
   const tokenBudget = Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : 0;
   const fetchCeiling = tokenBudget > 0 ? Math.max(limit, limit * 3) : limit;
-  const sessionId = args['session-id'] ? parseInt(args['session-id'], 10) : null;
   const topicKey = args['topic-key'] || null;
   const topicQuery = args.query || null;
   const deep = args.deep === 'true' || args.deep === true;
@@ -198,16 +196,8 @@ function context(deps, args) {
   const budgeted = tokenBudget > 0 ? applyTokenBudget(filtered, tokenBudget) : filtered;
   const truncatedCount = budgeted.filter((o) => o._truncated).length;
 
-  if (sessionId && budgeted.length > 0) {
-    const recallQuery = topicQuery || topicKey || 'context-auto';
-    const entries = budgeted.map((o) => ({
-      memoryId: o.id,
-      sessionId: String(sessionId),
-      query: recallQuery,
-      wasUseful: false,
-    }));
-    insertRecallLog(entries);
-  }
+  // Passive context injection does not write to recall_log — it is not a search
+  // recall and logging here (even as was_useful=0) poisons ranking useful_ratio.
 
   // Supplemental cross-project suggestions: when project-scoped, also find
   // relevant memories from other projects so insights transfer across projects.
@@ -221,7 +211,7 @@ function context(deps, args) {
                COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
                ${match.scoreSql} as match_score
         FROM observations o
-        LEFT JOIN symbol_links sl ON sl.memory_id = o.id
+        LEFT JOIN symbol_links sl ON sl.memory_id = CAST(o.id AS TEXT)
         WHERE o.deleted_at IS NULL AND o.type != 'skill'
           AND o.scope = 'project' AND o.project != ?
           AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))

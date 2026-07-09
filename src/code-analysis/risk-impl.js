@@ -1,4 +1,4 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 // PR risk profiling and untested symbol detection.
 
 const {
@@ -9,6 +9,27 @@ const {
   COMPLEXITY /* oxlint-disable-line no-unused-vars */,
   HOTSPOT_THRESHOLDS /* oxlint-disable-line no-unused-vars */,
 } = require('./shared-deps');
+
+const GIT_REF_RE = /^[A-Za-z0-9._^~/-]+$/;
+
+function isValidGitRef(ref) {
+  return typeof ref === 'string' && ref.length > 0 && GIT_REF_RE.test(ref);
+}
+
+function gitDiffOutput(repoPath, base, branch, stat = false) {
+  if (!isValidGitRef(base) || !isValidGitRef(branch)) {
+    return '';
+  }
+  const range = `${base}...${branch}`;
+  const args = stat
+    ? ['-C', repoPath, 'diff', '--stat', range]
+    : ['-C', repoPath, 'diff', '--name-only', range];
+  return execFileSync('git', args, {
+    encoding: 'utf-8',
+    timeout: 10000,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  }).trim();
+}
 
 function getUntestedSymbols(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db);
@@ -165,11 +186,7 @@ function getPrRiskProfile(db, repoId, opts = {}) {
 
   let changedFiles = [];
   try {
-    const diffOutput = execSync(`git -C "${repo.path}" diff --name-only ${base}...${branch}`, {
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
+    const diffOutput = gitDiffOutput(repo.path, base, branch, false);
     changedFiles = diffOutput ? diffOutput.split('\n').filter(Boolean) : [];
   } catch {
     changedFiles = [];
@@ -280,11 +297,7 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   // Signal 5: Change volume (10%)
   let changeVolumeScore = 0;
   try {
-    const diffStat = execSync(`git -C "${repo.path}" diff --stat ${base}...${branch}`, {
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
+    const diffStat = gitDiffOutput(repo.path, base, branch, true);
     // Parse the last line which has the total: "X files changed, Y insertions(+), Z deletions(-)"
     const totalMatch = diffStat.match(/(\d+) insertions?.*?(\d+) deletions?/);
     if (totalMatch) {

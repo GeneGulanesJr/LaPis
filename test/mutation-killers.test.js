@@ -559,14 +559,14 @@ describe('context.js mutation killers', () => {
     expect(r.stats.budget_used).toBeGreaterThan(0);
   });
 
-  it('recall log recorded with session-id', () => {
+  it('passive context does not write recall log (avoids ranking poison)', () => {
     const irl = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
     });
     context(mockDeps({ sqlJson, insertRecallLog: irl }), { project: 'p', 'session-id': '10' });
-    expect(irl).toHaveBeenCalled();
+    expect(irl).not.toHaveBeenCalled();
   });
 
   it('cross-project suggestions with query', () => {
@@ -1504,20 +1504,17 @@ describe('context.js exact SQL verification', () => {
     expect(crossCall).toBeUndefined();
   });
 
-  it('context: recall log query is "context-auto" when no topic', () => {
+  it('context: passive injection does not write recall log', () => {
     const irlMock = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
     });
     context(mockDeps({ sqlJson, insertRecallLog: irlMock }), { project: 'p', 'session-id': '1' });
-    if (irlMock.mock.calls.length > 0) {
-      const entries = irlMock.mock.calls[0][0];
-      expect(entries[0].query).toBe('context-auto');
-    }
+    expect(irlMock).not.toHaveBeenCalled();
   });
 
-  it('context: recall log query uses topicQuery when present', () => {
+  it('context: topic query path does not write recall log', () => {
     const irlMock = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
@@ -1525,13 +1522,10 @@ describe('context.js exact SQL verification', () => {
       return [];
     });
     context(mockDeps({ sqlJson, insertRecallLog: irlMock }), { project: 'p', query: 'jwt auth', 'session-id': '1' });
-    if (irlMock.mock.calls.length > 0) {
-      const entries = irlMock.mock.calls[0][0];
-      expect(entries[0].query).toBe('jwt auth');
-    }
+    expect(irlMock).not.toHaveBeenCalled();
   });
 
-  it('context: recall log query uses topicKey when present (no query)', () => {
+  it('context: topic-key path does not write recall log', () => {
     const irlMock = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
@@ -1539,10 +1533,7 @@ describe('context.js exact SQL verification', () => {
       return [];
     });
     context(mockDeps({ sqlJson, insertRecallLog: irlMock }), { project: 'p', 'topic-key': 'auth', 'session-id': '1' });
-    if (irlMock.mock.calls.length > 0) {
-      const entries = irlMock.mock.calls[0][0];
-      expect(entries[0].query).toBe('auth');
-    }
+    expect(irlMock).not.toHaveBeenCalled();
   });
 });
 
@@ -2794,20 +2785,14 @@ describe('context.js boundary condition killers', () => {
     expect(r.stats.budget_used).toBeUndefined();
   });
 
-  it('context: session-id is parseInt-ed', () => {
-    const sqlJson = vi.fn(() => []);
-    // session-id='42' should be parsed to 42
-    // Then used in recall log as String(42)
+  it('context: session-id does not trigger passive recall logging', () => {
     const irlMock = vi.fn();
     const sqlJson2 = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
     });
     context(mockDeps({ sqlJson: sqlJson2, insertRecallLog: irlMock }), { project: 'p', 'session-id': '42' });
-    if (irlMock.mock.calls.length > 0) {
-      // sessionId is parsed to 42, then String(42) = '42'
-      expect(irlMock.mock.calls[0][0][0].sessionId).toBe('42');
-    }
+    expect(irlMock).not.toHaveBeenCalled();
   });
 
   it('context: session-id is null when not provided', () => {

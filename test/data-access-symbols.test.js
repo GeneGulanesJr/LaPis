@@ -2,6 +2,7 @@ const {
   linkSymbol,
   adjustTrust,
   recordRecall,
+  getRecalledMemoryIds,
   getStaleLinks,
   getSymbolsForMemory,
   findUnlinked,
@@ -48,6 +49,19 @@ describe('data-access/symbols', () => {
         expect.stringContaining('INSERT OR IGNORE INTO session_recalls'),
         expect.any(Array),
       );
+    });
+  });
+
+  describe('getRecalledMemoryIds', () => {
+    it('queries recall_log and session_recalls', () => {
+      const deps = mockDeps();
+      deps.sqlJson.mockReturnValue([{ memory_id: '42' }]);
+      const result = getRecalledMemoryIds(deps, 7);
+      expect(deps.sqlJson).toHaveBeenCalledWith(
+        expect.stringContaining('was_useful = 1'),
+        [7, 7],
+      );
+      expect(result).toEqual([{ memory_id: '42' }]);
     });
   });
 

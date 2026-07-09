@@ -257,6 +257,8 @@ function dream(deps, args = {}) {
       AND o2.deleted_at IS NULL
       AND o1.type IN ('decision', 'config', 'architecture')
       AND o2.type IN ('decision', 'config', 'architecture')
+    JOIN observation_relations r2 ON r2.target_id = o1.id AND r2.source_id = o2.id
+      AND r2.relation IN ('duplicate', 'supersedes')
     WHERE o1.deleted_at IS NULL
       AND o1.topic_key IS NOT NULL AND o1.topic_key != ''
       AND o1.topic_key = o2.topic_key
@@ -405,12 +407,12 @@ function dream(deps, args = {}) {
   };
   totalCleaned += sessionsCompacted;
 
-  // Run compact as final step
-  const compactResult = runCompact(deps);
+  // Run cheap compact only — dream may run mid-session; skip VACUUM/FTS optimize.
+  const compactResult = runCompactCheap(deps);
   report.phases.compact = compactResult;
 
   report.completedAt = new Date().toISOString();
-  report.ok = true;
+  report.ok = compactResult.ok !== false;
   report.totalCleaned = totalCleaned;
   report.cleaned = cleanedIds;
 

@@ -123,7 +123,7 @@ function recoverOrphans(deps) {
         `INSERT INTO observations (session_id, type, title, content, project, scope)
          VALUES (?, 'session_summary', 'Consolidated Recovery Summary', ?, ?, 'project')
          RETURNING id`,
-        [recentSummaries[0].id, consolidatedContent, orphans[0].project],
+        [orphans[0].id, consolidatedContent, orphans[0].project],
       );
     }
   }

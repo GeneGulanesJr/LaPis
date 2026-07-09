@@ -83,7 +83,14 @@ function insertTrustAdjustment(deps, { memoryId, reason, delta }) {
 
 function getRecalledMemoryIds(deps, sessionId) {
   const { sqlJson } = deps;
-  return sqlJson('SELECT memory_id FROM session_recalls WHERE session_id = ?', [sessionId]);
+  return sqlJson(
+    `SELECT DISTINCT memory_id FROM (
+       SELECT memory_id FROM recall_log WHERE session_id = ? AND was_useful = 1
+       UNION
+       SELECT memory_id FROM session_recalls WHERE session_id = ?
+     )`,
+    [sessionId, sessionId],
+  );
 }
 
 function updateLinkTrustByMemoryId(deps, { memoryId, newTrust }) {
