@@ -22,6 +22,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Memory layer: self-heal stale cached project key from path-resolved repo**
+  - `before_agent_start` now uses anchored, deepest-path `resolveIndexedRepo` (matching `detectProject`) instead of first-match `startsWith` prefix resolution.
+  - When the path-resolved repo name differs from the session-start cached key, `state.currentProject` self-heals so memory saves and the context banner use the correct project bucket.
+  - `buildSourceLookupGuidance` uses the same repo resolution to avoid nested-repo and unanchored-prefix mismatches.
+  - Regression tests cover mid-session rename self-heal and nested-repo non-regression.
+
 - **Code correctness review fixes**
   - Export `runCompactCheap` / `runVacuum` from `services/dream.js` so `session-end` runs cheap compact and gated vacuum again.
   - Add `source_module` column to `file_scope_bindings` (migration V24); persist module paths in `insertScopeBindings`.
