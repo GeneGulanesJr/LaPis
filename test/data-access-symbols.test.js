@@ -58,7 +58,7 @@ describe('data-access/symbols', () => {
       deps.sqlJson.mockReturnValue([{ memory_id: '42' }]);
       const result = getRecalledMemoryIds(deps, 7);
       expect(deps.sqlJson).toHaveBeenCalledWith(
-        expect.stringContaining('recall_log'),
+        expect.stringContaining('was_useful = 1'),
         [7, 7],
       );
       expect(result).toEqual([{ memory_id: '42' }]);

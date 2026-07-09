@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Code review correctness fixes (ranking, trust, migrations, security)**
   - Stop passive context injection from writing to `recall_log` (was poisoning `useful_ratio` ranking every turn).
   - FTS search path now includes `useful_count` (parity with LIKE fallback).
-  - `trustRecovery` reads recalled memories from `recall_log` as well as `session_recalls`.
+  - `trustRecovery` reads useful recalls from `recall_log` (`was_useful = 1`) plus `session_recalls`.
   - Migration guard corrected (`version >= 23`) so V23 (`repo_index_locks`) runs for DBs at version 22.
   - Consolidated orphan recovery uses a real `session_log.id` instead of an observation id.
   - Dream cycle uses cheap compact only (no mid-session `VACUUM`); `report.ok` reflects compact success.

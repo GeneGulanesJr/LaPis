@@ -83,16 +83,58 @@ describe('review fixes', () => {
       expect(result.ok).toBe(true);
       expect(result.memoriesRecovered).toBeGreaterThan(0);
     });
+
+    it('trustRecovery ignores memories only recalled with was_useful = 0', () => {
+      const session = dbModule.sqlJson(
+        "INSERT INTO session_log (project, started_at) VALUES (?, datetime('now')) RETURNING id",
+        ['review-fixes-trust-negative'],
+      );
+      const negativeSessionId = session[0].id;
+      const obs = dbModule.sqlJson(
+        `INSERT INTO observations (session_id, type, title, content, project, scope)
+         VALUES (?, 'decision', 'Ignored recall', 'content', 'review-fixes-trust-negative', 'project')
+         RETURNING id`,
+        [negativeSessionId],
+      );
+      const ignoredMemoryId = obs[0].id;
+      dbModule.sqlRun(
+        'INSERT INTO recall_log (memory_id, session_id, query, was_useful) VALUES (?, ?, ?, 0)',
+        [ignoredMemoryId, negativeSessionId, 'ignored-search'],
+      );
+      dbModule.sqlRun(
+        'INSERT INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)',
+        [String(ignoredMemoryId), '__unlinked__', 'review-fixes-trust-negative', 0.5],
+      );
+
+      const recalled = getRecalledMemoryIds({ sqlJson: dbModule.sqlJson }, negativeSessionId);
+      expect(recalled.some((r) => String(r.memory_id) === String(ignoredMemoryId))).toBe(false);
+
+      const result = trustRecovery({ session: String(negativeSessionId) });
+      expect(result.ok).toBe(true);
+      expect(result.memoriesRecovered).toBe(0);
+    });
   });
 
   describe('pr-risk git ref validation', () => {
-    it('rejects shell metacharacters in branch/base without executing', () => {
-      const db = dbModule.getDb();
-      const repo = db.prepare('SELECT id FROM code_repos LIMIT 1').get();
-      if (!repo) {
+    let repoId;
+
+    beforeAll(() => {
+      dbModule.ensureDb();
+      const existing = dbModule.sqlJson('SELECT id FROM code_repos WHERE name = ?', ['review-fixes-pr-risk']);
+      if (existing.length > 0) {
+        repoId = existing[0].id;
         return;
       }
-      const result = getPrRiskProfile(db, repo.id, {
+      const inserted = dbModule.sqlJson(
+        'INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id',
+        ['review-fixes-pr-risk', process.cwd()],
+      );
+      repoId = inserted[0].id;
+    });
+
+    it('rejects shell metacharacters in branch/base without executing', () => {
+      const db = dbModule.getDb();
+      const result = getPrRiskProfile(db, repoId, {
         branch: 'HEAD; echo pwned',
         base: 'main',
       });

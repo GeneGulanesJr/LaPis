@@ -85,7 +85,7 @@ function getRecalledMemoryIds(deps, sessionId) {
   const { sqlJson } = deps;
   return sqlJson(
     `SELECT DISTINCT memory_id FROM (
-       SELECT memory_id FROM recall_log WHERE session_id = ?
+       SELECT memory_id FROM recall_log WHERE session_id = ? AND was_useful = 1
        UNION
        SELECT memory_id FROM session_recalls WHERE session_id = ?
      )`,
