@@ -51,12 +51,37 @@ describe('correctness review fixes', () => {
 
   it('listMissionLedgers includes todos for each ledger', () => {
     const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun });
-    const missionId = `mission-list-${Date.now()}`;
-    repo.createMissionLedger({ missionId, missionTitle: 'List test', status: 'planning' });
-    repo.createTodo(missionId, { title: 'Child todo', status: 'ready', goal: 'g' });
+    const missionA = `mission-list-a-${Date.now()}`;
+    const missionB = `mission-list-b-${Date.now()}`;
+    repo.createMissionLedger({ missionId: missionA, missionTitle: 'List A', status: 'planning' });
+    repo.createMissionLedger({ missionId: missionB, missionTitle: 'List B', status: 'planning' });
+    repo.createTodo(missionA, { title: 'Todo A', status: 'ready', goal: 'g' });
+    repo.createTodo(missionB, { title: 'Todo B', status: 'ready', goal: 'g' });
     const list = repo.listMissionLedgers();
-    const entry = list.find((l) => l.missionId === missionId);
-    expect(entry?.todos?.length).toBe(1);
+    expect(list.find((l) => l.missionId === missionA)?.todos?.length).toBe(1);
+    expect(list.find((l) => l.missionId === missionB)?.todos?.length).toBe(1);
+  });
+
+  it('listMissionLedgers loads todos in a single batch query', () => {
+    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun });
+    const missionA = `mission-batch-a-${Date.now()}`;
+    const missionB = `mission-batch-b-${Date.now()}`;
+    repo.createMissionLedger({ missionId: missionA, missionTitle: 'Batch A', status: 'planning' });
+    repo.createMissionLedger({ missionId: missionB, missionTitle: 'Batch B', status: 'planning' });
+    repo.createTodo(missionA, { title: 'Batch todo A', status: 'ready', goal: 'g' });
+    repo.createTodo(missionB, { title: 'Batch todo B', status: 'ready', goal: 'g' });
+
+    const originalSqlJson = dbModule.sqlJson;
+    const todoQueries = [];
+    const sqlJsonSpy = (query, params) => {
+      if (typeof query === 'string' && query.includes('FROM todo_items WHERE mission_id IN')) {
+        todoQueries.push(query);
+      }
+      return originalSqlJson(query, params);
+    };
+    const spiedRepo = createAurexRepository({ sqlJson: sqlJsonSpy, sqlRun: dbModule.sqlRun });
+    spiedRepo.listMissionLedgers();
+    expect(todoQueries).toHaveLength(1);
   });
 
   it('claimNextReadyTodo skips todos with incomplete dependencies', () => {
@@ -77,6 +102,27 @@ describe('correctness review fixes', () => {
     expect(claimed[0]?.id).toBe(blocker.id);
     const blockedClaim = repo.claimNextReadyTodo(missionId, 'worker-b');
     expect(blockedClaim).toEqual([]);
+  });
+
+  it('claimNextReadyTodo allows claim when dependency is implemented', () => {
+    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun });
+    const missionId = `mission-claim-impl-${Date.now()}`;
+    const blockerId = `blocker-impl-${Date.now()}`;
+    const blockedId = `blocked-impl-${Date.now()}`;
+    repo.createMissionLedger({ missionId, missionTitle: 'Implemented dep', status: 'planning' });
+    repo.createTodo(missionId, { id: blockerId, title: 'Blocker', status: 'ready', goal: 'g' });
+    repo.createTodo(missionId, {
+      id: blockedId,
+      title: 'Blocked',
+      status: 'ready',
+      goal: 'g',
+      dependsOn: [blockerId],
+    });
+    repo.claimNextReadyTodo(missionId, 'worker-a');
+    repo.addTodoEvidence(blockerId, { changedFiles: ['src/a.js'] });
+    repo.setTodoStatus(blockerId, 'implemented');
+    const claimed = repo.claimNextReadyTodo(missionId, 'worker-b');
+    expect(claimed[0]?.id).toBe(blockedId);
   });
 
   it('logNegativeRecall returns structured error for invalid JSON', () => {

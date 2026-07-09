@@ -188,7 +188,7 @@ See [`CLAUDE_CODE.md`](CLAUDE_CODE.md) for daemon configuration and lockfile lay
 | GET    | `/missions/:missionId/todos`                      | List todos by mission.               |
 | GET    | `/todos`                                          | List all todos.                      |
 | POST   | `/todos/search`                                   | Search todos.                        |
-| POST   | `/missions/:missionId/todos/claim-next`           | Claim the next ready todo whose `dependsOn` entries are all `passed`, `merged`, or `cancelled`. |
+| POST   | `/missions/:missionId/todos/claim-next`           | Claim the next ready todo whose `dependsOn` entries are all `passed`, `merged`, `cancelled`, or `implemented`. |
 | GET    | `/todos/:todoId`                                  | Get a todo by ID.                    |
 | PATCH  | `/todos/:todoId`                                  | Update a todo.                       |
 | PATCH  | `/todos/:todoId/status`                           | Set todo status.                     |

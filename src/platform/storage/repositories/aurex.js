@@ -372,9 +372,19 @@ function createAurexRepository(deps) {
       const rows = filters.status
         ? sqlJson('SELECT * FROM todo_ledgers WHERE status = ? ORDER BY updated_at DESC', [filters.status]).map(mapLedgerRow)
         : sqlJson('SELECT * FROM todo_ledgers ORDER BY updated_at DESC').map(mapLedgerRow);
+      if (rows.length === 0) {
+        return [];
+      }
+      const missionIds = rows.map((ledger) => ledger.missionId);
+      const placeholders = missionIds.map(() => '?').join(',');
+      const todosByMission = groupTodosByMission(
+        sqlJson(`SELECT * FROM todo_items WHERE mission_id IN (${placeholders}) ORDER BY created_at`, missionIds).map(
+          mapTodoRow,
+        ),
+      );
       return rows.map((ledger) => ({
         ...ledger,
-        todos: this.listTodosByMission(ledger.missionId),
+        todos: todosByMission.get(ledger.missionId) || [],
       }));
     },
     updateMissionLedger(missionId, patch) {
@@ -605,7 +615,7 @@ function createAurexRepository(deps) {
                OR NOT EXISTS (
                  SELECT 1 FROM json_each(t.depends_on) dep
                  JOIN todo_items blocker ON blocker.id = dep.value
-                 WHERE blocker.status NOT IN ('passed', 'merged', 'cancelled')
+                 WHERE blocker.status NOT IN ('passed', 'merged', 'cancelled', 'implemented')
                )
              )
            ORDER BY t.priority DESC, t.created_at
@@ -722,6 +732,19 @@ const TODO_TYPES = new Set(['discovery', 'implementation', 'test', 'refactor', '
 const PRIORITIES = new Set(['low', 'medium', 'high']);
 const RISK_LEVELS = new Set(['low', 'medium', 'high']);
 const CONFIDENCE_LEVELS = new Set(['low', 'medium', 'high']);
+
+function groupTodosByMission(todos) {
+  const map = new Map();
+  for (const todo of todos) {
+    const existing = map.get(todo.missionId);
+    if (existing) {
+      existing.push(todo);
+    } else {
+      map.set(todo.missionId, [todo]);
+    }
+  }
+  return map;
+}
 
 function assertInSet(value, allowed, field) {
   if (!allowed.has(value)) {

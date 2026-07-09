@@ -33,6 +33,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `log-negative-recall` returns a structured error for invalid `--entries` JSON.
   - Document `claim-next` dependency semantics in `docs/API.md`; wildcard synthetic bindings inherit `source_module`.
   - HTTP E2E test asserts non-empty `POST /memory/search` results.
+  - `listMissionLedgers` batch-loads todos in one query (no per-ledger N+1).
+  - `claim-next` treats `implemented` dependencies as satisfied.
+  - V10 migration DDL includes `source_module` on `file_scope_bindings`.
 
 - **Code review correctness fixes (ranking, trust, migrations, security)**
   - Stop passive context injection from writing to `recall_log` (was poisoning `useful_ratio` ranking every turn).
