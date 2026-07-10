@@ -305,4 +305,4 @@ function getFileOutline(db, repoId, filePath) {
   return { file: fileRow.relative_path || fileRow.path, classes, standalone };
 }
 
-module.exports = { buildComplexity, getComplexity, getFileOutline };
+module.exports = { buildComplexity, getComplexity, getFileOutline, DECISION_PATTERNS };

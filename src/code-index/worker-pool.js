@@ -75,8 +75,10 @@ class ParsePool {
   _handleWorkerGone(worker, err) {
     this.workers = this.workers.filter((w) => w !== worker);
     for (const [id, pending] of this.pendingMessages) {
-      this.pendingMessages.delete(id);
-      pending.reject(err);
+      if (pending.worker === worker) {
+        this.pendingMessages.delete(id);
+        pending.reject(err);
+      }
     }
   }
 
@@ -101,7 +103,9 @@ class ParsePool {
     return new Promise((resolve, reject) => {
       const id = this.nextId++;
       const worker = this.workers[workerIndex];
-      this.pendingMessages.set(id, { resolve, reject });
+      // Track the owning worker so _handleWorkerGone can reject only this
+      // worker's messages instead of failing the entire parseAll batch.
+      this.pendingMessages.set(id, { resolve, reject, worker });
       worker.postMessage({ type: 'parse', id, files });
     });
   }

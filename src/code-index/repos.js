@@ -171,7 +171,7 @@ function createCodeIndexRepository(deps) {
         // Only fall through for engines that don't support RETURNING. Any other
         // error (constraint, busy/locked, disk full) is a real failure that must
         // surface — swallowing it turns a recoverable error into a null-deref.
-        if (!/RETURNING|syntax/i.test(e && e.message)) {
+        if (!/RETURNING/i.test(e && e.message)) {
           throw e;
         }
       }

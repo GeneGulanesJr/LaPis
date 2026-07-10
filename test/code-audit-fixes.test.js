@@ -81,12 +81,13 @@ describe('code-audit: rankObservations NaN guard', () => {
 // ── #7: cyclomatic complexity must not double-count `else if` ──
 
 describe('code-audit: complexity else-if not double-counted', () => {
-  it('counts else-if once, not twice', () => {
-    // Sanity-check the DECISION_PATTERNS regex behavior directly.
-    const patterns = [/(?<!else\s+)if\b/g, /else\s+if\b/g];
+  it('counts else-if once, not twice (real DECISION_PATTERNS)', () => {
+    // Exercise the shipped DECISION_PATTERNS, not a local copy, so a future
+    // edit to the module is caught by this regression test.
+    const { DECISION_PATTERNS } = require('../src/code-analysis/complexity-impl');
     const count = (body) => {
       let c = 1;
-      for (const p of patterns) {
+      for (const p of DECISION_PATTERNS) {
         p.lastIndex = 0;
         const m = body.match(p);
         if (m) c += m.length;
