@@ -7,8 +7,16 @@ function getSetting(sqlJson) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'not_found' }));
     }
+    // Stored values may be non-JSON (legacy data, manual DB edits). Fall back
+    // to the raw string instead of throwing an uncaught SyntaxError → 500.
+    let value;
+    try {
+      value = JSON.parse(rows[0].value);
+    } catch {
+      value = rows[0].value;
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ key: params.key, value: JSON.parse(rows[0].value) }));
+    res.end(JSON.stringify({ key: params.key, value }));
   };
 }
 

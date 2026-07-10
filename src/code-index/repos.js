@@ -167,15 +167,23 @@ function createCodeIndexRepository(deps) {
         if (rows && rows[0] && rows[0].id) {
           return rows[0].id;
         }
-      } catch {
-        // Older SQLite-compatible engines may not support RETURNING.
-        // The fallback insert-then-lookup path keeps indexing portable.
+      } catch (e) {
+        // Only fall through for engines that don't support RETURNING. Any other
+        // error (constraint, busy/locked, disk full) is a real failure that must
+        // surface — swallowing it turns a recoverable error into a null-deref.
+        if (!/RETURNING|syntax/i.test(e && e.message)) {
+          throw e;
+        }
       }
       sqlRun(
         'INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count, mtime_ns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         values,
       );
-      return sqlJson('SELECT id FROM code_files WHERE repo_id = ? AND path = ?', [params.repoId, params.path])[0].id;
+      const fallback = sqlJson('SELECT id FROM code_files WHERE repo_id = ? AND path = ?', [params.repoId, params.path]);
+      if (!fallback.length) {
+        throw new Error(`insertFile: file not found after insert (repo ${params.repoId}, ${params.path})`);
+      }
+      return fallback[0].id;
     },
     insertFileBatch(records) {
       const ids = [];

@@ -16,7 +16,10 @@ function _likeEscape(str) {
 // reuse across iterations is safe (single-threaded synchronous scan).
 // Do NOT move this array back into the per-symbol loop body.
 const DECISION_PATTERNS = [
-  /if\b/g,
+  // (?<!else\s+) excludes the `if` token in `else if` (with any whitespace —
+  // space, tab, newline, or multiple) so it's counted once by the dedicated
+  // /else\s+if/ pattern below, not double-counted.
+  /(?<!else\s+)if\b/g,
   /else\s+if\b/g,
   /\bfor\b/g,
   /\bwhile\b/g,

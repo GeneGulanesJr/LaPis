@@ -33,6 +33,15 @@ class ParsePool {
           worker.removeListener('error', onError);
           worker.on('message', (m) => this._handleMessage(m));
           worker.on('error', (err) => this._handleError(err));
+          // A worker can exit abnormally without an 'error' event (OOM abort,
+          // uncaught exception, process.exit). Without this handler any pending
+          // _sendBatch promise for this worker never settles and parseAll's
+          // Promise.all hangs forever. Reject pending work and drop the worker.
+          worker.on('exit', (code) => {
+            if (code !== 0) {
+              this._handleWorkerGone(worker, new Error(`parse worker exited with code ${code}`));
+            }
+          });
           resolve(worker);
         } else if (msg.type === 'error') {
           worker.removeListener('error', onError);
@@ -54,6 +63,17 @@ class ParsePool {
   }
 
   _handleError(err) {
+    for (const [id, pending] of this.pendingMessages) {
+      this.pendingMessages.delete(id);
+      pending.reject(err);
+    }
+  }
+
+  // Called when a worker exits unexpectedly. Rejects only that worker's
+  // pending messages (unlike _handleError, which rejects everything) and
+  // removes it from the pool so terminate() doesn't double-terminate it.
+  _handleWorkerGone(worker, err) {
+    this.workers = this.workers.filter((w) => w !== worker);
     for (const [id, pending] of this.pendingMessages) {
       this.pendingMessages.delete(id);
       pending.reject(err);

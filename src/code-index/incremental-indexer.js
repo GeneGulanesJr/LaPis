@@ -443,7 +443,6 @@ function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, dele
   let importEdges = 0;
   let callEdges = 0;
   let complexityCount = 0;
-  const usedFallback = false;
 
   try {
     const ig = buildImportEdgesForFiles(db, repoId, changedFileIds, deletedFileIds);
@@ -539,7 +538,6 @@ function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, dele
     derived_scope: 'file',
     derived_files_changed: changedFileIds.length,
     derived_files_deleted: deletedFileIds.length,
-    usedFallback,
   };
 }
 

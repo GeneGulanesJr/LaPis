@@ -14,8 +14,14 @@ function createHttpServer(deps) {
       return;
     }
 
-    const parsed = new URL(req.url, `http://${req.headers.host}`);
-    const match = matchRoute(req.method, parsed.pathname, routes);
+    let parsed;
+    let match;
+    try {
+      parsed = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      match = matchRoute(req.method, parsed.pathname, routes);
+    } catch (e) {
+      return jsonError(res, 400, 'bad_request', `Malformed request URL: ${e.message}`);
+    }
 
     if (!match) {
       return jsonError(res, 404, 'not_found', `No route for ${req.method} ${parsed.pathname}`);
