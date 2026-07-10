@@ -44,7 +44,10 @@ function rankObservations(rows, query = '') {
         ftsScore = queryWords.length > 0 ? (hits / queryWords.length) * 2 : 0;
       }
       const createdAt = row.created_at || '';
-      const ageMs = now - new Date(createdAt.endsWith('Z') ? createdAt : `${createdAt}Z`).getTime();
+      const ts = new Date(createdAt.endsWith('Z') ? createdAt : `${createdAt}Z`).getTime();
+      // Invalid/missing created_at → ageMs=0 → recencyScore=1.0 (neutral).
+      // Guarding ts prevents NaN from poisoning the whole result set's sort.
+      const ageMs = Number.isFinite(ts) ? now - ts : 0;
       const recencyScore = Math.exp(-ageMs / TIME_WINDOWS.RECENCY_HALF_LIFE_MS);
       const trustScore =
         row.trust_score !== undefined && row.trust_score !== null ? row.trust_score : RANKING.DEFAULT_TRUST_SCORE;
