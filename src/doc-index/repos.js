@@ -132,7 +132,8 @@ async function indexDocs(db, rootPath, repoName, ignoreGlob) {
       totalSections++;
 
       if (isHtml) {
-        for (const link of parseHtmlLinks(sec.content)) {
+        const rawHtmlSlice = content.slice(sec.byte_start, sec.byte_end);
+        for (const link of parseHtmlLinks(rawHtmlSlice)) {
           insertLink.run(sectionDbId, link.href, null, link.text, 0);
           totalLinks++;
         }

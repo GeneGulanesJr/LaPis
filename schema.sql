@@ -533,6 +533,8 @@ CREATE TABLE IF NOT EXISTS churn_metrics (
   last_modified TEXT,
   churn_per_week REAL DEFAULT 0.0,
   window_days   INTEGER NOT NULL DEFAULT 90,
+  total_files_changed INTEGER NOT NULL DEFAULT 0,
+  top_files_json TEXT DEFAULT '[]',
   UNIQUE(repo_id, file_path, window_days)
 );
 CREATE INDEX IF NOT EXISTS idx_cm_repo ON churn_metrics(repo_id);
