@@ -9,6 +9,7 @@ const {
   COMPLEXITY /* oxlint-disable-line no-unused-vars */,
   HOTSPOT_THRESHOLDS /* oxlint-disable-line no-unused-vars */,
 } = require('./shared-deps');
+const { getBlastRadius } = require('./import-graph-impl');
 
 const GIT_REF_RE = /^[A-Za-z0-9._^~/-]+$/;
 
@@ -245,7 +246,7 @@ function getPrRiskProfile(db, repoId, opts = {}) {
         const br = getBlastRadius(db, repoId, {
           symbol: db.prepare('SELECT name FROM code_symbols WHERE id = ?').get(sid)?.name,
         });
-        const edgeCount = (br.edges || []).length;
+        const edgeCount = (br.callers || []).length;
         if (edgeCount > maxCallers) {
           maxCallers = edgeCount;
         }
