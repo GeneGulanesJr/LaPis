@@ -1,6 +1,6 @@
 // Call graph extraction, callee resolution, and call hierarchy queries.
 
-const { _requireNativeDb, CALL_GRAPH, _SKIP_CALLEE_NAMES } = require('./shared-deps');
+const { codeParser, _requireNativeDb, CALL_GRAPH, _SKIP_CALLEE_NAMES } = require('./shared-deps');
 const { extractImportBindings } = require('./import-graph-impl');
 
 function buildCallGraph(db, repoId, opts = {}) {

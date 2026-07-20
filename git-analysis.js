@@ -63,11 +63,22 @@ function getChurn(db, repoId, target, days, refresh) {
     const cached = getCachedChurn(db, repoId, resolved.filePath, days);
     if (cached) {
       if (!resolved.filePath) {
+        let topFiles = [];
+        if (cached.top_files_json) {
+          try {
+            const parsed = JSON.parse(cached.top_files_json);
+            if (Array.isArray(parsed)) {
+              topFiles = parsed;
+            }
+          } catch {
+            topFiles = [];
+          }
+        }
         return {
           repo: resolved.repo.name,
           window_days: days,
-          total_files_changed: cached.commits,
-          top_files: [],
+          total_files_changed: cached.total_files_changed,
+          top_files: topFiles,
           commits: cached.commits,
           unique_authors: cached.unique_authors,
           first_seen: cached.first_seen,
@@ -186,6 +197,8 @@ function computeRepoChurn(db, repo, days, since) {
       first_seen: null,
       last_modified: null,
       churn_per_week: Math.round((totalCommits / (days / 7)) * 100) / 100,
+      total_files_changed: fileCounts.size,
+      top_files_json: JSON.stringify(topFiles),
     };
     const result = {
       repo: repo.name,
@@ -202,9 +215,11 @@ function computeRepoChurn(db, repo, days, since) {
 }
 
 function upsertChurn(db, repoId, filePath, windowDays, metrics) {
+  const totalFilesChanged = metrics.total_files_changed ?? 0;
+  const topFilesJson = metrics.top_files_json ?? '[]';
   db.prepare(`
-    INSERT OR REPLACE INTO churn_metrics (repo_id, file_path, commits, unique_authors, first_seen, last_modified, churn_per_week, window_days)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO churn_metrics (repo_id, file_path, commits, unique_authors, first_seen, last_modified, churn_per_week, window_days, total_files_changed, top_files_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     repoId,
     filePath,
@@ -214,6 +229,8 @@ function upsertChurn(db, repoId, filePath, windowDays, metrics) {
     metrics.last_modified,
     metrics.churn_per_week,
     windowDays,
+    totalFilesChanged,
+    topFilesJson,
   );
 }
 

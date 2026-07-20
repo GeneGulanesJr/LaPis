@@ -1,6 +1,6 @@
 // Incremental builders for import graph, call graph, and complexity.
 
-const { _requireNativeDb, CALL_GRAPH, COMPLEXITY } = require('./shared-deps');
+const { codeParser, _requireNativeDb, _SKIP_CALLEE_NAMES, CALL_GRAPH, COMPLEXITY } = require('./shared-deps');
 const { extractImportBindings, extractImportsFromSource, resolveImportTarget } = require('./import-graph-impl');
 
 function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = []) {
@@ -549,7 +549,7 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
 
     let cyclomatic = 1;
     const decisionPatterns = [
-      /\if\b/g,
+      /(?<!else\s+)if\b/g,
       /\belse\s+if\b/g,
       /\bfor\b/g,
       /\bwhile\b/g,

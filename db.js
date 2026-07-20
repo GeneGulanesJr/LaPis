@@ -318,7 +318,7 @@ const _CRITICAL_TABLES = [
   ],
   [
     'churn_metrics',
-    'CREATE TABLE IF NOT EXISTS churn_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, repo_id INTEGER NOT NULL REFERENCES code_repos(id) ON DELETE CASCADE, file_path TEXT NOT NULL, commits INTEGER NOT NULL DEFAULT 0, unique_authors INTEGER NOT NULL DEFAULT 0, first_seen TEXT, last_modified TEXT, churn_per_week REAL DEFAULT 0.0, window_days INTEGER NOT NULL DEFAULT 90, UNIQUE(repo_id, file_path, window_days))',
+    "CREATE TABLE IF NOT EXISTS churn_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, repo_id INTEGER NOT NULL REFERENCES code_repos(id) ON DELETE CASCADE, file_path TEXT NOT NULL, commits INTEGER NOT NULL DEFAULT 0, unique_authors INTEGER NOT NULL DEFAULT 0, first_seen TEXT, last_modified TEXT, churn_per_week REAL DEFAULT 0.0, window_days INTEGER NOT NULL DEFAULT 90, total_files_changed INTEGER NOT NULL DEFAULT 0, top_files_json TEXT DEFAULT '[]', UNIQUE(repo_id, file_path, window_days))",
   ],
   // V5: doc indexing
   [
@@ -482,6 +482,7 @@ function runMigrations() {
     { to: 22, run: runMigrationV22 },
     { to: 23, run: runMigrationV23 },
     { to: 24, run: runMigrationV24 },
+    { to: 25, run: runMigrationV25 },
   ];
 
   const fromVersion = version;
@@ -1394,6 +1395,29 @@ function runMigrationV24() {
     });
   } catch (e) {
     errors.push(`V24: ${e.message}`);
+  }
+  return errors;
+}
+
+function runMigrationV25() {
+  const errors = [];
+  const addColumn = (table, column, definition) => {
+    try {
+      sqlRaw(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    } catch (e) {
+      if (!/duplicate column/i.test(e.message)) {
+        throw e;
+      }
+    }
+  };
+  try {
+    withTransaction(() => {
+      addColumn('churn_metrics', 'total_files_changed', 'INTEGER NOT NULL DEFAULT 0');
+      addColumn('churn_metrics', 'top_files_json', "TEXT DEFAULT '[]'");
+      sqlRaw('PRAGMA user_version = 25');
+    });
+  } catch (e) {
+    errors.push(`V25: ${e.message}`);
   }
   return errors;
 }
