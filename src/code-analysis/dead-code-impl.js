@@ -118,15 +118,23 @@ function getDeadCode(db, repoId, opts) {
     .all(repoId, repoId);
 
   // ── Symbols that are re-exported (barrel exports) ──
-  const reExportedNames = new Set();
-  const reExports = db
-    .prepare(
-      "SELECT fi.path, ci.target_module FROM code_imports ci JOIN code_files fi ON fi.id = ci.source_file_id WHERE ci.import_type = 're-export' AND ci.repo_id = ?",
-    )
-    .all(repoId);
-  for (const re of reExports) {
-    reExportedNames.add(re.target_module);
-  }
+  // Populate the name set from `file_scope_bindings` where kind='re_export'.
+  // `code_imports` only stores the target module path (e.g. './utils') — it
+  // does NOT record the exported identifier name — so we cannot derive the
+  // exported symbol name set from that table alone. Scope bindings, however,
+  // capture the binding name (`export { foo } from './bar'` → name='foo').
+  // Falling back to scope bindings is the correct fix; the previous
+  // implementation compared module paths against symbol names and matched
+  // essentially never, so the RE_EXPORTED_PENALTY was dead and the
+  // NO_CALLERS_WEIGHT was always added even for barrel-re-exported symbols.
+  const reExportedNames = new Set(
+    db
+      .prepare(
+        "SELECT name FROM file_scope_bindings WHERE repo_id = ? AND kind = 're_export' AND name IS NOT NULL AND name != ''",
+      )
+      .all(repoId)
+      .map((row) => row.name),
+  );
 
   // PERF: Batch-retrieved re-export target file IDs (replaces per-symbol SQL query).
   // Do NOT replace with per-element queries — see issue #138.
