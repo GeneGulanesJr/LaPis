@@ -269,7 +269,7 @@ function search(deps, args) {
              COALESCE(rl.useful_count, 0) as useful_count
       FROM observations o
       ${TRUST_RECALL_JOINS}
-      WHERE (o.title LIKE ? OR o.content LIKE ?)
+      WHERE (o.title LIKE ? ESCAPE '\\' OR o.content LIKE ? ESCAPE '\\')
         AND o.deleted_at IS NULL
         AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
     `;

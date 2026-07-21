@@ -52,10 +52,10 @@ function buildTopicQueryMatch(needles) {
 
   for (const needle of needles) {
     const like = `%${needle.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
-    whereParts.push(`(${fields.map((field) => `${field} LIKE ?`).join(' OR ')})`);
+    whereParts.push(`(${fields.map((field) => `${field} LIKE ? ESCAPE '\\'`).join(' OR ')})`);
     whereParams.push(...fields.map(() => like));
     for (const field of fields) {
-      scoreParts.push(`CASE WHEN ${field} LIKE ? THEN 1 ELSE 0 END`);
+      scoreParts.push(`CASE WHEN ${field} LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END`);
       scoreParams.push(like);
     }
   }

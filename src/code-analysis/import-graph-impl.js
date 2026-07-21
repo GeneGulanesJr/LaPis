@@ -583,7 +583,7 @@ function winnow(db, repoId, opts = {}) {
     kind = null,
     minComplexity = null,
     minChurn = null,
-    minPageRank: _minPageRank = null,
+    minPageRank = null,
     minCallers = null,
     fileGlob = null,
     nameRegex = null,
@@ -703,14 +703,16 @@ function winnow(db, repoId, opts = {}) {
   }
 
   // Annotate with PageRank
-  const enriched = filteredRows.map((row) => {
-    const prData = symbolMap.get(row.id);
-    const rank = prData ? pr.ranks.get(row.id) || 0 : 0;
-    return {
-      ...row,
-      pagerank: Math.round(rank * 1000000) / 1000000,
-    };
-  });
+  const enriched = filteredRows
+    .map((row) => {
+      const prData = symbolMap.get(row.id);
+      const rank = prData ? pr.ranks.get(row.id) || 0 : 0;
+      return {
+        ...row,
+        pagerank: Math.round(rank * 1000000) / 1000000,
+      };
+    })
+    .filter((row) => minPageRank == null || row.pagerank >= Number(minPageRank));
 
   // Sort
   const sortFn =

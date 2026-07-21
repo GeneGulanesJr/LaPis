@@ -6,7 +6,7 @@ const { hashContent } = require('../../utils');
 const { createCodeIndexRepository } = require('./repos');
 const { scanRepository } = require('./scanner');
 const { SKIP_FILE_RE } = require('./scanner');
-const { resolveRepoScopedPath } = require('./path-guards');
+const { resolveRepoScopedPath, resolveRepoScopedDeletedPath } = require('./path-guards');
 const { withRepoIndexLock } = require('./repo-lock');
 const { createParserRegistry, getLanguageForFile } = require('./parser-registry');
 const { extractSymbolsSplit, normalizeSymbolHot } = require('./symbol-extractor');
@@ -169,12 +169,18 @@ function parseChangedPathsInput(input, repoPath) {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    const abs = resolveRepoScopedPath(repoPath, filePath, rejected);
+    // Deleted files no longer exist on disk, so resolveRepoScopedPath (which
+    // realpathSyncs the candidate) cannot resolve them — classify by status
+    // first, using the existence-tolerant variant for delete entries.
+    const isDeleteStatus = /delete|remove|unlink/i.test(status);
+    const abs = isDeleteStatus
+      ? resolveRepoScopedDeletedPath(path.resolve(repoPath), filePath, rejected)
+      : resolveRepoScopedPath(repoPath, filePath, rejected);
     if (!abs) {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    if (/delete|remove|unlink/i.test(status) || !fs.existsSync(abs)) {
+    if (isDeleteStatus || !fs.existsSync(abs)) {
       deleted.add(abs);
     } else {
       changed.add(abs);
@@ -210,6 +216,7 @@ function getGitDelta(repoPath, baseCommit) {
     const deleted = new Set();
     const renamed = [];
     const rejected = [];
+    const absRoot = path.resolve(repoPath);
     for (const line of output.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed) {
@@ -219,12 +226,13 @@ function getGitDelta(repoPath, baseCommit) {
       const parts = trimmed.split('\t');
       const status = parts[0];
       if (status.startsWith('D') && parts[1]) {
-        const abs = resolveRepoScopedPath(repoPath, parts[1], rejected);
+        // Deleted files no longer exist on disk; use the existence-tolerant resolver so they are recorded as deleted.
+        const abs = resolveRepoScopedDeletedPath(absRoot, parts[1], rejected);
         if (abs) {
           deleted.add(abs);
         }
       } else if (status.startsWith('R') && parts[1] && parts[2]) {
-        const fromAbs = resolveRepoScopedPath(repoPath, parts[1], rejected);
+        const fromAbs = resolveRepoScopedDeletedPath(absRoot, parts[1], rejected);
         const toAbs = resolveRepoScopedPath(repoPath, parts[2], rejected);
         if (fromAbs) {
           deleted.add(fromAbs);

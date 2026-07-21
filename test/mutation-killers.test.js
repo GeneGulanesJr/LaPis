@@ -2000,10 +2000,11 @@ describe('context.js buildTopicQueryMatch SQL exact', () => {
     expect(result.whereSql).toContain("lower(coalesce(o.content, ''))");
   });
 
-  it('wherePart format: (field LIKE ? OR field LIKE ? OR field LIKE ?)', () => {
+  it('wherePart format: (field LIKE ? ESCAPE ... OR field LIKE ? ESCAPE ... OR field LIKE ? ESCAPE ...)', () => {
     const result = buildTopicQueryMatch(['x']);
-    // Each needle produces a parenthesized group with 3 LIKE clauses joined by OR
-    expect(result.whereSql).toMatch(/^\(.*LIKE \?.*LIKE \?.*LIKE \?\)$/);
+    // Each needle produces a parenthesized group with 3 LIKE clauses joined by OR,
+    // each carrying an ESCAPE clause so escaped %/_ are treated as literals.
+    expect(result.whereSql).toMatch(/^\(.*LIKE \? ESCAPE.*LIKE \? ESCAPE.*LIKE \? ESCAPE.*\)$/);
   });
 
   it('scorePart format: CASE WHEN field LIKE ? THEN 1 ELSE 0 END', () => {
