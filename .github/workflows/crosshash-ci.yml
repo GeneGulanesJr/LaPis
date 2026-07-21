@@ -10,9 +10,14 @@ on:
       - 'crosshash/**'
       - '.github/workflows/crosshash-ci.yml'
 
+permissions:
+  contents: read
+
 jobs:
   build-test-clippy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: crosshash
