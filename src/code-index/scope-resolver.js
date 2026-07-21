@@ -36,9 +36,7 @@ function resolveTargetFileId(db, binding) {
     }
   }
   const fallback = db
-    .prepare(
-      `SELECT target_file_id FROM code_imports WHERE source_file_id = ? AND target_file_id IS NOT NULL LIMIT 1`,
-    )
+    .prepare(`SELECT target_file_id FROM code_imports WHERE source_file_id = ? AND target_file_id IS NOT NULL LIMIT 1`)
     .get(binding.file_id);
   return fallback?.target_file_id || null;
 }
@@ -434,8 +432,13 @@ function getBindingLineRange(db, bindingId) {
  * @param {number} repoId - repo ID
  * @param {number[]} changedFileIds - IDs of changed files
  * @param {number[]} deletedFileIds - IDs of deleted files
+ * @returns {{ resolved: number, unresolved: number, passes: number, warnings: string[] }}
  */
 function resolveScopeBindingsForFiles(db, repoId, changedFileIds, deletedFileIds) {
+  const warnings = [];
+  let resolved = 0;
+  let unresolved = 0;
+
   // For incremental: clean and re-resolve for changed files + their direct importers
   const runInTx =
     typeof db.transaction === 'function'
@@ -491,17 +494,32 @@ function resolveScopeBindingsForFiles(db, repoId, changedFileIds, deletedFileIds
         .all(repoId, fileId);
 
       for (const binding of bindings) {
-        resolveBindingDirect(db, binding, 2);
+        const status = resolveBindingDirect(db, binding, 2);
+        if (status && status.startsWith('resolved')) {
+          resolved++;
+        } else {
+          unresolved++;
+        }
       }
     }
 
     // Run re-export resolution for all affected files
-    runReexportResolution(db, repoId, 3);
+    const reexportResult = runReexportResolution(db, repoId, 3);
+    resolved += reexportResult.resolved || 0;
+    warnings.push(...reexportResult.warnings);
   });
+
+  return {
+    resolved,
+    unresolved,
+    passes: 3,
+    warnings,
+  };
 }
 
 /**
  * Resolve a single binding directly (used by incremental resolution).
+ * @returns {string} the status inserted for this binding ('resolved_*' | 'unresolved')
  */
 function resolveBindingDirect(db, binding, passNum) {
   const insertResolution = db.prepare(
@@ -510,8 +528,10 @@ function resolveBindingDirect(db, binding, passNum) {
 
   if (binding.origin === 'external_package') {
     insertResolution.run(binding.id, null, null, 'resolved_external', passNum, 1.0);
+    return 'resolved_external';
   } else if (binding.origin === 'unresolved') {
     insertResolution.run(binding.id, null, null, 'unresolved', passNum, 0.0);
+    return 'unresolved';
   } else if (binding.origin === 'external_file') {
     let targetFileId = binding.source_file_id;
     if (!targetFileId) {
@@ -524,11 +544,14 @@ function resolveBindingDirect(db, binding, passNum) {
         .get(targetFileId, sourceName);
       if (symbolRow) {
         insertResolution.run(binding.id, symbolRow.id, targetFileId, 'resolved_internal', passNum, 1.0);
+        return 'resolved_internal';
       } else {
         insertResolution.run(binding.id, null, targetFileId, 'unresolved', passNum, 0.5);
+        return 'unresolved';
       }
     } else {
       insertResolution.run(binding.id, null, null, 'unresolved', passNum, 0.3);
+      return 'unresolved';
     }
   } else if (binding.origin === 'local') {
     const symbolRow = db
@@ -541,15 +564,20 @@ function resolveBindingDirect(db, binding, passNum) {
       .get(binding.file_id, binding.name, binding.line_end, binding.line_start);
     if (symbolRow) {
       insertResolution.run(binding.id, symbolRow.id, null, 'resolved_internal', passNum, 1.0);
+      return 'resolved_internal';
     } else {
       insertResolution.run(binding.id, null, null, 'unresolved', passNum, 0.2);
+      return 'unresolved';
     }
   } else if (binding.origin === 'internal_package' || binding.origin === 'internal_module') {
     insertResolution.run(binding.id, null, null, 'resolved_external', passNum, 0.8);
+    return 'resolved_external';
   } else if (binding.origin === 'external') {
     insertResolution.run(binding.id, null, null, 'resolved_external', passNum, 0.7);
+    return 'resolved_external';
   } else {
     insertResolution.run(binding.id, null, null, 'unresolved', passNum, 0.0);
+    return 'unresolved';
   }
 }
 
