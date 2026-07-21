@@ -658,31 +658,40 @@ function winnow(db, repoId, opts = {}) {
     activeAxes.push('min_callers');
   }
 
+  // Ensure the JOIN needed for the chosen sort axis exists (even without a min*
+  // filter) and expose the column the comparator sorts on. Without these columns
+  // in the SELECT, the sort comparators read `undefined` and become no-ops.
+  const selectCols = ['s.id', 's.name', 's.kind', 's.file_path', 's.signature', 's.start_line', 's.end_line'];
+
+  if (sortBy === 'complexity') {
+    if (!joins.some((j) => j.includes('symbol_complexity'))) {
+      joins.push('LEFT JOIN symbol_complexity sc ON sc.symbol_id = s.id');
+    }
+    selectCols.push('sc.cyclomatic');
+  } else if (sortBy === 'churn') {
+    if (!joins.some((j) => j.includes('churn_metrics'))) {
+      joins.push('LEFT JOIN churn_metrics cm ON cm.file_path = s.file_path AND cm.repo_id = s.repo_id');
+    }
+    selectCols.push('cm.commits');
+  } else if (sortBy === 'callers') {
+    if (!joins.some((j) => j.includes('cc_cnt'))) {
+      joins.push(`LEFT JOIN (
+        SELECT callee_symbol_id, COUNT(DISTINCT caller_symbol_id) as caller_count
+        FROM code_calls WHERE repo_id = ? AND callee_symbol_id IS NOT NULL
+        GROUP BY callee_symbol_id
+      ) cc_cnt ON cc_cnt.callee_symbol_id = s.id`);
+      params.unshift(repoId);
+    }
+    selectCols.push('cc_cnt.caller_count');
+  }
+
   // Build the SQL
-  let sql = `
-    SELECT s.id, s.name, s.kind, s.file_path, s.signature, s.start_line, s.end_line
+  const sql = `
+    SELECT ${selectCols.join(', ')}
     FROM code_symbols s
     ${joins.join('\n    ')}
     WHERE ${conditions.join(' AND ')}
   `;
-
-  if (sortBy === 'complexity' && minComplexity == null) {
-    if (!joins.some((j) => j.includes('symbol_complexity'))) {
-      sql = sql.replace(
-        'FROM code_symbols s',
-        'FROM code_symbols s\n    LEFT JOIN symbol_complexity sc ON sc.symbol_id = s.id',
-      );
-    }
-  }
-
-  if (sortBy === 'churn' && minChurn == null) {
-    if (!joins.some((j) => j.includes('churn_metrics'))) {
-      sql = sql.replace(
-        'FROM code_symbols s',
-        'FROM code_symbols s\n    LEFT JOIN churn_metrics cm ON cm.file_path = s.file_path AND cm.repo_id = s.repo_id',
-      );
-    }
-  }
 
   // Apply name regex filter in SQL if possible, otherwise filter in JS
   const rows = db.prepare(sql).all(...params);

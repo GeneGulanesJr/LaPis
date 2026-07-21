@@ -82,7 +82,7 @@ function extractHtmlSections(content, filePath) {
         byte_start: 0,
         byte_end: headingRanges[0].start,
         role: classifyHtmlRole(title, textContent, ''),
-        tags: extractHtmlTags(textContent),
+        tags: extractHtmlTags(preamble),
         content_hash: hashContent(textContent),
       });
     }
@@ -100,7 +100,7 @@ function extractHtmlSections(content, filePath) {
       byte_start: heading.start,
       byte_end: nextStart,
       role: classifyHtmlRole(heading.text, textContent, ''),
-      tags: extractHtmlTags(textContent),
+      tags: extractHtmlTags(sectionContent),
       content_hash: hashContent(textContent),
     });
   }
