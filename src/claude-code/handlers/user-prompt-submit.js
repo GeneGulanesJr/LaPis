@@ -73,11 +73,7 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt }) {
 
 async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, isCancelled }) {
   const prompt = payload.prompt || '';
-  const { resolvedCwd, repos, project } = resolveProjectForCwd(
-    payload.cwd,
-    getKnownRepos,
-    getKnownProjects,
-  );
+  const { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
   const claudeSessionId = payload.session_id;
 
   const state = stateStore.loadState(claudeSessionId);
@@ -90,7 +86,18 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
     cwd: payload.cwd,
     query: prompt,
     sessionId,
-  }).catch(() => null);
+  }).catch((err) => {
+    // Log but do not throw — prompt must still go through with whatever
+    // non-memory context we can compute locally. Without logging, dispatch
+    // failures (engine unreachable, schema mismatch) are invisible to the
+    // user and indistinguishable from "no relevant memories found".
+    console.error(
+      `[claude-code] assembleContextLines failed for session ${claudeSessionId || 'unknown'}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return null;
+  });
 
   if (isCancelled?.()) {
     return null;

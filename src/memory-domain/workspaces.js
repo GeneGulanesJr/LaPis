@@ -1,5 +1,9 @@
 function listWorkspaces(deps) {
   const { sqlJson } = deps;
+  // Sort un-archived workspaces first, then most-recently-active first.
+  // `w.archived_at IS NULL` evaluates to 0/1; sorting it DESC puts NULLs
+  // (un-archived) before non-NULL (archived) without relying on the
+  // SQLite-3.30+ `NULLS FIRST` clause — works on any SQLite engine.
   const workspaces = sqlJson(`
     SELECT w.id, w.name, w.created_at, w.archived_at,
            COUNT(CASE WHEN o.deleted_at IS NULL AND o.type != 'skill' THEN 1 END) as memory_count,
@@ -7,7 +11,7 @@ function listWorkspaces(deps) {
     FROM workspaces w
     LEFT JOIN observations o ON o.project = w.name
     GROUP BY w.id
-    ORDER BY w.archived_at NULLS FIRST, last_active DESC
+    ORDER BY (w.archived_at IS NULL) DESC, w.archived_at ASC, last_active DESC
   `);
   return { workspaces, total: workspaces.length };
 }

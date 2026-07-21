@@ -232,18 +232,18 @@ function getDocMatches(db, task, repoName, limit) {
 function duplicateWarnings(task, codeItems) {
   const terms = taskTerms(task);
   const warnings = [];
-  const normalizedTask = terms.join(' ');
+  if (terms.length === 0) {
+    return warnings;
+  }
+  const overlapThreshold = Math.min(2, Math.max(1, terms.length));
   for (const item of codeItems.slice(0, 6)) {
     const normalizedSymbol = normalizeName(`${item.symbol} ${item.qualified_name || ''} ${item.signature || ''}`);
     const overlap = terms.filter((term) => normalizedSymbol.includes(term));
-    if (
-      overlap.length >= Math.min(2, Math.max(1, terms.length)) ||
-      (normalizedTask && normalizedSymbol.includes(normalizedTask))
-    ) {
+    if (overlap.length >= overlapThreshold) {
       warnings.push({
         symbol: item.symbol,
         file: item.file,
-        reason: `Existing symbol overlaps task intent (${overlap.slice(0, 4).join(', ') || normalizedTask}).`,
+        reason: `Existing symbol overlaps task intent (${overlap.slice(0, 4).join(', ')}).`,
       });
     }
   }
@@ -367,15 +367,17 @@ function preflight(deps, args) {
   try {
     const runtimeIngest = require('./runtime-ingest');
     const hotSymbols = runtimeIngest.getHotSymbols(db, repo.id, 50);
-    
+
     // Check if any of the top code items are hot paths
-    const topFiles = codeItems.slice(0, 3).map(item => item.file);
-    const hotMatches = hotSymbols.filter(s => s.file_path && topFiles.some(f => s.file_path.includes(f) || f.includes(s.file_path)));
-    
+    const topFiles = codeItems.slice(0, 3).map((item) => item.file);
+    const hotMatches = hotSymbols.filter(
+      (s) => s.file_path && topFiles.some((f) => s.file_path.includes(f) || f.includes(s.file_path)),
+    );
+
     if (hotMatches.length > 0) {
       runtimeHotness = {
         is_hot_path: true,
-        hot_matches: hotMatches.slice(0, 3).map(s => ({
+        hot_matches: hotMatches.slice(0, 3).map((s) => ({
           symbol: s.function_name,
           file: s.file_path,
           traffic: s.traffic,
@@ -388,9 +390,14 @@ function preflight(deps, args) {
   }
 
   // Recalculate risk with runtime consideration
-  const effectiveRisk = runtimeHotness && runtimeHotness.is_hot_path
-    ? (risk === 'low' ? 'medium' : risk === 'medium' ? 'high' : risk)
-    : risk;
+  const effectiveRisk =
+    runtimeHotness && runtimeHotness.is_hot_path
+      ? risk === 'low'
+        ? 'medium'
+        : risk === 'medium'
+          ? 'high'
+          : risk
+      : risk;
 
   return {
     task_summary: task,

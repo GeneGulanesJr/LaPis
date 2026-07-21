@@ -112,7 +112,12 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
 
 /** Capped convenience wrapper returning the final markdown string (or null). */
 async function buildInjectedContext(opts) {
-  const assembled = await assembleContextLines(opts).catch(() => null);
+  const assembled = await assembleContextLines(opts).catch((err) => {
+    // Log instead of silently swallowing — a null return value is
+    // indistinguishable from "no relevant memories" without a log line.
+    console.error(`[claude-code] assembleContextLines failed: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  });
   if (!assembled) {
     return null;
   }

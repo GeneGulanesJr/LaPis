@@ -22,9 +22,7 @@ function gitDiffOutput(repoPath, base, branch, stat = false) {
     return '';
   }
   const range = `${base}...${branch}`;
-  const args = stat
-    ? ['-C', repoPath, 'diff', '--stat', range]
-    : ['-C', repoPath, 'diff', '--name-only', range];
+  const args = stat ? ['-C', repoPath, 'diff', '--stat', range] : ['-C', repoPath, 'diff', '--name-only', range];
   return execFileSync('git', args, {
     encoding: 'utf-8',
     timeout: 10000,
@@ -240,11 +238,17 @@ function getPrRiskProfile(db, repoId, opts = {}) {
       const maxCallers = Math.max(...rows.map((r) => r.affected_callers), 1);
       blastRadiusScore = Math.min(1.0, maxCallers / PR_RISK.BLAST_RADIUS_NORMALIZER);
     } else {
-      // Per-symbol blast radius for small PRs
+      // Per-symbol blast radius for small PRs. Pass depth=5 to match the
+      // batch CTE's `ct.depth < 5` boundary above; otherwise the per-symbol
+      // path would use getBlastRadius's default depth=3 and produce a
+      // systematically smaller affected-callers count than the batch branch,
+      // causing risk scores to jump discontinuously when the changed-symbol
+      // count crosses the >20 threshold.
       let maxCallers = 0;
       for (const sid of changedSymbolIds) {
         const br = getBlastRadius(db, repoId, {
           symbol: db.prepare('SELECT name FROM code_symbols WHERE id = ?').get(sid)?.name,
+          depth: 5,
         });
         const edgeCount = (br.callers || []).length;
         if (edgeCount > maxCallers) {

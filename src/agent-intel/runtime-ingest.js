@@ -19,9 +19,9 @@ const fs = require('fs');
  */
 
 const TRAFFIC_THRESHOLDS = {
-  hot: 1000,    // >= 1000 hits in coverage period
-  warm: 100,    // >= 100 hits
-  cold: 0,      // < 100 hits
+  hot: 1000, // >= 1000 hits in coverage period
+  warm: 100, // >= 100 hits
+  cold: 0, // < 100 hits
 };
 
 function classifyTraffic(hitCount) {
@@ -39,10 +39,10 @@ function extractFunctionHits(coverageData) {
   const results = [];
   for (const [filePath, data] of Object.entries(coverageData)) {
     if (!data || !data.fnMap || !data.f) continue;
-    
+
     const fnMap = data.fnMap;
     const hitCounts = data.f;
-    
+
     for (const [idx, fn] of Object.entries(fnMap)) {
       const hitCount = hitCounts[idx] || 0;
       results.push({
@@ -68,11 +68,13 @@ function ingestCoverage(db, repoId, coveragePath, sourceFile = '') {
   // Pre-fetch symbol_id mapping for this repo to link runtime data to code symbols
   const symbolLookup = new Map();
   try {
-    const symbols = db.prepare(`
+    const symbols = db
+      .prepare(`
       SELECT id, name, qualified_name, file_path
       FROM code_symbols
       WHERE repo_id = ?
-    `).all(repoId);
+    `)
+      .all(repoId);
     for (const sym of symbols) {
       const key = `${sym.file_path}:${sym.name}`;
       symbolLookup.set(key, sym.id);
@@ -112,40 +114,66 @@ function ingestCoverage(db, repoId, coveragePath, sourceFile = '') {
 
   const result = upsert(functions);
 
+  // Aggregate traffic_breakdown from the PERSISTED state, not the just-ingested
+  // file. `INSERT OR REPLACE` overwrites the rows for functions in this file
+  // on every call but does not delete orphans from previously ingested files
+  // (or earlier versions of the same coverage report). Counting only
+  // `functions` would under-count hot/warm symbols after the second ingest
+  // and produce misleading dashboards that show a single-file snapshot.
+  let breakdown = { hot: 0, warm: 0, cold: 0 };
+  try {
+    const breakdownRows = db
+      .prepare('SELECT traffic, COUNT(*) as cnt FROM runtime_symbols WHERE repo_id = ? GROUP BY traffic')
+      .all(repoId);
+    for (const row of breakdownRows) {
+      if (row.traffic === 'hot') breakdown.hot = row.cnt;
+      else if (row.traffic === 'warm') breakdown.warm = row.cnt;
+      else if (row.traffic === 'cold') breakdown.cold = row.cnt;
+    }
+  } catch {
+    // runtime_symbols table may not exist yet — keep the function-level counts
+    // as a best-effort fallback so the return value is still defined.
+    breakdown = {
+      hot: functions.filter((f) => f.traffic === 'hot').length,
+      warm: functions.filter((f) => f.traffic === 'warm').length,
+      cold: functions.filter((f) => f.traffic === 'cold').length,
+    };
+  }
+
   return {
     functions_ingested: result.inserted,
     symbols_linked: result.linked,
-    traffic_breakdown: {
-      hot: functions.filter(f => f.traffic === 'hot').length,
-      warm: functions.filter(f => f.traffic === 'warm').length,
-      cold: functions.filter(f => f.traffic === 'cold').length,
-    },
+    traffic_breakdown: breakdown,
     source_file: coveragePath,
   };
 }
 
 function getHotSymbols(db, repoId, limit = 20) {
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT rs.*, cs.qualified_name, cs.kind
     FROM runtime_symbols rs
     LEFT JOIN code_symbols cs ON cs.id = rs.symbol_id
     WHERE rs.repo_id = ? AND rs.traffic IN ('hot', 'warm')
     ORDER BY rs.hit_count DESC
     LIMIT ?
-  `).all(repoId, limit);
+  `)
+    .all(repoId, limit);
 
   return rows;
 }
 
 function getColdSymbols(db, repoId, limit = 20) {
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT rs.*, cs.qualified_name, cs.kind
     FROM runtime_symbols rs
     LEFT JOIN code_symbols cs ON cs.id = rs.symbol_id
     WHERE rs.repo_id = ? AND rs.traffic = 'cold'
     ORDER BY rs.hit_count ASC
     LIMIT ?
-  `).all(repoId, limit);
+  `)
+    .all(repoId, limit);
 
   return rows;
 }

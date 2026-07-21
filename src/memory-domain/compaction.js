@@ -428,10 +428,18 @@ function dream(deps, args = {}) {
         10,
       );
       deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_last_run', ?)", [report.completedAt]);
-      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_total_cleaned', ?)", [String(currentTotal + totalCleaned)]);
-      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_run_count', ?)", [String(currentCount + 1)]);
-    } catch (_e) {
-      // Non-critical — dashboard will show "no data" if this fails
+      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_total_cleaned', ?)", [
+        String(currentTotal + totalCleaned),
+      ]);
+      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_run_count', ?)", [
+        String(currentCount + 1),
+      ]);
+    } catch (e) {
+      // Log instead of swallowing silently — the report still advertises
+      // totalCleaned > 0 to the caller, so users would see inconsistent
+      // dashboard stats (in-memory says cleaned, settings says no data) with
+      // no way to reconcile without a log line.
+      console.error(`[dream] failed to persist dream-cycle stats: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
