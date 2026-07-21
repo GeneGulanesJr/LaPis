@@ -22,7 +22,6 @@ function compressGitDiff({ stdout, stderr }) {
   const files = [];
   let currentFile = null;
   const lockfileDiffs = [];
-  let lockfileLines = 0;
   let contextLines = 0;
   let inLockfile = false;
 
@@ -39,6 +38,7 @@ function compressGitDiff({ stdout, stderr }) {
           additions: 0,
           deletions: 0,
           hunks: [],
+          lockfileLines: 0,
         };
         files.push(currentFile);
         for (const lp of LOCKFILE_PATTERNS) {
@@ -48,8 +48,8 @@ function compressGitDiff({ stdout, stderr }) {
           }
         }
       }
-    } else if (inLockfile) {
-      lockfileLines++;
+    } else if (inLockfile && currentFile) {
+      currentFile.lockfileLines++;
     } else if (line.startsWith('@@')) {
       if (currentFile) {
         currentFile.hunks.push(line);
@@ -71,7 +71,7 @@ function compressGitDiff({ stdout, stderr }) {
   for (const file of files) {
     const isLockfile = lockfileDiffs.includes(file);
     if (isLockfile) {
-      output += `- ${file.path}: lockfile diff hidden (${lockfileLines} lines)\n`;
+      output += `- ${file.path}: lockfile diff hidden (${file.lockfileLines} lines)\n`;
     } else {
       output += `- ${file.path}: modified, +${file.additions} -${file.deletions}\n`;
     }
@@ -88,6 +88,7 @@ function compressGitDiff({ stdout, stderr }) {
     }
   }
 
+  const lockfileLines = lockfileDiffs.reduce((sum, f) => sum + f.lockfileLines, 0);
   const omitted = contextLines + lockfileLines;
   let summary = `${files.length} file(s) changed.`;
   if (lockfileDiffs.length > 0) {

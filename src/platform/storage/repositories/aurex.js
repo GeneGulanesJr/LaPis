@@ -618,7 +618,14 @@ function createAurexRepository(deps) {
                  WHERE blocker.status NOT IN ('passed', 'merged', 'cancelled', 'implemented')
                )
              )
-           ORDER BY t.priority DESC, t.created_at
+           ORDER BY
+             CASE t.priority
+               WHEN 'high' THEN 3
+               WHEN 'medium' THEN 2
+               WHEN 'low' THEN 1
+               ELSE 2
+             END DESC,
+             t.created_at
            LIMIT 1
          )
          RETURNING *`,

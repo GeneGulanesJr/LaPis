@@ -237,7 +237,10 @@ if (isHelpRequest) {
             'project',
           ],
         );
-      } catch {}
+      } catch (e) {
+        const reason = e instanceof Error ? e.message : String(e);
+        process.stderr.write(`${JSON.stringify({ error: `--remember failed: ${reason}` })}\n`);
+      }
     }
 
     if (text) {
