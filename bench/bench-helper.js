@@ -4,7 +4,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 // ══════════════════════════════════════════════════════════
 // LAPIS ROOT DETECTION
@@ -85,9 +85,12 @@ function pad(str, width) {
 
 function runCli(repo, subcommand, extraFlags = '') {
   const msPath = path.join(LAPIS_ROOT, 'memory-store.js');
-  const cmd = `node "${msPath}" ${subcommand} --repo ${repo} ${extraFlags}`;
+  const extraArgs = extraFlags
+    ? extraFlags.split(/\s+/).filter(Boolean)
+    : [];
+  const args = [msPath, subcommand, '--repo', repo, ...extraArgs];
   try {
-    const stdout = execSync(cmd, {
+    const stdout = execFileSync('node', args, {
       cwd: LAPIS_ROOT,
       encoding: 'utf-8',
       timeout: 30000,
@@ -102,7 +105,7 @@ function runCli(repo, subcommand, extraFlags = '') {
 function isRepoIndexed(repo) {
   try {
     const msPath = path.join(LAPIS_ROOT, 'memory-store.js');
-    const stdout = execSync(`node "${msPath}" list-code-repos`, {
+    const stdout = execFileSync('node', [msPath, 'list-code-repos'], {
       cwd: LAPIS_ROOT,
       encoding: 'utf-8',
       timeout: 5000,
@@ -128,7 +131,7 @@ function findSymbolWithCallers(repo) {
 
 function _pickHotFile(repo) {
   const msPath = path.join(LAPIS_ROOT, 'memory-store.js');
-  const stdout = execSync(`node "${msPath}" hotspots --repo ${repo} --top 1`, {
+  const stdout = execFileSync('node', [msPath, 'hotspots', '--repo', repo, '--top', '1'], {
     cwd: LAPIS_ROOT,
     encoding: 'utf-8',
     timeout: 10000,
@@ -144,7 +147,7 @@ function _pickHotFile(repo) {
 
 function _pickCallSymbolFromOutline(repo, hotFile) {
   const msPath = path.join(LAPIS_ROOT, 'memory-store.js');
-  const outlineOut = execSync(`node "${msPath}" outline --repo ${repo} --file "${hotFile}"`, {
+  const outlineOut = execFileSync('node', [msPath, 'outline', '--repo', repo, '--file', hotFile], {
     cwd: LAPIS_ROOT,
     encoding: 'utf-8',
     timeout: 10000,
