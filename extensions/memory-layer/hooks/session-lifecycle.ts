@@ -61,8 +61,11 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
       ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
     });
 
+    const contextObservations = (contextResult?.observations as any[]) || [];
+    const hasProjectContext = Boolean(contextResult) && contextObservations.length > 0;
+
     let crossProjectResult: MemResult | null = null;
-    if (!contextResult || !((contextResult.observations as any[]) || []).length) {
+    if (!hasProjectContext) {
       crossProjectResult = await deps.mem('context', {
         'all-projects': 'true',
         limit: '10',
@@ -84,10 +87,10 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
 
     const effectiveContext = contextResult || crossProjectResult;
 
-    const isNewProject = crossProjectResult !== null && !contextResult;
+    const isNewProject = !hasProjectContext && crossProjectResult !== null;
     const effectiveObservations = isNewProject
       ? (crossProjectResult!.observations as any[]) || []
-      : (effectiveContext.observations as any[]) || [];
+      : contextObservations;
     const stats = effectiveContext.stats as any;
     const personal = (effectiveContext.personal as any[]) || [];
 

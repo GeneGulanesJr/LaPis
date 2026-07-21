@@ -50,4 +50,33 @@ describe('compress-git-diff', () => {
     expect(result.summary).toContain('lockfile');
     expect(result.importantOutput).toContain('lockfile diff hidden');
   });
+
+  it('reports each lockfile with its own line count across multiple lockfiles', () => {
+    const lockA = [
+      'diff --git a/package-lock.json b/package-lock.json',
+      'index abc..def 100644',
+      '--- a/package-lock.json',
+      '+++ b/package-lock.json',
+      '@@ -1,3 +1,3 @@',
+      ' lock-content-a',
+    ].join('\n');
+    const lockB = [
+      'diff --git a/yarn.lock b/yarn.lock',
+      'index abc..def 100644',
+      '--- a/yarn.lock',
+      '+++ b/yarn.lock',
+      '@@ -1,3 +1,3 @@',
+      ' lock-content-b-1',
+      ' lock-content-b-2',
+      ' lock-content-b-3',
+    ].join('\n');
+
+    const result = compressGitDiff({ stdout: `${lockA}\n${lockB}`, stderr: '', exitCode: 0 });
+
+    // Expected per-file counts: package-lock.json = 5 lines, yarn.lock = 7 lines.
+    // Pre-fix bug: both lockfiles printed the combined total (12 lines).
+    expect(result.importantOutput).toContain('package-lock.json: lockfile diff hidden (5 lines)');
+    expect(result.importantOutput).toContain('yarn.lock: lockfile diff hidden (7 lines)');
+    expect(result.importantOutput).not.toContain('(12 lines)');
+  });
 });
