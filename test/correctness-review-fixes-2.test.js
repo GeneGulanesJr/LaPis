@@ -298,9 +298,13 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
     });
 
     it('classifyTraffic boundary values are stable', () => {
-      expect(classifyTraffic(999)).toBe('cold');
+      // Thresholds: hot >= 1000, warm >= 100, cold < 100.
+      // Just below hot → warm; just at hot → hot; just at warm → warm;
+      // well below warm → cold.
+      expect(classifyTraffic(999)).toBe('warm');
       expect(classifyTraffic(1000)).toBe('hot');
       expect(classifyTraffic(100)).toBe('warm');
+      expect(classifyTraffic(50)).toBe('cold');
     });
   });
 
