@@ -20,7 +20,7 @@ describe('review fixes', () => {
       dbModule.ensureDb();
     });
 
-    it('advances user_version from 22 through V23/V24 migrations', () => {
+    it('advances user_version from 22 through all pending migrations', () => {
       tmpDb = path.join(os.tmpdir(), `lapis-v23-${Date.now()}.db`);
       dbModule.resetDb();
       dbModule.createDb({ db_path: tmpDb });
@@ -41,9 +41,14 @@ describe('review fixes', () => {
         .prepare('PRAGMA table_info(file_scope_bindings)')
         .all()
         .some((c) => c.name === 'source_module');
-      expect(version).toBe(24);
+      const churnCols = reopened.prepare('PRAGMA table_info(churn_metrics)').all();
+      const hasTotalFilesChanged = churnCols.some((c) => c.name === 'total_files_changed');
+      const hasTopFilesJson = churnCols.some((c) => c.name === 'top_files_json');
+      expect(version).toBe(25);
       expect(table).toBeTruthy();
       expect(sourceModuleCol).toBe(true);
+      expect(hasTotalFilesChanged).toBe(true);
+      expect(hasTopFilesJson).toBe(true);
     });
   });
 

@@ -445,6 +445,35 @@ function _createTableIndexes(name, db) {
 
 /* ── migrations ───────────────────────────────────────────── */
 
+const MIGRATIONS = [
+  { to: 2, run: runMigrationV2 },
+  { to: 3, run: runMigrationV3 },
+  { to: 4, run: runMigrationV4 },
+  { to: 5, run: runMigrationV5 },
+  { to: 6, run: runMigrationV6 },
+  { to: 7, run: runMigrationV7 },
+  { to: 8, run: runMigrationV8 },
+  { to: 9, run: runMigrationV9 },
+  { to: 10, run: runMigrationV10 },
+  { to: 11, run: runMigrationV11 },
+  { to: 12, run: runMigrationV12 },
+  { to: 13, run: runMigrationV13 },
+  { to: 14, run: runMigrationV14 },
+  { to: 15, run: runMigrationV15 },
+  { to: 16, run: runMigrationV16 },
+  { to: 17, run: runMigrationV17 },
+  { to: 18, run: runMigrationV18 },
+  { to: 19, run: runMigrationV19 },
+  { to: 20, run: runMigrationV20 },
+  { to: 21, run: runMigrationV21 },
+  { to: 22, run: runMigrationV22 },
+  { to: 23, run: runMigrationV23 },
+  { to: 24, run: runMigrationV24 },
+  { to: 25, run: runMigrationV25 },
+];
+
+const LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
+
 function runMigrations() {
   let version = 0;
   try {
@@ -454,39 +483,12 @@ function runMigrations() {
     console.error('[db] Failed to read user_version:', e.message);
   }
 
-  if (version >= 24) {
+  if (version >= LATEST_MIGRATION_VERSION) {
     return { migrated: false, version };
   }
 
-  const migrations = [
-    { to: 2, run: runMigrationV2 },
-    { to: 3, run: runMigrationV3 },
-    { to: 4, run: runMigrationV4 },
-    { to: 5, run: runMigrationV5 },
-    { to: 6, run: runMigrationV6 },
-    { to: 7, run: runMigrationV7 },
-    { to: 8, run: runMigrationV8 },
-    { to: 9, run: runMigrationV9 },
-    { to: 10, run: runMigrationV10 },
-    { to: 11, run: runMigrationV11 },
-    { to: 12, run: runMigrationV12 },
-    { to: 13, run: runMigrationV13 },
-    { to: 14, run: runMigrationV14 },
-    { to: 15, run: runMigrationV15 },
-    { to: 16, run: runMigrationV16 },
-    { to: 17, run: runMigrationV17 },
-    { to: 18, run: runMigrationV18 },
-    { to: 19, run: runMigrationV19 },
-    { to: 20, run: runMigrationV20 },
-    { to: 21, run: runMigrationV21 },
-    { to: 22, run: runMigrationV22 },
-    { to: 23, run: runMigrationV23 },
-    { to: 24, run: runMigrationV24 },
-    { to: 25, run: runMigrationV25 },
-  ];
-
   const fromVersion = version;
-  const pending = migrations.filter((m) => version < m.to);
+  const pending = MIGRATIONS.filter((m) => version < m.to);
   for (const migration of pending) {
     const errors = migration.run();
     if (errors.length > 0) {
