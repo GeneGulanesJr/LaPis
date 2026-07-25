@@ -64,10 +64,13 @@ describe('memory-client in-process dispatch', () => {
     // Find the next `catch` keyword after the require.
     const catchMatch = blockAfterRequire.match(/catch\s*(\(|\{)/);
     expect(catchMatch).not.toBeNull();
-    // Extract a window after the catch and look for console.error.
+    // Extract a window after the catch and look for a logging call. Accept
+    // either a direct console.error or a call to the reportInProcessFailure()
+    // helper (which wraps console.error and de-dupes the message). The
+    // invariant is: the catch must NOT silently swallow the require error.
     const catchIdx = requireMatch!.index! + catchMatch!.index!;
     const catchWindow = source.slice(catchIdx, catchIdx + 400);
-    expect(catchWindow).toMatch(/console\.error/);
+    expect(catchWindow).toMatch(/console\.error|reportInProcessFailure/);
     // And it must NOT be a bare `catch {}` immediately followed by a closing brace.
     expect(catchWindow).not.toMatch(/^catch\s*\{\s*\}/);
   });

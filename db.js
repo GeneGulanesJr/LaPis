@@ -28,6 +28,7 @@ const SCHEMA_PATH = path.resolve(__dirname, 'schema.sql');
 /* ── module state ─────────────────────────────────────────── */
 let _db = null;
 let _engine = null; // 'better-sqlite3'
+let _lastBackendError = null; // last error from openBetterSqlite3(), surfaced by openDb()
 
 function getDb() {
   return _db;
@@ -113,7 +114,13 @@ function openBetterSqlite3() {
     d.pragma('foreign_keys = ON');
     return d;
   } catch (e) {
-    console.error(`[db] better-sqlite3 failed: ${e.message}`);
+    // Preserve the REAL failure (ABI mismatch, EACCES, SQLITE_BUSY, Bun's
+    // ERR_DLOPEN_FAILED, missing .node binary, etc.) instead of swallowing it.
+    // The previous code returned null and let openDb() emit a generic
+    // "run npm install" message that was almost always wrong.
+    _lastBackendError = e;
+    const code = (e && e.code) ? ` [${e.code}]` : '';
+    console.error(`[db] better-sqlite3 failed${code}: ${e && e.message ? e.message : e}`);
     return null;
   }
 }
@@ -126,9 +133,28 @@ function openDb() {
     return db;
   }
   const lapisRoot = findLapisRoot();
+  const why = _lastBackendError
+    ? ` Reason: ${(_lastBackendError.code ? '[' + _lastBackendError.code + '] ' : '')}${_lastBackendError.message || String(_lastBackendError)}`
+    : '';
+  const hint = (() => {
+    const code = _lastBackendError && _lastBackendError.code;
+    const msg = ((_lastBackendError && _lastBackendError.message) || '');
+    // Don't tell the user to `npm install` when the module clearly loads but
+    // failed at runtime (ABI / open / Bun). Those need different fixes.
+    if (code === 'ERR_DLOPEN_FAILED' || /not yet supported in Bun/i.test(msg)) {
+      return `  better-sqlite3 cannot load under this runtime. If pi is running under Bun, run pi under Node instead, or build a Node-compatible backend.\n`;
+    }
+    if (code === 'SQLITE_BUSY' || /database is locked|SQLITE_BUSY/i.test(msg)) {
+      return `  The memory DB is locked by another process. Close other pi/LaPis processes or raise busy_timeout_ms.\n`;
+    }
+    if (code === 'MODULE_NOT_FOUND') {
+      return `  Run: cd ${lapisRoot} && npm install\n`;
+    }
+    return `  If better-sqlite3 is not installed: cd ${lapisRoot} && npm install\n`;
+  })();
   const msg =
-    `No SQLite backend found. LaPis does not install dependencies at runtime.\n` +
-    `  Run: cd ${lapisRoot} && npm install\n`;
+    `No SQLite backend found. LaPis does not install dependencies at runtime.${why}\n` +
+    hint;
   throw new Error(msg);
 }
 

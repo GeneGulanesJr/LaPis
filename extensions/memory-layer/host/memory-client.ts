@@ -7,6 +7,24 @@ export type { MemResult };
 
 let _inProcessDispatch: ((cmd: string, args: Record<string, string>) => Promise<MemResult | null>) | null = null;
 
+// In-process dispatch can fail for reasons unrelated to correctness (e.g. the
+// host runtime can't dlopen better-sqlite3). When that happens we fall back to
+// a child process — but we should only surface the failure ONCE per session,
+// not on every preflight/coding-context call. The real cause is reported via
+// openDb()'s improved error message (see db.js).
+let _inProcessFailureReported = false;
+function reportInProcessFailure(cmd: string, msg: string, kind: 'load' | 'dispatch' | 'streaming') {
+  if (_inProcessFailureReported) {
+    return;
+  }
+  _inProcessFailureReported = true;
+  const verb = kind === 'load' ? 'load in-process gateway' : `run ${cmd} in-process`;
+  console.error(
+    `[memory-layer] failed to ${verb}, falling back to child process (this message will not repeat):`,
+    msg,
+  );
+}
+
 async function getInProcessDispatch() {
   if (_inProcessDispatch) {
     return _inProcessDispatch;
@@ -21,7 +39,7 @@ async function getInProcessDispatch() {
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(`[memory-layer] failed to load in-process gateway, will fall back to child process:`, msg);
+    reportInProcessFailure('gateway', msg, 'load');
   }
   return null;
 }
@@ -39,7 +57,7 @@ export async function mem(cmd: string, args: Record<string, string | number | bo
       return await dispatch(cmd, stringArgs);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error(`[memory-layer] in-process ${cmd} failed, falling back to child process:`, msg);
+      reportInProcessFailure(cmd, msg, 'dispatch');
     }
   }
   return memViaChildProcess(cmd, args);
@@ -98,7 +116,7 @@ export async function memCmd(cmd: string): Promise<MemResult | null> {
       return await dispatch(cmd, {});
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error(`[memory-layer] in-process ${cmd} failed, falling back to child process:`, msg);
+      reportInProcessFailure(cmd, msg, 'dispatch');
     }
   }
   try {
@@ -156,7 +174,7 @@ export async function memStreaming(
       return await dispatch(cmd, stringArgs);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error(`[memory-layer] in-process ${cmd} streaming failed, falling back to child process:`, msg);
+      reportInProcessFailure(cmd, msg, 'streaming');
     }
   }
   const argList: string[] = [cmd, '--progress'];
