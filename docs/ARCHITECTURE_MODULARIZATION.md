@@ -2,6 +2,8 @@
 
 This document identifies the feature areas in LaPis as a Pi Agent extension and proposes module boundaries that would let one feature fail without taking down the rest of the system.
 
+> **Heritage note:** This assessment captured the pre-modularization monolith, and the `src/` module split it proposes has since been implemented. See [`docs/MODULE_MAP.md`](MODULE_MAP.md) for current entry points and boundaries. The "Current entry points" and "Current shape" sections below describe the historical root-level files; several of those (e.g. `code-analysis.js`, `doc-indexer.js`, `response-meta.js`, `wire-format.js`) have since been refactored into `src/` modules.
+
 ## Current shape
 
 LaPis currently has two implementations moving in parallel:

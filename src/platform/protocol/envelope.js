@@ -93,8 +93,9 @@ function _checkUncommittedChanges(repoPath) {
 }
 
 /**
- * Filesystem freshness for repos without .git directory.
- * 'fresh' if nothing has changed, 'stale_index' if any mtime differs.
+ * Filesystem freshness for repos without a .git directory.
+ * Stub: always returns 'fresh' because indexed-file mtime records are not stored,
+ * so a real comparison cannot be made yet.
  */
 function _filesystemFreshness(_repoPath) {
   // Without indexed-file mtime records, we can't know — assume fresh

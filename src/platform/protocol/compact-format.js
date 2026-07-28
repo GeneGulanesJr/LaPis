@@ -50,7 +50,9 @@ function _unescapePipe(val) {
  * @param {Array<object>} rows — list of homogeneous objects
  * @param {object} opts
  * @param {boolean} [opts.interning=true] — enable path prefix interning
- * @returns {{ _header: string[], _rows: string[] }} compact shape (no _meta)
+ * @returns {{ _header: string[], _rows: string[], _prefixes?: object, _stripped?: string[], _hoisted?: object }}
+ *          compact shape (no _meta); `_prefixes`, `_stripped`, and `_hoisted` are
+ *          present only when interning, stripping, or hoisting occurred.
  */
 function _encodeList(rows, opts = {}) {
   if (!rows || rows.length === 0) {
@@ -333,10 +335,12 @@ function _compactSize(compact) {
 /**
  * Encode data payload into compact format.
  *
- * @param {object} data — the analysis payload (the 'data' field of { _meta, data })
+ * @param {object} data — the analysis payload (object whose array fields get compacted)
  * @param {object} opts
  * @param {boolean} [opts.interning=true] — enable path prefix interning
- * @returns {{ _meta: null, data: object }} compact payload
+ * @returns {object} the payload with homogeneous array fields replaced by their
+ *                   compact (`_header`/`_rows`) form; the original `data` is returned
+ *                   unchanged for non-objects or when nothing was compacted.
  */
 function compactResponse(data, opts = {}) {
   if (!data || typeof data !== 'object') {

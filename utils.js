@@ -1,8 +1,9 @@
 /**
  * Utils.js — Shared utilities for the LaPis Memory Layer
  *
- * Consolidates duplicated functions from memory-store.js, code-analysis.js,
- * git-analysis.js, doc-indexer.js, parse-code.js, and wire-format.js.
+ * Native-DB guards, directory walking, content hashing, and token estimation
+ * shared across the CLI runtime (memory-store/cli, git-analysis, parse-code)
+ * and the src/ feature modules.
  *
  * Issue #32: Duplicated utility functions across multiple files
  */
@@ -13,6 +14,12 @@ const path = require('path');
 
 /* ── native DB guard ───────────────────────────────────────── */
 
+/**
+ * Guard that requires a native better-sqlite3 handle.
+ * @param {object|null} db
+ * @param {string} featureName label used in the error message
+ * @returns {null|{ error: string }} `null` when usable, otherwise an `{ error }` object.
+ */
 function requireNativeDb(db, featureName) {
   if (!db || typeof db.prepare !== 'function') {
     return {
@@ -22,6 +29,14 @@ function requireNativeDb(db, featureName) {
   return null;
 }
 
+/**
+ * Wrap a feature function so its first arg is checked for a native DB handle.
+ * Returns a function that yields `{ error }` when the handle is missing and
+ * otherwise calls `fn(db, ...args)`.
+ * @param {Function} fn feature implementation `(db, ...args) => *`
+ * @param {string} featureName label used in the error message
+ * @returns {Function} guarded `(db, ...args) => *`
+ */
 function withDb(fn, featureName) {
   return function _guarded(db, ...args) {
     if (!db || typeof db.prepare !== 'function') {
@@ -137,6 +152,11 @@ function walkDirForDocs(dirPath, ignoreGlob) {
 
 /* ── content hashing ───────────────────────────────────────── */
 
+/**
+ * Content hash: 16-char hex prefix of a SHA-256 digest (truncated, not full).
+ * @param {string} content
+ * @returns {string} 16-character hex string
+ */
 function hashContent(content) {
   return crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
 }
@@ -187,6 +207,11 @@ const SKIP_CALLEE_NAMES = new Set([
 
 /* ── token estimation ──────────────────────────────────────── */
 
+/**
+ * Rough token estimate: ceil(characterLength / 3.5). Objects are JSON-stringified first.
+ * @param {string|object} bytesOrObj
+ * @returns {number}
+ */
 function estimateTokens(bytesOrObj) {
   const str = typeof bytesOrObj === 'string' ? bytesOrObj : JSON.stringify(bytesOrObj);
   return Math.ceil(str.length / 3.5);

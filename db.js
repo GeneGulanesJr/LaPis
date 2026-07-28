@@ -1,5 +1,5 @@
 /**
- * Db.js — Database layer for Pi Memory Layer
+ * Db.js — Database layer for the LaPis Memory Layer
  *
  * SQLite backend via better-sqlite3.
  * Zero external Python deps. Zero MCP servers.
@@ -11,7 +11,7 @@ const os = require('os');
 const { getConfig } = require('./config');
 
 /* ── custom error ─────────────────────────────────────────── */
-// MemoryError is used by memory-store.js CLI dispatch for typed error handling.
+// MemoryError is used by cli.js CLI dispatch for typed error handling.
 // Do NOT replace with generic Error (PR22 deferred) — downstream catches instanceof.
 class MemoryError extends Error {
   constructor(message, context = {}) {
@@ -119,7 +119,7 @@ function openBetterSqlite3() {
     // The previous code returned null and let openDb() emit a generic
     // "run npm install" message that was almost always wrong.
     _lastBackendError = e;
-    const code = (e && e.code) ? ` [${e.code}]` : '';
+    const code = e && e.code ? ` [${e.code}]` : '';
     console.error(`[db] better-sqlite3 failed${code}: ${e && e.message ? e.message : e}`);
     return null;
   }
@@ -134,11 +134,11 @@ function openDb() {
   }
   const lapisRoot = findLapisRoot();
   const why = _lastBackendError
-    ? ` Reason: ${(_lastBackendError.code ? '[' + _lastBackendError.code + '] ' : '')}${_lastBackendError.message || String(_lastBackendError)}`
+    ? ` Reason: ${_lastBackendError.code ? '[' + _lastBackendError.code + '] ' : ''}${_lastBackendError.message || String(_lastBackendError)}`
     : '';
   const hint = (() => {
     const code = _lastBackendError && _lastBackendError.code;
-    const msg = ((_lastBackendError && _lastBackendError.message) || '');
+    const msg = (_lastBackendError && _lastBackendError.message) || '';
     // Don't tell the user to `npm install` when the module clearly loads but
     // failed at runtime (ABI / open / Bun). Those need different fixes.
     if (code === 'ERR_DLOPEN_FAILED' || /not yet supported in Bun/i.test(msg)) {
@@ -152,9 +152,7 @@ function openDb() {
     }
     return `  If better-sqlite3 is not installed: cd ${lapisRoot} && npm install\n`;
   })();
-  const msg =
-    `No SQLite backend found. LaPis does not install dependencies at runtime.${why}\n` +
-    hint;
+  const msg = `No SQLite backend found. LaPis does not install dependencies at runtime.${why}\n` + hint;
   throw new Error(msg);
 }
 
@@ -175,6 +173,14 @@ function sleepMs(ms) {
   }
 }
 
+/**
+ * Retry `fn` on SQLITE_BUSY with exponential backoff (100 * 2^attempt ms).
+ * Max attempts come from `config.busy_retry_max` (default 5).
+ * @param {Function} fn no-arg work function
+ * @param {string} [label] used only in the retry warning log
+ * @returns {*} the return value of `fn`
+ * @throws {*} rethrows the last error after exhausting retries or on non-BUSY errors
+ */
 function retryOnBusy(fn, label) {
   const maxRetries = safeInt(getConfig().busy_retry_max, 5);
   let lastError;
@@ -237,6 +243,16 @@ const sqlRaw = _sqlExec;
 
 /* ── transaction helper ───────────────────────────────────── */
 
+/**
+ * Run `fn` inside a DB transaction, rolling back on throw.
+ * Uses better-sqlite3's `.transaction` when available; otherwise falls back to
+ * manual BEGIN/COMMIT/ROLLBACK. `onRollbackError` is only invoked in the manual
+ * fallback when ROLLBACK itself throws.
+ * @param {Function} fn no-arg work function
+ * @param {Function} [onRollbackError] receives the ROLLBACK failure (fallback only)
+ * @returns {*} the return value of `fn`
+ * @throws {MemoryError} if the DB is not initialized
+ */
 function withTransaction(fn, onRollbackError) {
   if (!_db) {
     throw new MemoryError('Database not initialized. Call ensureDb() first.');
@@ -308,10 +324,7 @@ function ensureDb() {
 // Critical tables that must exist for code analysis + doc indexing
 const _CRITICAL_TABLES = [
   // KV store — used by HTTP /api/settings, dashboard dream stats, integrations
-  [
-    'settings',
-    `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
-  ],
+  ['settings', `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`],
   // V3: code indexing
   [
     'code_repos',
