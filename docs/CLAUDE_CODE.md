@@ -87,7 +87,7 @@ Re-install is idempotent: LaPis hook handlers are identified by a sentinel (`cla
 | `UserPromptSubmit` | Prompt-matched context + preflight + cadence-gated memory reminder (30s budget) |
 | `PreToolUse` `Read` | Block whole-file reads of indexed code |
 | `PreToolUse` `Grep` / `Glob` | **Primary** code-search guardrail (agent is instructed to prefer these over bash grep/find) |
-| `PreToolUse` `Bash` (search cmds) | Secondary search guardrail via `if`-field rules (`grep`, `rg`, `ag`, `ack`, `find`) |
+| `PreToolUse` `Bash` (search cmds) | Secondary search guardrail classified inside the handler (single bare `Bash` matcher; no install-time `if` rules, so compound commands like `cd repo && git pull` are still covered) — `grep`, `rg`, `ag`, `ack`, `find` |
 | `PreToolUse` `mcp__lapis__memory-code` | Seed `exploredFiles` |
 | `PostToolUse` `Write` \| `Edit` \| `MultiEdit` | Edit-track (sync) |
 | `PostToolUse` `Bash` (git ops) | `sync-code-trust` (async) |

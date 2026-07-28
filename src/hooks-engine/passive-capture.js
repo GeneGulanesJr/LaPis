@@ -18,7 +18,7 @@
  * @param {{match:boolean,confidence:string,pattern?:object}} input.capture
  * @param {string} input.project
  * @param {number|string|null} input.sessionId
- * @returns {{title:string,type:string,scope:string,content:string}|null}
+ * @returns {{title:string,type:string,project:string,scope:string,content:string}|null}
  */
 function buildAutoDecisionPayload({ text, capture, project, sessionId }) {
   if (!capture || !capture.match || capture.confidence === 'low' || !capture.pattern) {

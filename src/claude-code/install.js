@@ -688,7 +688,7 @@ function mcpServersFor(config, target) {
  *
  * @param {string[]} argv  flags after `install`
  * @param {{ cwd?: string, home?: string, log?: Function }} [io]  injectable for tests
- * @returns {{ written: string[], mcpScope: string, mcpName: string }}
+ * @returns {{ written: string[], mcpScope: string, mcpName: string, invocation: object, daemon: object|null }}
  */
 async function runInstall(argv, io) {
   const flags = parseFlags(argv);

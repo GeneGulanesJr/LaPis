@@ -70,6 +70,12 @@ function getObservationRelations(deps, id) {
   );
 }
 
+/**
+ * Partially update an observation, recording changed fields to
+ * `observation_versions`. Resolves `topicKey` and expiry (set via `expiresAt`
+ * or clear via `clearExpiry`).
+ * @returns {Array|null} the updated rows, or `null` if the id is missing.
+ */
 function updateObservation(deps, { id, title, content, type, project, scope, topicKey, expiresAt, clearExpiry }) {
   const { sqlJson, sqlRun } = deps;
   const parsedId = parseInt(id, 10);
@@ -139,6 +145,11 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
   );
 }
 
+/**
+ * Neighbors of an observation by **id window** `[id-before, id+after]`
+ * (not a time-based window), excluding soft-deleted and expired rows.
+ * Ordered by id.
+ */
 function getTimeline(deps, { id, before, after }) {
   const { sqlJson } = deps;
   return sqlJson(

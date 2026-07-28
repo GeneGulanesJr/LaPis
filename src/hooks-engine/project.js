@@ -37,6 +37,16 @@ function projectFromCwd(cwd) {
 }
 
 /**
+ * Normalize a path for cross-platform repo matching: resolve to absolute,
+ * lowercase, and convert backslashes to forward slashes.
+ * @param {string} p
+ * @returns {string}
+ */
+function normalizeRepoPath(p) {
+  return path.resolve(p).toLowerCase().replace(/\\/g, '/');
+}
+
+/**
  * Find the repo whose path matches resolvedCwd (prefix or exact, case-insensitive).
  * Mirrors the matching in tool-guardrails.ts:204-208.
  *
@@ -44,10 +54,6 @@ function projectFromCwd(cwd) {
  * @param {Array<{path:string}>} repos
  * @returns {object|null}
  */
-function normalizeRepoPath(p) {
-  return path.resolve(p).toLowerCase().replace(/\\/g, '/');
-}
-
 function findMatchingRepo(resolvedCwd, repos) {
   // Normalize separators so a Windows cwd matches a DB path stored with `/`
   // (or vice versa). Prefix match always uses `/` after normalization (#227).

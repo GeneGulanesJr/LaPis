@@ -1,5 +1,9 @@
 const { TRUST_DELTA } = require('../constants');
 
+/**
+ * Upsert a symbol link for a memory (`symbolId` defaults to `'__unlinked__'`).
+ * @returns {{ ok:boolean, memoryId, symbolId, repo, trustScore }}
+ */
 function linkSymbol(deps, { memoryId, symbolId, repo, trust }) {
   const { sqlRun } = deps;
   const symVal = symbolId || '__unlinked__';
@@ -32,6 +36,11 @@ function insertSymbolLink(deps, { memoryId, symbolId, repo, trustScore }) {
   ]);
 }
 
+/**
+ * Adjust a symbol link's trust by `delta` (clamped to [0,1]) and log the
+ * adjustment to `trust_adjustments`.
+ * @returns {number|null} the new `trust_score`, or `null` if no link exists.
+ */
 function adjustTrust(deps, { memoryId, delta, reason }) {
   const { sqlRun, sqlJson } = deps;
   sqlRun('UPDATE symbol_links SET trust_score = MIN(1.0, MAX(0.0, trust_score + ?)) WHERE memory_id = ?', [

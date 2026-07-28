@@ -1452,12 +1452,19 @@ function runMigrationV25() {
 
 /* ── utilities ────────────────────────────────────────────── */
 
+/** Print a value as pretty-printed JSON to stdout. */
 function jsonOut(obj) {
   console.log(JSON.stringify(obj, null, 2));
 }
+/** Build (but do not throw) an `{ error }` envelope; caller decides what to do with it. */
 function jsonErrNoExit(msg) {
   return { error: msg };
 }
+/**
+ * Report a fatal CLI error by throwing `MemoryError`. The CLI dispatcher
+ * catches it, prints `{ error }`, and exits 1. Unlike `jsonErrNoExit`, this
+ * does NOT return. @param {string} msg @throws {MemoryError}
+ */
 function jsonErr(msg) {
   throw new MemoryError(msg);
 }
