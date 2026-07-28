@@ -24,6 +24,7 @@ const { buildInjectedContext } = require('../context-inject');
  * @param {object} ctx.payload           stdin JSON: { session_id, source, cwd, ... }
  * @param {Function} ctx.dispatch        injected dispatch (direct mode)
  * @param {Function} ctx.getKnownRepos   known code repos (direct mode read)
+ * @param {Function} ctx.getKnownProjects known code+doc projects (direct mode read)
  * @param {object} ctx.stateStore        { loadState, saveState, sweepStaleSessions }
  * @returns {Promise<object|null>}       Claude Code JSON or null
  */

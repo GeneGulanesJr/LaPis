@@ -368,7 +368,8 @@ function parseCustomPattern(raw) {
  * @param {string} [opts.category] — preset category filter (or 'all')
  * @param {string[]} [opts.patterns] — custom DSL patterns
  * @param {number} [opts.limit] — max results (default 200)
- * @returns {object} { matches, symbols_scanned }
+ * @returns {object} { matches, symbols_scanned, symbols_with_body, detectors_used };
+ *                   the native-DB guard path also returns `error`.
  */
 function scanAstPatterns(db, repoId, opts = {}) {
   const { category = 'all', patterns: customPatterns = [], limit = 200 } = opts;

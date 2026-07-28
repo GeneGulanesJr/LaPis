@@ -105,7 +105,7 @@ See [`docs/MCP.md`](docs/MCP.md).
 
 ### Token Efficiency
 
-The wire format (`wire-format.js`) uses compact encoding to reduce the token footprint of analysis responses inside Pi's context window. The benchmark runs real CLI commands against indexed repos, passes output through `compactResponse()`, and compares byte sizes.
+The compact wire format (`src/platform/protocol/compact-format.js`) uses compact encoding to reduce the token footprint of analysis responses inside Pi's context window. The benchmark runs real CLI commands against indexed repos, passes output through `compactResponse()`, and compares byte sizes.
 
 Run it with:
 

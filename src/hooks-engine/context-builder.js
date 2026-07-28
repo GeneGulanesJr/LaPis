@@ -138,10 +138,8 @@ function buildSourceLookupGuidance(repos, cwd, currentProject) {
  * @param {object|null} bag.cwdRepo         matched repo ({name,path,file_count,symbol_count,indexed_at}) or null
  * @param {boolean} bag.isStale
  * @param {boolean} bag.isNewProject
- * @param {Array}    bag.observations       primary-context observations
  * @param {Array}    bag.effectiveObservations prompt-matched observations to render
  * @param {Array}    bag.personal           personal preferences
- * @param {object}   bag.stats
  * @param {object}   bag.effectiveStats
  * @param {string|null} bag.topic
  * @param {Array}    bag.crossProjectSuggestions

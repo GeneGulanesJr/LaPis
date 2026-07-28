@@ -44,6 +44,18 @@ function resolveTarget(repoId, target, db) {
   return { repo, filePath: null };
 }
 
+/**
+ * Compute or return cached churn metrics for a repo or a single file.
+ * @param {object} db native better-sqlite3 handle
+ * @param {number} repoId code_repos.id
+ * @param {string|null} target file path, or '__all__'/null for repo-wide
+ * @param {number} [days=90] lookback window in days
+ * @param {boolean} [refresh=false] bypass the churn_metrics cache
+ * @returns {object} repo-wide shape { repo, window_days, total_files_changed,
+ *                   top_files, ... }, a per-file cached row, or a fresh
+ *                   computeRepoChurn/computeFileChurn result; `{ error }` when
+ *                   the native DB or repo is unavailable.
+ */
 // eslint-disable-next-line max-statements -- churn computation inherently requires many steps
 function getChurn(db, repoId, target, days, refresh) {
   const guard = _requireNativeDb(db);
@@ -257,6 +269,15 @@ function classifyCommit(message) {
   return 'unknown';
 }
 
+/**
+ * Build change provenance for a symbol by shelling out to git (log --follow + blame).
+ * Side effects: spawns git subprocesses (each with a 15s timeout).
+ * @param {object} db native better-sqlite3 handle
+ * @param {number} repoId code_repos.id
+ * @param {string} symbolName exact symbol name to look up
+ * @returns {object} provenance summary with commits + classification, or `{ error }`
+ *                   when the DB/repo/symbol is missing or git fails.
+ */
 function getProvenance(db, repoId, symbolName) {
   const guard = _requireNativeDb(db);
   if (guard) {

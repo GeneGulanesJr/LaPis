@@ -143,9 +143,12 @@ function info() {
 }
 
 /**
- * Parse a single file and return an array of symbol objects.
- * Returns [] if parser not initialized or file cannot be parsed.
- * Synchronous — must call init() first.
+ * Dispatch raw source to the language-specific extractor.
+ * @param {string} filePath used to tag symbols and select the language
+ * @param {string} source file contents
+ * @param {object|null} parser loaded tree-sitter parser (null for regex extractors)
+ * @param {object} langConfig { extractor, languageName, parserKey }
+ * @returns {Array<object>} extracted symbols, or `[]` for an unsupported regex language.
  */
 function _routeToExtractor(filePath, source, parser, langConfig) {
   if (langConfig.extractor === 'regex') {
@@ -209,6 +212,15 @@ function _getLangConfig(filePath) {
   return { langConfig, parser };
 }
 
+/**
+ * Parse a source string into symbol objects. Synchronous; call init() first.
+ * @param {string} filePath path used to select the language and tag symbols
+ * @param {string} content source text
+ * @returns {Array<object>} symbols. When not initialized, the extension is
+ *                          unsupported, or no WASM grammar is loaded, returns a
+ *                          single-element array with kind 'diagnostic' describing
+ *                          the reason (not `[]`).
+ */
 function parseContent(filePath, content) {
   if (!_ready) {
     return [
@@ -262,6 +274,13 @@ function parseContent(filePath, content) {
   return symbols;
 }
 
+/**
+ * Read and parse a single file. Synchronous; call init() first.
+ * @param {string} filePath absolute or repo-relative path
+ * @returns {Array<object>} symbols (or a 'diagnostic' array when not initialized
+ *                          or unsupported). Returns `[]` only when the file
+ *                          cannot be read; otherwise delegates to parseContent().
+ */
 function parseFile(filePath) {
   if (!_ready) {
     return [
@@ -2293,6 +2312,8 @@ function _extractYamlSymbols(filePath, source) {
 /**
  * Extract call expressions from a file using AST parsing.
  * Returns array of { callee, line, is_method, receiver, full_path }.
+ * Entries for `require`/`import` also include `module_path` (the string literal),
+ * and entries for `eval`/`Function` also include `is_dynamic: true`.
  * - receiver: the object part of a member call (e.g., 'this', 'super', 'obj', or null for direct calls)
  * - full_path: the complete callee text (e.g., 'this.method', 'obj.method', 'foo')
  */
