@@ -10,7 +10,10 @@
  *   await codeParser.init();
  *   const symbols = codeParser.parseFile('/path/to/file.js');
  *
- * Supported: .js/.jsx/.mjs/.cjs, .ts/.mts/.cts, .tsx, .sql
+ * Supported (see LANGUAGE_MAP): JS/TS family (.js/.jsx/.mjs/.cjs, .ts/.mts/.cts,
+ * .tsx), Python (.py/.pyw), Go (.go), Rust (.rs), HTML (.html) and SQL (.sql)
+ * via web-tree-sitter WASM grammars; bash (.sh/.bash), JSON/JSONC, YAML (.yml),
+ * and CSS/SCSS via lightweight regex extractors.
  */
 
 const path = require('path');

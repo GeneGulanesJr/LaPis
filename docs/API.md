@@ -39,7 +39,7 @@ LaPis includes an optional HTTP server for programmatic access to the Aurex doma
 node memory-store.js serve [--host 127.0.0.1] [--port 9100]
 ```
 
-Defaults to `127.0.0.1:9100`. Binding to `0.0.0.0` prints a network exposure warning.
+Defaults to `127.0.0.1:9100`. Binding to `0.0.0.0` or `::` **without an API key is refused at startup**; with an API key set it prints a network-exposure warning.
 
 ### Health
 

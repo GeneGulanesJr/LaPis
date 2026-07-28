@@ -32,7 +32,7 @@ Memory is handled automatically by the `memory-layer` extension. It:
 - **Re-injects context after compaction** — `/compact` no longer destroys memory awareness
 - **Auto-detects decisions** — pattern-matches assistant messages for decisions, bugfixes, discoveries, and auto-saves them
 - **Periodic progress checkpoints** — every 10 turns, saves an auto-checkpoint with files edited
-- **Persistent memory reminder** — every 8th LLM call, injects a lightweight reminder if no memory tool was used recently
+- **Persistent memory reminder** — every 5th LLM call, injects a lightweight reminder if no memory tool was used recently
 - **Git-triggered trust sync** — after git pull/checkout/merge/rebase, auto-syncs code trust scores
 - **Auto-saves session summaries** on shutdown with topics, files, and turn count
 - **Auto-recovers** incomplete sessions

@@ -8,7 +8,7 @@ const { addBinding, dedupBindings } = require('./shared');
  * Build scope bindings from a tree-sitter AST for JS/TS files.
  * @param {object} tree - tree-sitter tree
  * @param {string} source - source code
- * @param {string} filePath - file path (for determining relative imports)
+ * @param {string} [_filePath] - reserved/unused (kept for builder-map arity parity)
  * @returns {Array} array of binding objects
  */
 function buildJsTsScopeBindings(tree, source, _filePath) {

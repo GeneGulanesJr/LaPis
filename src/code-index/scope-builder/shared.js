@@ -1,9 +1,9 @@
 // Shared utilities for scope builders.
 
 /**
- * Add a binding to the bindings array with deduplication.
- * Deduplicates by (name, lineStart, scopeDepth) — the same name can appear
- * at different scope depths in the same file (e.g., shadowed variables).
+ * Append a binding to the array after basic validation (non-empty `name`
+ * and numeric `lineStart`/`lineEnd`). No deduplication is performed here —
+ * call `dedupBindings` afterwards to collapse duplicates.
  */
 function addBinding(bindings, binding) {
   // Basic validation

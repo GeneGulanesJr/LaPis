@@ -150,7 +150,7 @@ Run it with:
 npm run bench:pi-paired
 ```
 
-Latest run: `bench/results/pi-paired-2026-05-24T14-47-20-651Z/report.json`
+Latest run: 2026-05-24 (results are written locally under `bench/results/`, which is gitignored, so the path below is not present in a fresh clone) — `bench/results/pi-paired-2026-05-24T14-47-20-651Z/report.json`
 
 | Metric        | Memory On | Without Memory | Savings |
 | ------------- | --------- | -------------- | ------- |
