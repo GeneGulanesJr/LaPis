@@ -25,6 +25,17 @@ function reportInProcessFailure(cmd: string, msg: string, kind: 'load' | 'dispat
   );
 }
 
+const MAIN_THREAD_BLOCKING_COMMANDS = new Set([
+  'index-repo',
+  'reindex-repo',
+  'index-docs',
+  'reindex-docs',
+  'save',
+  'audit-diff',
+  'dream',
+  'log-negative-recall',
+]);
+
 async function getInProcessDispatch() {
   if (_inProcessDispatch) {
     return _inProcessDispatch;
@@ -46,7 +57,7 @@ async function getInProcessDispatch() {
 
 export async function mem(cmd: string, args: Record<string, string | number | boolean>): Promise<MemResult | null> {
   const dispatch = await getInProcessDispatch();
-  if (dispatch) {
+  if (dispatch && !MAIN_THREAD_BLOCKING_COMMANDS.has(cmd)) {
     try {
       const stringArgs: Record<string, string> = {};
       for (const [k, v] of Object.entries(args)) {
@@ -155,12 +166,12 @@ export async function memStreaming(
   onProgress?: ProgressCallback,
 ): Promise<MemResult | null> {
   const dispatch = await getInProcessDispatch();
-  // Indexing commands must always use the child-process path (spawn).
-  // The in-process dispatch runs indexRepo synchronously on the main thread,
-  // which freezes Pi's TUI. The child-process path is non-blocking and
-  // streams progress via stderr.
-  const INDEXING_COMMANDS = new Set(['index-repo', 'reindex-repo', 'index-docs', 'reindex-docs']);
-  if (dispatch && !INDEXING_COMMANDS.has(cmd)) {
+  // Main-thread blocking commands must always use the child-process path
+  // (spawn). The in-process dispatch runs better-sqlite3 synchronously on the
+  // main thread, which freezes Pi's TUI (spinner stops, stdin becomes
+  // unresponsive) when the DB is large. The child-process path is non-blocking
+  // and streams progress via stderr.
+  if (dispatch && !MAIN_THREAD_BLOCKING_COMMANDS.has(cmd)) {
     try {
       const stringArgs: Record<string, string> = {};
       for (const [k, v] of Object.entries(args)) {
