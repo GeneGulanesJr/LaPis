@@ -40,8 +40,10 @@ const SKILL_DEST_REL = ['skills', 'memory', 'lapis', 'SKILL.md'];
 // Hermes tool name; the same hook command handles every event (the event and
 // tool arrive on stdin — see hook.js).
 const HOOK_EVENTS = [
-  { event: 'pre_tool_call', matcher: '^read_file$', timeout: 15 },
+  { event: 'pre_tool_call', matcher: '^(read_file|search_files)$', timeout: 15 },
   { event: 'post_tool_call', matcher: '^(write_file|patch)$', timeout: 20 },
+  { event: 'pre_llm_call', matcher: null, timeout: 15 },
+  { event: 'on_session_start', matcher: null, timeout: 20 },
   { event: 'on_session_end', matcher: null, timeout: 20 },
 ];
 

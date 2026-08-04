@@ -43,7 +43,9 @@ Hermes shell hooks receive one JSON payload on stdin (`hook_event_name`, `tool_n
 
 | Hermes hook event | LaPis behavior |
 | --- | --- |
-| `pre_tool_call` (`read_file`) | **Block** whole-file reads of indexed code → redirect to `mcp_lapis_memory_code` outline/search. Targeted reads with `offset`/`limit` allowed; config files and `node_modules` exempt |
+| `pre_llm_call` (every turn)      | Inject recalled memory context into the user message (`{"context": …}`; prompt-cache-safe, capped, fail-open silent) |
+| `on_session_start` (new session) | Start a LaPis session row + persist the Hermes→LaPis session-id mapping |
+| `pre_tool_call` (`read_file` \| `search_files`) | **Block** whole-file reads of indexed code → outline; **block broad search scans** → `memory-code search`; targeted reads/lookups allowed |
 | `post_tool_call` (`write_file` \| `patch`) | Fire-and-forget `sync-code-trust` when the cwd is inside an indexed repo |
 | `on_session_end` | Best-effort `session-end` (no-op when no LaPis session was started) |
 
