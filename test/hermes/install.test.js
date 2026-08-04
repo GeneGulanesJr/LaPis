@@ -197,7 +197,10 @@ describe('hermes uninstall', () => {
     expect(removed).toContain('hooks.on_session_end');
     expect(text).not.toContain('lapis:');
     expect(text).not.toContain(hookCommand());
-    expect(text).not.toContain('hooks_auto_accept');
+    // A user hook remains, so the shared hooks_auto_accept scalar survives —
+    // it may be used by other hooks for headless consent.
+    expect(text).toContain('hooks_auto_accept: true');
+    expect(removed).not.toContain('hooks_auto_accept');
 
     // User's server and hook survive.
     expect(text).toContain('    command: uvx');

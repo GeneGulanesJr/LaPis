@@ -9,7 +9,9 @@
  *     (other user hooks untouched; empty `hooks:` block removed)
  *   - allowlist approvals for the LaPis hook command
  *   - `skills/memory/lapis/` skill directory
- * `hooks_auto_accept` is left alone — it may be used by other hooks.
+ * `hooks_auto_accept` is removed only when the `hooks:` block ends up empty
+ * (no other hooks remain) — otherwise it is left alone, since other hooks may
+ * rely on it for headless consent.
  */
 
 const fs = require('node:fs');
@@ -53,18 +55,20 @@ async function runUninstall(argv, io = {}) {
     }
   }
 
-  // Drop empty `hooks:` block and the `hooks_auto_accept` scalar we added.
-  text = removeScalar(text, 'hooks_auto_accept');
+  // Prune empty `hooks.<event>` shells, then drop the `hooks:` block and the
+  // `hooks_auto_accept` scalar — but only when no other hooks remain. The
+  // scalar is shared config that other hooks may rely on for headless consent.
   for (const { event } of HOOK_EVENTS) {
     text = removeEmptySubBlock(text, 'hooks', event);
+  }
+  if (topBlockEmpty(text, 'hooks')) {
+    text = removeTopLevelBlock(text, 'hooks');
+    text = removeScalar(text, 'hooks_auto_accept');
+    removed.push('hooks (empty block)', 'hooks_auto_accept');
   }
   if (topBlockEmpty(text, 'mcp_servers')) {
     text = removeTopLevelBlock(text, 'mcp_servers');
     removed.push('mcp_servers (empty block)');
-  }
-  if (topBlockEmpty(text, 'hooks')) {
-    text = removeTopLevelBlock(text, 'hooks');
-    removed.push('hooks (empty block)');
   }
 
   // Always write: if every LaPis-owned entry is gone the config may now be
