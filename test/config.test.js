@@ -204,4 +204,36 @@ describe('config.js', () => {
       expect(cfg.ranking.recall).toBe(DEFAULTS.ranking.recall);
     });
   });
+
+  describe('LAPIS_HOME env override', () => {
+    const CONFIG_REAL = require.resolve('../config');
+    const ORIGINAL_LAPIS = process.env.LAPIS_HOME;
+    const ORIGINAL_HOME = process.env.HOME;
+
+    afterEach(() => {
+      if (ORIGINAL_LAPIS === undefined) delete process.env.LAPIS_HOME;
+      else process.env.LAPIS_HOME = ORIGINAL_LAPIS;
+      if (ORIGINAL_HOME === undefined) delete process.env.HOME;
+      else process.env.HOME = ORIGINAL_HOME;
+      delete require.cache[CONFIG_REAL];
+      resetConfigCache();
+    });
+
+    it('resolves the memory dir from LAPIS_HOME before HOME (db_path follows)', () => {
+      process.env.LAPIS_HOME = '/opt/lapis-home';
+      process.env.HOME = '/tmp/other-home';
+      delete require.cache[CONFIG_REAL];
+      const fresh = require('../config');
+      expect(fresh.DEFAULTS.db_path).toBe(path.join('/opt/lapis-home', '.pi', 'memory', 'memory.db'));
+      expect(fresh.DEFAULTS.tier_config_path).toBe(path.join('/opt/lapis-home', '.pi', 'memory', 'tier.jsonc'));
+    });
+
+    it('falls back to HOME when LAPIS_HOME is unset', () => {
+      delete process.env.LAPIS_HOME;
+      process.env.HOME = '/tmp/plain-home';
+      delete require.cache[CONFIG_REAL];
+      const fresh = require('../config');
+      expect(fresh.DEFAULTS.db_path).toBe(path.join('/tmp/plain-home', '.pi', 'memory', 'memory.db'));
+    });
+  });
 });

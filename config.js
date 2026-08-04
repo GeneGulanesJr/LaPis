@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
+const HOME = process.env.LAPIS_HOME || process.env.HOME || process.env.USERPROFILE || os.homedir();
 const CONFIG_DIR = path.join(HOME, '.pi', 'memory');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.jsonc');
 
