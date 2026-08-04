@@ -190,6 +190,47 @@ if (isHelpRequest) {
     return;
   }
 
+  if (cmd === 'hermes') {
+    const sub = process.argv[3];
+    const subArgv = process.argv.slice(4);
+    try {
+      if (sub === 'install') {
+        const { runInstall } = require('./src/hermes/install');
+        await runInstall(subArgv);
+        return;
+      }
+      if (sub === 'uninstall') {
+        const { runUninstall } = require('./src/hermes/uninstall');
+        await runUninstall(subArgv);
+        return;
+      }
+      if (sub === 'doctor') {
+        const { runDoctor } = require('./src/hermes/doctor');
+        const { ok } = runDoctor(subArgv);
+        process.exitCode = ok ? 0 : 1;
+        return;
+      }
+    } catch (e) {
+      process.stderr.write(`hermes ${sub}: ${e instanceof Error ? e.message : String(e)}\n`);
+      process.exitCode = 1;
+      return;
+    }
+    // Hermes shell-hook bridge. Only `hook` routes here — a missing or unknown
+    // subcommand should not fall through into the hook router. runHook reads
+    // the payload from stdin (Hermes sends hook_event_name in the payload).
+    if (sub === 'hook') {
+      const { runHook } = require('./src/hermes/hook');
+      await runHook();
+      return;
+    }
+    process.stderr.write(
+      `Unknown hermes subcommand${sub ? ` "${sub}"` : ''}.\n` +
+        'Usage: lapis hermes <install|uninstall|doctor|hook …>\n',
+    );
+    process.exitCode = 2;
+    return;
+  }
+
   if (cmd === 'run') {
     ensureDb();
     const { executeAndCompress, formatTextOutput } = require('./src/cli/commands/token-saver');

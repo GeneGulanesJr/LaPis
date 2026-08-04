@@ -67,6 +67,19 @@ This writes `.mcp.json` (MCP tools) and `.claude/settings.json` (lifecycle hooks
 
 Full setup, hook mapping, troubleshooting, and install flags: [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md).
 
+### Use with Hermes Agent
+
+LaPis also integrates with [Hermes Agent](https://hermes-agent.nousresearch.com/) — same persistent memory, code guardrails, and trust tracking as the Pi extension, wired through Hermes' MCP client and shell-hook system.
+
+```bash
+npx -y @genegulanesjr/lapis hermes install
+npx -y @genegulanesjr/lapis hermes doctor    # verify install
+```
+
+This writes `mcp_servers.lapis` + `hooks:` into `$HERMES_HOME/config.yaml`, first-use consent, and a Hermes skill. Restart Hermes (or `/reload-mcp`) to load the MCP tools; hooks load at process start.
+
+Full setup, hook mapping, troubleshooting, and install flags: [`docs/HERMES.md`](docs/HERMES.md).
+
 ### MCP server (tools only)
 
 For MCP hosts that need LaPis tools without hooks:
@@ -202,6 +215,7 @@ The paired benchmark also reports behavior counters. In the latest run, memory-o
 - [`docs/API.md`](docs/API.md) - HTTP API and CLI reference.
 - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) - config file and stored data.
 - [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md) - Claude Code CLI integration (MCP + hooks).
+- [`docs/HERMES.md`](docs/HERMES.md) - Hermes Agent integration (MCP + hooks + skill).
 - [`docs/MCP.md`](docs/MCP.md) - standalone MCP server (tools only).
 - [`docs/DREAM_CYCLE.md`](docs/DREAM_CYCLE.md) - stale-memory cleanup behavior.
 - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) - step-by-step usage guide.
