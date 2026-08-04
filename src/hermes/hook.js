@@ -11,9 +11,15 @@
  * This module reads that payload and implements the LaPis guardrails for
  * Hermes, mirroring the Claude Code bridge (src/claude-code/handlers/*):
  *
- *   pre_tool_call  + read_file           → block whole-file reads of indexed
- *                                          code (outline-first guardrail)
+ *   pre_tool_call  + read_file|search_files → block whole-file reads of
+ *                                          indexed code (outline-first
+ *                                          guardrail) and broad search
+ *                                          scans (memory-code redirect)
  *   post_tool_call + write_file|patch    → fire-and-forget sync-code-trust
+ *   pre_llm_call                         → inject recalled memory context
+ *                                          into the user message
+ *   on_session_start                     → start a LaPis session + persist
+ *                                          the Hermes→LaPis id mapping
  *   on_session_end                       → best-effort session-end
  *
  * Hooks fail open: any error, timeout, or ambiguity lets the tool proceed.
@@ -27,7 +33,10 @@ const { spawn, spawnSync } = require('node:child_process');
 
 const { isCodeFile } = require('../code-index/scanner');
 const { resolveIndexedRepo, normalizeRepoPath } = require('../hooks-engine/project');
-const { CONFIG_FILENAMES } = require('../hooks-engine/guardrail-utils');
+const { CONFIG_FILENAMES, isTargetedGrepLookup } = require('../hooks-engine/guardrail-utils');
+const { loadState, saveState, sessionStateDir } = require('./state-store');
+const { CONTEXT } = require('../../constants');
+const { capInjectedContext, buildContextBlock } = require('../hooks-engine/context-builder');
 
 /** Absolute path to this repo's `memory-store.js` entry point. */
 function lapisEntry() {
@@ -116,12 +125,45 @@ function readGuardReason(payload, deps) {
   );
 }
 
+/** Tool-aware guard dispatcher: read_file → read guard, search_files → search guard. */
+function guardReason(payload, deps) {
+  const tool = payload.tool_name;
+  if (tool === 'search_files') {
+    return searchGuardReason(payload, deps);
+  }
+  return readGuardReason(payload, deps);
+}
+
+/** Mirror claude pre-tool-use searchGuardrail: block broad scans in indexed repos. */
+function searchGuardReason(payload, deps) {
+  const input = payload.tool_input || {};
+  const pattern = input.pattern;
+  const searchPath = typeof input.path === 'string' ? input.path : '';
+  if (typeof pattern !== 'string' || !pattern) return null;
+  if (isTargetedGrepLookup({ pattern, path: searchPath })) return null;
+  const cwd = payload.cwd || process.cwd();
+  const repos = (deps && deps.repos) || indexedRepos();
+  const matched = resolveIndexedRepo(cwd, repos, null);
+  if (!matched) return null;
+  const absPath = path.resolve(cwd, searchPath || cwd);
+  const rp = normalizeRepoPath(matched.path || matched.name);
+  const absNorm = normalizeRepoPath(absPath);
+  if (absNorm !== rp && !absNorm.startsWith(`${rp}/`)) return null;
+  const name = matched.name || matched.path;
+  return (
+    `Blocked by LaPis search guard: broad code search in indexed repo "${name}". ` +
+    'Use mcp__lapis__memory_code instead: mode "search" for semantic queries, ' +
+    '"outline" for file structure, "callers"/"callees" for hierarchy. ' +
+    'For a single-symbol lookup, use a plain symbol pattern (no regex) or scope to one file.'
+  );
+}
+
 /** Decide what the hook should do for a payload. Returns null for no-op. */
 function handlePayload(payload, deps = {}) {
   const event = payload.hook_event_name;
   const tool = payload.tool_name;
-  if (event === 'pre_tool_call' && tool === 'read_file') {
-    const reason = readGuardReason(payload, deps);
+  if (event === 'pre_tool_call' && (tool === 'read_file' || tool === 'search_files')) {
+    const reason = guardReason(payload, deps);
     if (reason) {
       return { block: reason };
     }
@@ -129,6 +171,12 @@ function handlePayload(payload, deps = {}) {
   }
   if (event === 'post_tool_call' && (tool === 'write_file' || tool === 'patch')) {
     return { syncTrust: true };
+  }
+  if (event === 'on_session_start') {
+    return { sessionStart: true };
+  }
+  if (event === 'pre_llm_call') {
+    return { injectContext: true };
   }
   if (event === 'on_session_end') {
     return { sessionEnd: true };
@@ -155,18 +203,96 @@ function syncTrust(payload) {
   child.unref();
 }
 
+/**
+ * Start a LaPis session for a new Hermes session and persist the id mapping.
+ * Fire-and-forget style (never blocks session start); fail-open.
+ */
+function startSession(payload) {
+  try {
+    const args = [lapisEntry(), 'session-start', '--project', payload.cwd || process.cwd()];
+    const res = spawnSync(process.execPath, args, { timeout: 15000, encoding: 'utf8' });
+    if (res.status !== 0 || !res.stdout) return;
+    const parsed = JSON.parse(res.stdout);
+    const id = parsed && (parsed.id ?? parsed.sessionId);
+    if (id !== undefined && id !== null && payload.session_id) {
+      saveState(sessionStateDir(), payload.session_id, { lapisSessionId: Number(id) });
+    }
+  } catch {
+    // best effort only
+  }
+}
+
+/**
+ * Query LaPis context for the current user message and return a capped
+ * {"context": "…"} block. Returns null (silent) on any failure/absence so the
+ * turn proceeds untouched. Runs synchronously with a hard timeout.
+ /**
+  * Query LaPis context for the current user message and return a capped
+  * {"context": "…"} block. Returns null (silent) on any failure/absence so the
+  * turn proceeds untouched. Runs synchronously with a hard timeout.
+  */
+function injectContext(payload) {
+  try {
+    const userMessage = (payload.extra && payload.extra.user_message) || '';
+    if (!userMessage || !payload.cwd) return null;
+    const st = loadState(sessionStateDir(), payload.session_id);
+    const args = [
+      lapisEntry(),
+      'context',
+      '--query',
+      userMessage.slice(0, 500),
+      '--project',
+      payload.cwd,
+      '--token-budget',
+      String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
+    ];
+    if (st.lapisSessionId) args.push('--session-id', String(st.lapisSessionId));
+    const res = spawnSync(process.execPath, args, { timeout: 15000, encoding: 'utf8' });
+    if (res.status !== 0 || !res.stdout) return null;
+    const parsed = JSON.parse(res.stdout);
+    // The `context` CLI returns {sessions, personal, observations,
+    // cross_project_suggestions, project, cross_project, topic, stats} —
+    // render it through the shared block builder (same as the Claude bridge)
+    // so the injected context matches what Claude Code agents see.
+    const repos = indexedRepos();
+    const cwdRepo = resolveIndexedRepo(payload.cwd, repos, null);
+    const lines = buildContextBlock({
+      promptQuery: userMessage.slice(0, 500),
+      currentProject: parsed.project || payload.cwd,
+      projectDir: payload.cwd,
+      cwdRepo,
+      isStale: false,
+      isNewProject: false,
+      observations: (parsed.observations || []).filter(Boolean),
+      effectiveObservations: (parsed.observations || []).filter(Boolean),
+      personal: (parsed.personal || []).filter(Boolean),
+      stats: parsed.stats || {},
+      effectiveStats: parsed.stats || {},
+      topic: parsed.topic || null,
+      crossProjectSuggestions: parsed.cross_project_suggestions || [],
+    });
+    if (!Array.isArray(lines) || lines.length === 0) return null;
+    const block = capInjectedContext(lines.join('\n'));
+    return { context: block };
+  } catch {
+    return null;
+  }
+}
+
+/** Build session-end args: prefer the mapped numeric LaPis id (Task 2). */
+function buildSessionEndArgs(payload, state) {
+  const args = [lapisEntry(), 'session-end'];
+  const id = state && state.lapisSessionId ? String(state.lapisSessionId) : payload.session_id;
+  if (id) args.push('--id', id);
+  args.push('--memories', String(countSessionMemories(id)), '--auto', 'true');
+  return args;
+}
+
 /** Best-effort LaPis session close. Never throws. */
 function closeSession(payload) {
   try {
-    const args = [lapisEntry(), 'session-end'];
-    const sessionId = payload.session_id;
-    if (sessionId) {
-      args.push('--id', String(sessionId));
-    }
-    // DB-derived count (like the Claude bridge) so session_log.memories_saved
-    // reflects what was actually recorded for this session.
-    args.push('--memories', String(countSessionMemories(sessionId)), '--auto', 'true');
-    spawnSync(process.execPath, args, {
+    const st = loadState(sessionStateDir(), payload.session_id);
+    spawnSync(process.execPath, buildSessionEndArgs(payload, st), {
       cwd: payload.cwd || process.cwd(),
       timeout: 15000,
       stdio: 'ignore',
@@ -192,6 +318,14 @@ function runHook(io = {}) {
   if (!decision) {
     return null;
   }
+  if (decision.injectContext) {
+    // pre_llm_call: the result IS the output (a {"context": ...} block); no side effect.
+    const ctx = injectContext(payload);
+    if (ctx && ctx.context) {
+      process.stdout.write(JSON.stringify(ctx));
+    }
+    return decision;
+  }
   if (decision.block) {
     process.stdout.write(JSON.stringify({ decision: 'block', reason: decision.block }));
     return decision;
@@ -202,6 +336,9 @@ function runHook(io = {}) {
   if (decision.sessionEnd) {
     closeSession(payload);
   }
+  if (decision.sessionStart) {
+    startSession(payload);
+  }
   return decision;
 }
 
@@ -210,6 +347,11 @@ module.exports = {
   indexedRepos,
   countSessionMemories,
   readGuardReason,
+  searchGuardReason,
+  guardReason,
+  startSession,
+  injectContext,
+  buildSessionEndArgs,
   handlePayload,
   syncTrust,
   closeSession,
