@@ -226,11 +226,7 @@ function startSession(payload) {
  * Query LaPis context for the current user message and return a capped
  * {"context": "…"} block. Returns null (silent) on any failure/absence so the
  * turn proceeds untouched. Runs synchronously with a hard timeout.
- /**
-  * Query LaPis context for the current user message and return a capped
-  * {"context": "…"} block. Returns null (silent) on any failure/absence so the
-  * turn proceeds untouched. Runs synchronously with a hard timeout.
-  */
+ */
 function injectContext(payload) {
   try {
     const userMessage = (payload.extra && payload.extra.user_message) || '';
