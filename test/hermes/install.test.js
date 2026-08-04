@@ -229,6 +229,30 @@ describe('hermes uninstall', () => {
     expect(text).not.toContain('hooks:');
     expect(text).not.toContain('hooks_auto_accept');
     expect(fs.existsSync(path.join(io.home, 'skills', 'memory', 'lapis', 'SKILL.md'))).toBe(false);
+    // Zero residue: empty skill parent dirs and the now-empty allowlist file
+    // (install's shape is `{approvals:[…]}` only) are removed too.
+    expect(fs.existsSync(path.join(io.home, 'skills', 'memory'))).toBe(false);
+    expect(fs.existsSync(path.join(io.home, 'skills'))).toBe(false);
+    expect(fs.existsSync(path.join(io.home, 'shell-hooks-allowlist.json'))).toBe(false);
+  });
+
+  test('keeps the allowlist file when it holds non-approval keys or user approvals', async () => {
+    const io = makeIo();
+    await runInstall([], io);
+    // Simulate a user-added key in the allowlist (Hermes may store more than
+    // approvals): the file must survive with LaPis approvals filtered out.
+    const allowPath = path.join(io.home, 'shell-hooks-allowlist.json');
+    const allow = JSON.parse(fs.readFileSync(allowPath, 'utf8'));
+    allow.version = 1;
+    allow.approvals.push({ event: 'pre_tool_call', command: '/user/script.sh' });
+    fs.writeFileSync(allowPath, JSON.stringify(allow, null, 2) + '\n');
+
+    const { removed } = await runUninstall([], io);
+    expect(removed.some((r) => r.startsWith('allowlist'))).toBe(true);
+    expect(fs.existsSync(allowPath)).toBe(true);
+    const after = JSON.parse(fs.readFileSync(allowPath, 'utf8'));
+    expect(after.version).toBe(1);
+    expect(after.approvals).toEqual([{ event: 'pre_tool_call', command: '/user/script.sh' }]);
   });
 });
 

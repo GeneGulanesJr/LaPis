@@ -82,7 +82,18 @@ async function runUninstall(argv, io = {}) {
       const before = allow.approvals.length;
       allow.approvals = allow.approvals.filter((a) => !(a && a.command === command));
       if (allow.approvals.length !== before) {
-        writeTextAtomic(paths.allowlist, `${JSON.stringify(allow, null, 2)}\n`);
+        if (allow.approvals.length === 0 && Object.keys(allow).length === 1) {
+          // Nothing left to approve and the file holds only `approvals` (the
+          // shape install writes) — drop it so uninstall leaves no residue.
+          try {
+            fs.unlinkSync(paths.allowlist);
+          } catch {
+            // Fall back to writing the empty file if unlink fails.
+            writeTextAtomic(paths.allowlist, `${JSON.stringify(allow, null, 2)}\n`);
+          }
+        } else {
+          writeTextAtomic(paths.allowlist, `${JSON.stringify(allow, null, 2)}\n`);
+        }
         removed.push(`allowlist (${before - allow.approvals.length} approval(s))`);
       }
     }
@@ -90,11 +101,21 @@ async function runUninstall(argv, io = {}) {
     // Corrupt allowlist → leave it; never destroy user data on uninstall.
   }
 
-  // Skill directory (ours by path).
+  // Skill directory (ours by path), then prune now-empty parent dirs so
+  // uninstall leaves zero residue under `skills/`.
   const skillDir = path.dirname(paths.skillFile);
   if (fs.existsSync(paths.skillFile)) {
     fs.rmSync(skillDir, { recursive: true, force: true });
     removed.push(`skill (${path.join('skills', 'memory', 'lapis')})`);
+    let parent = path.dirname(skillDir); // skills/memory
+    for (let depth = 0; depth < 2; depth++) {
+      try {
+        fs.rmdirSync(parent);
+      } catch {
+        break; // not empty (or missing) — stop pruning
+      }
+      parent = path.dirname(parent);
+    }
   }
 
   if (removed.length === 0) {

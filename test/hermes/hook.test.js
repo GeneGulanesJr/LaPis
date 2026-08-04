@@ -1,4 +1,4 @@
-const { readGuardReason, handlePayload, runHook } = require('../../src/hermes/hook');
+const { readGuardReason, handlePayload, runHook, countSessionMemories } = require('../../src/hermes/hook');
 
 const REPOS = [{ name: 'Proj', path: '/work/proj' }];
 
@@ -102,5 +102,18 @@ describe('hermes hook: runHook wire format', () => {
   test('fails open on garbage input', () => {
     expect(runHook({ input: 'not json {' })).toBeNull();
     expect(runHook({ input: '' })).toBeNull();
+  });
+});
+
+describe('hermes hook: countSessionMemories', () => {
+  test('returns 0 for missing/empty session ids', () => {
+    expect(countSessionMemories(undefined)).toBe(0);
+    expect(countSessionMemories(null)).toBe(0);
+    expect(countSessionMemories('')).toBe(0);
+  });
+
+  test('returns 0 when the DB is unreachable (fail-open)', () => {
+    // The hook process has no guaranteed DB; any error must degrade to 0.
+    expect(countSessionMemories('s-never-indexed')).toBe(0);
   });
 });

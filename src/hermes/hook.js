@@ -46,6 +46,24 @@ function indexedRepos() {
 }
 
 /**
+ * Count memories recorded for a session, mirroring the Claude bridge
+ * (dispatch-client countSessionMemories, per #207): the DB is authoritative,
+ * not an in-process counter. Never throws.
+ */
+function countSessionMemories(sessionId) {
+  if (sessionId === undefined || sessionId === null || sessionId === '') {
+    return 0;
+  }
+  try {
+    const { getDb } = require('../../db');
+    const row = getDb().prepare('SELECT COUNT(*) AS n FROM observations WHERE session_id = ?').get(String(sessionId));
+    return Number(row && row.n) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * The read guardrail: null when the read should proceed, otherwise a block
  * reason string. Mirrors src/claude-code/handlers/pre-tool-use.js readGuardrail
  * minus the exploredFiles session state (Hermes has no per-session state here).
@@ -123,10 +141,13 @@ function syncTrust(payload) {
   const cwd = payload.cwd || process.cwd();
   const repos = indexedRepos();
   const hit = repos.find((r) => cwd === r.path || cwd.startsWith(`${r.path}${path.sep}`));
-  if (!hit) {
+  if (!hit || !hit.name) {
     return;
   }
-  const child = spawn(process.execPath, [lapisEntry(), 'sync-code-trust', '--repo', hit.name || hit.path], {
+  // sync-code-trust resolves the repo by name (code_repos.name is NOT NULL),
+  // so a path fallback would never match — bail out instead of spawning a
+  // doomed process.
+  const child = spawn(process.execPath, [lapisEntry(), 'sync-code-trust', '--repo', hit.name], {
     detached: true,
     stdio: 'ignore',
     cwd: hit.path || cwd,
@@ -138,10 +159,13 @@ function syncTrust(payload) {
 function closeSession(payload) {
   try {
     const args = [lapisEntry(), 'session-end'];
-    if (payload.session_id) {
-      args.push('--id', String(payload.session_id));
+    const sessionId = payload.session_id;
+    if (sessionId) {
+      args.push('--id', String(sessionId));
     }
-    args.push('--memories', '0', '--auto', 'true');
+    // DB-derived count (like the Claude bridge) so session_log.memories_saved
+    // reflects what was actually recorded for this session.
+    args.push('--memories', String(countSessionMemories(sessionId)), '--auto', 'true');
     spawnSync(process.execPath, args, {
       cwd: payload.cwd || process.cwd(),
       timeout: 15000,
@@ -184,6 +208,7 @@ function runHook(io = {}) {
 module.exports = {
   lapisEntry,
   indexedRepos,
+  countSessionMemories,
   readGuardReason,
   handlePayload,
   syncTrust,
