@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Hermes Agent integration — `lapis hermes install|uninstall|doctor|hook`**
+  - New [`docs/HERMES.md`](docs/HERMES.md) — Hermes Agent setup, hook mapping, `LAPIS_HOME`, troubleshooting.
+  - `src/hermes/install.js` wires `mcp_servers.lapis` + `hooks:` + `hooks_auto_accept` into `$HERMES_HOME/config.yaml`, first-use consent in `shell-hooks-allowlist.json`, and a bundled Hermes skill (`hermes/SKILL.md` → `$HERMES_HOME/skills/memory/lapis/`). Line-based YAML editor (`src/hermes/config-editor.js`) preserves comments and unknown keys.
+  - `src/hermes/hook.js` — Hermes shell-hook dispatcher: `pre_tool_call` read guardrail (blocks whole-file reads of indexed code, reusing hooks-engine guardrails), `post_tool_call` fire-and-forget `sync-code-trust`, `on_session_end` best-effort close. Hooks fail open.
+  - `src/hermes/uninstall.js` / `doctor.js` — sentinel-keyed reversal and install self-check (`lapis hermes doctor`).
+  - `db.js` — `LAPIS_HOME` env override for the memory directory, so MCP servers and the CLI share one SQLite DB regardless of the host process `HOME`.
+  - [`README.md`](README.md), [`docs/MODULE_MAP.md`](docs/MODULE_MAP.md) — transport overview and ownership row.
+
 - **Documentation sync — three transports and Claude Code integration**
   - New [`docs/MCP.md`](docs/MCP.md) — standalone MCP server setup, capability comparison, project detection, troubleshooting.
   - [`docs/INDEX.md`](docs/INDEX.md) — integration transports table, updated doc map (MCP, interactive diagrams), bridge env vars, refreshed test-count guidance.
