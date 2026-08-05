@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const {
   stripJsoncComments,
   expandTilde,
@@ -64,14 +63,30 @@ describe('config.js', () => {
   });
 
   describe('expandTilde', () => {
-    it('expands ~/ to HOME', () => {
-      const result = expandTilde('~/foo/bar');
-      expect(result).toBe(path.join(os.homedir(), 'foo', 'bar'));
+    it('expands ~/ to HOME', async () => {
+      vi.resetModules();
+      vi.stubEnv('LAPIS_HOME', '/tmp/lapis-tilde-test');
+      try {
+        const { expandTilde: expand } = await import('../config');
+        const result = expand('~/foo/bar');
+        expect(result).toBe(path.join('/tmp/lapis-tilde-test', 'foo', 'bar'));
+      } finally {
+        vi.unstubAllEnvs();
+        vi.resetModules();
+      }
     });
 
-    it('expands bare ~ to HOME', () => {
-      const result = expandTilde('~');
-      expect(result).toBe(os.homedir());
+    it('expands bare ~ to HOME', async () => {
+      vi.resetModules();
+      vi.stubEnv('LAPIS_HOME', '/tmp/lapis-tilde-test');
+      try {
+        const { expandTilde: expand } = await import('../config');
+        const result = expand('~');
+        expect(result).toBe('/tmp/lapis-tilde-test');
+      } finally {
+        vi.unstubAllEnvs();
+        vi.resetModules();
+      }
     });
 
     it('leaves absolute paths unchanged', () => {
@@ -153,11 +168,23 @@ describe('config.js', () => {
       expect(cfg.db_path).toBe('/tmp/cleaned.db');
     });
 
-    it('expands tilde in db_path and tier_config_path', () => {
-      fs.readFileSync = () => '{"db_path": "~/my/db.db", "tier_config_path": "~/my/tier.jsonc"}';
-      const cfg = loadConfig();
-      expect(cfg.db_path).toBe(path.join(os.homedir(), 'my', 'db.db'));
-      expect(cfg.tier_config_path).toBe(path.join(os.homedir(), 'my', 'tier.jsonc'));
+    it('expands tilde in db_path and tier_config_path', async () => {
+      // config.js captures HOME from process.env at import time, so these
+      // Tests must reload the module under a controlled LAPIS_HOME (hermetic
+      // Against an ambient LAPIS_HOME export in the shell running the suite).
+      vi.resetModules();
+      vi.stubEnv('LAPIS_HOME', '/tmp/lapis-tilde-test');
+      try {
+        const { loadConfig: load, resetConfigCache: reset } = await import('../config');
+        reset();
+        fs.readFileSync = () => '{"db_path": "~/my/db.db", "tier_config_path": "~/my/tier.jsonc"}';
+        const cfg = load();
+        expect(cfg.db_path).toBe(path.join('/tmp/lapis-tilde-test', 'my', 'db.db'));
+        expect(cfg.tier_config_path).toBe(path.join('/tmp/lapis-tilde-test', 'my', 'tier.jsonc'));
+      } finally {
+        vi.unstubAllEnvs();
+        vi.resetModules();
+      }
     });
 
     it('returns defaults on invalid JSON (with console.error)', () => {
