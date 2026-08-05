@@ -58,11 +58,22 @@ describe('hermes install: default install', () => {
 
   test('writes consent for every hook event', () => {
     const allow = readAllowlist(io.home);
-    expect(allow.approvals).toHaveLength(3);
+    expect(allow.approvals).toHaveLength(5);
     const cmd = hookCommand();
-    for (const event of ['pre_tool_call', 'post_tool_call', 'on_session_end']) {
+    for (const event of ['pre_tool_call', 'post_tool_call', 'pre_llm_call', 'on_session_start', 'on_session_end']) {
       expect(allow.approvals.some((a) => a.event === event && a.command === cmd)).toBe(true);
     }
+  });
+
+  test('wires pre_llm_call and on_session_start hook events', () => {
+    const text = readConfig(io.home);
+    expect(text).toContain('  pre_llm_call:');
+    expect(text).toContain('  on_session_start:');
+  });
+
+  test('pre_tool_call matcher covers search_files', () => {
+    const text = readConfig(io.home);
+    expect(text).toContain('matcher: "^(read_file|search_files)$"');
   });
 
   test('installs the bundled skill', () => {
@@ -84,9 +95,9 @@ describe('hermes install: idempotency and coexistence', () => {
     await runInstall([], io);
     const text = readConfig(io.home);
     expect(text.match(/  lapis:/g)).toHaveLength(1);
-    expect(text.match(/- matcher: "\^read_file\$"/g)).toHaveLength(1);
+    expect(text.match(/- matcher: "\^\(read_file\|search_files\)\$"/g)).toHaveLength(1);
     const allow = readAllowlist(io.home);
-    expect(allow.approvals).toHaveLength(3);
+    expect(allow.approvals).toHaveLength(5);
   });
 
   test('preserves pre-existing MCP servers and user hooks', async () => {
