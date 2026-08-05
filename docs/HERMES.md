@@ -19,7 +19,7 @@ From any directory:
 npx -y @genegulanesjr/lapis hermes install
 ```
 
-This writes the MCP server entry, the three hook entries, first-use consent, and the skill. The MCP server entry pins `LAPIS_HOME` to your home directory so the server and CLI always share one SQLite database.
+This writes the MCP server entry, the five hook entries, first-use consent, and the skill. The MCP server entry pins `LAPIS_HOME` to your home directory so the server and CLI always share one SQLite database.
 
 Then **restart Hermes** (or run `/reload-mcp` in a session) so the MCP tools load. Hooks register at process start; `hooks_auto_accept: true` is set so no consent prompts appear on non-TTY starts.
 

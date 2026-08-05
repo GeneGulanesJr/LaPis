@@ -39,6 +39,11 @@ jobs:
       - name: Test suite
         run: npm test
 
+      - name: Pack smoke test (tarball must ship required files)
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          node -e "const p=require('/tmp/pack.json')[0].files.map(f=>f.path); for (const need of ['scripts/cleanup-sessions.js','hermes/SKILL.md','prompts/memory-layer-protocols.md']) { if (!p.includes(need)) { console.error('MISSING FROM TARBALL: '+need); process.exit(1); } } console.log('pack smoke test OK')"
+
       - name: Smoke CLI tests
         run: node test/smoke-cli.js
 

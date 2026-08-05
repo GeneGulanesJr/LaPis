@@ -30,6 +30,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **npm packaging: ship `scripts/`, `hermes/`, `prompts/` so the published package boots**
+  - `package.json` `files` whitelist omitted `scripts/`, so the published package crashed on every subcommand (`MODULE_NOT_FOUND` for `scripts/cleanup-sessions`, eager-loaded by the CLI gateway). `scripts/`, `hermes/`, and `prompts/` are now shipped — the bundled Hermes skill and Pi prompts install correctly from npm installs.
+  - `test/config.test.js` tilde-expansion tests are now hermetic (`vi.resetModules` + `vi.stubEnv('LAPIS_HOME')`), passing whether or not `LAPIS_HOME` is set in the ambient environment.
+  - `docs/HERMES.md`: corrected stale "three hook entries" wording to five.
+
 - **Memory layer: self-heal stale cached project key from path-resolved repo**
   - `before_agent_start` now uses anchored, deepest-path `resolveIndexedRepo` (matching `detectProject`) instead of first-match `startsWith` prefix resolution.
   - When the path-resolved repo name differs from the session-start cached key, `state.currentProject` self-heals so memory saves and the context banner use the correct project bucket.
