@@ -136,3 +136,16 @@ GitHub Actions runs on pushes and PRs to `main`:
 
 - `test.yml` installs dependencies, runs lint, runs the full test suite, runs smoke CLI tests, and runs post-smoke index-repo/index-docs verification.
 - `crosshash-ci.yml` runs Rust lint/test coverage for the `crosshash/` workspace.
+
+## Releasing
+
+LaPis is published to npm manually from a machine with npm 2FA enabled. There is no working automated publish path today.
+
+1. Bump the version in `package.json`.
+2. Cut the `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` section above it.
+3. Commit, then tag **without a `v` prefix** (repo convention: tags are `1.1.4`, not `v1.1.4`). Push the tag.
+4. Publish manually: `npm publish --access public`.
+
+### Why manual publish?
+
+The CI publish workflow currently sends `GITHUB_TOKEN` to npmjs, which fails with `E404` (npm Trusted Publishing / OIDC is not enabled on the npm side). The workflow strips a leading `v` via `${GITHUB_REF_NAME#v}`, so the tag-side convention is already correct, but the npm-side authentication is not. Manual `npm publish --access public` from a 2FA-enabled account is the working path until npm Trusted Publishing is configured.

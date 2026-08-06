@@ -10,7 +10,7 @@
     "url": "https://github.com/GeneGulanesJr/LaPis/issues"
   },
   "license": "ISC",
-  "author": "",
+  "author": "Gene Gulanes Jr. <gulanesgene@gmail.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GeneGulanesJr/LaPis.git"
@@ -61,7 +61,6 @@
     "./memory-store": "./memory-store.js",
     "./claude-code": "./src/claude-code/hooks.js",
     "./hooks-engine": "./src/hooks-engine/index.js",
-    "./extension": "./extensions/memory-layer/index.ts",
     "./code-analysis": "./src/code-analysis/index.js",
     "./code-index": "./src/code-index/index.js",
     "./doc-index": "./src/doc-index/index.js",
@@ -118,7 +117,7 @@
     "protobufjs": "^7.6.5"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "pi": {
     "extensions": [
@@ -129,9 +128,6 @@
     ],
     "prompts": [
       "./prompts"
-    ],
-    "themes": [
-      "./themes"
     ]
   },
   "allowScripts": {
