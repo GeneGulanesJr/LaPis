@@ -6,7 +6,7 @@ describe('shouldAutoCapture', () => {
     const text = [
       'Looking at the options for data storage.',
       'SQLite has zero external deps and is embedded.',
-      'I\'ll use SQLite because it avoids external dependencies and fits our constraint.',
+      "I'll use SQLite because it avoids external dependencies and fits our constraint.",
     ].join('\n');
     const result = shouldAutoCapture(text);
     expect(result.match).toBe(true);
@@ -14,13 +14,13 @@ describe('shouldAutoCapture', () => {
   });
 
   it('rejects hedging in reasoning zone without conclusion match', () => {
-    const text = 'Maybe I\'ll use the cache approach for this, but let me check first and see what happens.';
+    const text = "Maybe I'll use the cache approach for this, but let me check first and see what happens.";
     const result = shouldAutoCapture(text);
     expect(result.match).toBe(false);
   });
 
   it('rejects text under 150 chars', () => {
-    const text = 'I\'ll use X because Y';
+    const text = "I'll use X because Y";
     const result = shouldAutoCapture(text);
     expect(result.match).toBe(false);
   });
@@ -48,8 +48,8 @@ describe('shouldAutoCapture', () => {
 
   it('rejects "I\'ll use X for now" hedging without conclusion', () => {
     const text = [
-      'I\'ll use the simple approach for now to see if it works.',
-      'If it doesn\'t perform well, we can switch later.',
+      "I'll use the simple approach for now to see if it works.",
+      "If it doesn't perform well, we can switch later.",
       'Let me test this out first.',
     ].join('\n');
     const result = shouldAutoCapture(text);

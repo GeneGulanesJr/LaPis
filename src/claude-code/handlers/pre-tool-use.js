@@ -109,11 +109,7 @@ function readGuardrail({ input, repos, cwd, state }) {
   const explored = Array.isArray(state.exploredFiles) ? state.exploredFiles : [];
   const exploredNorm = explored.map(normalizePathForCompare);
   const basenameNorm = basename.toLowerCase();
-  if (
-    exploredNorm.includes(basenameNorm) ||
-    exploredNorm.includes(relPath) ||
-    exploredNorm.includes(absNorm)
-  ) {
+  if (exploredNorm.includes(basenameNorm) || exploredNorm.includes(relPath) || exploredNorm.includes(absNorm)) {
     return null;
   }
 
@@ -221,11 +217,7 @@ async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stat
     return null;
   }
 
-  const { resolvedCwd: cwd, repos, project } = resolveProjectForCwd(
-    payload.cwd,
-    getKnownRepos,
-    getKnownProjects,
-  );
+  const { resolvedCwd: cwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
   const state = stateStore.loadState(claudeSessionId);
   if (!state.currentProject) {
     state.currentProject = project;

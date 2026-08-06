@@ -54,7 +54,10 @@ function register(commands, deps) {
     if (!repoName) return deps.jsonErrNoExit('Missing --repo. Usage: audit-diff --repo X --files f1,f2');
     const repoRow = deps.sqlJson('SELECT id, path FROM code_repos WHERE name = ?', [repoName]);
     if (!repoRow.length) return deps.jsonErrNoExit(`Repo "${repoName}" not found.`);
-    const files = (args.files || '').split(',').map((f) => f.trim()).filter(Boolean);
+    const files = (args.files || '')
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean);
     return auditDiffModule.auditDiff(db, repoRow[0].id, {
       files,
       task: args.task || '',

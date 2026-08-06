@@ -26,10 +26,7 @@ function setSetting(sqlRun) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'value is required' }));
     }
-    sqlRun(
-      'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-      [params.key, JSON.stringify(body.value)],
-    );
+    sqlRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [params.key, JSON.stringify(body.value)]);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ key: params.key, value: body.value }));
   };

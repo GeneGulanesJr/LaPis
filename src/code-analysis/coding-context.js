@@ -39,7 +39,9 @@ function getCodingContext(db, repoId, opts = {}) {
     target.file ? graph.getImportGraph(db, repoId, { file: target.file, direction: 'both', depth }) : null,
   );
   const churn = runPartial(partialErrors, 'churn', () =>
-    target.file ? gitMetrics.getChurn(db, repoId, target.file, opts.days ? clampInt(opts.days, 90, 1, 3650) : 90, false) : null,
+    target.file
+      ? gitMetrics.getChurn(db, repoId, target.file, opts.days ? clampInt(opts.days, 90, 1, 3650) : 90, false)
+      : null,
   );
   const coupling = runPartial(partialErrors, 'coupling', () =>
     target.file ? impact.getCouplingMetrics(db, repoId, { file: target.file, sortBy: 'instability' }) : null,
@@ -73,7 +75,17 @@ function getCodingContext(db, repoId, opts = {}) {
 
   const likelyTests = findLikelyTests(db, repoId, target, top);
   const relatedFiles = collectRelatedFiles({ target, imports, callers, callees, blastRadius, likelyTests }, top);
-  const summary = summarizeContext({ target, callers, callees, blastRadius, complexity, imports, coupling, churn, likelyTests });
+  const summary = summarizeContext({
+    target,
+    callers,
+    callees,
+    blastRadius,
+    complexity,
+    imports,
+    coupling,
+    churn,
+    likelyTests,
+  });
 
   return {
     repo: repo.name,
@@ -125,8 +137,15 @@ function resolveSymbolTarget(db, repoId, symbolQuery, fileHint) {
 
   // Multiple matches — disambiguate by ranking candidates
   const preferredKinds = new Set([
-    'function', 'method', 'class', 'interface', 'enum', 'type_alias',
-    'arrow_function', 'function_expression', 'constructor',
+    'function',
+    'method',
+    'class',
+    'interface',
+    'enum',
+    'type_alias',
+    'arrow_function',
+    'function_expression',
+    'constructor',
   ]);
   const normalizedHint = fileHint ? fileHint.replace(/\\/g, '/').toLowerCase() : null;
 
@@ -135,7 +154,11 @@ function resolveSymbolTarget(db, repoId, symbolQuery, fileHint) {
     // Strongly prefer if in the hinted file
     if (normalizedHint && row.file_path) {
       const normPath = row.file_path.replace(/\\/g, '/').toLowerCase();
-      if (normPath === normalizedHint || normPath.endsWith('/' + normalizedHint) || normalizedHint.endsWith('/' + normPath)) {
+      if (
+        normPath === normalizedHint ||
+        normPath.endsWith('/' + normalizedHint) ||
+        normalizedHint.endsWith('/' + normPath)
+      ) {
         score += 1000;
       }
     }
@@ -204,7 +227,9 @@ function findFile(db, repoId, fileQuery) {
   }
 
   return db
-    .prepare("SELECT id, path FROM code_files WHERE repo_id = ? AND path LIKE ? ESCAPE '!' ORDER BY length(path) LIMIT 1")
+    .prepare(
+      "SELECT id, path FROM code_files WHERE repo_id = ? AND path LIKE ? ESCAPE '!' ORDER BY length(path) LIMIT 1",
+    )
     .get(repoId, `%${likeEscape(fileQuery)}`);
 }
 
@@ -277,7 +302,17 @@ function findLikelyTests(db, repoId, target, top) {
   return [...tests.values()].slice(0, top);
 }
 
-function summarizeContext({ target, callers, callees, blastRadius, complexity, imports, coupling, churn, likelyTests }) {
+function summarizeContext({
+  target,
+  callers,
+  callees,
+  blastRadius,
+  complexity,
+  imports,
+  coupling,
+  churn,
+  likelyTests,
+}) {
   const callerCount = Array.isArray(callers?.callers) ? callers.callers.length : 0;
   const calleeCount = Array.isArray(callees?.callees) ? callees.callees.length : 0;
   const affectedFiles = countAffectedFiles(blastRadius);
@@ -513,7 +548,9 @@ function countAffectedFiles(result) {
 }
 
 function normalizedAffectedFiles(result) {
-  return normalizedAffectedFileEntries(result).map((item) => item.path || item).filter(Boolean);
+  return normalizedAffectedFileEntries(result)
+    .map((item) => item.path || item)
+    .filter(Boolean);
 }
 
 function normalizedAffectedFileEntries(result) {

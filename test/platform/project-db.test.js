@@ -1,9 +1,4 @@
-const {
-  getKnownRepos,
-  getKnownProjects,
-  clearProjectDbCache,
-  CACHE_TTL_MS,
-} = require('../../src/platform/project-db');
+const { getKnownRepos, getKnownProjects, clearProjectDbCache, CACHE_TTL_MS } = require('../../src/platform/project-db');
 
 describe('platform project-db', () => {
   afterEach(() => {

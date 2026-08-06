@@ -17,7 +17,11 @@ parentPort.on('message', (msg) => {
 });
 
 function safeGetLanguage(filePath) {
-  try { return getLanguageForFile(filePath); } catch (_) { return null; }
+  try {
+    return getLanguageForFile(filePath);
+  } catch (_) {
+    return null;
+  }
 }
 
 function emit(type, payload = {}) {
@@ -54,7 +58,9 @@ async function main() {
             currentFile: current_file,
             languageBreakdown: Object.fromEntries(languageCounters),
           });
-        } catch (_) { /* best-effort */ }
+        } catch (_) {
+          /* best-effort */
+        }
         lastWrite = now;
       }
       emit('progress', { phase, files_total, files_done, current_file, language });
@@ -73,7 +79,9 @@ async function main() {
     }
 
     if (cancelled) {
-      try { jobStore.completeJob(deps, jobId, { status: 'cancelled' }); } catch (_) {}
+      try {
+        jobStore.completeJob(deps, jobId, { status: 'cancelled' });
+      } catch (_) {}
       emit('cancelled');
       return;
     }
@@ -85,7 +93,9 @@ async function main() {
         languageBreakdown: Object.fromEntries(languageCounters),
       });
       jobStore.completeJob(deps, jobId, { status: result?.error ? 'error' : 'completed', error: result?.error });
-    } catch (_) { /* best-effort */ }
+    } catch (_) {
+      /* best-effort */
+    }
 
     emit('done', { result, languageBreakdown: Object.fromEntries(languageCounters) });
   } catch (e) {

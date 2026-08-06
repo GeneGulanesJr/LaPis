@@ -99,11 +99,14 @@ function getTodo(repo) {
 function listTodos(repo) {
   return async (req, res, ctx) => {
     try {
-      jsonOk(res, repo.listTodos({
-        missionId: ctx.query.get('missionId') || undefined,
-        status: ctx.query.get('status') || undefined,
-        type: ctx.query.get('type') || undefined,
-      }));
+      jsonOk(
+        res,
+        repo.listTodos({
+          missionId: ctx.query.get('missionId') || undefined,
+          status: ctx.query.get('status') || undefined,
+          type: ctx.query.get('type') || undefined,
+        }),
+      );
     } catch (e) {
       jsonError(res, 400, 'invalid_todo_filter', e.message);
     }

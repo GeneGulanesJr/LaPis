@@ -81,7 +81,9 @@ function update(deps, args) {
   } else if (args['expires-in']) {
     expiresAt = parseExpiresIn(args['expires-in']);
     if (expiresAt === null) {
-      return jsonErrNoExit(`Invalid --expires-in value: ${args['expires-in']}. Use formats like "7d", "2w", "1m", "12h".`);
+      return jsonErrNoExit(
+        `Invalid --expires-in value: ${args['expires-in']}. Use formats like "7d", "2w", "1m", "12h".`,
+      );
     }
   } else if (args['expires-at']) {
     expiresAt = String(args['expires-at']);

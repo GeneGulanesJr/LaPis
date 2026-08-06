@@ -37,16 +37,14 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
 (function patchTransitiveVulns() {
   const SAFE = {
     'brace-expansion': {
-      version: '5.0.7',
-      resolved: 'https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.7.tgz',
-      integrity:
-        'sha512-7oFy703dxfY3/NLxC1fh2SUCQ0H9rmAY+5EpDVfXjUTTs+HEwR2nYrLv+GWcTsumwxPfiz6CzCNkwXwBUwqCA==',
+      version: '5.0.9',
+      resolved: 'https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz',
+      integrity: 'sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==',
     },
     protobufjs: {
       version: '7.6.5',
       resolved: 'https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.5.tgz',
-      integrity:
-        'sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==',
+      integrity: 'sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==',
     },
   };
 

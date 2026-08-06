@@ -9,7 +9,8 @@ const USAGE = {
   'health-code-repo': '--repo <repo-name>',
   'search-code': '--query <text> [--repo NAME] [--kind TYPE] [--max-results N]',
   'ranked-code-context': '--query <text> [--repo NAME] [--kind TYPE] [--token-budget N] [--max-results N]',
-  'get-code-source': '--repo NAME --file PATH --name SYMBOL  (PATH may be absolute or repo-relative, e.g. lib/helper.js)',
+  'get-code-source':
+    '--repo NAME --file PATH --name SYMBOL  (PATH may be absolute or repo-relative, e.g. lib/helper.js)',
   'list-code-repos': '',
   'remove-code-repo': '--repo <repo-name>',
 };

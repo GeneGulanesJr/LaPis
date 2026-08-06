@@ -137,7 +137,11 @@ function sessionEnd(deps, args) {
   }
   if (cheapResult) {
     result.compacted = vacuumResult
-      ? { startedAt: cheapResult.startedAt, ok: cheapResult.ok && vacuumResult.ok, steps: { ...cheapResult.steps, ...vacuumResult.steps } }
+      ? {
+          startedAt: cheapResult.startedAt,
+          ok: cheapResult.ok && vacuumResult.ok,
+          steps: { ...cheapResult.steps, ...vacuumResult.steps },
+        }
       : cheapResult;
   }
   return result;

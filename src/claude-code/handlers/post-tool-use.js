@@ -133,11 +133,7 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
   const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {};
   const toolResponse = payload.tool_response;
   const claudeSessionId = payload.session_id;
-  const { resolvedCwd, repos, project } = resolveProjectForCwd(
-    payload.cwd,
-    getKnownRepos,
-    getKnownProjects,
-  );
+  const { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
 
   // git-trust only READS state (for currentProject), runs the heavy dispatch,
   // and never writes back — writing a pre-dispatch snapshot after a slow

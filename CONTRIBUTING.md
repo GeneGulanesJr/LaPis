@@ -37,10 +37,10 @@ Start with the feature area, then add code in the owning module. If a change app
 | Pi lifecycle hooks, tool schemas, repo detection, native health checks, or tool result formatting                                                           | `extensions/memory-layer/`                                     | The extension is an adapter/composition layer; keep backend behavior in feature modules.              |
 | Agent-facing coding intelligence, preflight checks, agent-pack planning, audit-diff, or symbol enrichment                                                   | `src/agent-intel/`                                             | Read-only orchestration layer. Must not mutate memory or code indexes.                                |
 | Output compression, command classification, token estimation, or savings tracking                                                                           | `src/token-saver/`                                             | Standalone module with no feature service dependencies.                                               |
-| Shared hook logic (Pi + Claude Code)                                                                                                                        | `src/hooks-engine/`                                            | Transport-agnostic pattern matching, context build, guardrails, passive capture. No SQL or Pi API.   |
-| Claude Code hooks bridge, install, daemon                                                                                                                   | `src/claude-code/`                                             | Hook router, disk-backed session state, dispatch client, installer. Consumes hooks-engine.          |
-| MCP stdio transport adapter                                                                                                                                 | `src/mcp/`                                                     | Tool catalog and MCP framing only. No hooks. Maps CallTool → gateway.dispatch.                       |
-| Cached repo/project DB reads (MCP + Claude Code)                                                                                                              | `src/platform/project-db.js`                                   | Shared getKnownRepos/getKnownProjects with in-process cache.                                        |
+| Shared hook logic (Pi + Claude Code)                                                                                                                        | `src/hooks-engine/`                                            | Transport-agnostic pattern matching, context build, guardrails, passive capture. No SQL or Pi API.    |
+| Claude Code hooks bridge, install, daemon                                                                                                                   | `src/claude-code/`                                             | Hook router, disk-backed session state, dispatch client, installer. Consumes hooks-engine.            |
+| MCP stdio transport adapter                                                                                                                                 | `src/mcp/`                                                     | Tool catalog and MCP framing only. No hooks. Maps CallTool → gateway.dispatch.                        |
+| Cached repo/project DB reads (MCP + Claude Code)                                                                                                            | `src/platform/project-db.js`                                   | Shared getKnownRepos/getKnownProjects with in-process cache.                                          |
 | Memory observability dashboard or health statistics                                                                                                         | `src/cli/commands/dashboard.js` and `data-access/dashboard.js` | Dashboard is a CLI/router concern; depends on data-access helpers only.                               |
 | Rust code-intelligence experiments or Crosshash engine work                                                                                                 | `crosshash/`                                                   | Keep Crosshash behind a process/API boundary until it becomes the canonical backend.                  |
 
@@ -134,5 +134,18 @@ PRs labeled `architecture` or `refactor`, or PRs that touch modularization code,
 
 GitHub Actions runs on pushes and PRs to `main`:
 
-- `test.yml` installs dependencies, runs lint, runs the full test suite, runs smoke CLI tests, and runs post-smoke index-repo/index-docs verification.
+- `test.yml` installs dependencies, runs lint and format check, runs the full test suite, runs smoke CLI tests, and runs post-smoke index-repo/index-docs verification.
 - `crosshash-ci.yml` runs Rust lint/test coverage for the `crosshash/` workspace.
+
+## Releasing
+
+LaPis is published to npm manually from a machine with npm 2FA enabled. There is no working automated publish path today.
+
+1. Bump the version in `package.json`.
+2. Cut the `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` section above it.
+3. Commit, then tag **without a `v` prefix** (repo convention: tags are `1.1.4`, not `v1.1.4`). Push the tag.
+4. Publish manually: `npm publish --access public`.
+
+### Why manual publish?
+
+The CI publish workflow currently sends `GITHUB_TOKEN` to npmjs, which fails with `E404` (npm Trusted Publishing / OIDC is not enabled on the npm side). The workflow strips a leading `v` via `${GITHUB_REF_NAME#v}`, so the tag-side convention is already correct, but the npm-side authentication is not. Manual `npm publish --access public` from a 2FA-enabled account is the working path until npm Trusted Publishing is configured.

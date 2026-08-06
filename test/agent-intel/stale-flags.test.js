@@ -49,15 +49,19 @@ function normalFunc() { return true; }
   }, 60000);
 
   afterAll(() => {
-    try { run(`remove-code-repo --repo ${repoName}`); } catch {}
-    try { fs.rmSync(tmpRepo, { recursive: true }); } catch {}
+    try {
+      run(`remove-code-repo --repo ${repoName}`);
+    } catch {}
+    try {
+      fs.rmSync(tmpRepo, { recursive: true });
+    } catch {}
   });
 
   it('detects stale flags in repository', () => {
     const result = run(`stale-flags --repo ${repoName}`);
     expect(result.error).toBeUndefined();
     expect(result.stale_flags.length).toBeGreaterThanOrEqual(1);
-    expect(result.stale_flags.some(f => f.branch_type === 'always-true')).toBe(true);
+    expect(result.stale_flags.some((f) => f.branch_type === 'always-true')).toBe(true);
   });
 
   it('returns empty for clean repo', () => {
@@ -66,11 +70,15 @@ function normalFunc() { return true; }
     const cleanTmp = path.join('/tmp', cleanRepoName);
     writeTmpRepo(cleanTmp, { 'src/util.js': 'export function add(a, b) { return a + b; }' });
     run(`index-repo --path "${cleanTmp}" --name ${cleanRepoName}`);
-    
+
     const result = run(`stale-flags --repo ${cleanRepoName}`);
     expect(result.stale_flags.length).toBe(0);
-    
-    try { run(`remove-code-repo --repo ${cleanRepoName}`); } catch {}
-    try { fs.rmSync(cleanTmp, { recursive: true }); } catch {}
+
+    try {
+      run(`remove-code-repo --repo ${cleanRepoName}`);
+    } catch {}
+    try {
+      fs.rmSync(cleanTmp, { recursive: true });
+    } catch {}
   });
 });

@@ -189,10 +189,7 @@ export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {
     };
 
     if (isQuit) {
-      await Promise.race([
-        runShutdownWork(),
-        new Promise((resolve) => setTimeout(resolve, 2000)),
-      ]);
+      await Promise.race([runShutdownWork(), new Promise((resolve) => setTimeout(resolve, 2000))]);
     } else {
       // Reload / new / resume / fork: the next session needs this data in place.
       await runShutdownWork();

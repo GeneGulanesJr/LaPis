@@ -216,10 +216,7 @@ describe('context() with token-budget', () => {
 
   test('continues processing after successful header fallback', () => {
     // First obs is large (gets truncated to header), second is small (fits fully)
-    const observations = [
-      makeObs(1, 'discovery', 5000, 'Huge discovery'),
-      makeObs(2, 'learning', 10, 'Tiny learning'),
-    ];
+    const observations = [makeObs(1, 'discovery', 5000, 'Huge discovery'), makeObs(2, 'learning', 10, 'Tiny learning')];
     const deps = makeDeps(observations);
     const result = context(deps, { project: 'TestProject', 'token-budget': '600' });
 

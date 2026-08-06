@@ -45,9 +45,7 @@ function writeHandoff(repo) {
       ? body.commandsRun
       : (() => {
           try {
-            const parsed = typeof body.commandsRun === 'string'
-              ? JSON.parse(body.commandsRun)
-              : body.commandsRun;
+            const parsed = typeof body.commandsRun === 'string' ? JSON.parse(body.commandsRun) : body.commandsRun;
             return Array.isArray(parsed) ? parsed : [];
           } catch {
             return [];
@@ -71,15 +69,16 @@ function writeHandoff(repo) {
       gitCommitHash: body.gitCommitHash,
     });
 
-    const stored = Array.isArray(rows) && rows.length > 0
-      ? rows[0]
-      : {
-          id,
-          unit_id: unitId,
-          mission_id: missionId,
-          milestone_id: milestoneId,
-          feature_name: body.featureName,
-        };
+    const stored =
+      Array.isArray(rows) && rows.length > 0
+        ? rows[0]
+        : {
+            id,
+            unit_id: unitId,
+            mission_id: missionId,
+            milestone_id: milestoneId,
+            feature_name: body.featureName,
+          };
 
     jsonCreated(res, {
       accepted: true,

@@ -81,16 +81,19 @@ export function createDashboardComponent(
     // ── Header ────────────────────────────────────────────
     const titleText = 'LaPis Memory Dashboard';
     const titlePad = Math.max(0, inner - titleText.length - 2);
-    lines.push(dim('╭─ ') + theme.fg('accent', theme.bold(titleText)) + ' ' + dim(hr('─').slice(0, titlePad)) + dim('╮'));
+    lines.push(
+      dim('╭─ ') + theme.fg('accent', theme.bold(titleText)) + ' ' + dim(hr('─').slice(0, titlePad)) + dim('╮'),
+    );
 
     // ── Overview ──────────────────────────────────────────
     const o = data.overview;
     lines.push(dim('│ ') + `Total: ${o.totalMemories} memories across ${o.totalProjects} projects` + dim('│'));
     lines.push(dim('│ ') + `This Week: +${o.thisWeekSaved} saved, -${o.thisWeekCleaned} cleaned` + dim('│'));
     const trustLabel = o.avgTrust !== null ? o.avgTrust.toFixed(2) : '—';
-    const recallRate = data.recall.totalRecalls > 0
-      ? `${Math.round((data.recall.uniqueMemoriesHit / data.recall.totalRecalls) * 100)}%`
-      : '—';
+    const recallRate =
+      data.recall.totalRecalls > 0
+        ? `${Math.round((data.recall.uniqueMemoriesHit / data.recall.totalRecalls) * 100)}%`
+        : '—';
     lines.push(dim('│ ') + `Avg Trust: ${trustLabel}  │  Recall Hit Rate: ${recallRate}` + dim('│'));
 
     // ── By Type ───────────────────────────────────────────
@@ -107,19 +110,22 @@ export function createDashboardComponent(
     lines.push(dim('├') + hr('─') + dim('┤'));
     lines.push(dim('│ ') + section('Health Alerts'));
 
-    const trustAlert = data.trust.lowTrustCount > 0
-      ? theme.fg('warning', `⚠ Low Trust (<0.5):    ${data.trust.lowTrustCount} memories`)
-      : theme.fg('success', `✓ Low Trust (<0.5):     0 memories`);
+    const trustAlert =
+      data.trust.lowTrustCount > 0
+        ? theme.fg('warning', `⚠ Low Trust (<0.5):    ${data.trust.lowTrustCount} memories`)
+        : theme.fg('success', `✓ Low Trust (<0.5):     0 memories`);
     lines.push(dim('│ ') + `  ${trustAlert}`);
 
-    const recallAlert = o.neverRecalled > 0
-      ? theme.fg('warning', `⚠ Never Recalled:      ${o.neverRecalled} memories`)
-      : theme.fg('success', `✓ Never Recalled:       0 memories`);
+    const recallAlert =
+      o.neverRecalled > 0
+        ? theme.fg('warning', `⚠ Never Recalled:      ${o.neverRecalled} memories`)
+        : theme.fg('success', `✓ Never Recalled:       0 memories`);
     lines.push(dim('│ ') + `  ${recallAlert}`);
 
-    const expiringAlert = o.expiringSoon > 0
-      ? theme.fg('warning', `⏳ Expiring Soon:        ${o.expiringSoon} memories`)
-      : theme.fg('success', `✓ Expiring Soon:        0 memories`);
+    const expiringAlert =
+      o.expiringSoon > 0
+        ? theme.fg('warning', `⏳ Expiring Soon:        ${o.expiringSoon} memories`)
+        : theme.fg('success', `✓ Expiring Soon:        0 memories`);
     lines.push(dim('│ ') + `  ${expiringAlert}`);
 
     // ── Dream Cycle ───────────────────────────────────────
@@ -134,10 +140,11 @@ export function createDashboardComponent(
     lines.push(dim('├') + hr('─') + dim('┤'));
     lines.push(dim('│ ') + section('Code Index'));
     for (const repo of data.codeIndex) {
-      const stale = repo.isStale
-        ? theme.fg('warning', '⚠ STALE')
-        : theme.fg('success', '✅');
-      lines.push(dim('│ ') + `  ${repo.name.padEnd(22)} ${String(repo.fileCount).padStart(4)} files, ${String(repo.symbolCount).padStart(5)} symbols  ${stale}`);
+      const stale = repo.isStale ? theme.fg('warning', '⚠ STALE') : theme.fg('success', '✅');
+      lines.push(
+        dim('│ ') +
+          `  ${repo.name.padEnd(22)} ${String(repo.fileCount).padStart(4)} files, ${String(repo.symbolCount).padStart(5)} symbols  ${stale}`,
+      );
     }
     if (data.codeIndex.length === 0) {
       lines.push(dim('│ ') + '  No repos indexed');

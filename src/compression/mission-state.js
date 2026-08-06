@@ -31,12 +31,7 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
   if (findings.length > 0) {
     sections.push(
       `## Research findings (${findings.length})\n` +
-        findings
-          .map(
-            (f) =>
-              `- [${f.relevance}/${f.status}] ${f.title}: ${f.content.slice(0, 200)}`,
-          )
-          .join('\n'),
+        findings.map((f) => `- [${f.relevance}/${f.status}] ${f.title}: ${f.content.slice(0, 200)}`).join('\n'),
     );
   }
 

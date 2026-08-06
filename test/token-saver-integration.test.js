@@ -35,7 +35,7 @@ describe('token-saver integration', () => {
   });
 
   it('handles timeout', async () => {
-    const result = await executeAndCompress(['node', '-e', "setTimeout(() => {}, 10000)"], {
+    const result = await executeAndCompress(['node', '-e', 'setTimeout(() => {}, 10000)'], {
       timeoutMs: 100,
     });
     expect(result.timedOut).toBe(true);

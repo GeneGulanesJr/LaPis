@@ -1,4 +1,19 @@
-const COLLAPSE_DIRS = ['node_modules', '.git', 'dist', 'build', '.next', 'coverage', '.cache', '.turbo', 'target', '__pycache__', '.tox', 'vendor', '.venv', 'venv'];
+const COLLAPSE_DIRS = [
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '.next',
+  'coverage',
+  '.cache',
+  '.turbo',
+  'target',
+  '__pycache__',
+  '.tox',
+  'vendor',
+  '.venv',
+  'venv',
+];
 
 function compressListOutput({ stdout, stderr }) {
   const combined = `${stdout}\n${stderr}`.trim();

@@ -35,7 +35,9 @@ describe('code-audit: HTTP URL + route parsing hardening', () => {
 
   it('matchRoute returns null on malformed percent-encoding instead of throwing', () => {
     // decodeURIComponent('%ZZ') throws URIError if unguarded.
-    expect(() => matchRoute('GET', '/bad/%ZZ', [{ method: 'GET', pattern: '/bad/:x', handler: () => {} }])).not.toThrow();
+    expect(() =>
+      matchRoute('GET', '/bad/%ZZ', [{ method: 'GET', pattern: '/bad/:x', handler: () => {} }]),
+    ).not.toThrow();
     expect(matchRoute('GET', '/bad/%ZZ', [{ method: 'GET', pattern: '/bad/:x', handler: () => {} }])).toBeNull();
   });
 
@@ -69,7 +71,15 @@ describe('code-audit: rankObservations NaN guard', () => {
   it('produces finite scores when created_at is empty/invalid', () => {
     const rows = [
       { id: 1, title: 'bad date', type: 'decision', created_at: '', trust_score: 0.5, recall_count: 0, rank: 0 },
-      { id: 2, title: 'garbage date', type: 'decision', created_at: 'not-a-date', trust_score: 0.5, recall_count: 0, rank: 0 },
+      {
+        id: 2,
+        title: 'garbage date',
+        type: 'decision',
+        created_at: 'not-a-date',
+        trust_score: 0.5,
+        recall_count: 0,
+        rank: 0,
+      },
     ];
     const ranked = rankObservations(rows, 'test');
     for (const r of ranked) {

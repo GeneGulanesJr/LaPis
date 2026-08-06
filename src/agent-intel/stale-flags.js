@@ -28,11 +28,7 @@ const ONE_SIDED_IF_PATTERNS = [
   /\bif\s*\(\s*(?:true|false|1\s*==\s*1|0\s*==\s*1)\s*\)\s*\{(?:\s| |\n)*(?:return|throw|break|continue)[^}]*\}\s*else/g,
 ];
 
-const ALWAYS_TRUE_CONTEXT = [
-  'process.env.NODE_ENV',
-  'process.env.DEBUG',
-  'process.env.TESTING',
-];
+const ALWAYS_TRUE_CONTEXT = ['process.env.NODE_ENV', 'process.env.DEBUG', 'process.env.TESTING'];
 
 function scanFileForStaleFlags(filePath) {
   if (!fs.existsSync(filePath)) return [];
@@ -81,7 +77,7 @@ function scanFileForStaleFlags(filePath) {
   while ((match = ternaryRegex.exec(content)) !== null) {
     const [, condition] = match;
     // Check if the condition looks like a flag constant
-    if (ALWAYS_TRUE_CONTEXT.some(c => condition.includes(c))) {
+    if (ALWAYS_TRUE_CONTEXT.some((c) => condition.includes(c))) {
       const lineNum = content.substring(0, match.index).split('\n').length;
       const line = lines[lineNum - 1]?.trim() || '';
 
@@ -99,10 +95,12 @@ function scanFileForStaleFlags(filePath) {
 
 function detectStaleFlagsInRepo(db, repoId, repoPath) {
   // Get all JS/TS files
-  const files = db.prepare(`
+  const files = db
+    .prepare(`
     SELECT path FROM code_files
     WHERE repo_id = ? AND (path LIKE '%.js' OR path LIKE '%.ts')
-  `).all(repoId);
+  `)
+    .all(repoId);
 
   const allFindings = [];
 
@@ -187,9 +185,11 @@ function persistStaleFlags(db, findings) {
 
 function getStaleFlags(db, repoId) {
   try {
-    return db.prepare(`
+    return db
+      .prepare(`
       SELECT * FROM stale_flags WHERE repo_id = ? ORDER BY file_path, line_number
-    `).all(repoId);
+    `)
+      .all(repoId);
   } catch {
     return [];
   }

@@ -31,13 +31,7 @@ describe('compress-test-output', () => {
   });
 
   it('handles all-pass output', () => {
-    const output = [
-      'PASS src/utils.test.js',
-      '  ✓ test 1',
-      '  ✓ test 2',
-      '',
-      'Tests: 2 passed, 2 total',
-    ].join('\n');
+    const output = ['PASS src/utils.test.js', '  ✓ test 1', '  ✓ test 2', '', 'Tests: 2 passed, 2 total'].join('\n');
 
     const result = compressTestOutput({ stdout: output, stderr: '', exitCode: 0 });
     expect(result.summary).toContain('passed');

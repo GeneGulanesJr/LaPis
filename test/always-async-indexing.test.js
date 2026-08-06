@@ -57,14 +57,18 @@ describe('indexing via child-process path', () => {
 
         let stdout = '';
         let stderr = '';
-        child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+        child.stdout.on('data', (chunk) => {
+          stdout += chunk.toString();
+        });
         child.stderr.on('data', (chunk) => {
           stderr += chunk.toString();
           for (const line of chunk.toString().split('\n')) {
             try {
               const parsed = JSON.parse(line);
               if (parsed.progress) progressSeen = true;
-            } catch { /* not JSON */ }
+            } catch {
+              /* not JSON */
+            }
           }
         });
 

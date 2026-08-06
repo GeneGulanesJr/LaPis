@@ -77,10 +77,13 @@ describe('src/memory-domain boundary', () => {
   it('ranking: recall_count and useful_count affect scoring', () => {
     const ts = new Date().toISOString().replace('Z', '');
     const base = { title: 'test', type: 'observation', created_at: ts, trust_score: 0.5, rank: -1 };
-    const ranked = rankObservations([
-      { ...base, id: 1, recall_count: 10, useful_count: 8 },
-      { ...base, id: 2, recall_count: 1, useful_count: 0 },
-    ], 'test');
+    const ranked = rankObservations(
+      [
+        { ...base, id: 1, recall_count: 10, useful_count: 8 },
+        { ...base, id: 2, recall_count: 1, useful_count: 0 },
+      ],
+      'test',
+    );
     // Higher recall + usefulness → higher score
     expect(ranked[0].id).toBe(1);
     expect(ranked[0]._score).toBeGreaterThan(ranked[1]._score);
@@ -128,10 +131,7 @@ describe('src/memory-domain boundary', () => {
   it('getRecallCount parses memoryId as integer', () => {
     const sqlJson = vi.fn(() => [{ cnt: 1 }]);
     getRecallCount({ sqlJson }, '42abc');
-    expect(sqlJson).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.arrayContaining([expect.any(Number)]),
-    );
+    expect(sqlJson).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining([expect.any(Number)]));
   });
 
   it('recallScore handles zero and undefined recall counts', () => {

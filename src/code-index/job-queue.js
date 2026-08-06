@@ -20,9 +20,15 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
     workers.set(jobId, { worker, status: 'running' });
     worker.on('message', (msg) => {
       emitter.emit(`progress:${jobId}`, msg);
-      if (msg && msg.type === 'done') { markDone(jobId, msg); }
-      if (msg && msg.type === 'error') { markError(jobId, msg); }
-      if (msg && msg.type === 'cancelled') { markCancelled(jobId, msg); }
+      if (msg && msg.type === 'done') {
+        markDone(jobId, msg);
+      }
+      if (msg && msg.type === 'error') {
+        markError(jobId, msg);
+      }
+      if (msg && msg.type === 'cancelled') {
+        markCancelled(jobId, msg);
+      }
     });
     worker.on('error', (err) => markError(jobId, { error: err.message }));
     worker.on('exit', (code) => {
@@ -35,15 +41,23 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
             status: entry.status,
             error: entry.status === 'error' ? `worker exited with code ${code}` : undefined,
           });
-        } catch (_) { /* best-effort */ }
+        } catch (_) {
+          /* best-effort */
+        }
       }
     });
     return { worker };
   }
 
-  function getWorker(jobId) { return workers.get(jobId)?.worker; }
-  function getStatus(jobId) { return workers.get(jobId)?.status || 'unknown'; }
-  function on(jobId, event, listener) { emitter.on(event, listener); }
+  function getWorker(jobId) {
+    return workers.get(jobId)?.worker;
+  }
+  function getStatus(jobId) {
+    return workers.get(jobId)?.status || 'unknown';
+  }
+  function on(jobId, event, listener) {
+    emitter.on(event, listener);
+  }
 
   function markDone(jobId, _msg) {
     const entry = workers.get(jobId);
@@ -54,7 +68,11 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
     const entry = workers.get(jobId);
     if (entry) {
       entry.status = 'error';
-      try { jobStore.completeJob(deps, jobId, { status: 'error', error: msg.error || 'unknown' }); } catch (_) { /* best-effort */ }
+      try {
+        jobStore.completeJob(deps, jobId, { status: 'error', error: msg.error || 'unknown' });
+      } catch (_) {
+        /* best-effort */
+      }
     }
   }
 
@@ -66,9 +84,17 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
   async function cancel(jobId) {
     const entry = workers.get(jobId);
     if (!entry) return false;
-    try { await entry.worker.terminate(); } catch (_) { /* ignore */ }
+    try {
+      await entry.worker.terminate();
+    } catch (_) {
+      /* ignore */
+    }
     entry.status = 'cancelled';
-    try { jobStore.completeJob(deps, jobId, { status: 'cancelled' }); } catch (_) { /* best-effort */ }
+    try {
+      jobStore.completeJob(deps, jobId, { status: 'cancelled' });
+    } catch (_) {
+      /* best-effort */
+    }
     return true;
   }
 

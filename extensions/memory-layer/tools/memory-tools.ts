@@ -583,7 +583,8 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
   pi.registerTool({
     name: 'index-status',
     label: 'Index Job Status',
-    description: 'Check the progress of an async code-indexing job. Returns job state, file progress, current file, and language breakdown.',
+    description:
+      'Check the progress of an async code-indexing job. Returns job state, file progress, current file, and language breakdown.',
     parameters: Type.Object({
       job: Type.String({ description: 'Job ID returned by index-repo-async' }),
     }),
@@ -605,16 +606,29 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
         const filled = Math.max(0, Math.min(20, Math.floor(pct / 5)));
         const bar = '█'.repeat(filled).padEnd(20, '░');
         const lines: string[] = [];
-        const statusIcon = job.status === 'running' ? '⏳' : job.status === 'completed' ? '✅' : job.status === 'error' ? '❌' : job.status === 'cancelled' ? '🚫' : '❔';
+        const statusIcon =
+          job.status === 'running'
+            ? '⏳'
+            : job.status === 'completed'
+              ? '✅'
+              : job.status === 'error'
+                ? '❌'
+                : job.status === 'cancelled'
+                  ? '🚫'
+                  : '❔';
         lines.push(`${statusIcon} Index job #${job.id} (${job.repo_name}) — ${job.status}`);
         lines.push(`[${bar}] ${pct}% (${done}/${total})`);
         if (job.current_file) lines.push(`Current: ${job.current_file}`);
         if (job.language_breakdown && job.language_breakdown !== '{}') {
           try {
             const bd = JSON.parse(job.language_breakdown);
-            const top = Object.entries(bd).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 5);
+            const top = Object.entries(bd)
+              .sort((a, b) => (b[1] as number) - (a[1] as number))
+              .slice(0, 5);
             if (top.length) lines.push(`Languages: ${top.map(([l, n]) => `${l}=${n}`).join(', ')}`);
-          } catch (_) { /* malformed JSON, skip */ }
+          } catch (_) {
+            /* malformed JSON, skip */
+          }
         }
         if (job.completed_at) lines.push(`Completed: ${job.completed_at}`);
         if (job.error) lines.push(`Error: ${job.error}`);

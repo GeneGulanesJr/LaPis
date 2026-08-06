@@ -341,7 +341,10 @@ describe('context injection prompt extraction', () => {
     const result = await handler({ prompt }, { cwd: process.cwd() });
     const content = result.message.content;
 
-    expect(deps.mem).toHaveBeenCalledWith('preflight', expect.objectContaining({ repo: 'PiMemoryExtension', task: prompt }));
+    expect(deps.mem).toHaveBeenCalledWith(
+      'preflight',
+      expect.objectContaining({ repo: 'PiMemoryExtension', task: prompt }),
+    );
     expect(deps.mem).toHaveBeenCalledWith('coding-context', {
       repo: 'PiMemoryExtension',
       symbol: 'saveUser',

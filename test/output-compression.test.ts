@@ -28,7 +28,9 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 function makePi() {
   const handlers: Record<string, Function> = {};
   return {
-    on: vi.fn((event: string, handler: Function) => { handlers[event] = handler; }),
+    on: vi.fn((event: string, handler: Function) => {
+      handlers[event] = handler;
+    }),
     getHandler: (event: string) => handlers[event],
   };
 }
@@ -44,11 +46,7 @@ function makeState() {
   };
 }
 
-function makeConfig(overrides?: {
-  enabled?: boolean;
-  min_chars?: number;
-  min_savings_percent?: number;
-}) {
+function makeConfig(overrides?: { enabled?: boolean; min_chars?: number; min_savings_percent?: number }) {
   return () => ({ output_compression: { enabled: true, min_chars: 2000, min_savings_percent: 30, ...overrides } });
 }
 
@@ -79,7 +77,9 @@ function readEvent() {
 // ---- Tests ----
 
 describe('registerOutputCompression', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   test('registers a tool_result handler', () => {
     const pi = makePi();
@@ -162,7 +162,9 @@ describe('registerOutputCompression', () => {
 
   test('recordRun failure does not break tool result', async () => {
     const { recordRun } = await import('../src/token-saver/savings-store');
-    recordRun.mockImplementation(() => { throw new Error('DB locked'); });
+    recordRun.mockImplementation(() => {
+      throw new Error('DB locked');
+    });
     const pi = makePi();
     registerOutputCompression(pi as any, { state: makeState() as any, getConfig: makeConfig() });
     const large = 'x'.repeat(5000);
@@ -186,8 +188,6 @@ describe('registerOutputCompression', () => {
     registerOutputCompression(pi as any, { state: makeState() as any, getConfig: makeConfig() });
     const large = 'FAIL '.repeat(2000);
     await pi.getHandler('tool_result')(bashEvent('npm test', large, true), {});
-    expect(compressOutput).toHaveBeenCalledWith(
-      expect.objectContaining({ exitCode: 1 }),
-    );
+    expect(compressOutput).toHaveBeenCalledWith(expect.objectContaining({ exitCode: 1 }));
   });
 });

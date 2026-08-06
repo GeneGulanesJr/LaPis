@@ -156,7 +156,7 @@ function _checkHotPath(db, repoId, sym) {
 
     // Normalize paths for comparison - get basename and check for matches
     const symFileName = sym.file_path ? path.basename(sym.file_path) : '';
-    const hotMatch = hotSymbols.find(s => {
+    const hotMatch = hotSymbols.find((s) => {
       if (!s.file_path) return false;
       // Try exact match first
       if (s.file_path === sym.file_path) return true;
@@ -239,9 +239,13 @@ function _scoreToRisk(score) {
 
 function _persistAudit(db, repoId, task, files, violations, risk) {
   try {
-    db.prepare(
-      `INSERT INTO audit_runs (repo_id, task, files_changed, violations, risk) VALUES (?, ?, ?, ?, ?)`,
-    ).run(repoId, task, JSON.stringify(files), JSON.stringify(violations), risk);
+    db.prepare(`INSERT INTO audit_runs (repo_id, task, files_changed, violations, risk) VALUES (?, ?, ?, ?, ?)`).run(
+      repoId,
+      task,
+      JSON.stringify(files),
+      JSON.stringify(violations),
+      risk,
+    );
   } catch {
     // Table may not exist yet — graceful
   }

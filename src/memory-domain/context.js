@@ -273,9 +273,11 @@ function applyTokenBudget(observations, budget) {
     const fullTokens = estimateTokens(fullText);
 
     if (used + fullTokens <= budget || neverTruncate.has(obs.type)) {
-      result.push(neverTruncate.has(obs.type) && used + fullTokens > budget
-        ? { ...obs, _tokens: fullTokens, _truncated: false }
-        : { ...obs, _tokens: fullTokens });
+      result.push(
+        neverTruncate.has(obs.type) && used + fullTokens > budget
+          ? { ...obs, _tokens: fullTokens, _truncated: false }
+          : { ...obs, _tokens: fullTokens },
+      );
       used += fullTokens;
       // oxlint-disable-next-line no-continue
       continue;

@@ -71,8 +71,9 @@ function sendWelcomeEmail(user) {
     const sym = symbols.results[0];
     // outline the file to get symbol IDs
     const outline = run(`outline --repo ${repoName} --file ${sym.file}`);
-    const match = outline.files?.[0]?.classes?.[0]?.methods?.find((m) => m.name === sym.symbol)
-      || outline.files?.[0]?.standalone?.find((s) => s.name === sym.symbol);
+    const match =
+      outline.files?.[0]?.classes?.[0]?.methods?.find((m) => m.name === sym.symbol) ||
+      outline.files?.[0]?.standalone?.find((s) => s.name === sym.symbol);
     if (match && match.id) {
       const meta = run(`symbol-meta --symbol-id ${match.id}`);
       expect(meta).not.toBeNull();

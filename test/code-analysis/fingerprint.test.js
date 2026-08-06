@@ -140,8 +140,7 @@ describe('fingerprint', () => {
       const symbol = {
         name: 'getUserPrefs',
         kind: 'function',
-        body_preview:
-          'function getUserPrefs(id) { return db.query("SELECT * FROM prefs WHERE user_id = " + id); }',
+        body_preview: 'function getUserPrefs(id) { return db.query("SELECT * FROM prefs WHERE user_id = " + id); }',
         file_path: 'src/prefs.ts',
         start_line: 10,
       };

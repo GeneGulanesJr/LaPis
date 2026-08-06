@@ -23,17 +23,33 @@ describe('data-access/dashboard', () => {
           { type: 'decision', cnt: 142 },
           { type: 'bugfix', cnt: 89 },
         ])
-        .mockReturnValueOnce([{
-          high: 80, medium: 30, low: 12, total: 122,
-        }])
-        .mockReturnValueOnce([{
-          totalRecalls: 250, usefulRate: 0.72, uniqueMemoriesHit: 180,
-        }])
+        .mockReturnValueOnce([
+          {
+            high: 80,
+            medium: 30,
+            low: 12,
+            total: 122,
+          },
+        ])
+        .mockReturnValueOnce([
+          {
+            totalRecalls: 250,
+            usefulRate: 0.72,
+            uniqueMemoriesHit: 180,
+          },
+        ])
         .mockReturnValueOnce([{ value: '2026-06-04T10:00:00.000Z' }])
         .mockReturnValueOnce([{ value: '47' }])
         .mockReturnValueOnce([{ value: '9' }])
         .mockReturnValueOnce([
-          { name: 'PiMemoryExtension', path: '/some/path', file_count: 359, symbol_count: 8874, indexed_at: '2026-06-01', base_head: 'abc123' },
+          {
+            name: 'PiMemoryExtension',
+            path: '/some/path',
+            file_count: 359,
+            symbol_count: 8874,
+            indexed_at: '2026-06-01',
+            base_head: 'abc123',
+          },
         ]);
 
       const result = getDashboard(deps);
@@ -142,7 +158,14 @@ describe('data-access/dashboard', () => {
         .mockReturnValueOnce([])
         .mockReturnValueOnce([])
         .mockReturnValueOnce([
-          { name: 'test-repo', path: '/tmp/test', file_count: 10, symbol_count: 50, indexed_at: '2026-06-01', base_head: 'abc123' },
+          {
+            name: 'test-repo',
+            path: '/tmp/test',
+            file_count: 10,
+            symbol_count: 50,
+            indexed_at: '2026-06-01',
+            base_head: 'abc123',
+          },
         ]);
 
       const result = getDashboard(deps);
@@ -162,7 +185,9 @@ describe('data-access/dashboard', () => {
         .mockReturnValueOnce([{ cnt: 0 }])
         .mockReturnValueOnce([{ avg: null }])
         .mockReturnValueOnce([{ cnt: 0 }])
-        .mockImplementationOnce(() => { throw new Error('no such column: expires_at'); })
+        .mockImplementationOnce(() => {
+          throw new Error('no such column: expires_at');
+        })
         .mockReturnValueOnce([])
         .mockReturnValueOnce([{ high: 0, medium: 0, low: 0, total: 0 }])
         .mockReturnValueOnce([{ totalRecalls: 0, usefulRate: null, uniqueMemoriesHit: 0 }])
@@ -188,7 +213,9 @@ describe('data-access/dashboard', () => {
         .mockReturnValueOnce([])
         .mockReturnValueOnce([{ high: 0, medium: 0, low: 0, total: 0 }])
         .mockReturnValueOnce([{ totalRecalls: 0, usefulRate: null, uniqueMemoriesHit: 0 }])
-        .mockImplementationOnce(() => { throw new Error('no such table: settings'); })
+        .mockImplementationOnce(() => {
+          throw new Error('no such table: settings');
+        })
         .mockReturnValueOnce([])
         .mockReturnValueOnce([]);
 

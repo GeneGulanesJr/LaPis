@@ -20,7 +20,17 @@ const USAGE = {
 };
 
 function register(commands, deps) {
-  const { sqlJson, sqlRun, softDeleteObservation, _readTierConfig, TOOL_TIERS, ensureDb, DB_PATH, getEngine, withTransaction } = deps;
+  const {
+    sqlJson,
+    sqlRun,
+    softDeleteObservation,
+    _readTierConfig,
+    TOOL_TIERS,
+    ensureDb,
+    DB_PATH,
+    getEngine,
+    withTransaction,
+  } = deps;
 
   commands.init = () => {
     ensureDb();

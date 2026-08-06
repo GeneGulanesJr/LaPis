@@ -5,7 +5,13 @@
  * They exercise edge cases, boundary conditions, and specific code paths
  * that generic integration tests miss.
  */
-const { rankObservations, search, symbolCluster, related, _extractFtsTerms: extractFtsTerms } = require('../src/memory-domain/search');
+const {
+  rankObservations,
+  search,
+  symbolCluster,
+  related,
+  _extractFtsTerms: extractFtsTerms,
+} = require('../src/memory-domain/search');
 const { trigramOverlap, checkDuplicate, markDuplicate } = require('../src/memory-domain/dedupe');
 const { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall');
 const { context, topicQueryNeedles, buildTopicQueryMatch, applyTokenBudget } = require('../src/memory-domain/context');
@@ -48,7 +54,8 @@ describe('memory.js delegation layer', () => {
     // observations.updateObservation needs sqlJson to return existing row
     return {
       sqlJson: vi.fn((q) => {
-        if (q.includes('SELECT title')) return [{ title: 'old', content: 'c', type: 'observation', scope: 'project', topic_key: null }];
+        if (q.includes('SELECT title'))
+          return [{ title: 'old', content: 'c', type: 'observation', scope: 'project', topic_key: null }];
         return [{ cnt: 0 }];
       }),
       sqlRun: vi.fn(),
@@ -56,123 +63,143 @@ describe('memory.js delegation layer', () => {
   }
 
   it('insertObservation calls through', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.insertObservation({ title: 't', content: 'c', type: 'observation', project: 'p' });
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('softDeleteObservation calls sqlRun', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.softDeleteObservation(42);
     expect(d.sqlRun).toHaveBeenCalled();
   });
 
   it('hardDeleteObservation calls sqlRun', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.hardDeleteObservation(42);
     expect(d.sqlRun).toHaveBeenCalled();
   });
 
   it('getObservation calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.getObservation(1);
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('getSymbolLinksForMemory calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.getSymbolLinksForMemory(5);
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('getRecallCountForMemory calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.getRecallCountForMemory(5);
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('getObservationVersions calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.getObservationVersions(1);
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('getObservationRelations calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.getObservationRelations(1);
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('updateObservation calls through', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.updateObservation({ id: 1, title: 'new title' });
     expect(d.sqlRun).toHaveBeenCalled();
   });
 
   it('getTimeline calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.getTimeline({ id: 1 });
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('insertUserPrompt calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.insertUserPrompt({ prompt: 'hi', sessionId: 1 });
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('insertCapturePassiveObservation calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.insertCapturePassiveObservation({ content: 'x', sessionId: 1 });
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('getObservationStats calls sqlJson multiple times', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.getObservationStats();
     expect(d.sqlJson).toHaveBeenCalled();
     expect(d.sqlJson.mock.calls.length).toBeGreaterThanOrEqual(4);
   });
 
   it('countObservationsByProjectAndType calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.countObservationsByProjectAndType('proj');
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('insertRecallLog calls sqlRun', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.insertRecallLog([{ memoryId: 1, sessionId: '1', query: 'q' }]);
     expect(d.sqlRun).toHaveBeenCalled();
   });
 
   it('listWorkspaces calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.listWorkspaces();
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('createWorkspace calls sqlRun', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.createWorkspace('ws1');
     expect(d.sqlRun).toHaveBeenCalled();
   });
 
   it('archiveWorkspace calls sqlJson (checks before archiving)', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.archiveWorkspace('ws1');
     // archiveWorkspace may call sqlJson to check existence, then sqlRun
     expect(d.sqlJson.mock.calls.length + d.sqlRun.mock.calls.length).toBeGreaterThanOrEqual(1);
   });
 
   it('listProjects calls sqlJson', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     r.listProjects();
     expect(d.sqlJson).toHaveBeenCalled();
   });
 
   it('repository is frozen', () => {
-    const d = fullDeps(); const r = createMemoryRepository(d);
+    const d = fullDeps();
+    const r = createMemoryRepository(d);
     expect(Object.isFrozen(r)).toBe(true);
   });
 });
@@ -208,9 +235,7 @@ describe('dedupe.js mutation killers', () => {
   });
 
   it('checkDuplicate: returns matching candidates', () => {
-    const sqlJson = vi.fn(() => [
-      { id: 1, title: 'Fix auth bug', topic_key: null, created_at: '2025-01-01' },
-    ]);
+    const sqlJson = vi.fn(() => [{ id: 1, title: 'Fix auth bug', topic_key: null, created_at: '2025-01-01' }]);
     const result = checkDuplicate({ sqlJson }, 'Fix auth bug', 'bugfix', 'proj', null);
     // Same title should produce high similarity
     expect(result.potential_duplicates.length).toBeGreaterThanOrEqual(1);
@@ -254,10 +279,7 @@ describe('dedupe.js mutation killers', () => {
   });
 
   it('markDuplicate: returns ok with merged info', () => {
-    const result = markDuplicate(
-      { sqlRun: vi.fn(), softDeleteObservation: vi.fn() },
-      { source: '10', target: '20' },
-    );
+    const result = markDuplicate({ sqlRun: vi.fn(), softDeleteObservation: vi.fn() }, { source: '10', target: '20' });
     expect(result.ok).toBe(true);
     expect(result.merged).toEqual({ kept: 10, removed: 20 });
   });
@@ -284,52 +306,58 @@ describe('search.js rankObservations', () => {
   });
 
   it('word hits ratio affects score', () => {
-    const ranked = rankObservations([
-      baseObs({ id: 1, title: 'alpha beta gamma', rank: 0 }),
-      baseObs({ id: 2, title: 'alpha only', rank: 0 }),
-    ], 'alpha beta');
+    const ranked = rankObservations(
+      [baseObs({ id: 1, title: 'alpha beta gamma', rank: 0 }), baseObs({ id: 2, title: 'alpha only', rank: 0 })],
+      'alpha beta',
+    );
     expect(ranked[0].id).toBe(1);
   });
 
   it('newer observations score higher', () => {
     const now = new Date().toISOString().replace('Z', '');
     const old = new Date(Date.now() - 365 * 86400000).toISOString().replace('Z', '');
-    const ranked = rankObservations([
-      baseObs({ id: 1, created_at: old, rank: null }),
-      baseObs({ id: 2, created_at: now, rank: null }),
-    ], 'query');
+    const ranked = rankObservations(
+      [baseObs({ id: 1, created_at: old, rank: null }), baseObs({ id: 2, created_at: now, rank: null })],
+      'query',
+    );
     expect(ranked[0].id).toBe(2);
   });
 
   it('trust_score uses row value', () => {
-    const ranked = rankObservations([
-      baseObs({ id: 1, trust_score: 0.9, rank: null }),
-      baseObs({ id: 2, trust_score: 0.1, rank: null }),
-    ], 'q');
+    const ranked = rankObservations(
+      [baseObs({ id: 1, trust_score: 0.9, rank: null }), baseObs({ id: 2, trust_score: 0.1, rank: null })],
+      'q',
+    );
     expect(ranked[0].id).toBe(1);
   });
 
   it('recall/useful ratio affects score', () => {
-    const ranked = rankObservations([
-      baseObs({ id: 1, recall_count: 10, useful_count: 9, rank: null }),
-      baseObs({ id: 2, recall_count: 1, useful_count: 0, rank: null }),
-    ], 'q');
+    const ranked = rankObservations(
+      [
+        baseObs({ id: 1, recall_count: 10, useful_count: 9, rank: null }),
+        baseObs({ id: 2, recall_count: 1, useful_count: 0, rank: null }),
+      ],
+      'q',
+    );
     expect(ranked[0].id).toBe(1);
   });
 
   it('usefulRatio defaults to 0.5 when recall_count=0', () => {
-    const ranked = rankObservations([
-      baseObs({ id: 1, recall_count: 0, useful_count: 0, rank: null }),
-      baseObs({ id: 2, recall_count: 0, useful_count: 5, rank: null }),
-    ], 'q');
+    const ranked = rankObservations(
+      [
+        baseObs({ id: 1, recall_count: 0, useful_count: 0, rank: null }),
+        baseObs({ id: 2, recall_count: 0, useful_count: 5, rank: null }),
+      ],
+      'q',
+    );
     expect(ranked[0]._score).toBeCloseTo(ranked[1]._score, 5);
   });
 
   it('type boost applies', () => {
-    const ranked = rankObservations([
-      baseObs({ id: 1, type: 'session_summary', rank: null }),
-      baseObs({ id: 2, type: 'decision', rank: null }),
-    ], 'q');
+    const ranked = rankObservations(
+      [baseObs({ id: 1, type: 'session_summary', rank: null }), baseObs({ id: 2, type: 'decision', rank: null })],
+      'q',
+    );
     expect(ranked[0].id).toBe(2);
   });
 
@@ -364,7 +392,10 @@ describe('search.js search()', () => {
 
   it('falls back to LIKE when FTS empty', () => {
     let n = 0;
-    const sqlJson = vi.fn(() => { n++; return n <= 1 ? [] : [baseObs({ id: 1 })]; });
+    const sqlJson = vi.fn(() => {
+      n++;
+      return n <= 1 ? [] : [baseObs({ id: 1 })];
+    });
     const d = mockDeps({ sqlJson });
     delete d.insertRecallLog;
     const result = search(d, { query: 'test' });
@@ -520,20 +551,21 @@ describe('context.js mutation killers', () => {
   it('topic-key filter', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', 'topic-key': 'auth' });
-    const c = sqlJson.mock.calls.find(call => call[0].includes('topic_key = ?'));
+    const c = sqlJson.mock.calls.find((call) => call[0].includes('topic_key = ?'));
     expect(c).toBeDefined();
   });
 
   it('query triggers topic_matches', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', query: 'jwt auth' });
-    const c = sqlJson.mock.calls.find(call => call[0].includes('topic_matches'));
+    const c = sqlJson.mock.calls.find((call) => call[0].includes('topic_matches'));
     expect(c).toBeDefined();
   });
 
   it('sessions fetched for project', () => {
     const sqlJson = vi.fn((q) => {
-      if (q.includes('session_log')) return [{ id: 1, project: 'p', started_at: '2025-01-01', ended_at: null, memories_saved: 0 }];
+      if (q.includes('session_log'))
+        return [{ id: 1, project: 'p', started_at: '2025-01-01', ended_at: null, memories_saved: 0 }];
       return [];
     });
     const r = context(mockDeps({ sqlJson }), { project: 'p' });
@@ -552,7 +584,19 @@ describe('context.js mutation killers', () => {
   it('token budget triggers truncation', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      return [{ id: 1, title: 'Long title ' + 'x'.repeat(100), type: 'decision', content: 'C'.repeat(500), scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      return [
+        {
+          id: 1,
+          title: 'Long title ' + 'x'.repeat(100),
+          type: 'decision',
+          content: 'C'.repeat(500),
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+      ];
     });
     const r = context(mockDeps({ sqlJson }), { project: 'p', 'token-budget': '100' });
     expect(r.stats.budget_tokens).toBe(100);
@@ -563,7 +607,19 @@ describe('context.js mutation killers', () => {
     const irl = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      return [
+        {
+          id: 1,
+          title: 't',
+          type: 'decision',
+          content: 'c',
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+      ];
     });
     context(mockDeps({ sqlJson, insertRecallLog: irl }), { project: 'p', 'session-id': '10' });
     expect(irl).not.toHaveBeenCalled();
@@ -572,7 +628,18 @@ describe('context.js mutation killers', () => {
   it('cross-project suggestions with query', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('project != ?')) return [{ id: 99, title: 'cross', type: 'decision', project: 'other', created_at: '2025-01-01', trust_score: 0.5, match_score: 2 }];
+      if (q.includes('project != ?'))
+        return [
+          {
+            id: 99,
+            title: 'cross',
+            type: 'decision',
+            project: 'other',
+            created_at: '2025-01-01',
+            trust_score: 0.5,
+            match_score: 2,
+          },
+        ];
       if (q.includes('topic_matches')) return [];
       return [];
     });
@@ -599,10 +666,22 @@ describe('context.js mutation killers', () => {
     const excludedType = [...excluded][0];
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      return [{ id: 1, title: 't', type: excludedType, content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      return [
+        {
+          id: 1,
+          title: 't',
+          type: excludedType,
+          content: 'c',
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+      ];
     });
     const r = context(mockDeps({ sqlJson }), { project: 'p' });
-    expect(r.observations.every(o => o.type !== excludedType)).toBe(true);
+    expect(r.observations.every((o) => o.type !== excludedType)).toBe(true);
   });
 });
 
@@ -614,10 +693,50 @@ describe('context.js applyTokenBudget', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [
-        { id: 1, title: 't1', type: 'decision', content: 'x'.repeat(200), scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
-        { id: 2, title: 't2', type: 'decision', content: 'y'.repeat(200), scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
-        { id: 3, title: 't3', type: 'decision', content: 'z'.repeat(200), scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
-        { id: 4, title: 't4', type: 'decision', content: 'w'.repeat(200), scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
+        {
+          id: 1,
+          title: 't1',
+          type: 'decision',
+          content: 'x'.repeat(200),
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+        {
+          id: 2,
+          title: 't2',
+          type: 'decision',
+          content: 'y'.repeat(200),
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+        {
+          id: 3,
+          title: 't3',
+          type: 'decision',
+          content: 'z'.repeat(200),
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+        {
+          id: 4,
+          title: 't4',
+          type: 'decision',
+          content: 'w'.repeat(200),
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
       ];
     });
     const r = context(mockDeps({ sqlJson }), { project: 'p', 'token-budget': '50' });
@@ -628,12 +747,32 @@ describe('context.js applyTokenBudget', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [
-        { id: 1, title: 't1', type: 'decision', content: 'A'.repeat(500), scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
-        { id: 2, title: 't2', type: 'observation', content: 'B'.repeat(500), scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
+        {
+          id: 1,
+          title: 't1',
+          type: 'decision',
+          content: 'A'.repeat(500),
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+        {
+          id: 2,
+          title: 't2',
+          type: 'observation',
+          content: 'B'.repeat(500),
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
       ];
     });
     const r = context(mockDeps({ sqlJson }), { project: 'p', 'token-budget': '200' });
-    expect(r.observations.some(o => o._truncated)).toBe(true);
+    expect(r.observations.some((o) => o._truncated)).toBe(true);
   });
 
   it('never-truncate types preserved over budget', () => {
@@ -645,15 +784,35 @@ describe('context.js applyTokenBudget', () => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       // Large content that would normally be truncated
       return [
-        { id: 1, title: 't1', type: 'observation', content: 'Y'.repeat(2000), scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
-        { id: 2, title: 't2', type: nt, content: 'Z'.repeat(2000), scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
+        {
+          id: 1,
+          title: 't1',
+          type: 'observation',
+          content: 'Y'.repeat(2000),
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+        {
+          id: 2,
+          title: 't2',
+          type: nt,
+          content: 'Z'.repeat(2000),
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
       ];
     });
     // Budget >= 500 enters full mode where never-truncate is honored
     // Use 550 — enough for the never-truncate obs but tight for others
     const r = context(mockDeps({ sqlJson }), { project: 'p', 'token-budget': '550' });
-    const ntObs = r.observations.find(o => o.type === nt);
-    const normalObs = r.observations.find(o => o.type !== nt);
+    const ntObs = r.observations.find((o) => o.type === nt);
+    const normalObs = r.observations.find((o) => o.type !== nt);
     // Never-truncate type should be present and not truncated
     if (ntObs) {
       expect(ntObs._truncated).not.toBe(true);
@@ -707,7 +866,7 @@ describe('context.js topicQueryNeedles', () => {
   it('deduplicates needles', () => {
     const result = topicQueryNeedles('test test test');
     // 'test' should appear only once (from phrase + dedup)
-    const testCount = result.filter(n => n === 'test').length;
+    const testCount = result.filter((n) => n === 'test').length;
     expect(testCount).toBe(1);
   });
 
@@ -731,7 +890,7 @@ describe('context.js topicQueryNeedles', () => {
 
   it('lowercases input', () => {
     const result = topicQueryNeedles('Auth JWT Token');
-    expect(result.some(n => n.includes('auth'))).toBe(true);
+    expect(result.some((n) => n.includes('auth'))).toBe(true);
   });
 
   it('terms filter: length >= 3', () => {
@@ -820,12 +979,19 @@ describe('context.js applyTokenBudget (direct)', () => {
     const result = applyTokenBudget(obs, 50);
     expect(result.length).toBeLessThanOrEqual(3);
     // All should be truncated (content cleared)
-    result.forEach(o => expect(o.content).toBe(''));
-    result.forEach(o => expect(o._truncated).toBe(true));
+    result.forEach((o) => expect(o.content).toBe(''));
+    result.forEach((o) => expect(o._truncated).toBe(true));
   });
 
   it('headers-only limits to HEADERS_ONLY_LIMIT items', () => {
-    const obs = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, title: `t${i}`, type: 'decision', content: 'c', trust_score: 0.5, created_at: ts() }));
+    const obs = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      title: `t${i}`,
+      type: 'decision',
+      content: 'c',
+      trust_score: 0.5,
+      created_at: ts(),
+    }));
     const result = applyTokenBudget(obs, 50);
     expect(result.length).toBeLessThanOrEqual(CONTEXT.HEADERS_ONLY_LIMIT || 3);
   });
@@ -848,12 +1014,19 @@ describe('context.js applyTokenBudget (direct)', () => {
     // First item truncated (28), second header (10) = 38 < 100
     // But we expect truncation to happen
     expect(result.length).toBeGreaterThan(0);
-    expect(result.some(o => o._truncated)).toBe(true);
+    expect(result.some((o) => o._truncated)).toBe(true);
   });
 
   it('falls back to header-only when truncation still exceeds budget', () => {
     const obs = [
-      { id: 1, title: 'Very long title that takes up budget', type: 'observation', content: 'X'.repeat(2000), trust_score: 0.5, created_at: ts() },
+      {
+        id: 1,
+        title: 'Very long title that takes up budget',
+        type: 'observation',
+        content: 'X'.repeat(2000),
+        trust_score: 0.5,
+        created_at: ts(),
+      },
     ];
     const result = applyTokenBudget(obs, 500);
     // May be truncated to content slice, then to header
@@ -864,7 +1037,14 @@ describe('context.js applyTokenBudget (direct)', () => {
   });
 
   it('stops adding observations when budget exhausted', () => {
-    const obs = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, title: `t${i}`, type: 'observation', content: 'C'.repeat(500), trust_score: 0.5, created_at: ts() }));
+    const obs = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1,
+      title: `t${i}`,
+      type: 'observation',
+      content: 'C'.repeat(500),
+      trust_score: 0.5,
+      created_at: ts(),
+    }));
     const result = applyTokenBudget(obs, 600);
     expect(result.length).toBeLessThan(10);
   });
@@ -888,10 +1068,17 @@ describe('context.js applyTokenBudget (direct)', () => {
   it('truncated content is capped to TRUNCATE_CONTENT_CHARS', () => {
     const truncChars = CONTEXT.TRUNCATE_CONTENT_CHARS || 100;
     const obs = [
-      { id: 1, title: 'x'.repeat(20), type: 'observation', content: 'A'.repeat(5000), trust_score: 0.5, created_at: ts() },
+      {
+        id: 1,
+        title: 'x'.repeat(20),
+        type: 'observation',
+        content: 'A'.repeat(5000),
+        trust_score: 0.5,
+        created_at: ts(),
+      },
     ];
     const result = applyTokenBudget(obs, 2000);
-    const truncated = result.find(o => o._truncated);
+    const truncated = result.find((o) => o._truncated);
     if (truncated && truncated.content.endsWith('…')) {
       // Content should be capped + ellipsis
       expect(truncated.content.length).toBeLessThanOrEqual(truncChars + 1); // +1 for ellipsis
@@ -925,7 +1112,7 @@ describe('search.js _extractFtsTerms (direct)', () => {
   it('filters out words <= 2 chars', () => {
     const result = extractFtsTerms('a ab abc');
     const terms = result.split(' ');
-    terms.forEach(t => expect(t.length).toBeGreaterThan(2));
+    terms.forEach((t) => expect(t.length).toBeGreaterThan(2));
   });
 
   it('deduplicates terms', () => {
@@ -950,8 +1137,7 @@ describe('search.js ranking formula precision', () => {
     const [ranked] = rankObservations([row], 'q');
     // recallScore = log(1+5) * MULTIPLIER * (4/5) + (4/5) * USEFULNESS_MULTIPLIER
     const expectedRecallScore =
-      Math.log(6) * RANKING.RECALL_LOG_MULTIPLIER * (4/5) +
-      (4/5) * RANKING.USEFULNESS_MULTIPLIER;
+      Math.log(6) * RANKING.RECALL_LOG_MULTIPLIER * (4 / 5) + (4 / 5) * RANKING.USEFULNESS_MULTIPLIER;
     // The composite score includes fts, recency, trust, recall * weights
     expect(ranked._score).toBeGreaterThan(0);
     // Verify recall component is in the right ballpark
@@ -1012,7 +1198,7 @@ describe('context.js SQL parameter verification', () => {
   it('cross-project query uses correct limit param', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', 'all-projects': 'true', limit: '10' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o'));
     expect(obsCall).toBeDefined();
     // The last param should be the limit
     const params = obsCall[1];
@@ -1022,7 +1208,7 @@ describe('context.js SQL parameter verification', () => {
   it('deep mode multiplies limit', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', 'all-projects': 'true', deep: 'true', limit: '5' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o'));
     expect(obsCall).toBeDefined();
     const params = obsCall[1];
     const limit = params[params.length - 1];
@@ -1033,7 +1219,7 @@ describe('context.js SQL parameter verification', () => {
   it('topic-key query passes topicKey as first param', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', 'topic-key': 'my-topic' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('topic_key = ?'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('topic_key = ?'));
     expect(obsCall).toBeDefined();
     expect(obsCall[1]).toContain('my-topic');
   });
@@ -1041,7 +1227,7 @@ describe('context.js SQL parameter verification', () => {
   it('topic query passes match.scoreParams and match.whereParams', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth token' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('topic_matches'));
     expect(obsCall).toBeDefined();
     const params = obsCall[1];
     // Should contain the project and limit
@@ -1051,7 +1237,7 @@ describe('context.js SQL parameter verification', () => {
   it('non-cross-project, non-topic passes project and fetchCeiling', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', limit: '3' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall).toBeDefined();
     expect(obsCall[1][0]).toBe('p'); // project param
   });
@@ -1079,14 +1265,14 @@ describe('context.js SQL parameter verification', () => {
   it('deep=true parsed correctly', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', 'all-projects': 'true', deep: 'true' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o'));
     expect(obsCall).toBeDefined();
   });
 
   it('deep=true (boolean) also works', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', 'all-projects': 'true', deep: true });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o'));
     expect(obsCall).toBeDefined();
   });
 
@@ -1094,12 +1280,36 @@ describe('context.js SQL parameter verification', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       // Must return some scoped observations so cross-project suggestion triggers
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 'auth test', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
-      if (q.includes('project != ?')) return [{ id: 99, title: 'cross', type: 'decision', project: 'other', created_at: '2025-01-01', trust_score: 0.5, match_score: 1 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 'auth test',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
+      if (q.includes('project != ?'))
+        return [
+          {
+            id: 99,
+            title: 'cross',
+            type: 'decision',
+            project: 'other',
+            created_at: '2025-01-01',
+            trust_score: 0.5,
+            match_score: 1,
+          },
+        ];
       return [];
     });
     const r = context(mockDeps({ sqlJson }), { project: 'p', query: 'test query' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall).toBeDefined();
   });
 
@@ -1155,7 +1365,7 @@ describe('dedupe.js remaining mutation killers', () => {
     ]);
     const result = checkDuplicate({ sqlJson }, 'Very specific unique input query', 'decision', 'p', null);
     // Should not include low-similarity candidates
-    result.potential_duplicates.forEach(d => {
+    result.potential_duplicates.forEach((d) => {
       expect(d.similarity).toBeGreaterThan(0);
     });
   });
@@ -1210,9 +1420,7 @@ describe('search.js exact composite score', () => {
   });
 
   it('recallScore = log(1+n)*MULT*ratio + ratio*USEFULNESS', () => {
-    const r = rankObservations([
-      baseObs({ id: 1, rank: 0, recall_count: 9, useful_count: 9 }),
-    ], 'test')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: 0, recall_count: 9, useful_count: 9 })], 'test')[0];
     // usefulRatio = 9/9 = 1, recallScore = log(10)*MULT*1 + 1*USEFULNESS
     const expectedRecall = Math.log(10) * RANKING.RECALL_LOG_MULTIPLIER * 1 + 1 * RANKING.USEFULNESS_MULTIPLIER;
     expect(expectedRecall).toBeGreaterThan(0);
@@ -1260,7 +1468,7 @@ describe('search.js special query handling', () => {
     const sqlJson = vi.fn(() => [baseObs({ id: 1 })]);
     search(mockDeps({ sqlJson }), { query: '*' });
     // Should go to LIKE (not FTS)
-    const likeCall = sqlJson.mock.calls.find(c => c[0].includes('LIKE') && !c[0].includes('LIKE ?') === false);
+    const likeCall = sqlJson.mock.calls.find((c) => c[0].includes('LIKE') && !c[0].includes('LIKE ?') === false);
     expect(likeCall).toBeDefined();
   });
 
@@ -1338,7 +1546,7 @@ describe('dedupe.js trigram formula precision', () => {
     // 'abcdef' → {abc, bcd, cde, def} = 4
     // shared: {abc} = 1
     // result = 1/max(3,4) = 0.25
-    expect(trigramOverlap('abcabc', 'abcdef')).toBeCloseTo(1/4, 10);
+    expect(trigramOverlap('abcabc', 'abcdef')).toBeCloseTo(1 / 4, 10);
   });
 
   it('denominator is max not min', () => {
@@ -1358,7 +1566,13 @@ describe('dedupe.js trigram formula precision', () => {
     const sqlJson = vi.fn(() => [
       { id: 1, title: 'Some test title that should match partially', topic_key: null, created_at: '2025-01-01' },
     ]);
-    const result = checkDuplicate({ sqlJson }, 'Some test title that should match partially here too', 'decision', 'p', null);
+    const result = checkDuplicate(
+      { sqlJson },
+      'Some test title that should match partially here too',
+      'decision',
+      'p',
+      null,
+    );
     if (result.potential_duplicates.length > 0) {
       const sim = result.potential_duplicates[0].similarity;
       // Math.round(sim * 100) / 100 — verify it's rounded
@@ -1414,7 +1628,7 @@ describe('context.js exact SQL verification', () => {
   it('context: cross-project SQL has no project filter', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true', project: 'p' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'"));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes("scope = 'project'"));
     expect(obsCall).toBeDefined();
     // In cross-project, the SQL should not have "o.project = ?"
     expect(obsCall[0]).not.toContain('o.project = ?');
@@ -1423,21 +1637,21 @@ describe('context.js exact SQL verification', () => {
   it('context: non-cross-project SQL has project filter', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("o.project = ?") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('o.project = ?') && !c[0].includes('topic_matches'));
     expect(obsCall).toBeDefined();
   });
 
   it('context: topic query SQL uses WITH clause', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('WITH'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('WITH'));
     expect(obsCall).toBeDefined();
   });
 
   it('context: deep mode uses Math.min for cross-project limit', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true', deep: 'true', limit: '2' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'"));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes("scope = 'project'"));
     expect(obsCall).toBeDefined();
     const limit = obsCall[1][obsCall[1].length - 1];
     // deep limit = min(2 * MULTIPLIER, MAX)
@@ -1460,7 +1674,7 @@ describe('context.js exact SQL verification', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', limit: '5', 'token-budget': '500' });
     // The non-topic, non-cross-project query should use fetchCeiling = max(5, 15) = 15
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall).toBeDefined();
     expect(obsCall[1][obsCall[1].length - 1]).toBe(15); // limit * 3
   });
@@ -1469,12 +1683,36 @@ describe('context.js exact SQL verification', () => {
     // Conditions: !crossProject && project && filtered.length > 0 && topicQuery
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 'auth test', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
-      if (q.includes('project != ?')) return [{ id: 99, title: 'cross', type: 'decision', project: 'other', created_at: '2025-01-01', trust_score: 0.5, match_score: 1 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 'auth test',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
+      if (q.includes('project != ?'))
+        return [
+          {
+            id: 99,
+            title: 'cross',
+            type: 'decision',
+            project: 'other',
+            created_at: '2025-01-01',
+            trust_score: 0.5,
+            match_score: 1,
+          },
+        ];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth token' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall).toBeDefined();
     // Supplement query has GROUP BY
     expect(crossCall[0]).toContain('GROUP BY');
@@ -1485,22 +1723,48 @@ describe('context.js exact SQL verification', () => {
   it('context: cross-project supplement does NOT fire when crossProject=true', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth', 'all-projects': 'true' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall).toBeUndefined();
   });
 
   it('context: cross-project supplement does NOT fire without topicQuery', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('observations o') && !q.includes('topic_matches')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('observations o') && !q.includes('topic_matches'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall).toBeUndefined();
   });
 
@@ -1508,7 +1772,19 @@ describe('context.js exact SQL verification', () => {
     const irlMock = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      return [
+        {
+          id: 1,
+          title: 't',
+          type: 'decision',
+          content: 'c',
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+      ];
     });
     context(mockDeps({ sqlJson, insertRecallLog: irlMock }), { project: 'p', 'session-id': '1' });
     expect(irlMock).not.toHaveBeenCalled();
@@ -1518,7 +1794,20 @@ describe('context.js exact SQL verification', () => {
     const irlMock = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       return [];
     });
     context(mockDeps({ sqlJson, insertRecallLog: irlMock }), { project: 'p', query: 'jwt auth', 'session-id': '1' });
@@ -1529,7 +1818,20 @@ describe('context.js exact SQL verification', () => {
     const irlMock = vi.fn();
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_key = ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_key = ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       return [];
     });
     context(mockDeps({ sqlJson, insertRecallLog: irlMock }), { project: 'p', 'topic-key': 'auth', 'session-id': '1' });
@@ -1548,13 +1850,20 @@ describe('context.js applyTokenBudget never-truncate overflow', () => {
     const nt = (CONTEXT_CONST.NEVER_TRUNCATE_TYPES || [])[0];
     if (!nt) return;
     // First, consume budget with a normal item
-    const normal = { id: 1, title: 'big', type: 'observation', content: 'X'.repeat(2000), trust_score: 0.5, created_at: ts() };
+    const normal = {
+      id: 1,
+      title: 'big',
+      type: 'observation',
+      content: 'X'.repeat(2000),
+      trust_score: 0.5,
+      created_at: ts(),
+    };
     // Then add a never-truncate item that would overflow
     const ntItem = { id: 2, title: 'nt', type: nt, content: 'Y'.repeat(500), trust_score: 0.5, created_at: ts() };
     // Budget = 600: normal=503 fits, then nt item would overflow
     const result = applyTokenBudget([normal, ntItem], 600);
     if (result.length > 1) {
-      const ntResult = result.find(o => o.type === nt);
+      const ntResult = result.find((o) => o.type === nt);
       if (ntResult) {
         expect(ntResult._truncated).toBe(false);
         expect(ntResult.content.length).toBe(500);
@@ -1569,7 +1878,13 @@ describe('context.js applyTokenBudget never-truncate overflow', () => {
 describe('search.js ranking formula exact', () => {
   it('composite score is multiplied by typeBoost and navBoost', () => {
     // Same content, different type → different score due to typeBoost
-    const base = { title: 'test', rank: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 };
+    const base = {
+      title: 'test',
+      rank: null,
+      created_at: new Date().toISOString().replace('Z', ''),
+      trust_score: 0.5,
+      recall_count: 0,
+    };
     const decision = rankObservations([{ ...base, id: 1, type: 'decision' }], 'q')[0];
     const observation = rankObservations([{ ...base, id: 1, type: 'observation' }], 'q')[0];
     const decisionBoost = RANKING.TYPE_BOOST['decision'] || 1.0;
@@ -1584,9 +1899,10 @@ describe('search.js ranking formula exact', () => {
   it('recallScore formula: log(1+n)*MULT*ratio + ratio*USEFUL', () => {
     // n=3, useful=3, ratio=1
     // recallScore = log(4)*MULT + 1*USEFUL
-    const r = rankObservations([
-      baseObs({ id: 1, rank: 0, recall_count: 3, useful_count: 3, type: 'observation' }),
-    ], 'test')[0];
+    const r = rankObservations(
+      [baseObs({ id: 1, rank: 0, recall_count: 3, useful_count: 3, type: 'observation' })],
+      'test',
+    )[0];
     // The recall component should contribute log(4)*MULT + USEFUL to the composite
     // (before multiplication by other weights and typeBoost)
     expect(r._score).toBeGreaterThan(0);
@@ -1630,7 +1946,10 @@ describe('search.js FTS special path', () => {
 
   it('search function: LIKE fallback LIMIT also uses multiplier', () => {
     let n = 0;
-    const sqlJson = vi.fn(() => { n++; return n === 1 ? [] : [baseObs({ id: 1 })]; });
+    const sqlJson = vi.fn(() => {
+      n++;
+      return n === 1 ? [] : [baseObs({ id: 1 })];
+    });
     search(mockDeps({ sqlJson }), { query: 'normal', limit: '3' });
     // FTS returns empty → LIKE fallback. The LIKE call (index 1) has the multiplier.
     const likeCall = sqlJson.mock.calls[1];
@@ -1642,7 +1961,7 @@ describe('search.js FTS special path', () => {
     const sqlJson = vi.fn(() => []);
     search(mockDeps({ sqlJson }), { query: 'test' });
     // No results → no relations query
-    const relCalls = sqlJson.mock.calls.filter(c => c[0].includes('observation_relations'));
+    const relCalls = sqlJson.mock.calls.filter((c) => c[0].includes('observation_relations'));
     expect(relCalls.length).toBe(0);
   });
 
@@ -1714,7 +2033,10 @@ describe('search.js FTS try/catch NoCoverage killers', () => {
 
   it('LIKE fallback query selects empty snippet', () => {
     let n = 0;
-    const sqlJson = vi.fn(() => { n++; return n === 1 ? [] : [baseObs({ id: 1 })]; });
+    const sqlJson = vi.fn(() => {
+      n++;
+      return n === 1 ? [] : [baseObs({ id: 1 })];
+    });
     search(mockDeps({ sqlJson }), { query: 'test' });
     const likeCall = sqlJson.mock.calls[1][0];
     expect(likeCall).toContain("'' as snippet");
@@ -1723,7 +2045,10 @@ describe('search.js FTS try/catch NoCoverage killers', () => {
 
   it('LIKE fallback escapes % and _ in query', () => {
     let n = 0;
-    const sqlJson = vi.fn(() => { n++; return n === 1 ? [] : [baseObs({ id: 1 })]; });
+    const sqlJson = vi.fn(() => {
+      n++;
+      return n === 1 ? [] : [baseObs({ id: 1 })];
+    });
     search(mockDeps({ sqlJson }), { query: '100%_test' });
     const likeCall = sqlJson.mock.calls[1];
     expect(likeCall[1][0]).toBe('%100\\%\\_test%');
@@ -1731,7 +2056,10 @@ describe('search.js FTS try/catch NoCoverage killers', () => {
 
   it('LIKE fallback uses o.title LIKE and o.content LIKE', () => {
     let n = 0;
-    const sqlJson = vi.fn(() => { n++; return n === 1 ? [] : [baseObs({ id: 1 })]; });
+    const sqlJson = vi.fn(() => {
+      n++;
+      return n === 1 ? [] : [baseObs({ id: 1 })];
+    });
     search(mockDeps({ sqlJson }), { query: 'test' });
     const likeCall = sqlJson.mock.calls[1][0];
     expect(likeCall).toContain('o.title LIKE ?');
@@ -1745,14 +2073,12 @@ describe('search.js FTS try/catch NoCoverage killers', () => {
 describe('search.js relations NoCoverage killers', () => {
   it('relations query uses placeholders for ranked IDs', () => {
     const sqlJson = vi.fn((q) => {
-      if (q.includes('observations_fts')) return [
-        baseObs({ id: 1, snippet: 't', rank: -1 }),
-        baseObs({ id: 2, snippet: 't', rank: -1 }),
-      ];
+      if (q.includes('observations_fts'))
+        return [baseObs({ id: 1, snippet: 't', rank: -1 }), baseObs({ id: 2, snippet: 't', rank: -1 })];
       return [];
     });
     search(mockDeps({ sqlJson }), { query: 'test' });
-    const relCall = sqlJson.mock.calls.find(c => c[0].includes('observation_relations'));
+    const relCall = sqlJson.mock.calls.find((c) => c[0].includes('observation_relations'));
     expect(relCall).toBeDefined();
     expect(relCall[0]).toContain('source_id IN');
     expect(relCall[0]).toContain('target_id IN');
@@ -1761,7 +2087,8 @@ describe('search.js relations NoCoverage killers', () => {
   it('relations query returns _relations array on each result', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('observations_fts')) return [baseObs({ id: 1, snippet: 't', rank: -1 })];
-      if (q.includes('observation_relations')) return [{ source_id: 1, target_id: 2, relation: 'related', confidence: 0.8 }];
+      if (q.includes('observation_relations'))
+        return [{ source_id: 1, target_id: 2, relation: 'related', confidence: 0.8 }];
       return [];
     });
     const r = search(mockDeps({ sqlJson }), { query: 'test' });
@@ -1786,7 +2113,7 @@ describe('context.js exact SQL formula', () => {
   it('context: deep mode limit = min(limit*MULT, MAX)', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true', deep: 'true', limit: '1' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'"));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes("scope = 'project'"));
     const limit = obsCall[1][obsCall[1].length - 1];
     expect(limit).toBe(CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER);
   });
@@ -1794,7 +2121,7 @@ describe('context.js exact SQL formula', () => {
   it('context: deep topic limit uses Math.min with MAX', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth', deep: 'true', limit: '1000' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('topic_matches') && !c[0].includes('project != ?'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('topic_matches') && !c[0].includes('project != ?'));
     if (obsCall) {
       const limit = obsCall[1][obsCall[1].length - 1];
       expect(limit).toBeLessThanOrEqual(CONTEXT.CROSS_PROJECT_DEEP_MAX);
@@ -1812,35 +2139,37 @@ describe('context.js exact SQL formula', () => {
   it('context: fetchCeiling = limit when budget=0', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', limit: '7' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[1][obsCall[1].length - 1]).toBe(7);
   });
 
   it('context: fetchCeiling = max(limit, limit*3) when budget>0', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', limit: '2', 'token-budget': '500' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[1][obsCall[1].length - 1]).toBe(6);
   });
 
   it('context: cross-project SQL orders by recall_count DESC', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find(
+      (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
+    );
     expect(obsCall[0]).toContain('ORDER BY recall_count DESC');
   });
 
   it('context: non-cross-project SQL orders by recall_count DESC', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[0]).toContain('ORDER BY recall_count DESC');
   });
 
   it('context: topic-key SQL has CASE WHEN for topic_key boost', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', 'topic-key': 'auth' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('topic_key = ?') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('topic_key = ?') && !c[0].includes('topic_matches'));
     // The SQL has CASE WHEN o.topic_key = ? THEN <boost_value>
     expect(obsCall[0]).toContain('CASE WHEN o.topic_key = ?');
   });
@@ -1849,8 +2178,28 @@ describe('context.js exact SQL formula', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [
-        { id: 1, title: 't1', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
-        { id: 2, title: 't2', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
+        {
+          id: 1,
+          title: 't1',
+          type: 'decision',
+          content: 'c',
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+        {
+          id: 2,
+          title: 't2',
+          type: 'decision',
+          content: 'c',
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
       ];
     });
     const r = context(mockDeps({ sqlJson }), { project: 'p', 'token-budget': '10000' });
@@ -1861,7 +2210,17 @@ describe('context.js exact SQL formula', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
       return [
-        { id: 1, title: 't1', type: 'decision', content: 'content one', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 },
+        {
+          id: 1,
+          title: 't1',
+          type: 'decision',
+          content: 'content one',
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
       ];
     });
     const r = context(mockDeps({ sqlJson }), { project: 'p', 'token-budget': '500' });
@@ -1875,17 +2234,17 @@ describe('context.js exact SQL formula', () => {
 describe('dedupe.js L18 exact formula', () => {
   it('shared++ increments for each matching trigram (not just first)', () => {
     const result = trigramOverlap('abcabcabc', 'abcdefghi');
-    expect(result).toBeCloseTo(1/7, 10);
+    expect(result).toBeCloseTo(1 / 7, 10);
   });
 
   it('shared count > 1 works correctly', () => {
     const result = trigramOverlap('abcdabcd', 'abcdxyzq');
-    expect(result).toBeCloseTo(2/6, 10);
+    expect(result).toBeCloseTo(2 / 6, 10);
   });
 
   it('Math.max denominator (not Math.min)', () => {
     const result = trigramOverlap('abc', 'abcdefghij');
-    expect(result).toBeCloseTo(1/8, 10);
+    expect(result).toBeCloseTo(1 / 8, 10);
   });
 });
 
@@ -1912,9 +2271,7 @@ describe('search.js ranking formula ArithmeticOperator killers', () => {
     // recallScore = log(5)*MULT*0.5 + 0.5*USEFUL
     // If mutated to single *: log(5)*MULT*0.5 + 0.5*USEFUL (same for * in first term)
     // If mutated to + in first term: (log(5)+MULT)*0.5 + 0.5*USEFUL
-    const r = rankObservations([
-      baseObs({ id: 1, rank: 0, recall_count: 4, useful_count: 2 }),
-    ], 'q')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: 0, recall_count: 4, useful_count: 2 })], 'q')[0];
     expect(r._score).toBeGreaterThan(0);
   });
 
@@ -1923,8 +2280,20 @@ describe('search.js ranking formula ArithmeticOperator killers', () => {
     // Very old obs: exp(-large)≈0
     // If mutated to *: -ageMs * HALF_LIFE (negative huge number)
     // The composite score would be very negative
-    const fresh = rankObservations([baseObs({ id: 1, rank: null, created_at: new Date().toISOString().replace('Z', '') })], 'q')[0];
-    const old = rankObservations([baseObs({ id: 1, rank: null, created_at: new Date(Date.now() - 365 * 86400000).toISOString().replace('Z', '') })], 'q')[0];
+    const fresh = rankObservations(
+      [baseObs({ id: 1, rank: null, created_at: new Date().toISOString().replace('Z', '') })],
+      'q',
+    )[0];
+    const old = rankObservations(
+      [
+        baseObs({
+          id: 1,
+          rank: null,
+          created_at: new Date(Date.now() - 365 * 86400000).toISOString().replace('Z', ''),
+        }),
+      ],
+      'q',
+    )[0];
     // Fresh should have higher score (recency = 1.0 vs ~0)
     expect(fresh._score).toBeGreaterThan(old._score);
     // Both should be positive (recency is exp which is always positive)
@@ -2046,21 +2415,23 @@ describe('context.js ORDER BY / LIMIT verification', () => {
   it('non-cross-project, non-topic: ORDER BY recall_count, type_priority, trust, created_at', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[0]).toMatch(/ORDER BY recall_count DESC, type_priority DESC, trust_score DESC, o\.created_at DESC/);
   });
 
   it('cross-project: ORDER BY recall_count, trust, type_priority, created_at', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find(
+      (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
+    );
     expect(obsCall[0]).toMatch(/ORDER BY recall_count DESC, trust_score DESC, type_priority DESC, o\.created_at DESC/);
   });
 
   it('topic-key: ORDER BY recall_count, topic_key boost, trust, created_at', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', 'topic-key': 'auth' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('topic_key = ?') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('topic_key = ?') && !c[0].includes('topic_matches'));
     expect(obsCall[0]).toContain('ORDER BY recall_count DESC');
     expect(obsCall[0]).toContain('trust_score DESC');
   });
@@ -2068,7 +2439,7 @@ describe('context.js ORDER BY / LIMIT verification', () => {
   it('topic query: ORDER BY match_score, recall_count, trust, type_priority, created_at', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('topic_matches') && !c[0].includes('project != ?'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('topic_matches') && !c[0].includes('project != ?'));
     expect(obsCall[0]).toContain('match_score DESC');
     expect(obsCall[0]).toContain('recall_count DESC');
     expect(obsCall[0]).toContain('trust_score DESC');
@@ -2078,12 +2449,36 @@ describe('context.js ORDER BY / LIMIT verification', () => {
   it('cross-project supplement: ORDER BY match_score, trust, created_at', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
-      if (q.includes('project != ?')) return [{ id: 99, title: 'cross', type: 'decision', project: 'other', created_at: '2025-01-01', trust_score: 0.5, match_score: 1 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
+      if (q.includes('project != ?'))
+        return [
+          {
+            id: 99,
+            title: 'cross',
+            type: 'decision',
+            project: 'other',
+            created_at: '2025-01-01',
+            trust_score: 0.5,
+            match_score: 1,
+          },
+        ];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall[0]).toContain('ORDER BY match_score DESC, trust_score DESC, o.created_at DESC');
   });
 });
@@ -2096,8 +2491,14 @@ describe('search.js exact composite score formula', () => {
     // Use a row where we can compute the exact expected score
     const ts = new Date().toISOString().replace('Z', '');
     const row = {
-      id: 1, title: 'test', type: 'observation', created_at: ts,
-      trust_score: 0.5, recall_count: 0, useful_count: 0, rank: null,
+      id: 1,
+      title: 'test',
+      type: 'observation',
+      created_at: ts,
+      trust_score: 0.5,
+      recall_count: 0,
+      useful_count: 0,
+      rank: null,
     };
     const r = rankObservations([row], 'q')[0];
     const ranking = require('../config').getConfig().ranking;
@@ -2132,14 +2533,10 @@ describe('search.js exact composite score formula', () => {
   it('recallScore = log(1+n)*MULT*ratio + ratio*USEFUL', () => {
     // n=9, useful=9, ratio=1
     // recallScore = log(10)*MULT*1 + 1*USEFUL
-    const r = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 9, useful_count: 9 }),
-    ], 'q')[0];
-    const r0 = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 }),
-    ], 'q')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: null, recall_count: 9, useful_count: 9 })], 'q')[0];
+    const r0 = rankObservations([baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 })], 'q')[0];
     // Difference should include the recallScore component * ranking.recall
-    const expectedRecallContrib = (Math.log(10) * RANKING.RECALL_LOG_MULTIPLIER + RANKING.USEFULNESS_MULTIPLIER);
+    const expectedRecallContrib = Math.log(10) * RANKING.RECALL_LOG_MULTIPLIER + RANKING.USEFULNESS_MULTIPLIER;
     const ranking = require('../config').getConfig().ranking;
     const diff = r._score - r0._score;
     expect(diff).toBeCloseTo(expectedRecallContrib * ranking.recall, 1);
@@ -2149,9 +2546,7 @@ describe('search.js exact composite score formula', () => {
     // With ratio=0.5, recallScore = log(1+n)*MULT*0.5 + 0.5*USEFUL
     // If mutated to *: log(1+n)*MULT*0.5 * 0.5*USEFUL (very different)
     // If mutated to -: log(1+n)*MULT*0.5 - 0.5*USEFUL (very different)
-    const r = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 2, useful_count: 1 }),
-    ], 'q')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: null, recall_count: 2, useful_count: 1 })], 'q')[0];
     // The recallScore should be positive (sum of two positive terms)
     expect(r._score).toBeGreaterThan(0);
   });
@@ -2196,12 +2591,8 @@ describe('search.js recallScore ArithmeticOperator killers', () => {
     // If mutated to log(1-n): log(-3) = NaN
     // If mutated to log(1*n): log(4) ≈ 1.386
     // If mutated to log(1/n): log(0.25) ≈ -1.386
-    const r = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 4, useful_count: 4 }),
-    ], 'q')[0];
-    const r0 = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 }),
-    ], 'q')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: null, recall_count: 4, useful_count: 4 })], 'q')[0];
+    const r0 = rankObservations([baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 })], 'q')[0];
     // Difference should include log(5) * MULT component
     const expected = Math.log(5) * RANKING.RECALL_LOG_MULTIPLIER * 1 + 1 * RANKING.USEFULNESS_MULTIPLIER;
     const ranking = require('../config').getConfig().ranking;
@@ -2215,12 +2606,8 @@ describe('search.js recallScore ArithmeticOperator killers', () => {
     // If mutated to -: -5
     // If mutated to +: 15
     // recallScore = log(11)*MULT*0.5 + 0.5*USEFUL
-    const r = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 10, useful_count: 5 }),
-    ], 'q')[0];
-    const r0 = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 }),
-    ], 'q')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: null, recall_count: 10, useful_count: 5 })], 'q')[0];
+    const r0 = rankObservations([baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 })], 'q')[0];
     const expected = Math.log(11) * RANKING.RECALL_LOG_MULTIPLIER * 0.5 + 0.5 * RANKING.USEFULNESS_MULTIPLIER;
     const ranking = require('../config').getConfig().ranking;
     const diff = r._score - r0._score;
@@ -2230,15 +2617,11 @@ describe('search.js recallScore ArithmeticOperator killers', () => {
   it('usefulRatio default 0.5 when recallCount=0', () => {
     // recallCount=0 → usefulRatio=0.5 (not 0, not 1)
     // recallScore = log(1)*MULT*0.5 + 0.5*USEFUL = 0 + 0.5*USEFUL
-    const r = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 }),
-    ], 'q')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 })], 'q')[0];
     // The recall component should be 0.5 * USEFUL * ranking.recall
     // But log(1) = 0, so first term is 0
     // Total recall contribution = 0.5 * USEFUL * ranking.recall
-    const rUseful = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 5 }),
-    ], 'q')[0];
+    const rUseful = rankObservations([baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 5 })], 'q')[0];
     // Both have ratio=0.5, so scores should be same
     expect(r._score).toBeCloseTo(rUseful._score, 5);
   });
@@ -2279,7 +2662,10 @@ describe('search.js search() SQL building L253-282', () => {
 
   it('LIKE fallback includes TRUST_RECALL_JOINS', () => {
     let n = 0;
-    const sqlJson = vi.fn(() => { n++; return n === 1 ? [] : [baseObs({ id: 1 })]; });
+    const sqlJson = vi.fn(() => {
+      n++;
+      return n === 1 ? [] : [baseObs({ id: 1 })];
+    });
     search(mockDeps({ sqlJson }), { query: 'test' });
     const likeQuery = sqlJson.mock.calls[1][0];
     expect(likeQuery).toContain('LEFT JOIN');
@@ -2287,7 +2673,10 @@ describe('search.js search() SQL building L253-282', () => {
 
   it('LIKE fallback ORDER BY created_at DESC', () => {
     let n = 0;
-    const sqlJson = vi.fn(() => { n++; return n === 1 ? [] : [baseObs({ id: 1 })]; });
+    const sqlJson = vi.fn(() => {
+      n++;
+      return n === 1 ? [] : [baseObs({ id: 1 })];
+    });
     search(mockDeps({ sqlJson }), { query: 'test' });
     const likeQuery = sqlJson.mock.calls[1][0];
     expect(likeQuery).toContain('ORDER BY o.created_at DESC');
@@ -2344,7 +2733,7 @@ describe('search.js symbol functions L358-405', () => {
     related(mockDeps({ sqlJson }), { id: '1' });
     // The first SQL query should filter out __unlinked__
     const query = sqlJson.mock.calls[0][0];
-    expect(query).toContain("symbol_id != ?");
+    expect(query).toContain('symbol_id != ?');
     expect(sqlJson.mock.calls[0][1]).toContain('__unlinked__');
   });
 });
@@ -2356,108 +2745,236 @@ describe('context.js cross-project supplement SQL exact', () => {
   it('supplement query: SELECT includes match_score from scoreSql', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
-      if (q.includes('project != ?')) return [{ id: 99, title: 'cross', type: 'decision', project: 'other', created_at: '2025-01-01', trust_score: 0.5, match_score: 1 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
+      if (q.includes('project != ?'))
+        return [
+          {
+            id: 99,
+            title: 'cross',
+            type: 'decision',
+            project: 'other',
+            created_at: '2025-01-01',
+            trust_score: 0.5,
+            match_score: 1,
+          },
+        ];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth token' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall[0]).toContain('as match_score');
   });
 
   it('supplement query: FROM observations o', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall[0]).toContain('FROM observations o');
   });
 
   it('supplement query: LEFT JOIN symbol_links sl', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall[0]).toContain('LEFT JOIN symbol_links sl');
   });
 
   it('supplement query: WHERE excludes current project', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'my-project', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall[1]).toContain('my-project');
   });
 
   it('supplement query: WHERE excludes skill type', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall[0]).toContain("o.type != 'skill'");
   });
 
   it('supplement query: WHERE filters scope = project', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall[0]).toContain("o.scope = 'project'");
   });
 
   it('supplement query: WHERE includes expires_at check', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall[0]).toContain('expires_at');
   });
 
   it('supplement query: GROUP BY o.id', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     expect(crossCall[0]).toContain('GROUP BY o.id');
   });
 
   it('supplement query: LIMIT is supplementLimit', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     const limit = crossCall[1][crossCall[1].length - 1];
     expect(limit).toBe(CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3);
   });
@@ -2472,11 +2989,25 @@ describe('context.js applyTokenBudget never-truncate overflow', () => {
   it('never-truncate type overflows budget: _truncated=false, full content preserved', () => {
     const nt = (CONTEXT.NEVER_TRUNCATE_TYPES || [])[0];
     if (!nt) return;
-    const normal = { id: 1, title: 'normal item', type: 'observation', content: 'X'.repeat(1500), trust_score: 0.5, created_at: ts() };
-    const ntItem = { id: 2, title: 'never truncate', type: nt, content: 'Y'.repeat(300), trust_score: 0.5, created_at: ts() };
+    const normal = {
+      id: 1,
+      title: 'normal item',
+      type: 'observation',
+      content: 'X'.repeat(1500),
+      trust_score: 0.5,
+      created_at: ts(),
+    };
+    const ntItem = {
+      id: 2,
+      title: 'never truncate',
+      type: nt,
+      content: 'Y'.repeat(300),
+      trust_score: 0.5,
+      created_at: ts(),
+    };
     const result = applyTokenBudget([normal, ntItem], 500);
     if (result.length > 1) {
-      const ntResult = result.find(o => o.type === nt);
+      const ntResult = result.find((o) => o.type === nt);
       if (ntResult) {
         expect(ntResult._truncated).toBe(false);
         expect(ntResult.content.length).toBe(300);
@@ -2531,7 +3062,7 @@ describe('dedupe.js L18 final precision', () => {
     // max(1, 6) = 6 → 1/6
     // min(1, 6) = 1 → 1/1 = 1.0
     const result = trigramOverlap('abc', 'abcdefgh');
-    expect(result).toBeCloseTo(1/6, 10);
+    expect(result).toBeCloseTo(1 / 6, 10);
     expect(result).not.toBe(1.0);
   });
 });
@@ -2545,7 +3076,9 @@ describe('context.js remaining killers', () => {
     // limit=5, deep=true, all-projects=true
     // crossLimit = min(5 * MULT, MAX) = 5 * MULT (if < MAX)
     context(mockDeps({ sqlJson }), { 'all-projects': 'true', deep: 'true', limit: '5' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find(
+      (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
+    );
     const limit = obsCall[1][obsCall[1].length - 1];
     expect(limit).toBe(5 * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER);
   });
@@ -2554,7 +3087,9 @@ describe('context.js remaining killers', () => {
     const sqlJson = vi.fn(() => []);
     // limit=10000 should hit MAX cap
     context(mockDeps({ sqlJson }), { 'all-projects': 'true', deep: 'true', limit: '10000' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find(
+      (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
+    );
     const limit = obsCall[1][obsCall[1].length - 1];
     expect(limit).toBe(CONTEXT.CROSS_PROJECT_DEEP_MAX);
   });
@@ -2562,7 +3097,7 @@ describe('context.js remaining killers', () => {
   it('topic deep limit: uses Math.min with MAX', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth', deep: 'true', limit: '10000' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('topic_matches') && !c[0].includes('project != ?'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('topic_matches') && !c[0].includes('project != ?'));
     if (obsCall) {
       const limit = obsCall[1][obsCall[1].length - 1];
       expect(limit).toBe(CONTEXT.CROSS_PROJECT_DEEP_MAX);
@@ -2573,7 +3108,7 @@ describe('context.js remaining killers', () => {
     const sqlJson = vi.fn(() => []);
     // limit=10, budget=500 → fetchCeiling = max(10, 30) = 30
     context(mockDeps({ sqlJson }), { project: 'p', limit: '10', 'token-budget': '500' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[1][obsCall[1].length - 1]).toBe(30);
   });
 
@@ -2581,7 +3116,7 @@ describe('context.js remaining killers', () => {
     // This shouldn't happen normally, but tests Math.max behavior
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p', limit: '100', 'token-budget': '500' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[1][obsCall[1].length - 1]).toBe(300); // max(100, 300) = 300
   });
 
@@ -2610,7 +3145,7 @@ describe('context.js remaining killers', () => {
   it('context: project-scoped observations have exact SQL with trust_score COALESCE', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[0]).toContain('COALESCE');
     expect(obsCall[0]).toContain('trust_score');
   });
@@ -2618,42 +3153,48 @@ describe('context.js remaining killers', () => {
   it('context: SQL includes TYPE_PRIORITY_CASE', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[0]).toContain('type_priority');
   });
 
   it('context: SQL filters o.type != skill', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[0]).toContain("o.type != 'skill'");
   });
 
   it('context: cross-project SQL filters o.scope = project', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find(
+      (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
+    );
     expect(obsCall[0]).toContain("o.scope = 'project'");
   });
 
   it('context: SQL includes expires_at check', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { project: 'p' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[0]).toContain('expires_at');
   });
 
   it('context: cross-project SQL does NOT filter by project', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find(
+      (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
+    );
     expect(obsCall[0]).not.toContain('o.project = ?');
   });
 
   it('context: cross-project SQL has no project param', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true' });
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find(
+      (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
+    );
     // Only the limit param
     expect(obsCall[1].length).toBe(1);
   });
@@ -2739,7 +3280,7 @@ describe('context.js boundary condition killers', () => {
     const result = topicQueryNeedles('test');
     // 'test' should appear only once (from phrase, terms are 'test' which is in STOP_WORDS? no)
     // Actually 'test' is not a stop word, so it appears in both phrase and terms
-    const testCount = result.filter(n => n === 'test').length;
+    const testCount = result.filter((n) => n === 'test').length;
     expect(testCount).toBe(1);
   });
 
@@ -2775,7 +3316,7 @@ describe('context.js boundary condition killers', () => {
     const defaultLimit = config.getConfig().context_limit;
     context(mockDeps({ sqlJson }), { project: 'p' });
     // The last param should be the default limit
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes('observations o') && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches'));
     expect(obsCall[1][obsCall[1].length - 1]).toBe(defaultLimit);
   });
 
@@ -2790,7 +3331,19 @@ describe('context.js boundary condition killers', () => {
     const irlMock = vi.fn();
     const sqlJson2 = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      return [
+        {
+          id: 1,
+          title: 't',
+          type: 'decision',
+          content: 'c',
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+      ];
     });
     context(mockDeps({ sqlJson: sqlJson2, insertRecallLog: irlMock }), { project: 'p', 'session-id': '42' });
     expect(irlMock).not.toHaveBeenCalled();
@@ -2801,7 +3354,19 @@ describe('context.js boundary condition killers', () => {
     const irlMock = vi.fn();
     const sqlJson2 = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      return [
+        {
+          id: 1,
+          title: 't',
+          type: 'decision',
+          content: 'c',
+          scope: 'project',
+          topic_key: null,
+          created_at: new Date().toISOString().replace('Z', ''),
+          trust_score: 0.5,
+          recall_count: 0,
+        },
+      ];
     });
     context(mockDeps({ sqlJson: sqlJson2, insertRecallLog: irlMock }), { project: 'p' });
     // No session-id → sessionId = null → insertRecallLog should NOT be called
@@ -2812,7 +3377,9 @@ describe('context.js boundary condition killers', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true', deep: 'true' });
     // deep=true should trigger the deep limit path
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find(
+      (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
+    );
     const limit = obsCall[1][obsCall[1].length - 1];
     // Deep limit should be > default limit
     expect(limit).toBeGreaterThan(0);
@@ -2822,7 +3389,9 @@ describe('context.js boundary condition killers', () => {
     const sqlJson = vi.fn(() => []);
     context(mockDeps({ sqlJson }), { 'all-projects': 'true', deep: 'false' });
     // deep=false → fetchCeiling = limit (no deep multiplication)
-    const obsCall = sqlJson.mock.calls.find(c => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'));
+    const obsCall = sqlJson.mock.calls.find(
+      (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
+    );
     const config = require('../config');
     const defaultLimit = config.getConfig().context_limit;
     // Should be the default limit (no deep multiplication)
@@ -2908,12 +3477,8 @@ describe('search.js remaining ArithmeticOperator killers L44-55', () => {
   it('recallScore: Math.log(1+n) with n=1: exact value', () => {
     // n=1, useful=1, ratio=1
     // recallScore = log(2)*MULT*1 + 1*USEFUL
-    const r = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 1, useful_count: 1 }),
-    ], 'q')[0];
-    const r0 = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 }),
-    ], 'q')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: null, recall_count: 1, useful_count: 1 })], 'q')[0];
+    const r0 = rankObservations([baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 })], 'q')[0];
     const expected = Math.log(2) * RANKING.RECALL_LOG_MULTIPLIER + RANKING.USEFULNESS_MULTIPLIER;
     const ranking = require('../config').getConfig().ranking;
     const diff = r._score - r0._score;
@@ -2921,12 +3486,8 @@ describe('search.js remaining ArithmeticOperator killers L44-55', () => {
   });
 
   it('recallScore: Math.log(1+n) with n=100: exact value', () => {
-    const r = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 100, useful_count: 100 }),
-    ], 'q')[0];
-    const r0 = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 }),
-    ], 'q')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: null, recall_count: 100, useful_count: 100 })], 'q')[0];
+    const r0 = rankObservations([baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 })], 'q')[0];
     const expected = Math.log(101) * RANKING.RECALL_LOG_MULTIPLIER + RANKING.USEFULNESS_MULTIPLIER;
     const ranking = require('../config').getConfig().ranking;
     const diff = r._score - r0._score;
@@ -2937,12 +3498,8 @@ describe('search.js remaining ArithmeticOperator killers L44-55', () => {
     // n=4, useful=2, ratio=0.5
     // recallScore = log(5)*MULT*0.5 + 0.5*USEFUL
     // If mutated to *: 2*4=8 * MULT * 0.5 + 0.5*USEFUL = 4*MULT + 0.5*USEFUL (very different)
-    const r = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 4, useful_count: 2 }),
-    ], 'q')[0];
-    const r0 = rankObservations([
-      baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 }),
-    ], 'q')[0];
+    const r = rankObservations([baseObs({ id: 1, rank: null, recall_count: 4, useful_count: 2 })], 'q')[0];
+    const r0 = rankObservations([baseObs({ id: 1, rank: null, recall_count: 0, useful_count: 0 })], 'q')[0];
     const expected = Math.log(5) * RANKING.RECALL_LOG_MULTIPLIER * 0.5 + 0.5 * RANKING.USEFULNESS_MULTIPLIER;
     const ranking = require('../config').getConfig().ranking;
     const diff = r._score - r0._score;
@@ -2952,7 +3509,10 @@ describe('search.js remaining ArithmeticOperator killers L44-55', () => {
   it('recency: Math.exp(-ageMs / HALF_LIFE) — ageMs=0 → exp(0)=1', () => {
     // Just-created observation
     const ts = new Date().toISOString().replace('Z', '');
-    const r = rankObservations([baseObs({ id: 1, rank: null, created_at: ts, trust_score: 0, recall_count: 0, useful_count: 0 })], 'q')[0];
+    const r = rankObservations(
+      [baseObs({ id: 1, rank: null, created_at: ts, trust_score: 0, recall_count: 0, useful_count: 0 })],
+      'q',
+    )[0];
     const ranking = require('../config').getConfig().ranking;
     // recency ≈ 1, so score ≈ 1 * ranking.recency
     expect(r._score).toBeCloseTo(1.0 * ranking.recency, 1);
@@ -3060,12 +3620,25 @@ describe('context.js cross-project supplement remaining killers', () => {
   it('supplement query: params order is [scoreParams..., project, whereParams..., supplementLimit]', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'my-proj', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     // The project param should be in the middle (after scoreParams, before whereParams)
     expect(crossCall[1]).toContain('my-proj');
   });
@@ -3073,12 +3646,25 @@ describe('context.js cross-project supplement remaining killers', () => {
   it('supplement query: supplementLimit is last param', () => {
     const sqlJson = vi.fn((q) => {
       if (q.includes('session_log') || q.includes("scope = 'personal'")) return [];
-      if (q.includes('topic_matches') && !q.includes('project != ?')) return [{ id: 1, title: 't', type: 'decision', content: 'c', scope: 'project', topic_key: null, created_at: new Date().toISOString().replace('Z', ''), trust_score: 0.5, recall_count: 0 }];
+      if (q.includes('topic_matches') && !q.includes('project != ?'))
+        return [
+          {
+            id: 1,
+            title: 't',
+            type: 'decision',
+            content: 'c',
+            scope: 'project',
+            topic_key: null,
+            created_at: new Date().toISOString().replace('Z', ''),
+            trust_score: 0.5,
+            recall_count: 0,
+          },
+        ];
       if (q.includes('project != ?')) return [];
       return [];
     });
     context(mockDeps({ sqlJson }), { project: 'p', query: 'auth' });
-    const crossCall = sqlJson.mock.calls.find(c => c[0].includes('project != ?'));
+    const crossCall = sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
     const lastParam = crossCall[1][crossCall[1].length - 1];
     expect(lastParam).toBe(CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3);
   });

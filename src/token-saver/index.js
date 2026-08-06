@@ -50,7 +50,8 @@ async function executeAndCompress(commandArgs, options = {}) {
   const compressedChars = compressed.importantOutput.length;
   const estimatedCompressedTokens = estimateTokens(compressed.importantOutput);
   const estimatedSavedTokens = Math.max(0, estimatedOriginalTokens - estimatedCompressedTokens);
-  const savingsPercent = estimatedOriginalTokens > 0 ? Math.round((estimatedSavedTokens / estimatedOriginalTokens) * 1000) / 10 : 0;
+  const savingsPercent =
+    estimatedOriginalTokens > 0 ? Math.round((estimatedSavedTokens / estimatedOriginalTokens) * 1000) / 10 : 0;
 
   const finalResult = {
     command,

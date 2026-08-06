@@ -57,9 +57,12 @@ function savePreferences(userId, prefs) {
   it('audits a diff for violations', () => {
     // Add a new file that may be considered duplicate
     const newFile = path.join(tmpRepo, 'src', 'notification-prefs.js');
-    fs.writeFileSync(newFile, `function getNotificationPreferences(userId) {
+    fs.writeFileSync(
+      newFile,
+      `function getNotificationPreferences(userId) {
   return db.query("SELECT * FROM prefs WHERE user_id = ?", [userId]);
-}`);
+}`,
+    );
 
     const result = run(`audit-diff --repo ${repoName} --files src/notification-prefs.js`);
     expect(result.error).toBeUndefined();

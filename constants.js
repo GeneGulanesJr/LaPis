@@ -245,11 +245,11 @@ const AUDIT_DIFF = {
     'existing_service_ignored',
   ],
   RISK_WEIGHTS: {
-    duplicate: 0.30,
+    duplicate: 0.3,
     hot_path: 0.25,
-    untested: 0.20,
+    untested: 0.2,
     constraint: 0.15,
-    ignored_service: 0.10,
+    ignored_service: 0.1,
   },
   RISK_LEVELS: {
     LOW: 0.3,

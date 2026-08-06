@@ -1,4 +1,12 @@
-const { readGuardReason, guardReason, searchGuardReason, buildSessionEndArgs, handlePayload, runHook, countSessionMemories } = require('../../src/hermes/hook');
+const {
+  readGuardReason,
+  guardReason,
+  searchGuardReason,
+  buildSessionEndArgs,
+  handlePayload,
+  runHook,
+  countSessionMemories,
+} = require('../../src/hermes/hook');
 
 const REPOS = [{ name: 'Proj', path: '/work/proj' }];
 
@@ -129,14 +137,12 @@ describe('hermes hook: countSessionMemories', () => {
 });
 
 describe('hermes hook: search guardrail', () => {
-  const searchPayload = (ti) =>
-    payload({ tool_name: 'search_files', tool_input: ti });
+  const searchPayload = (ti) => payload({ tool_name: 'search_files', tool_input: ti });
 
   test('blocks broad content search in an indexed repo', () => {
-    const reason = guardReason(
-      searchPayload({ pattern: '.*', target: 'content', path: '/work/proj/src' }),
-      { repos: REPOS },
-    );
+    const reason = guardReason(searchPayload({ pattern: '.*', target: 'content', path: '/work/proj/src' }), {
+      repos: REPOS,
+    });
     expect(reason).toBeTruthy();
     expect(reason).toContain('Blocked by LaPis search guard');
     expect(reason).toContain('memory_code');
@@ -151,10 +157,9 @@ describe('hermes hook: search guardrail', () => {
   });
 
   test('allows search outside indexed repos', () => {
-    const reason = guardReason(
-      searchPayload({ pattern: '.*', target: 'content', path: '/elsewhere' }),
-      { repos: REPOS },
-    );
+    const reason = guardReason(searchPayload({ pattern: '.*', target: 'content', path: '/elsewhere' }), {
+      repos: REPOS,
+    });
     expect(reason).toBeNull();
   });
 
@@ -163,7 +168,9 @@ describe('hermes hook: search guardrail', () => {
       searchGuardReason(searchPayload({ pattern: '.*', target: 'content', path: '/work/proj/src' }), { repos: REPOS }),
     ).toBeTruthy();
     expect(
-      searchGuardReason(searchPayload({ pattern: 'rankObservations', target: 'content', path: '/work/proj/src' }), { repos: REPOS }),
+      searchGuardReason(searchPayload({ pattern: 'rankObservations', target: 'content', path: '/work/proj/src' }), {
+        repos: REPOS,
+      }),
     ).toBeNull();
   });
 

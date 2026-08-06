@@ -199,7 +199,7 @@ The paired benchmark also reports behavior counters. In the latest run, memory-o
 
 ## Requirements
 
-- Node.js
+- Node.js 20+
 - `better-sqlite3` for local SQLite access
 - No Python dependency
 - No API keys or cloud services

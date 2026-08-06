@@ -21,11 +21,7 @@ function indexRepo(deps) {
     }
     const path = require('path');
     const repoName = name || path.basename(repoPath);
-    const result = await indexRepository(
-      { db: getDb(), args: {} },
-      repoPath,
-      repoName,
-    );
+    const result = await indexRepository({ db: getDb(), args: {} }, repoPath, repoName);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   };
@@ -38,11 +34,7 @@ function reindexRepo(deps) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'repo is required' }));
     }
-    const result = await reindexRepository(
-      { db: getDb(), args: {} },
-      repo,
-      mode || 'incremental',
-    );
+    const result = await reindexRepository({ db: getDb(), args: {} }, repo, mode || 'incremental');
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   };
@@ -55,10 +47,7 @@ function codeRepoHealthHandler(deps) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'repo is required' }));
     }
-    const result = await getCodeRepoHealth(
-      { db: getDb(), args: {} },
-      repo,
-    );
+    const result = await getCodeRepoHealth({ db: getDb(), args: {} }, repo);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   };
@@ -89,7 +78,9 @@ function codeRepoSummary(deps) {
     }
 
     // Edge count
-    const edgeRow = db.prepare('SELECT COUNT(*) as count FROM code_imports WHERE repo_id = ? AND target_file_id IS NOT NULL').get(repoRow.id);
+    const edgeRow = db
+      .prepare('SELECT COUNT(*) as count FROM code_imports WHERE repo_id = ? AND target_file_id IS NOT NULL')
+      .get(repoRow.id);
 
     // Module grouping
     const fileRows = db.prepare('SELECT path FROM code_files WHERE repo_id = ?').all(repoRow.id);
@@ -103,7 +94,8 @@ function codeRepoSummary(deps) {
       .sort((a, b) => b.fileCount - a.fileCount);
 
     // Entry points: files with most importers (afferent coupling)
-    const entryRows = db.prepare(`
+    const entryRows = db
+      .prepare(`
       SELECT cf.path, COUNT(DISTINCT ci.source_file_id) as importer_count
       FROM code_imports ci
       JOIN code_files cf ON cf.id = ci.target_file_id
@@ -111,20 +103,23 @@ function codeRepoSummary(deps) {
       GROUP BY ci.target_file_id
       ORDER BY importer_count DESC
       LIMIT 5
-    `).all(repoRow.id);
-    const entryPoints = entryRows.map(r => r.path.split('/').pop());
+    `)
+      .all(repoRow.id);
+    const entryPoints = entryRows.map((r) => r.path.split('/').pop());
 
     const cyc = safeDependencyCycles(db, repoRow.id);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      files: repoRow.file_count,
-      symbols: repoRow.symbol_count,
-      edges: edgeRow.count,
-      modules: moduleList,
-      entryPoints,
-      cycles: { count: cyc.cycles.length, paths: cyc.cycles.map((c) => c.files) },
-    }));
+    res.end(
+      JSON.stringify({
+        files: repoRow.file_count,
+        symbols: repoRow.symbol_count,
+        edges: edgeRow.count,
+        modules: moduleList,
+        entryPoints,
+        cycles: { count: cyc.cycles.length, paths: cyc.cycles.map((c) => c.files) },
+      }),
+    );
   };
 }
 
@@ -144,7 +139,8 @@ function codeRepoGraph(deps) {
     }
 
     // Top 50 files by symbol count
-    const fileRows = db.prepare(`
+    const fileRows = db
+      .prepare(`
       SELECT cf.id, cf.path, COUNT(cs.id) as symbol_count
       FROM code_files cf
       LEFT JOIN code_symbols cs ON cs.file_id = cf.id
@@ -152,11 +148,12 @@ function codeRepoGraph(deps) {
       GROUP BY cf.id
       ORDER BY symbol_count DESC
       LIMIT 50
-    `).all(repoRow.id);
+    `)
+      .all(repoRow.id);
 
-    const fileIds = new Set(fileRows.map(f => f.id));
+    const fileIds = new Set(fileRows.map((f) => f.id));
 
-    const nodes = fileRows.map(f => ({
+    const nodes = fileRows.map((f) => ({
       id: f.path.split('/').pop(),
       fullPath: f.path,
       module: detectModule(f.path),
@@ -165,19 +162,21 @@ function codeRepoGraph(deps) {
     }));
 
     // Import edges between top files
-    const nodePaths = new Set(nodes.map(n => n.fullPath));
+    const nodePaths = new Set(nodes.map((n) => n.fullPath));
     let edges = [];
     if (fileIds.size > 0) {
-      const edgeRows = db.prepare(`
+      const edgeRows = db
+        .prepare(`
         SELECT sf.path as from_path, tf.path as to_path
         FROM code_imports ci
         JOIN code_files sf ON sf.id = ci.source_file_id
         JOIN code_files tf ON tf.id = ci.target_file_id
         WHERE ci.repo_id = ? AND ci.target_file_id IS NOT NULL
-      `).all(repoRow.id);
+      `)
+        .all(repoRow.id);
       edges = edgeRows
-        .filter(e => nodePaths.has(e.from_path) && nodePaths.has(e.to_path))
-        .map(e => ({
+        .filter((e) => nodePaths.has(e.from_path) && nodePaths.has(e.to_path))
+        .map((e) => ({
           from: e.from_path.split('/').pop(),
           to: e.to_path.split('/').pop(),
           kind: 'import',
@@ -186,11 +185,13 @@ function codeRepoGraph(deps) {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     const cyc = safeDependencyCycles(db, repoRow.id);
-    res.end(JSON.stringify({
-      nodes,
-      edges,
-      cycles: cyc.cycles.map((c) => ({ files: c.files, edges: c.edges })),
-    }));
+    res.end(
+      JSON.stringify({
+        nodes,
+        edges,
+        cycles: cyc.cycles.map((c) => ({ files: c.files, edges: c.edges })),
+      }),
+    );
   };
 }
 
@@ -209,7 +210,8 @@ function codeRepoHotspots(deps) {
       return res.end(JSON.stringify({ error: 'repo not found' }));
     }
 
-    const fileRows = db.prepare(`
+    const fileRows = db
+      .prepare(`
       SELECT cf.path, SUM(sc.cyclomatic) as complexity, COUNT(cs.id) as symbols
       FROM code_files cf
       JOIN code_symbols cs ON cs.file_id = cf.id
@@ -218,9 +220,10 @@ function codeRepoHotspots(deps) {
       GROUP BY cf.id
       ORDER BY complexity DESC
       LIMIT 20
-    `).all(repoRow.id);
+    `)
+      .all(repoRow.id);
 
-    const files = fileRows.map(f => ({
+    const files = fileRows.map((f) => ({
       path: f.path,
       module: detectModule(f.path),
       complexity: f.complexity || 0,

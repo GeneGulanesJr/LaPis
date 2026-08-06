@@ -29,14 +29,15 @@ describe('compressMissionState', () => {
   it('aggregates findings, verdicts, and costs into a single summary', () => {
     const sqlJson = makeSqlJson({
       findings: [
-        { title: 'Auth uses JWT', content: 'JWT signed with HS256, validated in middleware.ts', relevance: 'high', status: 'verified' },
+        {
+          title: 'Auth uses JWT',
+          content: 'JWT signed with HS256, validated in middleware.ts',
+          relevance: 'high',
+          status: 'verified',
+        },
       ],
-      verdicts: [
-        { verdict: 'fail', findings: 'missing error handling on 401', failed_unit_ids: 'u-1' },
-      ],
-      costs: [
-        { total_cost: 1.5, total_prompt_tokens: 1000, total_completion_tokens: 500, entry_count: 3 },
-      ],
+      verdicts: [{ verdict: 'fail', findings: 'missing error handling on 401', failed_unit_ids: 'u-1' }],
+      costs: [{ total_cost: 1.5, total_prompt_tokens: 1000, total_completion_tokens: 500, entry_count: 3 }],
     });
     const result = compressMissionState({ sqlJson, missionId: 'm-1' });
     expect(result.summary).toBeDefined();

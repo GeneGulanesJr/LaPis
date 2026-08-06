@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-08-06
+
 ### Added
 
 - **Hermes Agent integration — `lapis hermes install|uninstall|doctor|hook`**
@@ -247,3 +249,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Tests: `test/hooks-engine/tool-response-parse.test.js`,
     `test/claude-code/tool-hooks.test.js`, plus guardrail-utils and router
     coverage.
+
+## [1.1.3] - 2026-06-15
+
+Published to npm without a separate changelog cut; changes are captured in the [1.1.4] record and git history.
+
+## [1.1.2] - 2026-05-25
+
+Published to npm without a separate changelog cut; changes are captured in the [1.1.4] record and git history.
+
+## [1.0.0] - 2026-05-25
+
+Initial release. Published to npm without a separate changelog cut; changes are captured in the [1.1.4] record and git history.

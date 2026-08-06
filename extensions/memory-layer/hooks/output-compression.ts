@@ -77,9 +77,7 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
     const originalTokens = estimateTokens(output);
     const compressedTokens = estimateTokens(compressed.importantOutput);
     const savedTokens = Math.max(0, originalTokens - compressedTokens);
-    const savingsPercent = originalTokens > 0
-      ? Math.round((savedTokens / originalTokens) * 1000) / 10
-      : 0;
+    const savingsPercent = originalTokens > 0 ? Math.round((savedTokens / originalTokens) * 1000) / 10 : 0;
 
     // Only replace if savings are meaningful
     if (savingsPercent < minSavingsPercent) {

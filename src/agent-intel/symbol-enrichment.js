@@ -13,7 +13,11 @@ function _requireNativeDb(db) {
  */
 function extractIntent(symbol) {
   if (symbol.docstring && symbol.docstring.trim().length > 5) {
-    const firstLine = symbol.docstring.trim().split('\n')[0].replace(/\*\/?\s*/g, '').trim();
+    const firstLine = symbol.docstring
+      .trim()
+      .split('\n')[0]
+      .replace(/\*\/?\s*/g, '')
+      .trim();
     if (firstLine.length > 0 && firstLine.length <= CFG.MAX_INTENT_LENGTH) {
       return firstLine;
     }
@@ -29,7 +33,10 @@ function extractIntent(symbol) {
     { re: /^(?:send|dispatch|emit|publish|notify)(.+)/i, template: (m) => `Send ${_humanize(m[1])}` },
     { re: /^(?:handle|on|process|execute|run|perform)(.+)/i, template: (m) => `Handle ${_humanize(m[1])}` },
     { re: /^(?:is|has|can|should|will)(.+)/i, template: (m) => `Check if ${_humanize(m[1])}` },
-    { re: /^(?:format|parse|transform|convert|serialize|normalize)(.+)/i, template: (m) => `Transform ${_humanize(m[1])}` },
+    {
+      re: /^(?:format|parse|transform|convert|serialize|normalize)(.+)/i,
+      template: (m) => `Transform ${_humanize(m[1])}`,
+    },
   ];
 
   for (const { re, template } of patterns) {
@@ -92,7 +99,11 @@ function _buildBehaviorSummary(symbol) {
   if (symbol.kind) parts.push(`${symbol.kind}`);
   if (symbol.signature) parts.push(symbol.signature);
   if (symbol.docstring) {
-    const firstLine = symbol.docstring.trim().split('\n')[0].replace(/\*\/?\s*/g, '').trim();
+    const firstLine = symbol.docstring
+      .trim()
+      .split('\n')[0]
+      .replace(/\*\/?\s*/g, '')
+      .trim();
     if (firstLine) parts.push(firstLine);
   }
   return parts.join(' — ').slice(0, 500);

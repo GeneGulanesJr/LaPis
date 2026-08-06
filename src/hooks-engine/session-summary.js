@@ -49,15 +49,11 @@ function buildSessionSummary({
   // fell back to "Session work" for string content — losing the goal for every
   // Claude Code session. extractMessageText handles both shapes.
   const goalText =
-    userMessages.length > 0 ? extractMessageText(userMessages[0]?.message)?.slice(0, 200) || 'Session work' : 'Session work';
+    userMessages.length > 0
+      ? extractMessageText(userMessages[0]?.message)?.slice(0, 200) || 'Session work'
+      : 'Session work';
 
-  const summaryParts = [
-    '## Goal',
-    goalText,
-    '',
-    '## Topics Discussed',
-    ...topics.slice(0, 10).map((t) => `- ${t}`),
-  ];
+  const summaryParts = ['## Goal', goalText, '', '## Topics Discussed', ...topics.slice(0, 10).map((t) => `- ${t}`)];
 
   const files = uniqueEditedPaths(editedFiles);
   if (files.length > 0) {
