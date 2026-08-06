@@ -5,8 +5,6 @@
  * Usage: node cli.js cleanup-sessions [--project X] [--dry-run] [--yes] [--keep-last N] [--include-dream] [--bypass-age-gates] [--json]
  */
 
-const { RESULT_LIMITS } = require('../constants');
-
 const SESSION_FLOOR = 5;
 
 function triageReport(deps) {
