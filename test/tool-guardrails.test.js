@@ -43,25 +43,17 @@ describe('tool-guardrails: isTargetedSymbolLookup', () => {
 
   test('allows grep with --include flag after the symbol', () => {
     expect(
-      isTargetedSymbolLookup(
-        'grep -rn "rankObservations" /home/user/project/ --include="*.ts" --include="*.js" -l',
-      ),
+      isTargetedSymbolLookup('grep -rn "rankObservations" /home/user/project/ --include="*.ts" --include="*.js" -l'),
     ).toBe(true);
   });
 
   test('allows structural grep inside a single source file', () => {
-    expect(
-      isTargetedSymbolLookup(
-        "grep -n 'return {' /home/user/project/src/memory-domain/context.js",
-      ),
-    ).toBe(true);
+    expect(isTargetedSymbolLookup("grep -n 'return {' /home/user/project/src/memory-domain/context.js")).toBe(true);
   });
 
   test('allows structural rg inside a single source file', () => {
     expect(
-      isTargetedSymbolLookup(
-        'rg -n "return\\\\s*\\\\{|stats" /home/user/project/src/memory-domain/context.js',
-      ),
+      isTargetedSymbolLookup('rg -n "return\\\\s*\\\\{|stats" /home/user/project/src/memory-domain/context.js'),
     ).toBe(true);
   });
 

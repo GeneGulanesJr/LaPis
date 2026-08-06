@@ -188,7 +188,11 @@ function buildRoutes(deps) {
     { method: 'GET', pattern: '/todo-ledgers', handler: todos.listMissionLedgers(aurex) },
     { method: 'GET', pattern: '/missions/:missionId/todo-ledger', handler: todos.getMissionLedger(aurex) },
     { method: 'PATCH', pattern: '/missions/:missionId/todo-ledger', handler: todos.updateMissionLedger(aurex) },
-    { method: 'PATCH', pattern: '/missions/:missionId/todo-ledger/status', handler: todos.setMissionLedgerStatus(aurex) },
+    {
+      method: 'PATCH',
+      pattern: '/missions/:missionId/todo-ledger/status',
+      handler: todos.setMissionLedgerStatus(aurex),
+    },
     { method: 'POST', pattern: '/missions/:missionId/todo-events', handler: todos.recordMissionEvent(aurex) },
     { method: 'GET', pattern: '/missions/:missionId/todo-events', handler: todos.listMissionEvents(aurex) },
 

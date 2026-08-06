@@ -11,8 +11,12 @@ function getDashboard(deps) {
   // ── Overview ──────────────────────────────────────────────
   const totalMemories = one('SELECT COUNT(*) as cnt FROM observations WHERE deleted_at IS NULL').cnt;
   const totalProjects = one('SELECT COUNT(DISTINCT project) as cnt FROM observations WHERE deleted_at IS NULL').cnt;
-  const thisWeekSaved = one("SELECT COUNT(*) as cnt FROM observations WHERE deleted_at IS NULL AND created_at >= datetime('now', '-7 days')").cnt;
-  const thisWeekCleaned = one("SELECT COUNT(*) as cnt FROM observations WHERE deleted_at IS NOT NULL AND deleted_at >= datetime('now', '-7 days')").cnt;
+  const thisWeekSaved = one(
+    "SELECT COUNT(*) as cnt FROM observations WHERE deleted_at IS NULL AND created_at >= datetime('now', '-7 days')",
+  ).cnt;
+  const thisWeekCleaned = one(
+    "SELECT COUNT(*) as cnt FROM observations WHERE deleted_at IS NOT NULL AND deleted_at >= datetime('now', '-7 days')",
+  ).cnt;
   const avgTrustRow = one('SELECT AVG(trust_score) as avg FROM symbol_links');
   const avgTrust = avgTrustRow.avg ?? null;
   const neverRecalled = one(
@@ -88,9 +92,7 @@ function getDashboard(deps) {
   }
 
   // ── Code Index ────────────────────────────────────────────
-  const codeIndexRaw = sqlJson(
-    'SELECT name, path, file_count, symbol_count, indexed_at, base_head FROM code_repos',
-  );
+  const codeIndexRaw = sqlJson('SELECT name, path, file_count, symbol_count, indexed_at, base_head FROM code_repos');
   const codeIndex = codeIndexRaw.map((r) => ({
     name: r.name,
     path: r.path,

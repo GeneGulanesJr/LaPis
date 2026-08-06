@@ -11,10 +11,13 @@ describe('POST /missions/:id/compression (HTTP)', () => {
     resetDb();
     createDb({ db_path: ':memory:' });
     // Seed a mission and a cost entry so the handler has something to compress
-    sqlRun(
-      `INSERT INTO missions (id, description, status, config_json, created_at) VALUES (?, ?, ?, ?, ?)`,
-      ['m-smoke-1', 'smoke test mission', 'running', '{}', new Date().toISOString()],
-    );
+    sqlRun(`INSERT INTO missions (id, description, status, config_json, created_at) VALUES (?, ?, ?, ?, ?)`, [
+      'm-smoke-1',
+      'smoke test mission',
+      'running',
+      '{}',
+      new Date().toISOString(),
+    ]);
     sqlRun(
       `INSERT INTO cost_entries (id, mission_id, agent_session_id, model, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       ['c-1', 'm-smoke-1', 's-1', 'test-model', 100, 50, 0.01],
@@ -70,10 +73,13 @@ describe('POST /missions/:id/compression (HTTP)', () => {
   });
 
   it('returns a friendly empty-state summary for a mission with no state', async () => {
-    sqlRun(
-      `INSERT INTO missions (id, description, status, config_json, created_at) VALUES (?, ?, ?, ?, ?)`,
-      ['m-smoke-empty', 'empty mission', 'running', '{}', new Date().toISOString()],
-    );
+    sqlRun(`INSERT INTO missions (id, description, status, config_json, created_at) VALUES (?, ?, ?, ?, ?)`, [
+      'm-smoke-empty',
+      'empty mission',
+      'running',
+      '{}',
+      new Date().toISOString(),
+    ]);
     const res = await request('POST', '/missions/m-smoke-empty/compression', { trigger: 'manual' });
     expect(res.status).toBe(200);
     expect(typeof res.body.summary).toBe('string');

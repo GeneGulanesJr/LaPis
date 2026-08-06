@@ -56,10 +56,7 @@ describe('correctness review fixes (round 3) — F23-F26', () => {
 
   // ── F24: winnow applies minPageRank filter ─────────────────────────────
   it('F24: winnow destructures minPageRank (not _minPageRank) and filters by it', () => {
-    const src = fs.readFileSync(
-      require.resolve('../src/code-analysis/import-graph-impl'),
-      'utf8',
-    );
+    const src = fs.readFileSync(require.resolve('../src/code-analysis/import-graph-impl'), 'utf8');
     // The pre-fix bug renamed the opt to _minPageRank (unused marker).
     expect(src).not.toMatch(/minPageRank:\s*_minPageRank/);
     // The fix must both destructure it plainly and apply a filter.
@@ -104,10 +101,7 @@ describe('correctness review fixes (round 3) — F23-F26', () => {
   });
 
   it('F25d: getGitDelta and parseChangedPathsInput route deletes through the deleted resolver', () => {
-    const src = fs.readFileSync(
-      require.resolve('../src/code-index/incremental-indexer'),
-      'utf8',
-    );
+    const src = fs.readFileSync(require.resolve('../src/code-index/incremental-indexer'), 'utf8');
     // Both delete-classifying sites must use resolveRepoScopedDeletedPath.
     const deleteResolverUses = src.match(/resolveRepoScopedDeletedPath/g) || [];
     expect(deleteResolverUses.length).toBeGreaterThanOrEqual(3); // import + D-branch + rename-from

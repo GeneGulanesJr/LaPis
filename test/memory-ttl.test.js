@@ -208,7 +208,9 @@ describe('data-access/observations: updateObservation with expiry', () => {
   it('clears expires_at when clearExpiry is true', () => {
     const deps = mockDeps();
     deps.sqlJson
-      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2026-12-31 00:00:00' }])
+      .mockReturnValueOnce([
+        { id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2026-12-31 00:00:00' },
+      ])
       .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', expires_at: null }]);
     obsDA.updateObservation(deps, { id: 1, clearExpiry: true });
     const updateCall = deps.sqlRun.mock.calls.find((c) => c[0].startsWith('UPDATE'));
@@ -219,7 +221,9 @@ describe('data-access/observations: updateObservation with expiry', () => {
   it('records expiry change in observation_versions', () => {
     const deps = mockDeps();
     deps.sqlJson
-      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2025-01-01 00:00:00' }])
+      .mockReturnValueOnce([
+        { id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2025-01-01 00:00:00' },
+      ])
       .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C' }]);
     obsDA.updateObservation(deps, { id: 1, expiresAt: '2026-12-31 00:00:00' });
     const versionCall = deps.sqlRun.mock.calls.find((c) => c[0].includes('observation_versions'));
@@ -230,7 +234,9 @@ describe('data-access/observations: updateObservation with expiry', () => {
   it('records clearExpiry as an expires_at version row', () => {
     const deps = mockDeps();
     deps.sqlJson
-      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2026-12-31 00:00:00' }])
+      .mockReturnValueOnce([
+        { id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2026-12-31 00:00:00' },
+      ])
       .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', expires_at: null }]);
     obsDA.updateObservation(deps, { id: 1, clearExpiry: true });
     const versionCall = deps.sqlRun.mock.calls.find((c) => c[0].includes('observation_versions'));

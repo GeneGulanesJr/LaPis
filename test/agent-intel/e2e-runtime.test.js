@@ -45,23 +45,27 @@ export function batchProcess(items) {
 }`,
     });
     run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
-    
+
     // Write coverage: processPayment is hot
     writeCoverage(coveragePath, {
       [`${tmpRepo}/src/critical.js`]: {
         path: `${tmpRepo}/src/critical.js`,
-        fnMap: { '0': { name: 'processPayment', line: 1 } },
-        f: { '0': 15000 },  // hot
+        fnMap: { 0: { name: 'processPayment', line: 1 } },
+        f: { 0: 15000 }, // hot
       },
     });
-    
+
     // Ingest coverage
     run(`runtime-ingest --repo ${repoName} --coverage "${coveragePath}"`);
   }, 90000);
 
   afterAll(() => {
-    try { run(`remove-code-repo --repo ${repoName}`); } catch {}
-    try { fs.rmSync(tmpRepo, { recursive: true }); } catch {}
+    try {
+      run(`remove-code-repo --repo ${repoName}`);
+    } catch {}
+    try {
+      fs.rmSync(tmpRepo, { recursive: true });
+    } catch {}
   });
 
   it('preflight shows runtime hotness for hot paths', () => {
@@ -89,18 +93,18 @@ export function batchProcess(items) {
     const flagFile = path.join(tmpRepo, 'src', 'flags.js');
     fs.writeFileSync(flagFile, `if (process.env.FEATURE_OLD_CODE === 'enabled') { legacy(); }`);
     run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
-    
+
     const result = run(`stale-flags --repo ${repoName}`);
     expect(result.stale_flags.length).toBeGreaterThanOrEqual(1);
-    
+
     fs.unlinkSync(flagFile);
   });
 
   it('hot-symbols and cold-symbols commands work', () => {
     const hotResult = run(`hot-symbols --repo ${repoName}`);
     expect(hotResult.error).toBeUndefined();
-    expect(hotResult.hot_symbols.some(s => s.function_name === 'processPayment')).toBe(true);
-    
+    expect(hotResult.hot_symbols.some((s) => s.function_name === 'processPayment')).toBe(true);
+
     const coldResult = run(`cold-symbols --repo ${repoName}`);
     expect(coldResult.error).toBeUndefined();
   });

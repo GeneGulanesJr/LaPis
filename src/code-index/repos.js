@@ -179,7 +179,10 @@ function createCodeIndexRepository(deps) {
         'INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count, mtime_ns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         values,
       );
-      const fallback = sqlJson('SELECT id FROM code_files WHERE repo_id = ? AND path = ?', [params.repoId, params.path]);
+      const fallback = sqlJson('SELECT id FROM code_files WHERE repo_id = ? AND path = ?', [
+        params.repoId,
+        params.path,
+      ]);
       if (!fallback.length) {
         throw new Error(`insertFile: file not found after insert (repo ${params.repoId}, ${params.path})`);
       }

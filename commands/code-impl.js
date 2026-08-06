@@ -15,15 +15,19 @@ async function indexRepo(args) {
     return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
   }
   const { getConfig } = require('../config');
-  const threshold = (getConfig().async_index_file_threshold || 500);
+  const threshold = getConfig().async_index_file_threshold || 500;
   let fileCount = 0;
   try {
     const { scanRepository } = require('../src/code-index/scanner');
     const scan = scanRepository(repoPath, { ignore: [], respectGitignore: true });
     fileCount = scan && scan.files ? scan.files.length : 0;
-  } catch (_) { /* scan errors are not fatal — fall through to sync */ }
+  } catch (_) {
+    /* scan errors are not fatal — fall through to sync */
+  }
   if (fileCount >= threshold) {
-    process.stderr.write(`${JSON.stringify({ notice: `Repository has ${fileCount} files (threshold ${threshold}); auto-switching to async.`, fileCount, threshold })}\n`);
+    process.stderr.write(
+      `${JSON.stringify({ notice: `Repository has ${fileCount} files (threshold ${threshold}); auto-switching to async.`, fileCount, threshold })}\n`,
+    );
     return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
   }
   return codeIndexingService.indexRepoInternal({ db: require('../db').getDb(), args }, repoPath, repoName);

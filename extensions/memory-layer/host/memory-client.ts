@@ -19,10 +19,7 @@ function reportInProcessFailure(cmd: string, msg: string, kind: 'load' | 'dispat
   }
   _inProcessFailureReported = true;
   const verb = kind === 'load' ? 'load in-process gateway' : `run ${cmd} in-process`;
-  console.error(
-    `[memory-layer] failed to ${verb}, falling back to child process (this message will not repeat):`,
-    msg,
-  );
+  console.error(`[memory-layer] failed to ${verb}, falling back to child process (this message will not repeat):`, msg);
 }
 
 const MAIN_THREAD_BLOCKING_COMMANDS = new Set([

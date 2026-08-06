@@ -49,8 +49,12 @@ test('core', () => { criticalFunction(); });
   }, 60000);
 
   afterAll(() => {
-    try { run(`remove-code-repo --repo ${repoName}`); } catch {}
-    try { fs.rmSync(tmpRepo, { recursive: true }); } catch {}
+    try {
+      run(`remove-code-repo --repo ${repoName}`);
+    } catch {}
+    try {
+      fs.rmSync(tmpRepo, { recursive: true });
+    } catch {}
   });
 
   it('returns blast radius for a symbol', () => {

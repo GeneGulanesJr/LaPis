@@ -14,7 +14,12 @@ describe('compress-search-output', () => {
       'src/http/server.js:200:FIXME: broken',
     ].join('\n');
 
-    const result = compressSearchOutput({ stdout: output, stderr: '', exitCode: 0, commandArgs: ['grep', 'TODO', '-R', '.'] });
+    const result = compressSearchOutput({
+      stdout: output,
+      stderr: '',
+      exitCode: 0,
+      commandArgs: ['grep', 'TODO', '-R', '.'],
+    });
     expect(result.summary).toContain('4 match');
     expect(result.summary).toContain('2 file');
     expect(result.importantOutput).toContain('src/index.js');
@@ -29,7 +34,12 @@ describe('compress-search-output', () => {
     for (let i = 0; i < 100; i++) {
       lines.push(`file${i % 5}.js:${i + 1}:TODO: item ${i}`);
     }
-    const result = compressSearchOutput({ stdout: lines.join('\n'), stderr: '', exitCode: 0, commandArgs: ['rg', 'TODO'] });
+    const result = compressSearchOutput({
+      stdout: lines.join('\n'),
+      stderr: '',
+      exitCode: 0,
+      commandArgs: ['rg', 'TODO'],
+    });
     expect(result.summary).toContain('100 match');
   });
 });

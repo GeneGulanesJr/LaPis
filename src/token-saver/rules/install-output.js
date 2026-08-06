@@ -1,4 +1,5 @@
-const PROGRESS_PATTERNS = /(?:^npm warn|⠙|⠴|⠦|⠧|⠇|⠏|⠋|⠉|⠓|⠒|⠐|⠄|bulk|extracting|fetching|receiving|resolving|downloading|hovering|htmlandering)/i;
+const PROGRESS_PATTERNS =
+  /(?:^npm warn|⠙|⠴|⠦|⠧|⠇|⠏|⠋|⠉|⠓|⠒|⠐|⠄|bulk|extracting|fetching|receiving|resolving|downloading|hovering|htmlandering)/i;
 const WARNING_PATTERNS = /\b(?:warn|warning|peer dep|mismatch|deprecated|vulnerab)\b/i;
 const ERROR_PATTERNS = /\b(?:ERR|error|ERR!|ENOENT|EACCES|404|500)\b/i;
 const SUMMARY_PATTERNS = /\b(?:added|removed|changed|audited|packages|up to date|vulnerabilities)\b/i;
@@ -63,8 +64,12 @@ function compressInstallOutput({ stdout, stderr, exitCode }) {
   output += `Hidden: ${hiddenCount} progress/download lines removed`;
 
   let summary = exitCode === 0 ? 'Install completed.' : 'Install failed.';
-  if (errors.length > 0) { summary += ` ${errors.length} error(s).`; }
-  if (warnings.length > 0) { summary += ` ${warnings.length} warning(s).`; }
+  if (errors.length > 0) {
+    summary += ` ${errors.length} error(s).`;
+  }
+  if (warnings.length > 0) {
+    summary += ` ${warnings.length} warning(s).`;
+  }
   summary += ` ${hiddenCount} lines hidden.`;
 
   return {

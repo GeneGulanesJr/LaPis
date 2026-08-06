@@ -76,9 +76,7 @@ function cleanupSessions(deps, opts = {}) {
   }
 
   // Phase 1: Prune sessions
-  const projects = project
-    ? triage.projects.filter((p) => p.name === project)
-    : triage.projects;
+  const projects = project ? triage.projects.filter((p) => p.name === project) : triage.projects;
 
   let sessionsCompacted = 0;
   let promptsCleaned = 0;
@@ -103,10 +101,7 @@ function cleanupSessions(deps, opts = {}) {
       if (toDelete.length === 0) continue;
 
       // Hard assertion: never go below floor
-      const remaining = deps.sqlJson(
-        'SELECT COUNT(*) as cnt FROM session_log WHERE project = ?',
-        [proj.name],
-      );
+      const remaining = deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [proj.name]);
       if (remaining[0].cnt - toDelete.length < SESSION_FLOOR) {
         continue; // Safety: skip if floor would be breached
       }

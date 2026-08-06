@@ -862,7 +862,13 @@ describe('Aurex HTTP Server', () => {
 
     it('persists rescopeGuidance when resolving a checkpoint', () => {
       const id = `cp-rescope-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-rg', summary: 'Re-plan needed' });
+      repo.createCheckpoint({
+        id,
+        missionId,
+        trigger: 'rescope_limit',
+        milestoneId: 'ms-rg',
+        summary: 'Re-plan needed',
+      });
       const rows = repo.resolveCheckpoint(id, 'approve', undefined, undefined, 'try a different module split');
       expect(rows[0].status).toBe('resolved');
       expect(rows[0].decision).toBe('approve');

@@ -85,28 +85,28 @@ describe('index-repo (WASM)', () => {
     it('accepts repo-relative --file paths and reports resolved path on miss', () => {
       const absFile = '/tmp/test-wasm-integ-repo/app.js';
 
-      const relOut = execSync(
-        `node "${STORE}" get-code-source --repo test-wasm-integ --file app.js --name main`,
-        { encoding: 'utf8', timeout: 10000 },
-      );
+      const relOut = execSync(`node "${STORE}" get-code-source --repo test-wasm-integ --file app.js --name main`, {
+        encoding: 'utf8',
+        timeout: 10000,
+      });
       const relResult = JSON.parse(relOut);
       expect(relResult.success).toBe(true);
       expect(relResult.symbol).toBe('main');
 
-      const absOut = execSync(
-        `node "${STORE}" get-code-source --repo test-wasm-integ --file ${absFile} --name main`,
-        { encoding: 'utf8', timeout: 10000 },
-      );
+      const absOut = execSync(`node "${STORE}" get-code-source --repo test-wasm-integ --file ${absFile} --name main`, {
+        encoding: 'utf8',
+        timeout: 10000,
+      });
       const absResult = JSON.parse(absOut);
       expect(absResult.success).toBe(true);
       expect(absResult.symbol).toBe('main');
 
       let missErr = '';
       try {
-        execSync(
-          `node "${STORE}" get-code-source --repo test-wasm-integ --file app.js --name doesNotExist`,
-          { encoding: 'utf8', timeout: 10000 },
-        );
+        execSync(`node "${STORE}" get-code-source --repo test-wasm-integ --file app.js --name doesNotExist`, {
+          encoding: 'utf8',
+          timeout: 10000,
+        });
       } catch (err) {
         missErr = JSON.parse(err.stderr || '').error || '';
       }

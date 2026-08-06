@@ -69,7 +69,9 @@ function register(commands, deps) {
     return docIndexer.indexDocs(getDb(), path.resolve(docPath), name, args.ignore || null);
   };
   commands['list-doc-repos'] = () => {
-    const rows = sqlJson('SELECT name, path, file_count, section_count, indexed_at, updated_at FROM doc_repos ORDER BY updated_at DESC');
+    const rows = sqlJson(
+      'SELECT name, path, file_count, section_count, indexed_at, updated_at FROM doc_repos ORDER BY updated_at DESC',
+    );
     return { repos: rows, total: rows.length };
   };
   commands['reindex-docs'] = async (args) =>

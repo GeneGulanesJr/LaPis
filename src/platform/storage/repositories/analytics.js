@@ -8,8 +8,8 @@ function createAnalyticsRepository(deps) {
         prompts: one('SELECT COUNT(*) as cnt FROM user_prompts'),
         sessions: one('SELECT COUNT(*) as cnt FROM session_log'),
         symbolLinks: one('SELECT COUNT(*) as cnt FROM symbol_links'),
-      codeRepos: one('SELECT COUNT(*) as cnt FROM code_repos'),
-      docRepos: one('SELECT COUNT(*) as cnt FROM doc_repos'),
+        codeRepos: one('SELECT COUNT(*) as cnt FROM code_repos'),
+        docRepos: one('SELECT COUNT(*) as cnt FROM doc_repos'),
       };
     },
     getRecallCountsByMemory(limit = 50) {

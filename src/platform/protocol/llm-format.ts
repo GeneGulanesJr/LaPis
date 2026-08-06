@@ -298,7 +298,11 @@ function formatCodeResult(mode: string, result: any): string {
         lines.push(`Reasons: ${(summary.reasons || []).slice(0, 5).join(', ')}`);
       }
       if ((result.related_files || []).length) {
-        lines.push('', 'Related files:', ...(result.related_files || []).slice(0, 10).map((file: string) => `  ${file}`));
+        lines.push(
+          '',
+          'Related files:',
+          ...(result.related_files || []).slice(0, 10).map((file: string) => `  ${file}`),
+        );
       }
       if ((result.likely_tests || []).length) {
         lines.push(
@@ -446,7 +450,9 @@ function formatCodeResult(mode: string, result: any): string {
       return `Found ${result.groups_found ?? groups.length} duplicate groups (${result.total_symbols_scanned ?? '?'} symbols scanned, ${result.scan_duration_ms ?? '?'}ms):\n\n${groups
         .slice(0, 10)
         .map((g: any) => {
-          const instances = (g.instances || []).map((i: any) => `  - ${i.symbol_name} in ${safePop(i.file_path)}:${i.line_start ?? '?'}`).join('\n');
+          const instances = (g.instances || [])
+            .map((i: any) => `  - ${i.symbol_name} in ${safePop(i.file_path)}:${i.line_start ?? '?'}`)
+            .join('\n');
           return `**${g.intent || 'Group'}** (${g.risk || '?'}, ${g.detection_type || '?'})\n${instances}`;
         })
         .join('\n\n')}`;

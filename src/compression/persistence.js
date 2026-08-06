@@ -14,13 +14,7 @@ function recordCompressionRun({ missionId, trigger, result }) {
     (mission_id, trigger, summary, tokens_saved, error)
     VALUES (?, ?, ?, ?, ?)`;
   const db = getDb();
-  db.prepare(stmt).run(
-    missionId,
-    trigger,
-    result.summary ?? '',
-    result.tokensSaved ?? 0,
-    result.error ?? null,
-  );
+  db.prepare(stmt).run(missionId, trigger, result.summary ?? '', result.tokensSaved ?? 0, result.error ?? null);
 }
 
 module.exports = { recordCompressionRun };

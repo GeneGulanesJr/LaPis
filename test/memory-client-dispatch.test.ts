@@ -17,10 +17,7 @@ import path from 'node:path';
 describe('memory-client in-process dispatch', () => {
   it('gateway.js exists at the corrected relative path from host/', () => {
     // Path: host/memory-client.ts → ../../../src/cli/gateway.js
-    const hostDir = path.resolve(
-      import.meta.dirname,
-      '../extensions/memory-layer/host',
-    );
+    const hostDir = path.resolve(import.meta.dirname, '../extensions/memory-layer/host');
     const correct = path.resolve(hostDir, '../../../src/cli/gateway.js');
     const wrong = path.resolve(hostDir, '../../src/cli/gateway.js');
     expect(existsSync(correct)).toBe(true);
@@ -28,10 +25,7 @@ describe('memory-client in-process dispatch', () => {
   });
 
   it('source uses the corrected require path (no MODULE_NOT_FOUND at runtime)', () => {
-    const memoryClientPath = path.resolve(
-      import.meta.dirname,
-      '../extensions/memory-layer/host/memory-client.ts',
-    );
+    const memoryClientPath = path.resolve(import.meta.dirname, '../extensions/memory-layer/host/memory-client.ts');
     const source = readFileSync(memoryClientPath, 'utf8');
 
     // Must NOT use the broken 2-up path.
@@ -43,16 +37,11 @@ describe('memory-client in-process dispatch', () => {
   it('source does NOT have a silent empty catch around the gateway require', () => {
     // Defensive: the previous bug had a bare `catch {}` that swallowed the
     // Require error, making path issues invisible. Ensure we log the failure.
-    const memoryClientPath = path.resolve(
-      import.meta.dirname,
-      '../extensions/memory-layer/host/memory-client.ts',
-    );
+    const memoryClientPath = path.resolve(import.meta.dirname, '../extensions/memory-layer/host/memory-client.ts');
     const source = readFileSync(memoryClientPath, 'utf8');
 
     // Look for the require + catch block specifically.
-    const requireMatch = source.match(
-      /require\(['"]\.\.\/\.\.\/\.\.\/src\/cli\/gateway['"]\)/,
-    );
+    const requireMatch = source.match(/require\(['"]\.\.\/\.\.\/\.\.\/src\/cli\/gateway['"]\)/);
     expect(requireMatch).not.toBeNull();
 
     // The catch block surrounding the require must reference a logging call

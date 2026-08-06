@@ -1,5 +1,3 @@
-
-
 function insertObservation(deps, { sessionId, type, title, content, project, scope, topicKey, expiresAt }) {
   const { sqlJson } = deps;
   return sqlJson(
@@ -96,12 +94,8 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
   // history row and the actual UPDATE agree on what the new value is.
   // observation_versions.new_value is NOT NULL, so we stringify null as ''
   // (matching the convention used by other fields in this table).
-  const nextExpiresAt =
-    clearExpiry === true ? null : expiresAt !== undefined ? expiresAt || null : undefined;
-  if (
-    nextExpiresAt !== undefined &&
-    String(nextExpiresAt || '') !== String(before.expires_at || '')
-  ) {
+  const nextExpiresAt = clearExpiry === true ? null : expiresAt !== undefined ? expiresAt || null : undefined;
+  if (nextExpiresAt !== undefined && String(nextExpiresAt || '') !== String(before.expires_at || '')) {
     versionEntries.push([
       parsedId,
       'expires_at',
@@ -210,16 +204,8 @@ function countObservationsByProjectAndType(deps, project) {
 function insertRecallLog(deps, entries) {
   const { sqlRun } = deps;
   const placeholders = entries.map(() => '(?, ?, ?, ?)').join(',');
-  const params = entries.flatMap((r) => [
-    r.memoryId,
-    r.sessionId,
-    r.query,
-    r.wasUseful === false ? 0 : 1,
-  ]);
-  sqlRun(
-    `INSERT OR IGNORE INTO recall_log (memory_id, session_id, query, was_useful) VALUES ${placeholders}`,
-    params,
-  );
+  const params = entries.flatMap((r) => [r.memoryId, r.sessionId, r.query, r.wasUseful === false ? 0 : 1]);
+  sqlRun(`INSERT OR IGNORE INTO recall_log (memory_id, session_id, query, was_useful) VALUES ${placeholders}`, params);
 }
 
 module.exports = {

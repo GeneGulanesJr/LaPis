@@ -397,7 +397,12 @@ function parsePiOutput(raw) {
   };
   if (parsedEvents > 0 && answerParts.length === 0 && assistantByResponse.size === 0 && behavior.error_events > 0) {
     result.parse_warning = 'Pi events contained errors and no assistant answer';
-  } else if (answerParts.length === 0 && assistantByResponse.size === 0 && seenUsage.size === 0 && raw.trim().length > 0) {
+  } else if (
+    answerParts.length === 0 &&
+    assistantByResponse.size === 0 &&
+    seenUsage.size === 0 &&
+    raw.trim().length > 0
+  ) {
     result.parse_warning = 'No valid Pi events found in output';
   }
   return result;
@@ -741,7 +746,9 @@ function buildSummary(results) {
     memory_on_assistant_turns: sum.onAssistantTurns,
     token_savings_pct: sum.offTokens > 0 ? `${((1 - sum.onTokens / sum.offTokens) * 100).toFixed(1)}%` : 'n/a',
     effective_token_savings_pct:
-      sum.offEffectiveTokens > 0 ? `${((1 - sum.onEffectiveTokens / sum.offEffectiveTokens) * 100).toFixed(1)}%` : 'n/a',
+      sum.offEffectiveTokens > 0
+        ? `${((1 - sum.onEffectiveTokens / sum.offEffectiveTokens) * 100).toFixed(1)}%`
+        : 'n/a',
     cache_discounted_token_savings_pct:
       sum.offCacheDiscountedTokens > 0
         ? `${((1 - sum.onCacheDiscountedTokens / sum.offCacheDiscountedTokens) * 100).toFixed(1)}%`

@@ -55,9 +55,13 @@ function compressGitDiff({ stdout, stderr }) {
         currentFile.hunks.push(line);
       }
     } else if (line.startsWith('+') && !line.startsWith('+++')) {
-      if (currentFile) { currentFile.additions++; }
+      if (currentFile) {
+        currentFile.additions++;
+      }
     } else if (line.startsWith('-') && !line.startsWith('---')) {
-      if (currentFile) { currentFile.deletions++; }
+      if (currentFile) {
+        currentFile.deletions++;
+      }
     } else if (!line.startsWith('\\') && !line.startsWith('index ') && !line.startsWith('Binary')) {
       contextLines++;
     }

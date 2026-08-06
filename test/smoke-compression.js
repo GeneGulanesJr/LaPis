@@ -7,7 +7,9 @@ const { registerOutputCompression } = require('../extensions/memory-layer/hooks/
 // ---- Minimal ExtensionAPI mock ----
 const handlers = {};
 const mockPi = {
-  on: (event, handler) => { handlers[event] = handler; },
+  on: (event, handler) => {
+    handlers[event] = handler;
+  },
 };
 
 // ---- Minimal state ----
@@ -63,54 +65,57 @@ async function runSmokeTest() {
 
   // 3. Non-bash tool — should be skipped
   console.log('\n3. Non-bash tool (should be skipped)...');
-  const readResult = await handler({
-    type: 'tool_result',
-    toolName: 'read',
-    toolCallId: 'call-1',
-    input: { path: '/foo.ts' },
-    content: [{ type: 'text', text: 'file contents' }],
-    details: undefined,
-    isError: false,
-  }, {});
+  const readResult = await handler(
+    {
+      type: 'tool_result',
+      toolName: 'read',
+      toolCallId: 'call-1',
+      input: { path: '/foo.ts' },
+      content: [{ type: 'text', text: 'file contents' }],
+      details: undefined,
+      isError: false,
+    },
+    {},
+  );
   assert(readResult === undefined, 'Non-bash tool returned undefined (correct)');
 
   // 4. Short bash output — should be skipped
   console.log('\n4. Short bash output (should be skipped)...');
-  const shortResult = await handler({
-    type: 'tool_result',
-    toolName: 'bash',
-    toolCallId: 'call-2',
-    input: { command: 'echo hi' },
-    content: [{ type: 'text', text: 'hello world' }],
-    details: undefined,
-    isError: false,
-  }, {});
+  const shortResult = await handler(
+    {
+      type: 'tool_result',
+      toolName: 'bash',
+      toolCallId: 'call-2',
+      input: { command: 'echo hi' },
+      content: [{ type: 'text', text: 'hello world' }],
+      details: undefined,
+      isError: false,
+    },
+    {},
+  );
   assert(shortResult === undefined, 'Short output returned undefined (correct)');
 
   // 5. Large bash output — should be compressed
   console.log('\n5. Large bash output (should be compressed)...');
   const largeOutput = 'Test output line\n'.repeat(500);
-  const largeResult = await handler({
-    type: 'tool_result',
-    toolName: 'bash',
-    toolCallId: 'call-3',
-    input: { command: 'npm test' },
-    content: [{ type: 'text', text: largeOutput }],
-    details: undefined,
-    isError: false,
-  }, {});
+  const largeResult = await handler(
+    {
+      type: 'tool_result',
+      toolName: 'bash',
+      toolCallId: 'call-3',
+      input: { command: 'npm test' },
+      content: [{ type: 'text', text: largeOutput }],
+      details: undefined,
+      isError: false,
+    },
+    {},
+  );
   assert(largeResult !== undefined, 'Large output returned a result (correct)');
-  assert(
-    largeResult.content && largeResult.content[0] && largeResult.content[0].text,
-    'Result has content with text'
-  );
-  assert(
-    largeResult.content[0].text.startsWith('[Output compressed:'),
-    'Result starts with compression prefix'
-  );
+  assert(largeResult.content && largeResult.content[0] && largeResult.content[0].text, 'Result has content with text');
+  assert(largeResult.content[0].text.startsWith('[Output compressed:'), 'Result starts with compression prefix');
   assert(
     largeResult.content[0].text.length < largeOutput.length,
-    `Output was compressed (${largeResult.content[0].text.length} < ${largeOutput.length})`
+    `Output was compressed (${largeResult.content[0].text.length} < ${largeOutput.length})`,
   );
 
   // 6. Stats were updated
@@ -122,21 +127,12 @@ async function runSmokeTest() {
   // 7. Config defaults
   console.log('\n7. Checking config defaults...');
   const config = getConfig();
-  assert(
-    config.output_compression !== undefined,
-    'output_compression key exists in config'
-  );
-  assert(
-    config.output_compression?.enabled === true,
-    'output_compression.enabled defaults to true'
-  );
-  assert(
-    config.output_compression?.min_chars === 2000,
-    'output_compression.min_chars defaults to 2000'
-  );
+  assert(config.output_compression !== undefined, 'output_compression key exists in config');
+  assert(config.output_compression?.enabled === true, 'output_compression.enabled defaults to true');
+  assert(config.output_compression?.min_chars === 2000, 'output_compression.min_chars defaults to 2000');
   assert(
     config.output_compression?.min_savings_percent === 30,
-    'output_compression.min_savings_percent defaults to 30'
+    'output_compression.min_savings_percent defaults to 30',
   );
 
   // Summary

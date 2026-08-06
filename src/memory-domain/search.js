@@ -414,4 +414,12 @@ function related(deps, args) {
   return { memory_id: id, related: result };
 }
 
-module.exports = { rankObservations, search, symbolCluster, related, _extractFtsTerms, TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE };
+module.exports = {
+  rankObservations,
+  search,
+  symbolCluster,
+  related,
+  _extractFtsTerms,
+  TRUST_RECALL_JOINS,
+  TYPE_PRIORITY_CASE,
+};

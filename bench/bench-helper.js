@@ -85,9 +85,7 @@ function pad(str, width) {
 
 function runCli(repo, subcommand, extraFlags = '') {
   const msPath = path.join(LAPIS_ROOT, 'memory-store.js');
-  const extraArgs = extraFlags
-    ? extraFlags.split(/\s+/).filter(Boolean)
-    : [];
+  const extraArgs = extraFlags ? extraFlags.split(/\s+/).filter(Boolean) : [];
   const args = [msPath, subcommand, '--repo', repo, ...extraArgs];
   try {
     const stdout = execFileSync('node', args, {

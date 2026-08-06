@@ -27,7 +27,10 @@ function compressLogs({ stdout, stderr }) {
       lastTimestamp = tsMatch[0];
     }
 
-    const _normalized = line.replace(/\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}:\d{2}(?:\.\d+)?/, '<ts>').replace(/\s+/g, ' ').trim();
+    const _normalized = line
+      .replace(/\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}:\d{2}(?:\.\d+)?/, '<ts>')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (!uniqueMessages[_normalized]) {
       uniqueMessages[_normalized] = { count: 0, original: line };
     }

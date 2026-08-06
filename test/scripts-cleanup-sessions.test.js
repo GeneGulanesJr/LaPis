@@ -165,8 +165,24 @@ describe('scripts/cleanup-sessions', () => {
       sqlJson: vi.fn((q, params) => {
         if (q.includes('GROUP BY project') && q.includes('session_count')) {
           return [
-            { project: 'proj-a', session_count: 20, total_memories: 50, first_activity: '2025-01-01', last_activity: '2026-06-09', orphan_sessions: 0, empty_sessions: 15 },
-            { project: 'proj-b', session_count: 30, total_memories: 80, first_activity: '2025-01-01', last_activity: '2026-06-09', orphan_sessions: 0, empty_sessions: 20 },
+            {
+              project: 'proj-a',
+              session_count: 20,
+              total_memories: 50,
+              first_activity: '2025-01-01',
+              last_activity: '2026-06-09',
+              orphan_sessions: 0,
+              empty_sessions: 15,
+            },
+            {
+              project: 'proj-b',
+              session_count: 30,
+              total_memories: 80,
+              first_activity: '2025-01-01',
+              last_activity: '2026-06-09',
+              orphan_sessions: 0,
+              empty_sessions: 20,
+            },
           ];
         }
         if (q.includes('user_prompts') && q.includes('NOT IN')) return [{ cnt: 0 }];

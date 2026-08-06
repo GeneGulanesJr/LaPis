@@ -41,24 +41,28 @@ export function createUser(data) { return db.query("INSERT INTO users SET ?", [d
 `,
     });
     run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
-    
+
     // Write Istanbul coverage
     writeCoverage(coveragePath, {
       [`${tmpRepo}/src/api/users.js`]: {
         path: `${tmpRepo}/src/api/users.js`,
         fnMap: {
-          '0': { name: 'getUser', line: 1 },
-          '1': { name: 'listUsers', line: 2 },
-          '2': { name: 'createUser', line: 3 },
+          0: { name: 'getUser', line: 1 },
+          1: { name: 'listUsers', line: 2 },
+          2: { name: 'createUser', line: 3 },
         },
-        f: { '0': 5000, '1': 150, '2': 50 },  // getUser=hot, listUsers=warm, createUser=cold
+        f: { 0: 5000, 1: 150, 2: 50 }, // getUser=hot, listUsers=warm, createUser=cold
       },
     });
   }, 60000);
 
   afterAll(() => {
-    try { run(`remove-code-repo --repo ${repoName}`); } catch {}
-    try { fs.rmSync(tmpRepo, { recursive: true }); } catch {}
+    try {
+      run(`remove-code-repo --repo ${repoName}`);
+    } catch {}
+    try {
+      fs.rmSync(tmpRepo, { recursive: true });
+    } catch {}
   });
 
   it('ingests Istanbul coverage JSON and classifies traffic', () => {
@@ -73,12 +77,12 @@ export function createUser(data) { return db.query("INSERT INTO users SET ?", [d
   it('returns hot symbols via hot-symbols command', () => {
     const result = run(`hot-symbols --repo ${repoName}`);
     expect(result.error).toBeUndefined();
-    expect(result.hot_symbols.some(s => s.function_name === 'getUser')).toBe(true);
+    expect(result.hot_symbols.some((s) => s.function_name === 'getUser')).toBe(true);
   });
 
   it('returns cold symbols via cold-symbols command', () => {
     const result = run(`cold-symbols --repo ${repoName}`);
     expect(result.error).toBeUndefined();
-    expect(result.cold_symbols.some(s => s.function_name === 'createUser')).toBe(true);
+    expect(result.cold_symbols.some((s) => s.function_name === 'createUser')).toBe(true);
   });
 });

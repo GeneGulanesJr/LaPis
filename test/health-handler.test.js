@@ -35,7 +35,11 @@ describe('healthCheck', () => {
   });
 
   it('reports degraded + db:false when getDb throws', async () => {
-    const body = await invoke({ getDb: () => { throw new Error('locked'); } });
+    const body = await invoke({
+      getDb: () => {
+        throw new Error('locked');
+      },
+    });
     expect(body.status).toBe('degraded');
     expect(body.db).toBe(false);
   });

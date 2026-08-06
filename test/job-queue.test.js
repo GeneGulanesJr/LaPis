@@ -5,7 +5,10 @@ class FakeWorker extends EventEmitter {
     super();
     this.postMessage = () => {};
     this.terminateCalls = 0;
-    this.terminate = () => { this.terminateCalls++; return Promise.resolve(0); };
+    this.terminate = () => {
+      this.terminateCalls++;
+      return Promise.resolve(0);
+    };
   }
 }
 
@@ -43,7 +46,9 @@ describe('job-queue', () => {
 
   it('cancels a running job and terminates its worker', async () => {
     const w = new FakeWorker();
-    function WorkerFactory() { return w; }
+    function WorkerFactory() {
+      return w;
+    }
     const { createJobQueue } = require('../src/code-index/job-queue');
     const q = createJobQueue({ Worker: WorkerFactory, jobStore: {}, deps: {} });
     q.startJob(7, { repoName: 'foo' });

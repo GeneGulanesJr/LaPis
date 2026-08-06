@@ -19,8 +19,14 @@ function createJob(deps, { repoName, mode = 'full', filesTotal = 0 }) {
 function updateProgress(deps, jobId, { filesDone, currentFile, languageBreakdown }) {
   const sets = ['files_done = ?'];
   const params = [filesDone];
-  if (currentFile !== undefined) { sets.push('current_file = ?'); params.push(currentFile); }
-  if (languageBreakdown !== undefined) { sets.push('language_breakdown = ?'); params.push(JSON.stringify(languageBreakdown)); }
+  if (currentFile !== undefined) {
+    sets.push('current_file = ?');
+    params.push(currentFile);
+  }
+  if (languageBreakdown !== undefined) {
+    sets.push('language_breakdown = ?');
+    params.push(JSON.stringify(languageBreakdown));
+  }
   params.push(jobId);
   deps.sqlRun(`UPDATE index_jobs SET ${sets.join(', ')} WHERE id = ?`, params);
 }
@@ -29,7 +35,10 @@ function completeJob(deps, jobId, { status, error } = {}) {
   const finalStatus = status || 'completed';
   const params = [finalStatus];
   let sql = `UPDATE index_jobs SET status = ?, completed_at = datetime('now')`;
-  if (error) { sql += ', error = ?'; params.push(error); }
+  if (error) {
+    sql += ', error = ?';
+    params.push(error);
+  }
   params.push(jobId);
   sql += ' WHERE id = ?';
   deps.sqlRun(sql, params);

@@ -307,27 +307,21 @@ describe('memory-store: update', () => {
   });
 
   it('should set expiry with --expires-in', () => {
-    const saved = run(
-      `save --title "Will get a TTL" --content "x" --project ${testProject} --force`,
-    );
+    const saved = run(`save --title "Will get a TTL" --content "x" --project ${testProject} --force`);
     const result = run(`update --id ${saved.id} --expires-in 3d`);
     expect(result.expires_at).toBeTruthy();
     expect(result.expires_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 
   it('should clear expiry with --clear-expiry', () => {
-    const saved = run(
-      `save --title "Will lose its TTL" --content "x" --project ${testProject} --expires-in 5d`,
-    );
+    const saved = run(`save --title "Will lose its TTL" --content "x" --project ${testProject} --expires-in 5d`);
     expect(saved.expires_at).toBeTruthy();
     const result = run(`update --id ${saved.id} --clear-expiry true`);
     expect(result.expires_at).toBeNull();
   });
 
   it('should reject invalid --expires-in on update', () => {
-    const saved = run(
-      `save --title "TTL reject target" --content "x" --project ${testProject} --force`,
-    );
+    const saved = run(`save --title "TTL reject target" --content "x" --project ${testProject} --force`);
     const result = runFail(`update --id ${saved.id} --expires-in "garbage"`);
     expect(result.error).toBeDefined();
     expect(result.error).toContain('Invalid --expires-in');

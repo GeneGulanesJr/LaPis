@@ -126,10 +126,7 @@ describe('correctness review fixes', () => {
   });
 
   it('logNegativeRecall returns structured error for invalid JSON', () => {
-    const result = logNegativeRecall(
-      { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun },
-      { entries: '{not-json' },
-    );
+    const result = logNegativeRecall({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun }, { entries: '{not-json' });
     expect(result.error).toBe('Invalid --entries JSON');
   });
 

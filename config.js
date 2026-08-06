@@ -29,9 +29,9 @@ const DEFAULTS = {
   async_index_file_threshold: 500,
   http_api_key: null,
   output_compression: {
-    enabled: true,               // Master toggle — set false to disable auto-compression
-    min_chars: 2000,             // Don't compress output shorter than this
-    min_savings_percent: 30,     // Don't replace if savings < this %
+    enabled: true, // Master toggle — set false to disable auto-compression
+    min_chars: 2000, // Don't compress output shorter than this
+    min_savings_percent: 30, // Don't replace if savings < this %
   },
 };
 

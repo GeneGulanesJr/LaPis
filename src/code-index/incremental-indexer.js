@@ -74,7 +74,9 @@ function emitProgress(args, phase, detail, stats) {
     try {
       const callbackPayload = { phase, ...(detail || {}), ...(stats || {}) };
       args.onProgress(callbackPayload);
-    } catch (_) { /* best-effort */ }
+    } catch (_) {
+      /* best-effort */
+    }
   }
   if (!args.progress) {
     return;
@@ -946,7 +948,10 @@ async function indexRepository(deps, repoPath, repoName) {
     }
 
     emitProgress(args, 'init', { step: 'prepare-parser', message: 'Step 1/5: preparing tree-sitter parsers...' });
-    emitProgress(args, 'discovery', { step: 'discover-files', message: 'Step 2/5: discovering code files to index...' });
+    emitProgress(args, 'discovery', {
+      step: 'discover-files',
+      message: 'Step 2/5: discovering code files to index...',
+    });
     const scanResult = await scanPhase(repoPath, {}, args);
     if (scanResult.error) {
       return { error: scanResult.error };
@@ -1105,401 +1110,406 @@ async function indexRepository(deps, repoPath, repoName) {
 async function reindexRepository(deps, repo, mode = 'incremental') {
   return withRepoIndexLock(repo, async () => {
     const { db } = deps;
-  const args = deps.args || {};
-  const repository = deps.repository || createCodeIndexRepository(require('../../db'));
-  const registry = deps.parserRegistry || createParserRegistry();
-  const t0 = Date.now();
+    const args = deps.args || {};
+    const repository = deps.repository || createCodeIndexRepository(require('../../db'));
+    const registry = deps.parserRegistry || createParserRegistry();
+    const t0 = Date.now();
 
-  const existing = repository.findRepoByName(repo);
-  if (!existing) {
-    return { error: `Repo not found: ${repo}` };
-  }
+    const existing = repository.findRepoByName(repo);
+    if (!existing) {
+      return { error: `Repo not found: ${repo}` };
+    }
 
-  if (mode === 'full') {
-    return indexRepository({ ...deps, repository, parserRegistry: registry }, existing.path, repo);
-  }
+    if (mode === 'full') {
+      return indexRepository({ ...deps, repository, parserRegistry: registry }, existing.path, repo);
+    }
 
-  if (!(await registry.ensureReady())) {
-    return { error: 'WASM tree-sitter parser not available' };
-  }
+    if (!(await registry.ensureReady())) {
+      return { error: 'WASM tree-sitter parser not available' };
+    }
 
-  emitProgress(args, 'init', {
-    step: 'prepare-parser',
-    message: `Step 1/5: preparing tree-sitter parsers for incremental reindex of "${repo}"...`,
-  });
-  emitProgress(args, 'discovery', { step: 'discover-files', message: 'Step 2/5: discovering code files to check...' });
-
-  const explicitDelta = fs.existsSync(existing.path)
-    ? parseChangedPathsInput(args.changedPaths || args['changed-paths'] || args.paths, existing.path)
-    : null;
-  const gitDelta =
-    explicitDelta || (fs.existsSync(existing.path) ? getGitDelta(existing.path, existing.head_commit) : null);
-  const gitChangedFiles = gitDelta
-    ? gitDelta.changed.filter(
-        (filePath) =>
-          resolveRepoScopedPath(existing.path, filePath) &&
-          fs.existsSync(filePath) &&
-          registry.canParseFile(filePath) &&
-          !SKIP_FILE_RE.test(filePath.replace(/\\/g, '/')),
-      )
-    : null;
-  const gitDeletedFiles = gitDelta ? gitDelta.deleted : [];
-  const explicitChangedPathMode = gitDelta && gitDelta.source === 'changed-paths';
-  let scanResult;
-  if (gitDelta) {
-    scanResult = {
-      files: gitChangedFiles,
-      skipReport: { builtIn: {}, gitignore: {}, memorycodeignore: {}, unsupportedExt: 0 },
-      source: 'git-diff',
-    };
-  } else if (fs.existsSync(existing.path)) {
-    scanResult = await scanPhase(existing.path, {}, args);
-  } else {
-    scanResult = { files: [], skipReport: { builtIn: {}, gitignore: {}, memorycodeignore: {}, unsupportedExt: 0 } };
-  }
-  const files = scanResult.files;
-  const skipReport = scanResult.skipReport;
-  const skipSummary = formatSkipReport(skipReport);
-  emitProgress(args, 'discovery', {
-    message: gitDelta
-      ? `Git diff from ${String(existing.head_commit || 'unknown').slice(0, 8)} to ${String(gitDelta.currentHead || 'unknown').slice(0, 8)} found ${files.length} changed code files and ${gitDeletedFiles.length} deleted files`
-      : `Found ${files.length} code files to check`,
-    files_total: files.length,
-    detail: skipSummary,
-  });
-  if (skipSummary) {
-    emitProgress(args, 'discovery', { message: skipSummary });
-  }
-  if (gitDelta?.rejected?.length) {
-    emitProgress(args, 'discovery', {
-      message: `Skipped ${gitDelta.rejected.length} git/changed-path entries outside the repo or blocked as secret files`,
-      rejected_paths: gitDelta.rejected,
+    emitProgress(args, 'init', {
+      step: 'prepare-parser',
+      message: `Step 1/5: preparing tree-sitter parsers for incremental reindex of "${repo}"...`,
     });
-  }
+    emitProgress(args, 'discovery', {
+      step: 'discover-files',
+      message: 'Step 2/5: discovering code files to check...',
+    });
 
-  const existingFiles = new Map(repository.listFiles(existing.id).map((file) => [file.path, file]));
-  let reindexed = 0;
-  let unchanged = 0;
-  let symbolCount = 0;
-  let hashed = 0;
-  const skipped = [];
-  const totalFiles = files.length;
-  const changedFileIds = [];
-  const deletedFileIds = [];
-  const changedRecords = [];
-
-  for (let i = 0; i < files.length; i++) {
-    const filePath = files[i];
-    if (i % 50 === 0) {
-      emitProgress(
-        args,
-        'parsing',
-        {
-          step: 'check-file',
-          current_file: progressPath(filePath, existing.path),
-          message: `Step 3/5: checking file ${i + 1}/${totalFiles}: ${progressPath(filePath, existing.path)}`,
-        },
-        { files_total: totalFiles, files_done: i, symbols: symbolCount },
-      );
+    const explicitDelta = fs.existsSync(existing.path)
+      ? parseChangedPathsInput(args.changedPaths || args['changed-paths'] || args.paths, existing.path)
+      : null;
+    const gitDelta =
+      explicitDelta || (fs.existsSync(existing.path) ? getGitDelta(existing.path, existing.head_commit) : null);
+    const gitChangedFiles = gitDelta
+      ? gitDelta.changed.filter(
+          (filePath) =>
+            resolveRepoScopedPath(existing.path, filePath) &&
+            fs.existsSync(filePath) &&
+            registry.canParseFile(filePath) &&
+            !SKIP_FILE_RE.test(filePath.replace(/\\/g, '/')),
+        )
+      : null;
+    const gitDeletedFiles = gitDelta ? gitDelta.deleted : [];
+    const explicitChangedPathMode = gitDelta && gitDelta.source === 'changed-paths';
+    let scanResult;
+    if (gitDelta) {
+      scanResult = {
+        files: gitChangedFiles,
+        skipReport: { builtIn: {}, gitignore: {}, memorycodeignore: {}, unsupportedExt: 0 },
+        source: 'git-diff',
+      };
+    } else if (fs.existsSync(existing.path)) {
+      scanResult = await scanPhase(existing.path, {}, args);
+    } else {
+      scanResult = { files: [], skipReport: { builtIn: {}, gitignore: {}, memorycodeignore: {}, unsupportedExt: 0 } };
+    }
+    const files = scanResult.files;
+    const skipReport = scanResult.skipReport;
+    const skipSummary = formatSkipReport(skipReport);
+    emitProgress(args, 'discovery', {
+      message: gitDelta
+        ? `Git diff from ${String(existing.head_commit || 'unknown').slice(0, 8)} to ${String(gitDelta.currentHead || 'unknown').slice(0, 8)} found ${files.length} changed code files and ${gitDeletedFiles.length} deleted files`
+        : `Found ${files.length} code files to check`,
+      files_total: files.length,
+      detail: skipSummary,
+    });
+    if (skipSummary) {
+      emitProgress(args, 'discovery', { message: skipSummary });
+    }
+    if (gitDelta?.rejected?.length) {
+      emitProgress(args, 'discovery', {
+        message: `Skipped ${gitDelta.rejected.length} git/changed-path entries outside the repo or blocked as secret files`,
+        rejected_paths: gitDelta.rejected,
+      });
     }
 
-    try {
-      // oxlint-disable-next-line no-await-in-loop
-      const record = await readFileRecord(filePath);
-      const fileParams = fileRecordToParams(existing.id, record);
-      hashed++;
-      const prev = existingFiles.get(filePath);
-      if (prev && prev.content_hash === fileParams.contentHash) {
-        unchanged++;
-      } else {
-        changedRecords.push({ filePath, record, fileParams, prev });
-      }
-    } catch (e) {
-      skipped.push({ file: filePath, error: e.message });
-      recordDiagnostic(repository, existing.id, { filePath, content: '' }, 'error', e.message, 0);
-    }
+    const existingFiles = new Map(repository.listFiles(existing.id).map((file) => [file.path, file]));
+    let reindexed = 0;
+    let unchanged = 0;
+    let symbolCount = 0;
+    let hashed = 0;
+    const skipped = [];
+    const totalFiles = files.length;
+    const changedFileIds = [];
+    const deletedFileIds = [];
+    const changedRecords = [];
 
-    const done = i + 1;
-    if (shouldEmitFileProgress(done, totalFiles)) {
-      emitProgress(
-        args,
-        'parsing',
-        {
-          step: 'check-file',
-          current_file: progressPath(filePath, existing.path),
-          message: `Step 3/5: checked ${done}/${totalFiles}: ${progressPath(filePath, existing.path)} (${changedRecords.length} changed, ${unchanged} unchanged)`,
-        },
-        { files_total: totalFiles, files_done: done, symbols: symbolCount },
-      );
-    }
-  }
-
-  if (changedRecords.length > 0) {
-    emitProgress(
-      args,
-      'parsing',
-      {
-        step: 'extract-symbols',
-        message: `Step 3/5: extracting symbols from ${changedRecords.length} changed files...`,
-      },
-      { files_total: totalFiles, files_done: unchanged, symbols: symbolCount },
-    );
-
-    const allSymbols = [];
-    const scopeWork = [];
-    const fileMutations = [];
-
-    for (let ci = 0; ci < changedRecords.length; ci++) {
-      const { filePath, record, fileParams, prev } = changedRecords[ci];
-      try {
-        const { hot: hotSymbols, cold: coldSymbols, tree } = extractSymbolsSplit(filePath, registry, record.content);
-        recordDiagnostic(
-          repository,
-          existing.id,
-          record,
-          hotSymbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
-          hotSymbols.length === 0 && record.content.trim().length > 0 ? 'No symbols extracted from non-empty file' : '',
-          hotSymbols.length,
+    for (let i = 0; i < files.length; i++) {
+      const filePath = files[i];
+      if (i % 50 === 0) {
+        emitProgress(
+          args,
+          'parsing',
+          {
+            step: 'check-file',
+            current_file: progressPath(filePath, existing.path),
+            message: `Step 3/5: checking file ${i + 1}/${totalFiles}: ${progressPath(filePath, existing.path)}`,
+          },
+          { files_total: totalFiles, files_done: i, symbols: symbolCount },
         );
+      }
 
-        fileMutations.push({ prev, fileParams });
-        const mutationIndex = fileMutations.length - 1;
-
-        for (let si = 0; si < hotSymbols.length; si++) {
-          const hot = hotSymbols[si];
-          const cold = coldSymbols[si] || {};
-          allSymbols.push({
-            _mutationIndex: mutationIndex,
-            repoId: existing.id,
-            fileId: -1,
-            filePath,
-            name: hot.name,
-            kind: hot.kind,
-            qualifiedName: hot.qualified_name,
-            startLine: hot.start_line,
-            endLine: hot.end_line,
-            startByte: hot.start_byte,
-            endByte: hot.end_byte,
-            signature: cold.signature || '',
-            docstring: cold.docstring || '',
-            bodyPreview: cold.body_preview || '',
-            language: cold.language || '',
-            parentName: cold.parent_name || '',
-            stableSymbolId: cold.stable_symbol_id || '',
-            contentHash: cold.content_hash || '',
-            summary: cold.summary || '',
-            decoratorsJson: cold.decorators_json || '[]',
-            keywordsJson: cold.keywords_json || '[]',
-            callReferencesJson: cold.call_references_json || '[]',
-            ecosystemContext: cold.ecosystem_context || '',
-          });
+      try {
+        // oxlint-disable-next-line no-await-in-loop
+        const record = await readFileRecord(filePath);
+        const fileParams = fileRecordToParams(existing.id, record);
+        hashed++;
+        const prev = existingFiles.get(filePath);
+        if (prev && prev.content_hash === fileParams.contentHash) {
+          unchanged++;
+        } else {
+          changedRecords.push({ filePath, record, fileParams, prev });
         }
-        symbolCount += hotSymbols.length;
-        reindexed++;
-        scopeWork.push({ filePath, tree, mutationIndex });
       } catch (e) {
         skipped.push({ file: filePath, error: e.message });
         recordDiagnostic(repository, existing.id, { filePath, content: '' }, 'error', e.message, 0);
       }
+
+      const done = i + 1;
+      if (shouldEmitFileProgress(done, totalFiles)) {
+        emitProgress(
+          args,
+          'parsing',
+          {
+            step: 'check-file',
+            current_file: progressPath(filePath, existing.path),
+            message: `Step 3/5: checked ${done}/${totalFiles}: ${progressPath(filePath, existing.path)} (${changedRecords.length} changed, ${unchanged} unchanged)`,
+          },
+          { files_total: totalFiles, files_done: done, symbols: symbolCount },
+        );
+      }
     }
 
-    const applyMutations = () => {
-      const mutationFileIds = new Array(fileMutations.length);
-      for (let mi = 0; mi < fileMutations.length; mi++) {
-        const { prev, fileParams } = fileMutations[mi];
-        let fileId;
-        if (prev) {
-          repository.clearFileSymbols(prev.id);
-          repository.updateFile(prev.id, fileParams);
-          fileId = prev.id;
-        } else {
-          fileId = repository.insertFile(fileParams);
-        }
-        mutationFileIds[mi] = fileId;
-        changedFileIds.push(fileId);
-      }
+    if (changedRecords.length > 0) {
+      emitProgress(
+        args,
+        'parsing',
+        {
+          step: 'extract-symbols',
+          message: `Step 3/5: extracting symbols from ${changedRecords.length} changed files...`,
+        },
+        { files_total: totalFiles, files_done: unchanged, symbols: symbolCount },
+      );
 
-      for (const sym of allSymbols) {
-        sym.fileId = mutationFileIds[sym._mutationIndex];
-        delete sym._mutationIndex;
-      }
+      const allSymbols = [];
+      const scopeWork = [];
+      const fileMutations = [];
 
-      if (allSymbols.length > 0) {
-        if (typeof repository.insertSymbolBulk === 'function') {
-          repository.insertSymbolBulk(allSymbols);
-        } else if (typeof repository.insertSymbolBatch === 'function') {
-          repository.insertSymbolBatch(allSymbols);
-        }
-      }
+      for (let ci = 0; ci < changedRecords.length; ci++) {
+        const { filePath, record, fileParams, prev } = changedRecords[ci];
+        try {
+          const { hot: hotSymbols, cold: coldSymbols, tree } = extractSymbolsSplit(filePath, registry, record.content);
+          recordDiagnostic(
+            repository,
+            existing.id,
+            record,
+            hotSymbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
+            hotSymbols.length === 0 && record.content.trim().length > 0
+              ? 'No symbols extracted from non-empty file'
+              : '',
+            hotSymbols.length,
+          );
 
-      return mutationFileIds;
-    };
+          fileMutations.push({ prev, fileParams });
+          const mutationIndex = fileMutations.length - 1;
 
-    let mutationFileIds;
-    if (typeof repository.withTransaction === 'function') {
-      mutationFileIds = repository.withTransaction(applyMutations);
-    } else {
-      mutationFileIds = applyMutations();
-    }
-
-    for (const { filePath, tree, mutationIndex } of scopeWork) {
-      try {
-        const fileId = mutationFileIds[mutationIndex];
-        const scopeBuilder = require('./scope-builder').getScopeBuilder;
-        const builder = scopeBuilder(filePath);
-        if (builder) {
-          let treeObj = tree;
-          if (!treeObj) {
-            const parseResult = registry.parseTree(filePath, changedRecords[mutationIndex].record.content);
-            treeObj = parseResult ? parseResult.tree : null;
+          for (let si = 0; si < hotSymbols.length; si++) {
+            const hot = hotSymbols[si];
+            const cold = coldSymbols[si] || {};
+            allSymbols.push({
+              _mutationIndex: mutationIndex,
+              repoId: existing.id,
+              fileId: -1,
+              filePath,
+              name: hot.name,
+              kind: hot.kind,
+              qualifiedName: hot.qualified_name,
+              startLine: hot.start_line,
+              endLine: hot.end_line,
+              startByte: hot.start_byte,
+              endByte: hot.end_byte,
+              signature: cold.signature || '',
+              docstring: cold.docstring || '',
+              bodyPreview: cold.body_preview || '',
+              language: cold.language || '',
+              parentName: cold.parent_name || '',
+              stableSymbolId: cold.stable_symbol_id || '',
+              contentHash: cold.content_hash || '',
+              summary: cold.summary || '',
+              decoratorsJson: cold.decorators_json || '[]',
+              keywordsJson: cold.keywords_json || '[]',
+              callReferencesJson: cold.call_references_json || '[]',
+              ecosystemContext: cold.ecosystem_context || '',
+            });
           }
-          if (treeObj) {
-            const scopeBindings = builder(treeObj, changedRecords[mutationIndex].record.content, filePath);
-            if (scopeBindings.length > 0) {
-              insertScopeBindings(db, existing.id, fileId, scopeBindings);
+          symbolCount += hotSymbols.length;
+          reindexed++;
+          scopeWork.push({ filePath, tree, mutationIndex });
+        } catch (e) {
+          skipped.push({ file: filePath, error: e.message });
+          recordDiagnostic(repository, existing.id, { filePath, content: '' }, 'error', e.message, 0);
+        }
+      }
+
+      const applyMutations = () => {
+        const mutationFileIds = new Array(fileMutations.length);
+        for (let mi = 0; mi < fileMutations.length; mi++) {
+          const { prev, fileParams } = fileMutations[mi];
+          let fileId;
+          if (prev) {
+            repository.clearFileSymbols(prev.id);
+            repository.updateFile(prev.id, fileParams);
+            fileId = prev.id;
+          } else {
+            fileId = repository.insertFile(fileParams);
+          }
+          mutationFileIds[mi] = fileId;
+          changedFileIds.push(fileId);
+        }
+
+        for (const sym of allSymbols) {
+          sym.fileId = mutationFileIds[sym._mutationIndex];
+          delete sym._mutationIndex;
+        }
+
+        if (allSymbols.length > 0) {
+          if (typeof repository.insertSymbolBulk === 'function') {
+            repository.insertSymbolBulk(allSymbols);
+          } else if (typeof repository.insertSymbolBatch === 'function') {
+            repository.insertSymbolBatch(allSymbols);
+          }
+        }
+
+        return mutationFileIds;
+      };
+
+      let mutationFileIds;
+      if (typeof repository.withTransaction === 'function') {
+        mutationFileIds = repository.withTransaction(applyMutations);
+      } else {
+        mutationFileIds = applyMutations();
+      }
+
+      for (const { filePath, tree, mutationIndex } of scopeWork) {
+        try {
+          const fileId = mutationFileIds[mutationIndex];
+          const scopeBuilder = require('./scope-builder').getScopeBuilder;
+          const builder = scopeBuilder(filePath);
+          if (builder) {
+            let treeObj = tree;
+            if (!treeObj) {
+              const parseResult = registry.parseTree(filePath, changedRecords[mutationIndex].record.content);
+              treeObj = parseResult ? parseResult.tree : null;
             }
-            treeObj.delete();
+            if (treeObj) {
+              const scopeBindings = builder(treeObj, changedRecords[mutationIndex].record.content, filePath);
+              if (scopeBindings.length > 0) {
+                insertScopeBindings(db, existing.id, fileId, scopeBindings);
+              }
+              treeObj.delete();
+            }
           }
+        } catch {
+          // Best-effort scope binding extraction
         }
-      } catch {
-        // Best-effort scope binding extraction
       }
     }
-  }
 
-  const currentFilesSet = new Set(files);
-  const staleFiles =
-    gitDelta || explicitChangedPathMode
-      ? [...existingFiles.entries()].filter(([filePath]) => gitDeletedFiles.includes(filePath))
-      : [...existingFiles.entries()].filter(([filePath]) => !currentFilesSet.has(filePath));
-  for (const [, fileInfo] of staleFiles) {
-    deletedFileIds.push(fileInfo.id);
-    repository.deleteFile(fileInfo.id);
-  }
+    const currentFilesSet = new Set(files);
+    const staleFiles =
+      gitDelta || explicitChangedPathMode
+        ? [...existingFiles.entries()].filter(([filePath]) => gitDeletedFiles.includes(filePath))
+        : [...existingFiles.entries()].filter(([filePath]) => !currentFilesSet.has(filePath));
+    for (const [, fileInfo] of staleFiles) {
+      deletedFileIds.push(fileInfo.id);
+      repository.deleteFile(fileInfo.id);
+    }
 
-  if (changedRecords.length === 0 && unchanged === totalFiles && staleFiles.length === 0) {
+    if (changedRecords.length === 0 && unchanged === totalFiles && staleFiles.length === 0) {
+      const totalMs = Date.now() - t0;
+      const currentHead = gitDelta?.currentHead || getHeadCommit(existing.path);
+      if (currentHead && currentHead !== existing.head_commit) {
+        repository.updateRepoStats({
+          repoId: existing.id,
+          headCommit: currentHead,
+          currentBranch: getCurrentBranch(existing.path),
+          baseHead: existing.head_commit || null,
+        });
+      }
+      const existingSymbolCount = (() => {
+        try {
+          const r = db.prepare('SELECT symbol_count FROM code_repos WHERE id = ?').get(existing.id);
+          return r ? r.symbol_count : 0;
+        } catch {
+          return 0;
+        }
+      })();
+      emitProgress(
+        args,
+        'done',
+        {
+          message: `No files changed: ${unchanged} unchanged (${(totalMs / 1000).toFixed(1)}s)`,
+        },
+        { files_total: totalFiles, files_done: totalFiles, symbols: existingSymbolCount },
+      );
+      return {
+        success: true,
+        repo,
+        mode,
+        name: repo,
+        file_count: totalFiles,
+        symbol_count: existingSymbolCount,
+        files_checked: totalFiles,
+        files_hashed: hashed,
+        files_reindexed: 0,
+        files_unchanged: unchanged,
+        files_removed: 0,
+        files_skipped: skipped.length,
+        symbols_extracted: 0,
+        strategy: gitDelta ? 'git-diff' : 'scan-hash',
+        derived_scope: 'none',
+        git_base: existing.head_commit || null,
+        git_head: gitDelta?.currentHead || getHeadCommit(existing.path),
+        git_renames: gitDelta ? gitDelta.renamed : [],
+        import_edges: 0,
+        call_edges: 0,
+        complexity_symbols: 0,
+        skipped,
+        skip_report: skipReport,
+        timing_ms: { total: totalMs },
+      };
+    }
+
+    emitProgress(args, 'cleanup', {
+      step: 'remove-stale-files',
+      message: `Step 4/5: removing ${staleFiles.length} stale files from the index...`,
+    });
+
+    emitProgress(args, 'analysis', {
+      step: 'derived-indexes',
+      message: 'Step 5/5: rebuilding derived indexes (imports, calls, complexity)...',
+    });
+    const derived = rebuildDerivedIndexes(
+      db,
+      existing.id,
+      args,
+      totalFiles,
+      totalFiles,
+      symbolCount,
+      changedFileIds,
+      deletedFileIds,
+    );
+    repository.updateRepoStats({
+      repoId: existing.id,
+      headCommit: gitDelta?.currentHead || getHeadCommit(existing.path),
+      currentBranch: getCurrentBranch(existing.path),
+      baseHead: existing.head_commit || null,
+    });
+
     const totalMs = Date.now() - t0;
-    const currentHead = gitDelta?.currentHead || getHeadCommit(existing.path);
-    if (currentHead && currentHead !== existing.head_commit) {
-      repository.updateRepoStats({
-        repoId: existing.id,
-        headCommit: currentHead,
-        currentBranch: getCurrentBranch(existing.path),
-        baseHead: existing.head_commit || null,
-      });
-    }
-    const existingSymbolCount = (() => {
-      try {
-        const r = db.prepare('SELECT symbol_count FROM code_repos WHERE id = ?').get(existing.id);
-        return r ? r.symbol_count : 0;
-      } catch {
-        return 0;
-      }
-    })();
     emitProgress(
       args,
       'done',
-      {
-        message: `No files changed: ${unchanged} unchanged (${(totalMs / 1000).toFixed(1)}s)`,
-      },
-      { files_total: totalFiles, files_done: totalFiles, symbols: existingSymbolCount },
+      { message: `Reindexed: ${reindexed} changed, ${unchanged} unchanged (${(totalMs / 1000).toFixed(1)}s)` },
+      { files_total: totalFiles, files_done: totalFiles, symbols: symbolCount },
     );
+
     return {
       success: true,
       repo,
       mode,
       name: repo,
-      file_count: totalFiles,
-      symbol_count: existingSymbolCount,
+      file_count: reindexed + unchanged,
+      symbol_count: (() => {
+        try {
+          const r = db.prepare('SELECT symbol_count FROM code_repos WHERE id = ?').get(existing.id);
+          return r ? r.symbol_count : symbolCount;
+        } catch {
+          return symbolCount;
+        }
+      })(),
       files_checked: totalFiles,
       files_hashed: hashed,
-      files_reindexed: 0,
+      files_reindexed: reindexed,
       files_unchanged: unchanged,
-      files_removed: 0,
+      files_removed: staleFiles.length,
       files_skipped: skipped.length,
-      symbols_extracted: 0,
+      symbols_extracted: symbolCount,
       strategy: gitDelta ? 'git-diff' : 'scan-hash',
-      derived_scope: 'none',
-      git_base: existing.head_commit || null,
-      git_head: gitDelta?.currentHead || getHeadCommit(existing.path),
+      derived_scope: derived.derived_scope || 'repo',
+      git_base: gitDelta ? existing.head_commit : null,
+      git_head: gitDelta ? gitDelta.currentHead : null,
       git_renames: gitDelta ? gitDelta.renamed : [],
-      import_edges: 0,
-      call_edges: 0,
-      complexity_symbols: 0,
+      import_edges: derived.importEdges,
+      call_edges: derived.callEdges,
+      complexity_symbols: derived.complexityCount,
       skipped,
       skip_report: skipReport,
       timing_ms: { total: totalMs },
+      ...(gitDelta?.rejected?.length ? { rejected_paths: gitDelta.rejected } : {}),
     };
-  }
-
-  emitProgress(args, 'cleanup', {
-    step: 'remove-stale-files',
-    message: `Step 4/5: removing ${staleFiles.length} stale files from the index...`,
-  });
-
-  emitProgress(args, 'analysis', {
-    step: 'derived-indexes',
-    message: 'Step 5/5: rebuilding derived indexes (imports, calls, complexity)...',
-  });
-  const derived = rebuildDerivedIndexes(
-    db,
-    existing.id,
-    args,
-    totalFiles,
-    totalFiles,
-    symbolCount,
-    changedFileIds,
-    deletedFileIds,
-  );
-  repository.updateRepoStats({
-    repoId: existing.id,
-    headCommit: gitDelta?.currentHead || getHeadCommit(existing.path),
-    currentBranch: getCurrentBranch(existing.path),
-    baseHead: existing.head_commit || null,
-  });
-
-  const totalMs = Date.now() - t0;
-  emitProgress(
-    args,
-    'done',
-    { message: `Reindexed: ${reindexed} changed, ${unchanged} unchanged (${(totalMs / 1000).toFixed(1)}s)` },
-    { files_total: totalFiles, files_done: totalFiles, symbols: symbolCount },
-  );
-
-  return {
-    success: true,
-    repo,
-    mode,
-    name: repo,
-    file_count: reindexed + unchanged,
-    symbol_count: (() => {
-      try {
-        const r = db.prepare('SELECT symbol_count FROM code_repos WHERE id = ?').get(existing.id);
-        return r ? r.symbol_count : symbolCount;
-      } catch {
-        return symbolCount;
-      }
-    })(),
-    files_checked: totalFiles,
-    files_hashed: hashed,
-    files_reindexed: reindexed,
-    files_unchanged: unchanged,
-    files_removed: staleFiles.length,
-    files_skipped: skipped.length,
-    symbols_extracted: symbolCount,
-    strategy: gitDelta ? 'git-diff' : 'scan-hash',
-    derived_scope: derived.derived_scope || 'repo',
-    git_base: gitDelta ? existing.head_commit : null,
-    git_head: gitDelta ? gitDelta.currentHead : null,
-    git_renames: gitDelta ? gitDelta.renamed : [],
-    import_edges: derived.importEdges,
-    call_edges: derived.callEdges,
-    complexity_symbols: derived.complexityCount,
-    skipped,
-    skip_report: skipReport,
-    timing_ms: { total: totalMs },
-    ...(gitDelta?.rejected?.length ? { rejected_paths: gitDelta.rejected } : {}),
-  };
   });
 }
 

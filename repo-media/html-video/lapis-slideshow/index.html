@@ -1,411 +1,453 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>LaPis — Persistent Memory for Pi</title>
-  <style>
-    :root {
-      --bg: #F5EFE0;
-      --ink: #1B2A4E;
-      --accent: #E8B563;
-      --mute: #475569;
-    }
-    * { box-sizing: border-box; }
-    html, body {
-      margin: 0; padding: 0;
-      width: 100vw; height: 100vh;
-      background: var(--bg);
-      overflow: hidden;
-      font-family: "Charter", "Iowan Old Style", Georgia, serif;
-    }
-    #stage {
-      position: relative;
-      width: 100%; height: 100%;
-      background: var(--bg);
-    }
-    /* Each slide is a layer that fades in and out via opacity. */
-    .slide {
-      position: absolute;
-      inset: 0;
-      width: 100%; height: 100%;
-      opacity: 0;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      will-change: opacity, transform, filter;
-    }
-    /* Ken Burns: gentle slow zoom + tiny rotation drift per slide. */
-    .slide[data-ken="zoom-in"]    { transform-origin: 50% 50%; }
-    .slide[data-ken="zoom-out"]   { transform-origin: 50% 50%; }
-    .slide[data-ken="pan-left"]    { transform-origin: 100% 50%; }
-    .slide[data-ken="pan-right"]   { transform-origin: 0% 50%; }
+  <head>
+    <meta charset="UTF-8" />
+    <title>LaPis — Persistent Memory for Pi</title>
+    <style>
+      :root {
+        --bg: #f5efe0;
+        --ink: #1b2a4e;
+        --accent: #e8b563;
+        --mute: #475569;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: var(--bg);
+        overflow: hidden;
+        font-family: 'Charter', 'Iowan Old Style', Georgia, serif;
+      }
+      #stage {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: var(--bg);
+      }
+      /* Each slide is a layer that fades in and out via opacity. */
+      .slide {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        will-change: opacity, transform, filter;
+      }
+      /* Ken Burns: gentle slow zoom + tiny rotation drift per slide. */
+      .slide[data-ken='zoom-in'] {
+        transform-origin: 50% 50%;
+      }
+      .slide[data-ken='zoom-out'] {
+        transform-origin: 50% 50%;
+      }
+      .slide[data-ken='pan-left'] {
+        transform-origin: 100% 50%;
+      }
+      .slide[data-ken='pan-right'] {
+        transform-origin: 0% 50%;
+      }
 
-    /* ----- Transition overlays ----- */
+      /* ----- Transition overlays ----- */
 
-    /* Wipe: a wide diagonal wash with soft watercolor edges. Uses a
+      /* Wipe: a wide diagonal wash with soft watercolor edges. Uses a
        skewed rectangle so the gradient runs parallel to the diagonal
        instead of being clipped by the small screen height. */
-    .wipe {
-      position: absolute;
-      top: -25%;
-      bottom: -25%;
-      left: -50%;
-      width: 200%;
-      background: linear-gradient(115deg,
-        transparent 0%,
-        transparent 30%,
-        rgba(232, 181, 99, 0.75) 42%,
-        var(--bg) 50%,
-        rgba(71, 85, 105, 0.55) 58%,
-        transparent 70%,
-        transparent 100%);
-      transform: translateX(-100%) skewX(-15deg);
-      will-change: transform, opacity;
-      opacity: 0;
-      z-index: 50;
-    }
-    /* Iris: a circular wipe that opens from center. Two halves mask
+      .wipe {
+        position: absolute;
+        top: -25%;
+        bottom: -25%;
+        left: -50%;
+        width: 200%;
+        background: linear-gradient(
+          115deg,
+          transparent 0%,
+          transparent 30%,
+          rgba(232, 181, 99, 0.75) 42%,
+          var(--bg) 50%,
+          rgba(71, 85, 105, 0.55) 58%,
+          transparent 70%,
+          transparent 100%
+        );
+        transform: translateX(-100%) skewX(-15deg);
+        will-change: transform, opacity;
+        opacity: 0;
+        z-index: 50;
+      }
+      /* Iris: a circular wipe that opens from center. Two halves mask
        the screen; they retract to reveal the next slide. */
-    .iris-left, .iris-right {
-      position: absolute;
-      top: 0; bottom: 0;
-      width: 50%;
-      background: var(--bg);
-      will-change: transform, opacity;
-      z-index: 50;
-    }
-    .iris-left  { left: 0; transform-origin: 100% 50%; }
-    .iris-right { right: 0; transform-origin: 0% 50%; }
-    /* Soft watercolor edge along the iris boundary */
-    .iris-left::after, .iris-right::after {
-      content: "";
-      position: absolute; inset: 0;
-      background: linear-gradient(90deg,
-        transparent 0%,
-        rgba(232, 181, 99, 0.35) 50%,
-        transparent 100%);
-      mix-blend-mode: multiply;
-    }
+      .iris-left,
+      .iris-right {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 50%;
+        background: var(--bg);
+        will-change: transform, opacity;
+        z-index: 50;
+      }
+      .iris-left {
+        left: 0;
+        transform-origin: 100% 50%;
+      }
+      .iris-right {
+        right: 0;
+        transform-origin: 0% 50%;
+      }
+      /* Soft watercolor edge along the iris boundary */
+      .iris-left::after,
+      .iris-right::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent 0%, rgba(232, 181, 99, 0.35) 50%, transparent 100%);
+        mix-blend-mode: multiply;
+      }
 
-    /* ----- Caption strip ----- */
-    .caption {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      padding: 4vh 6vw 6vh;
-      background: linear-gradient(to top, rgba(27, 42, 78, 0.85), rgba(27, 42, 78, 0));
-      color: #F5EFE0;
-      opacity: 0;
-    }
-    .caption .eyebrow {
-      font-size: 0.95vw;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--accent);
-      font-weight: 600;
-      margin-bottom: 1vh;
-    }
-    .caption .title {
-      font-size: 3.2vw;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-      line-height: 1.1;
-    }
+      /* ----- Caption strip ----- */
+      .caption {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 4vh 6vw 6vh;
+        background: linear-gradient(to top, rgba(27, 42, 78, 0.85), rgba(27, 42, 78, 0));
+        color: #f5efe0;
+        opacity: 0;
+      }
+      .caption .eyebrow {
+        font-size: 0.95vw;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 600;
+        margin-bottom: 1vh;
+      }
+      .caption .title {
+        font-size: 3.2vw;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        line-height: 1.1;
+      }
 
-    /* Chapter marker (top-left, persistent) */
-    #chapter {
-      position: absolute;
-      top: 3vh; left: 3vw;
-      font-size: 0.85vw;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--mute);
-      opacity: 0;
-      z-index: 60;
-    }
-    #chapter .num {
-      color: var(--accent);
-      font-weight: 700;
-    }
+      /* Chapter marker (top-left, persistent) */
+      #chapter {
+        position: absolute;
+        top: 3vh;
+        left: 3vw;
+        font-size: 0.85vw;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--mute);
+        opacity: 0;
+        z-index: 60;
+      }
+      #chapter .num {
+        color: var(--accent);
+        font-weight: 700;
+      }
 
-    /* End card */
-    #endcard {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      text-align: center;
-      background: var(--bg);
-      opacity: 0;
-      z-index: 70;
-    }
-    #endcard h1 {
-      font-size: 4.5vw;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-      margin: 0 0 1.5vh;
-    }
-    #endcard h1 em { font-style: italic; color: var(--accent); }
-    #endcard .sub {
-      font-size: 1.4vw;
-      color: var(--mute);
-      font-style: italic;
-      margin-bottom: 4vh;
-    }
-    #endcard .links {
-      font-size: 1vw;
-      color: var(--ink);
-      letter-spacing: 0.1em;
-    }
-    #endcard .links span {
-      margin: 0 1.5vw;
-      padding: 0.5vh 1.2vw;
-      border: 1px solid var(--mute);
-      border-radius: 0.3vw;
-      color: var(--mute);
-    }
-  </style>
-</head>
-<body>
-  <div id="stage"
-       data-composition-id="lapis-slideshow"
-       data-start="0"
-       data-width="1920"
-       data-height="1080">
-
-    <!-- Persistent chapter marker -->
-    <div id="chapter" class="clip">
-      <span class="num" id="chapter-num">01</span> · <span id="chapter-label">the gem</span>
-    </div>
-
-    <!-- ===== Slides (5 × 5s = 25s) ===== -->
-    <!-- Slide 1: cover, 0-5s, slow zoom in (Ken Burns) -->
-    <div class="slide" id="slide-1"
-         data-ken="zoom-in"
-         data-start="0.0" data-duration="5.0" data-track-index="0"
-         style="background-image: url('./01-cover.jpeg');"></div>
-
-    <!-- Slide 2: overview, 5-10s, pan left (drift), fade + blur in -->
-    <div class="slide" id="slide-2"
-         data-ken="pan-left"
-         data-start="5.0" data-duration="5.0" data-track-index="1"
-         style="background-image: url('./02-overview.jpeg');"></div>
-
-    <!-- Slide 3: how-it-works, 10-15s, zoom in with wipe transition -->
-    <div class="slide" id="slide-3"
-         data-ken="zoom-in"
-         data-start="10.0" data-duration="5.0" data-track-index="2"
-         style="background-image: url('./03-how-it-works.jpeg');"></div>
-
-    <!-- Slide 4: deep-dive lifecycle, 15-20s, zoom out, iris transition -->
-    <div class="slide" id="slide-4"
-         data-ken="zoom-out"
-         data-start="15.0" data-duration="5.0" data-track-index="3"
-         style="background-image: url('./04-deep-dive.jpeg');"></div>
-
-    <!-- Slide 5: hero, 20-25s, pan right, blur dissolve transition -->
-    <div class="slide" id="slide-5"
-         data-ken="pan-right"
-         data-start="20.0" data-duration="5.0" data-track-index="4"
-         style="background-image: url('./05-hero.jpeg');"></div>
-
-    <!-- ===== Captions (each tied to its slide) ===== -->
-    <div class="caption" id="caption-1"
-         data-start="0.3" data-duration="4.4" data-track-index="5">
-      <div class="eyebrow">LaPis</div>
-      <div class="title">Persistent memory for the Pi coding agent.</div>
-    </div>
-    <div class="caption" id="caption-2"
-         data-start="5.3" data-duration="4.4" data-track-index="6">
-      <div class="eyebrow">What it remembers</div>
-      <div class="title">Decisions, bugfixes, patterns, discoveries — every session.</div>
-    </div>
-    <div class="caption" id="caption-3"
-         data-start="10.3" data-duration="4.4" data-track-index="7">
-      <div class="eyebrow">How it works</div>
-      <div class="title">Auto-inject context the moment a new task begins.</div>
-    </div>
-    <div class="caption" id="caption-4"
-         data-start="15.3" data-duration="4.4" data-track-index="8">
-      <div class="eyebrow">The lifecycle</div>
-      <div class="title">Save → Inject → Decay → Dream. Memory that renews itself.</div>
-    </div>
-    <div class="caption" id="caption-5"
-         data-start="20.3" data-duration="4.4" data-track-index="9">
-      <div class="eyebrow">Local, free, permanent</div>
-      <div class="title">One SQLite. Zero cloud. Zero API keys.</div>
-    </div>
-
-    <!-- ===== Transition overlays ===== -->
-    <!-- Wipe (between slide 2 and 3, runs through the cross-fade) -->
-    <div class="wipe" id="wipe-1"
-         data-start="8.6" data-duration="2.8" data-track-index="10"></div>
-
-    <!-- Iris (between slide 3 and 4, 14.4-15.6s) -->
-    <div class="iris-left"  id="iris-left-1"
-         data-start="14.4" data-duration="1.2" data-track-index="11"></div>
-    <div class="iris-right" id="iris-right-1"
-         data-start="14.4" data-duration="1.2" data-track-index="12"></div>
-
-    <!-- ===== End card (25-30s, lets the voiceover finish) ===== -->
-    <div id="endcard" data-start="25.0" data-duration="5.0" data-track-index="13">
-      <h1>LaPis <em>— memory that lasts.</em></h1>
-      <div class="sub">Install with <code>pi install git:github.com/GeneGulanesJr/LaPis</code></div>
-      <div class="links">
-        <span>~/.pi/memory/memory.db</span>
-        <span>github.com/GeneGulanesJr/LaPis</span>
-        <span>Apache 2.0</span>
+      /* End card */
+      #endcard {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+        background: var(--bg);
+        opacity: 0;
+        z-index: 70;
+      }
+      #endcard h1 {
+        font-size: 4.5vw;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+        margin: 0 0 1.5vh;
+      }
+      #endcard h1 em {
+        font-style: italic;
+        color: var(--accent);
+      }
+      #endcard .sub {
+        font-size: 1.4vw;
+        color: var(--mute);
+        font-style: italic;
+        margin-bottom: 4vh;
+      }
+      #endcard .links {
+        font-size: 1vw;
+        color: var(--ink);
+        letter-spacing: 0.1em;
+      }
+      #endcard .links span {
+        margin: 0 1.5vw;
+        padding: 0.5vh 1.2vw;
+        border: 1px solid var(--mute);
+        border-radius: 0.3vw;
+        color: var(--mute);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage" data-composition-id="lapis-slideshow" data-start="0" data-width="1920" data-height="1080">
+      <!-- Persistent chapter marker -->
+      <div id="chapter" class="clip">
+        <span class="num" id="chapter-num">01</span> · <span id="chapter-label">the gem</span>
       </div>
+
+      <!-- ===== Slides (5 × 5s = 25s) ===== -->
+      <!-- Slide 1: cover, 0-5s, slow zoom in (Ken Burns) -->
+      <div
+        class="slide"
+        id="slide-1"
+        data-ken="zoom-in"
+        data-start="0.0"
+        data-duration="5.0"
+        data-track-index="0"
+        style="background-image: url('./01-cover.jpeg')"
+      ></div>
+
+      <!-- Slide 2: overview, 5-10s, pan left (drift), fade + blur in -->
+      <div
+        class="slide"
+        id="slide-2"
+        data-ken="pan-left"
+        data-start="5.0"
+        data-duration="5.0"
+        data-track-index="1"
+        style="background-image: url('./02-overview.jpeg')"
+      ></div>
+
+      <!-- Slide 3: how-it-works, 10-15s, zoom in with wipe transition -->
+      <div
+        class="slide"
+        id="slide-3"
+        data-ken="zoom-in"
+        data-start="10.0"
+        data-duration="5.0"
+        data-track-index="2"
+        style="background-image: url('./03-how-it-works.jpeg')"
+      ></div>
+
+      <!-- Slide 4: deep-dive lifecycle, 15-20s, zoom out, iris transition -->
+      <div
+        class="slide"
+        id="slide-4"
+        data-ken="zoom-out"
+        data-start="15.0"
+        data-duration="5.0"
+        data-track-index="3"
+        style="background-image: url('./04-deep-dive.jpeg')"
+      ></div>
+
+      <!-- Slide 5: hero, 20-25s, pan right, blur dissolve transition -->
+      <div
+        class="slide"
+        id="slide-5"
+        data-ken="pan-right"
+        data-start="20.0"
+        data-duration="5.0"
+        data-track-index="4"
+        style="background-image: url('./05-hero.jpeg')"
+      ></div>
+
+      <!-- ===== Captions (each tied to its slide) ===== -->
+      <div class="caption" id="caption-1" data-start="0.3" data-duration="4.4" data-track-index="5">
+        <div class="eyebrow">LaPis</div>
+        <div class="title">Persistent memory for the Pi coding agent.</div>
+      </div>
+      <div class="caption" id="caption-2" data-start="5.3" data-duration="4.4" data-track-index="6">
+        <div class="eyebrow">What it remembers</div>
+        <div class="title">Decisions, bugfixes, patterns, discoveries — every session.</div>
+      </div>
+      <div class="caption" id="caption-3" data-start="10.3" data-duration="4.4" data-track-index="7">
+        <div class="eyebrow">How it works</div>
+        <div class="title">Auto-inject context the moment a new task begins.</div>
+      </div>
+      <div class="caption" id="caption-4" data-start="15.3" data-duration="4.4" data-track-index="8">
+        <div class="eyebrow">The lifecycle</div>
+        <div class="title">Save → Inject → Decay → Dream. Memory that renews itself.</div>
+      </div>
+      <div class="caption" id="caption-5" data-start="20.3" data-duration="4.4" data-track-index="9">
+        <div class="eyebrow">Local, free, permanent</div>
+        <div class="title">One SQLite. Zero cloud. Zero API keys.</div>
+      </div>
+
+      <!-- ===== Transition overlays ===== -->
+      <!-- Wipe (between slide 2 and 3, runs through the cross-fade) -->
+      <div class="wipe" id="wipe-1" data-start="8.6" data-duration="2.8" data-track-index="10"></div>
+
+      <!-- Iris (between slide 3 and 4, 14.4-15.6s) -->
+      <div class="iris-left" id="iris-left-1" data-start="14.4" data-duration="1.2" data-track-index="11"></div>
+      <div class="iris-right" id="iris-right-1" data-start="14.4" data-duration="1.2" data-track-index="12"></div>
+
+      <!-- ===== End card (25-30s, lets the voiceover finish) ===== -->
+      <div id="endcard" data-start="25.0" data-duration="5.0" data-track-index="13">
+        <h1>LaPis <em>— memory that lasts.</em></h1>
+        <div class="sub">Install with <code>pi install git:github.com/GeneGulanesJr/LaPis</code></div>
+        <div class="links">
+          <span>~/.pi/memory/memory.db</span>
+          <span>github.com/GeneGulanesJr/LaPis</span>
+          <span>Apache 2.0</span>
+        </div>
+      </div>
+
+      <!-- Audio: voiceover (full 30s) + background music (subtle under) -->
+      <audio data-start="0" data-duration="30" data-track-index="14" data-volume="0.95" src="./voiceover.mp3"></audio>
+      <audio
+        data-start="0"
+        data-duration="30"
+        data-track-index="15"
+        data-volume="0.18"
+        src="./background-music.mp3"
+      ></audio>
     </div>
 
-    <!-- Audio: voiceover (full 30s) + background music (subtle under) -->
-    <audio data-start="0" data-duration="30" data-track-index="14" data-volume="0.95" src="./voiceover.mp3"></audio>
-    <audio data-start="0" data-duration="30" data-track-index="15" data-volume="0.18" src="./background-music.mp3"></audio>
-  </div>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+    <script>
+      // Per-track opacity fades + Ken Burns scale on each slide +
+      // 4 distinct transition types between slides.
+      const tl = gsap.timeline({ paused: true });
 
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
-  <script>
-    // Per-track opacity fades + Ken Burns scale on each slide +
-    // 4 distinct transition types between slides.
-    const tl = gsap.timeline({ paused: true });
+      // ─── Slide 1: cover (0-5s) — soft fade in, slow zoom in ───
+      tl.fromTo(
+        '#slide-1',
+        { opacity: 0, scale: 1.0 },
+        { opacity: 1, scale: 1.08, duration: 5.0, ease: 'power1.inOut' },
+        0,
+      );
+      tl.to('#slide-1', { opacity: 0, scale: 1.12, duration: 0.6, ease: 'power2.in' }, 4.4);
+      tl.set('#slide-1', { scale: 1.0 });
 
-    // ─── Slide 1: cover (0-5s) — soft fade in, slow zoom in ───
-    tl.fromTo("#slide-1",
-      { opacity: 0, scale: 1.0 },
-      { opacity: 1, scale: 1.08, duration: 5.0, ease: "power1.inOut" },
-      0);
-    tl.to("#slide-1",
-      { opacity: 0, scale: 1.12, duration: 0.6, ease: "power2.in" },
-      4.4);
-    tl.set("#slide-1", { scale: 1.0 });
+      // ─── Slide 2: overview (5-10s) — fade in with pan, no scale ───
+      // Cross-fade transition (slide 1 → slide 2). Soft + slow.
+      tl.fromTo(
+        '#slide-2',
+        { opacity: 0, scale: 1.04, x: '2%' },
+        { opacity: 1, scale: 1.08, x: '-1%', duration: 5.0, ease: 'power1.inOut' },
+        5.0,
+      );
+      tl.to('#slide-2', { opacity: 0, scale: 1.12, duration: 0.6, ease: 'power2.in' }, 9.4);
+      tl.set('#slide-2', { scale: 1.0, x: '0%' });
 
-    // ─── Slide 2: overview (5-10s) — fade in with pan, no scale ───
-    // Cross-fade transition (slide 1 → slide 2). Soft + slow.
-    tl.fromTo("#slide-2",
-      { opacity: 0, scale: 1.04, x: "2%" },
-      { opacity: 1, scale: 1.08, x: "-1%", duration: 5.0, ease: "power1.inOut" },
-      5.0);
-    tl.to("#slide-2",
-      { opacity: 0, scale: 1.12, duration: 0.6, ease: "power2.in" },
-      9.4);
-    tl.set("#slide-2", { scale: 1.0, x: "0%" });
+      // ─── Wipe transition (between slide 2 and 3, 8.6-11.4s) ───
+      // A wide diagonal watercolor wash sweeps across the screen,
+      // taking 2.8s so the eye can clearly register the motion.
+      // Phase 1: sweep IN from the left (entrance) — covers slide 2.
+      tl.fromTo('#wipe-1', { x: '-100%', opacity: 0 }, { x: '0%', opacity: 1, duration: 1.2, ease: 'power2.in' }, 8.6);
+      // Phase 2: sweep OUT to the right (exit) — uncovers slide 3.
+      tl.to('#wipe-1', { x: '100%', opacity: 0, duration: 1.4, ease: 'power2.out' }, 10.0);
 
-    // ─── Wipe transition (between slide 2 and 3, 8.6-11.4s) ───
-    // A wide diagonal watercolor wash sweeps across the screen,
-    // taking 2.8s so the eye can clearly register the motion.
-    // Phase 1: sweep IN from the left (entrance) — covers slide 2.
-    tl.fromTo("#wipe-1",
-      { x: "-100%", opacity: 0 },
-      { x: "0%", opacity: 1, duration: 1.2, ease: "power2.in" },
-      8.6);
-    // Phase 2: sweep OUT to the right (exit) — uncovers slide 3.
-    tl.to("#wipe-1",
-      { x: "100%", opacity: 0, duration: 1.4, ease: "power2.out" },
-      10.0);
+      // ─── Slide 3: how-it-works (10-15s) ───
+      tl.fromTo(
+        '#slide-3',
+        { opacity: 0, scale: 1.0 },
+        { opacity: 1, scale: 1.08, duration: 5.0, ease: 'power1.inOut' },
+        10.0,
+      );
+      tl.to('#slide-3', { opacity: 0, scale: 1.12, duration: 0.6, ease: 'power2.in' }, 14.4);
+      tl.set('#slide-3', { scale: 1.0 });
 
-    // ─── Slide 3: how-it-works (10-15s) ───
-    tl.fromTo("#slide-3",
-      { opacity: 0, scale: 1.0 },
-      { opacity: 1, scale: 1.08, duration: 5.0, ease: "power1.inOut" },
-      10.0);
-    tl.to("#slide-3",
-      { opacity: 0, scale: 1.12, duration: 0.6, ease: "power2.in" },
-      14.4);
-    tl.set("#slide-3", { scale: 1.0 });
+      // ─── Iris transition (between slide 3 and 4, 14.4-15.6s) ───
+      // Two halves close over the screen, then open to reveal slide 4.
+      // Phase 1 (close): both halves slide IN from their respective edges
+      //   covering the slide 3 image.
+      tl.fromTo(
+        '#iris-left-1',
+        { scaleX: 0, opacity: 0 },
+        { scaleX: 1, opacity: 1, duration: 0.4, ease: 'power2.in', transformOrigin: '100% 50%' },
+        14.4,
+      );
+      tl.fromTo(
+        '#iris-right-1',
+        { scaleX: 0, opacity: 0 },
+        { scaleX: 1, opacity: 1, duration: 0.4, ease: 'power2.in', transformOrigin: '0% 50%' },
+        14.4,
+      );
+      // Phase 2 (open): halves retract, revealing slide 4.
+      tl.to(
+        '#iris-left-1',
+        { scaleX: 0, opacity: 0, duration: 0.5, ease: 'power2.out', transformOrigin: '100% 50%' },
+        14.8,
+      );
+      tl.to(
+        '#iris-right-1',
+        { scaleX: 0, opacity: 0, duration: 0.5, ease: 'power2.out', transformOrigin: '0% 50%' },
+        14.8,
+      );
 
-    // ─── Iris transition (between slide 3 and 4, 14.4-15.6s) ───
-    // Two halves close over the screen, then open to reveal slide 4.
-    // Phase 1 (close): both halves slide IN from their respective edges
-    //   covering the slide 3 image.
-    tl.fromTo("#iris-left-1",
-      { scaleX: 0, opacity: 0 },
-      { scaleX: 1, opacity: 1, duration: 0.4, ease: "power2.in", transformOrigin: "100% 50%" },
-      14.4);
-    tl.fromTo("#iris-right-1",
-      { scaleX: 0, opacity: 0 },
-      { scaleX: 1, opacity: 1, duration: 0.4, ease: "power2.in", transformOrigin: "0% 50%" },
-      14.4);
-    // Phase 2 (open): halves retract, revealing slide 4.
-    tl.to("#iris-left-1",
-      { scaleX: 0, opacity: 0, duration: 0.5, ease: "power2.out", transformOrigin: "100% 50%" },
-      14.8);
-    tl.to("#iris-right-1",
-      { scaleX: 0, opacity: 0, duration: 0.5, ease: "power2.out", transformOrigin: "0% 50%" },
-      14.8);
+      // ─── Slide 4: deep-dive lifecycle (15-20s) — zoom OUT ───
+      tl.fromTo(
+        '#slide-4',
+        { opacity: 0, scale: 1.1 },
+        { opacity: 1, scale: 1.0, duration: 5.0, ease: 'power1.inOut' },
+        15.0,
+      );
+      tl.to('#slide-4', { opacity: 0, scale: 1.05, duration: 0.6, ease: 'power2.in' }, 19.4);
+      tl.set('#slide-4', { scale: 1.0 });
 
-    // ─── Slide 4: deep-dive lifecycle (15-20s) — zoom OUT ───
-    tl.fromTo("#slide-4",
-      { opacity: 0, scale: 1.1 },
-      { opacity: 1, scale: 1.0, duration: 5.0, ease: "power1.inOut" },
-      15.0);
-    tl.to("#slide-4",
-      { opacity: 0, scale: 1.05, duration: 0.6, ease: "power2.in" },
-      19.4);
-    tl.set("#slide-4", { scale: 1.0 });
+      // ─── Slide 5: hero (20-25s) — blur dissolve transition ───
+      // Cross-fade with blur on the outgoing slide for a soft, dreamy feel.
+      tl.fromTo('#slide-4', { filter: 'blur(0px)' }, { filter: 'blur(20px)', duration: 0.7, ease: 'power2.in' }, 19.4);
+      tl.fromTo(
+        '#slide-5',
+        { opacity: 0, filter: 'blur(20px)', scale: 1.1, x: '-2%' },
+        { opacity: 1, filter: 'blur(0px)', scale: 1.0, x: '0%', duration: 0.7, ease: 'power2.out' },
+        19.7,
+      );
+      // After the dissolve, slide 5 holds and does its own Ken Burns.
+      tl.to('#slide-5', { scale: 1.06, duration: 4.3, ease: 'power1.inOut' }, 20.4);
+      tl.to('#slide-5', { opacity: 0, duration: 0.4 }, 24.6);
 
-    // ─── Slide 5: hero (20-25s) — blur dissolve transition ───
-    // Cross-fade with blur on the outgoing slide for a soft, dreamy feel.
-    tl.fromTo("#slide-4",
-      { filter: "blur(0px)" },
-      { filter: "blur(20px)", duration: 0.7, ease: "power2.in" },
-      19.4);
-    tl.fromTo("#slide-5",
-      { opacity: 0, filter: "blur(20px)", scale: 1.1, x: "-2%" },
-      { opacity: 1, filter: "blur(0px)", scale: 1.0, x: "0%", duration: 0.7, ease: "power2.out" },
-      19.7);
-    // After the dissolve, slide 5 holds and does its own Ken Burns.
-    tl.to("#slide-5",
-      { scale: 1.06, duration: 4.3, ease: "power1.inOut" },
-      20.4);
-    tl.to("#slide-5",
-      { opacity: 0, duration: 0.4 },
-      24.6);
+      // ─── End card (25-30s) ───
+      tl.fromTo('#endcard', { opacity: 0 }, { opacity: 1, duration: 0.8, ease: 'power2.out' }, 25.0);
 
-    // ─── End card (25-30s) ───
-    tl.fromTo("#endcard",
-      { opacity: 0 },
-      { opacity: 1, duration: 0.8, ease: "power2.out" },
-      25.0);
+      // ─── Captions ───
+      const captionTimes = [
+        { id: '#caption-1', start: 0.3, end: 4.7 },
+        { id: '#caption-2', start: 5.3, end: 9.7 },
+        { id: '#caption-3', start: 10.3, end: 14.7 },
+        { id: '#caption-4', start: 15.3, end: 19.7 },
+        { id: '#caption-5', start: 20.3, end: 24.7 },
+      ];
+      captionTimes.forEach(({ id, start, end }) => {
+        tl.fromTo(id, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, start);
+        tl.to(id, { opacity: 0, y: -8, duration: 0.4 }, end);
+      });
 
-    // ─── Captions ───
-    const captionTimes = [
-      { id: "#caption-1", start: 0.3,  end: 4.7 },
-      { id: "#caption-2", start: 5.3,  end: 9.7 },
-      { id: "#caption-3", start: 10.3, end: 14.7 },
-      { id: "#caption-4", start: 15.3, end: 19.7 },
-      { id: "#caption-5", start: 20.3, end: 24.7 },
-    ];
-    captionTimes.forEach(({ id, start, end }) => {
-      tl.fromTo(id,
-        { opacity: 0, y: 12 },
-        { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" },
-        start);
-      tl.to(id,
-        { opacity: 0, y: -8, duration: 0.4 },
-        end);
-    });
+      // ─── Chapter marker (always visible after intro) ───
+      tl.to('#chapter', { opacity: 1, duration: 0.4 }, 0.2);
+      const chapters = [
+        { t: 0.0, num: '01', label: 'the gem' },
+        { t: 5.0, num: '02', label: 'memory types' },
+        { t: 10.0, num: '03', label: 'lifecycle' },
+        { t: 15.0, num: '04', label: 'deep dive' },
+        { t: 20.0, num: '05', label: 'shipping' },
+      ];
+      chapters.forEach(({ t, num, label }) => {
+        tl.call(
+          () => {
+            document.getElementById('chapter-num').textContent = num;
+            document.getElementById('chapter-label').textContent = label;
+          },
+          [],
+          t,
+        );
+      });
 
-    // ─── Chapter marker (always visible after intro) ───
-    tl.to("#chapter", { opacity: 1, duration: 0.4 }, 0.2);
-    const chapters = [
-      { t: 0.0,  num: "01", label: "the gem" },
-      { t: 5.0,  num: "02", label: "memory types" },
-      { t: 10.0, num: "03", label: "lifecycle" },
-      { t: 15.0, num: "04", label: "deep dive" },
-      { t: 20.0, num: "05", label: "shipping" },
-    ];
-    chapters.forEach(({ t, num, label }) => {
-      tl.call(() => {
-        document.getElementById("chapter-num").textContent = num;
-        document.getElementById("chapter-label").textContent = label;
-      }, [], t);
-    });
-
-    // Register the timeline so HyperFrames can seek it
-    window.__timelines = window.__timelines || {};
-    window.__timelines["lapis-slideshow"] = tl;
-  </script>
-</body>
+      // Register the timeline so HyperFrames can seek it
+      window.__timelines = window.__timelines || {};
+      window.__timelines['lapis-slideshow'] = tl;
+    </script>
+  </body>
 </html>

@@ -36,10 +36,7 @@ describe('claude-code file-keys: shared normalization', () => {
   });
 
   test('uniqueEditedPaths collapses full path + basename to one entry per file', () => {
-    expect(uniqueEditedPaths(['/proj/a.js', 'a.js', '/proj/b.ts', 'b.ts'])).toEqual([
-      '/proj/a.js',
-      '/proj/b.ts',
-    ]);
+    expect(uniqueEditedPaths(['/proj/a.js', 'a.js', '/proj/b.ts', 'b.ts'])).toEqual(['/proj/a.js', '/proj/b.ts']);
   });
 
   test('uniqueEditedPaths accepts a Set and ignores empty entries', () => {

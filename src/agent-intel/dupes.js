@@ -16,11 +16,7 @@ function findDupes(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db);
   if (guard) return guard;
 
-  const {
-    threshold = CFG.SIMILARITY_THRESHOLD,
-    topK = CFG.TOP_K_GROUPS,
-    minBodyLength = CFG.MIN_BODY_LENGTH,
-  } = opts;
+  const { threshold = CFG.SIMILARITY_THRESHOLD, topK = CFG.TOP_K_GROUPS, minBodyLength = CFG.MIN_BODY_LENGTH } = opts;
 
   const startTime = Date.now();
 
@@ -178,13 +174,7 @@ function _persistGroups(db, repoId, groups) {
 
   const tx = db.transaction(() => {
     for (const group of groups) {
-      const result = insertGroup.run(
-        repoId,
-        group.intent,
-        group.risk,
-        group.detection_type,
-        group.recommendation,
-      );
+      const result = insertGroup.run(repoId, group.intent, group.risk, group.detection_type, group.recommendation);
       const groupId = result.lastInsertRowid;
       for (const inst of group.instances) {
         insertInstance.run(groupId, inst.symbol_id, inst.file_path, inst.symbol_name, inst.line_start);
@@ -201,9 +191,7 @@ function loadDupes(db, repoId) {
   const groups = db.prepare(`SELECT * FROM duplicate_groups WHERE repo_id = ? ORDER BY created_at DESC`).all(repoId);
 
   const instances = db
-    .prepare(
-      `SELECT * FROM duplicate_instances WHERE group_id IN (SELECT id FROM duplicate_groups WHERE repo_id = ?)`,
-    )
+    .prepare(`SELECT * FROM duplicate_instances WHERE group_id IN (SELECT id FROM duplicate_groups WHERE repo_id = ?)`)
     .all(repoId);
 
   const byGroup = new Map();

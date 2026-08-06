@@ -370,7 +370,9 @@ function createAurexRepository(deps) {
         assertInSet(filters.status, MISSION_LEDGER_STATUSES, 'status');
       }
       const rows = filters.status
-        ? sqlJson('SELECT * FROM todo_ledgers WHERE status = ? ORDER BY updated_at DESC', [filters.status]).map(mapLedgerRow)
+        ? sqlJson('SELECT * FROM todo_ledgers WHERE status = ? ORDER BY updated_at DESC', [filters.status]).map(
+            mapLedgerRow,
+          )
         : sqlJson('SELECT * FROM todo_ledgers ORDER BY updated_at DESC').map(mapLedgerRow);
       if (rows.length === 0) {
         return [];
@@ -418,7 +420,10 @@ function createAurexRepository(deps) {
     setMissionLedgerStatus(missionId, status) {
       assertInSet(status, MISSION_LEDGER_STATUSES, 'status');
       const current = this.getMissionLedger(missionId)[0];
-      sqlRun('UPDATE todo_ledgers SET status = ?, updated_at = datetime(\'now\') WHERE mission_id = ?', [status, missionId]);
+      sqlRun("UPDATE todo_ledgers SET status = ?, updated_at = datetime('now') WHERE mission_id = ?", [
+        status,
+        missionId,
+      ]);
       this.recordMissionEvent(missionId, {
         eventType: 'mission_status_changed',
         payload: { from: current?.status || null, to: status },
@@ -566,7 +571,7 @@ function createAurexRepository(deps) {
         return [];
       }
       validateTodoStatusEvidence(status, current.evidence);
-      sqlRun('UPDATE todo_items SET status = ?, updated_at = datetime(\'now\') WHERE id = ?', [status, todoId]);
+      sqlRun("UPDATE todo_items SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, todoId]);
       this.recordTodoEvent(todoId, {
         eventType: 'todo_status_changed',
         payload: { from: current.status, to: status },
@@ -579,7 +584,7 @@ function createAurexRepository(deps) {
         return [];
       }
       const evidence = mergeEvidence(current.evidence, evidencePatch || {});
-      sqlRun('UPDATE todo_items SET evidence_json = ?, updated_at = datetime(\'now\') WHERE id = ?', [
+      sqlRun("UPDATE todo_items SET evidence_json = ?, updated_at = datetime('now') WHERE id = ?", [
         toJson(evidence),
         todoId,
       ]);
@@ -594,7 +599,10 @@ function createAurexRepository(deps) {
       if (!current) {
         return [];
       }
-      sqlRun('UPDATE todo_items SET assigned_worker_id = ?, updated_at = datetime(\'now\') WHERE id = ?', [workerId, todoId]);
+      sqlRun("UPDATE todo_items SET assigned_worker_id = ?, updated_at = datetime('now') WHERE id = ?", [
+        workerId,
+        todoId,
+      ]);
       this.recordTodoEvent(todoId, {
         eventType: 'todo_assigned',
         payload: { from: current.assignedWorkerId || null, to: workerId || null },
@@ -662,7 +670,14 @@ function createAurexRepository(deps) {
       const id = event.id || `te-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       sqlRun(
         'INSERT INTO todo_events (id, mission_id, todo_id, event_type, actor_id, payload_json) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, todo.missionId, todoId, event.eventType || 'todo_event', event.actorId || null, toJson(event.payload || {})],
+        [
+          id,
+          todo.missionId,
+          todoId,
+          event.eventType || 'todo_event',
+          event.actorId || null,
+          toJson(event.payload || {}),
+        ],
       );
       return sqlJson('SELECT * FROM todo_events WHERE id = ?', [id]).map(mapTodoEventRow);
     },
@@ -678,7 +693,9 @@ function createAurexRepository(deps) {
       return sqlJson('SELECT * FROM todo_events WHERE id = ?', [id]).map(mapTodoEventRow);
     },
     listMissionEvents(missionId) {
-      return sqlJson('SELECT * FROM todo_events WHERE mission_id = ? ORDER BY created_at', [missionId]).map(mapTodoEventRow);
+      return sqlJson('SELECT * FROM todo_events WHERE mission_id = ? ORDER BY created_at', [missionId]).map(
+        mapTodoEventRow,
+      );
     },
 
     // --- Checkpoints ---
@@ -722,7 +739,15 @@ function createAurexRepository(deps) {
   return Object.freeze(repository);
 }
 
-const MISSION_LEDGER_STATUSES = new Set(['planning', 'ready', 'in_progress', 'blocked', 'validating', 'completed', 'cancelled']);
+const MISSION_LEDGER_STATUSES = new Set([
+  'planning',
+  'ready',
+  'in_progress',
+  'blocked',
+  'validating',
+  'completed',
+  'cancelled',
+]);
 const TODO_STATUSES = new Set([
   'pending',
   'ready',
@@ -821,12 +846,12 @@ function hasEvidence(evidence) {
   const normalized = normalizeEvidence(evidence);
   return Boolean(
     normalized.branch ||
-      normalized.validatorVerdict ||
-      normalized.commits.length ||
-      normalized.changedFiles.length ||
-      normalized.testsRun.length ||
-      normalized.testResults.length ||
-      normalized.notes.length,
+    normalized.validatorVerdict ||
+    normalized.commits.length ||
+    normalized.changedFiles.length ||
+    normalized.testsRun.length ||
+    normalized.testResults.length ||
+    normalized.notes.length,
   );
 }
 
@@ -855,10 +880,13 @@ function normalizeTodoInput(todo) {
     priority: todo.priority || 'medium',
     dependsOn: Array.isArray(todo.dependsOn) ? todo.dependsOn : [],
     goal: todo.goal || '',
-    scope: todo.scope && typeof todo.scope === 'object' ? {
-      in: Array.isArray(todo.scope.in) ? todo.scope.in : [],
-      out: Array.isArray(todo.scope.out) ? todo.scope.out : [],
-    } : { in: [], out: [] },
+    scope:
+      todo.scope && typeof todo.scope === 'object'
+        ? {
+            in: Array.isArray(todo.scope.in) ? todo.scope.in : [],
+            out: Array.isArray(todo.scope.out) ? todo.scope.out : [],
+          }
+        : { in: [], out: [] },
     likelyFiles: Array.isArray(todo.likelyFiles) ? todo.likelyFiles : [],
     lapisContextQuery: todo.lapisContextQuery || '',
     acceptanceCriteria: Array.isArray(todo.acceptanceCriteria) ? todo.acceptanceCriteria : [],

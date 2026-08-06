@@ -17,16 +17,16 @@ LaPis is a local coding-memory stack (SQLite at `$LAPIS_HOME/.pi/memory/memory.d
 
 ## Tools (MCP server `lapis` → `mcp_lapis_*`)
 
-| Tool | Purpose |
-|---|---|
-| `mcp_lapis_memory_save` | Save memory: `title`, `content`, `type` (decision/bugfix/architecture/pattern/discovery/config/preference/learning/manual), `scope` (project/personal), `topic_key`, `expires_in` (e.g. `7d`), `force` |
-| `mcp_lapis_memory_search` | Search memories: `query`, optional `type`/`scope` filters, `limit` |
-| `mcp_lapis_memory_get` / `update` / `delete` / `related` | Full CRUD by ID + symbol-linked recall |
-| `mcp_lapis_memory_load_context` | Deep-dive on everything memory knows about a topic |
-| `mcp_lapis_memory_code` | Code-index queries. **Modes:** `outline`, `callers`, `callees`, `blast-radius`, `dead-code`, `complexity`, `deps`, `churn`, `hotspots`, `cycles`, `importance`, `coupling`, `extractable`, `hierarchy`, `signal-chains`, `layer-violations`, `search`, `index-repo`, `reindex-repo` |
-| `mcp_lapis_memory_doc` | Doc-index queries. **Modes:** `search`, `outline`, `backlinks`, `broken-links`, `glossary`, `tutorial-path`, `code-examples`, `orphans`, `coverage`, `stale-pages`, `duplicates`, `index-docs`, `reindex-docs` |
-| `mcp_lapis_memory_sync_code_trust` | After git pull/checkout/merge/rebase: sync trust scores with changed code |
-| `mcp_lapis_index_status` | Check progress of an async index job |
+| Tool                                                     | Purpose                                                                                                                                                                                                                                                                             |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mcp_lapis_memory_save`                                  | Save memory: `title`, `content`, `type` (decision/bugfix/architecture/pattern/discovery/config/preference/learning/manual), `scope` (project/personal), `topic_key`, `expires_in` (e.g. `7d`), `force`                                                                              |
+| `mcp_lapis_memory_search`                                | Search memories: `query`, optional `type`/`scope` filters, `limit`                                                                                                                                                                                                                  |
+| `mcp_lapis_memory_get` / `update` / `delete` / `related` | Full CRUD by ID + symbol-linked recall                                                                                                                                                                                                                                              |
+| `mcp_lapis_memory_load_context`                          | Deep-dive on everything memory knows about a topic                                                                                                                                                                                                                                  |
+| `mcp_lapis_memory_code`                                  | Code-index queries. **Modes:** `outline`, `callers`, `callees`, `blast-radius`, `dead-code`, `complexity`, `deps`, `churn`, `hotspots`, `cycles`, `importance`, `coupling`, `extractable`, `hierarchy`, `signal-chains`, `layer-violations`, `search`, `index-repo`, `reindex-repo` |
+| `mcp_lapis_memory_doc`                                   | Doc-index queries. **Modes:** `search`, `outline`, `backlinks`, `broken-links`, `glossary`, `tutorial-path`, `code-examples`, `orphans`, `coverage`, `stale-pages`, `duplicates`, `index-docs`, `reindex-docs`                                                                      |
+| `mcp_lapis_memory_sync_code_trust`                       | After git pull/checkout/merge/rebase: sync trust scores with changed code                                                                                                                                                                                                           |
+| `mcp_lapis_index_status`                                 | Check progress of an async index job                                                                                                                                                                                                                                                |
 
 ## Retrieval protocol (indexed repos)
 

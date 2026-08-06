@@ -27,9 +27,7 @@ describe('observation_versions table', () => {
   });
 
   it('creates observation_versions table after migration', () => {
-    const tables = deps.sqlJson(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='observation_versions'",
-    );
+    const tables = deps.sqlJson("SELECT name FROM sqlite_master WHERE type='table' AND name='observation_versions'");
     expect(tables).toHaveLength(1);
   });
 
@@ -85,7 +83,9 @@ describe('updateObservation versioning', () => {
 
     updateObservation(deps, { id, title: 'New title' });
 
-    const versions = deps.sqlJson('SELECT field, old_value, new_value FROM observation_versions WHERE memory_id = ?', [id]);
+    const versions = deps.sqlJson('SELECT field, old_value, new_value FROM observation_versions WHERE memory_id = ?', [
+      id,
+    ]);
     expect(versions).toHaveLength(1);
     expect(versions[0].field).toBe('title');
     expect(versions[0].old_value).toBe('Old title');
