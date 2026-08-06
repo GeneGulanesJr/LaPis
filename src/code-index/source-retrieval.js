@@ -1,3 +1,4 @@
+const path = require('path');
 const { ensureDb, sqlJson, sqlRaw } = require('../../db');
 const { estimateTokens } = require('../../utils');
 const { createCodeIndexRepository } = require('./repos');
@@ -10,9 +11,24 @@ function sourceSliceFromRow(row) {
 function getCodeSource(repoName, filePath, symbolName, repository = null) {
   ensureDb();
   const repo = repository || createCodeIndexRepository(require('../../db'));
-  const row = repo.findSymbolSource({ repoName, filePath, symbolName });
+
+  // The symbol index stores absolute file paths; resolve repo-relative inputs
+  // (e.g. lib/helper.js, ./x, ../y) against the indexed repo root.
+  let resolvedPath = filePath;
+  if (!path.isAbsolute(filePath)) {
+    const repoRow = repo.findRepoByName(repoName);
+    if (!repoRow || !repoRow.path) {
+      return { success: false, error: `Repo "${repoName}" not found; cannot resolve relative path "${filePath}"` };
+    }
+    resolvedPath = path.resolve(repoRow.path, filePath);
+  }
+
+  const row = repo.findSymbolSource({ repoName, filePath: resolvedPath, symbolName });
   if (!row) {
-    return { success: false, error: 'Symbol not found' };
+    return {
+      success: false,
+      error: `Symbol "${symbolName}" not found in ${resolvedPath} (repo-relative paths like lib/helper.js are resolved against the repo root)`,
+    };
   }
 
   return {
