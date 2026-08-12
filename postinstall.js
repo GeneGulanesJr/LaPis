@@ -27,9 +27,8 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
 // @earendil-works/pi-coding-agent (a devDependency) ships an
 // npm-shrinkwrap.json that pins vulnerable versions of two packages:
 //   - brace-expansion@5.0.6  (high, DoS — GHSA-3jxr-9vmj-r5cp)
-//   - protobufjs@7.6.4       (moderate, DoS — GHSA-j3f2-48v5-ccww)
 // A published shrinkwrap takes precedence over the root project's `overrides`,
-// so the root overrides + devDependency on the safe versions give us correct
+// so the root override gives us the correct
 // top-level copies, and we copy those over the nested vulnerable copies and
 // rewrite the matching package-lock.json entries so `npm audit` reports the fix.
 //
@@ -43,11 +42,6 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
       version: '5.0.9',
       resolved: 'https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz',
       integrity: 'sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==',
-    },
-    protobufjs: {
-      version: '7.6.5',
-      resolved: 'https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.5.tgz',
-      integrity: 'sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==',
     },
   };
 
