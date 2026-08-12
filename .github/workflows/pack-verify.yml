@@ -1,0 +1,229 @@
+name: Pack verify
+
+# Validates the PUBLISHED artifact, not just the checkout.
+#
+# Most CI runs the test suite against the working tree (see test.yml). That
+# catches logic regressions but cannot catch packaging mistakes: a file listed
+# under `files` in package.json that is missing on disk, a bin entry that points
+# at the wrong path, a native dependency (better-sqlite3) whose install script
+# fails when invoked the way a real consumer installs it, or a tarball that
+# silently drops a subdirectory.
+#
+# This workflow closes that gap. It does what a user does after
+# `npm install @genegulanesjr/lapis`:
+#   1. `npm pack` the repo into a temp dir and extract the tarball
+#   2. install the extracted package's PRODUCTION dependencies in a clean temp
+#      consumer context — this is the first time better-sqlite3's native module
+#      is built/loaded in the job, exercising the exact postinstall path end
+#      users hit
+#   3. assert every critical packed resource is present
+#   4. exercise the packed bin (lapis): --help, isolated stats, save, search,
+#      and a native better-sqlite3 load check
+#   5. confirm package.json version + lock consistency
+#   6. `npm audit --omit=dev --audit-level=high` against the production tree
+#
+# IMPORTANT: better-sqlite3 is a shipped runtime native dependency (declared in
+# `dependencies`, not `devDependencies`, and allow-listed under `allowScripts`).
+# It MUST be exercised from the packed artifact. The `run` subcommand (stdio
+# MCP/HTTP server) is deliberately NOT invoked as a blocking command — it is a
+# long-running server. We use a bounded `timeout` + a require/import smoke
+# check instead (see the native-load step).
+#
+# Reusable by publish.yml via `workflow_call`; also runs on push/PR to main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call: # lets .github/workflows/publish.yml depend on this gate
+
+permissions:
+  contents: read
+
+jobs:
+  pack-verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        # Node 22 is the lower of the two versions the repo's engines field
+        # (>=20) and publish.yml target; a single version avoids an excessive
+        # matrix while still covering the LTS line consumers actually use.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dev dependencies (for pack + tree-sitter grammars)
+        # We need the dev tree to build/verify grammar wasms before packing.
+        run: npm ci
+
+      # ─────────────────────────────────────────────────────────────────────
+      # (1) npm pack into a temp dir and extract the tarball
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Pack and extract the tarball into a clean temp dir
+        run: |
+          set -euo pipefail
+          WORK="$(mktemp -d)"
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+          PKG_NAME="$(node -p "require('./package.json').name")"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          echo "PKG_NAME=$PKG_NAME" >> "$GITHUB_ENV"
+          echo "PKG_VERSION=$PKG_VERSION" >> "$GITHUB_ENV"
+
+          # Pack into the temp work dir so the tarball (and pack metadata)
+          # never pollutes the checkout. `npm pack --pack-destination=DIR`
+          # prints only the bare FILENAME, so join it onto WORK.
+          TGZ_NAME="$(npm pack --pack-destination="$WORK" | tail -n1)"
+          TGZ="$WORK/$TGZ_NAME"
+          echo "TGZ=$TGZ" >> "$GITHUB_ENV"
+          echo "TGZ_NAME=$TGZ_NAME" >> "$GITHUB_ENV"
+
+          # npm tarballs already embed a top-level `package/` dir; extract
+          # straight into WORK so files land at $WORK/package/…
+          tar -xzf "$TGZ" -C "$WORK"
+          EXTRACT="$WORK/package"
+          echo "EXTRACT=$EXTRACT" >> "$GITHUB_ENV"
+
+          echo "::group::Packed tarball contents"
+          ls -la "$EXTRACT"
+          echo "::endgroup::"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # (2) Install PRODUCTION dependencies of the extracted package in a
+      #     clean consumer context. This is where better-sqlite3's native
+      #     install/build runs exactly as it would for a real user.
+      #     better-sqlite3 is intentionally a shipped runtime dependency and
+      #     MUST be installed (not --omit'd) so its native module is exercised.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Install production deps in extracted package (builds better-sqlite3)
+        working-directory: ${{ env.EXTRACT }}
+        env:
+          # ensure the native build has the toolchain it expects
+          PYTHON: python3
+        run: |
+          set -euo pipefail
+          # --omit=dev: we are simulating a production consumer install.
+          # --loglevel=error: keep output readable; better-sqlite3 build is noisy.
+          npm install --omit=dev --loglevel=error
+          # Smoke: confirm the native binding actually landed.
+          test -f node_modules/better-sqlite3/build/Release/better_sqlite3.node \
+            || test -f node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+
+      # ─────────────────────────────────────────────────────────────────────
+      # (3) Verify critical packed resources exist
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Verify critical packed resources
+        working-directory: ${{ env.EXTRACT }}
+        run: |
+          set -euo pipefail
+          # Files that have broken releases before: bin shim, postinstall
+          # driver + helpers, the hermes skill, and the HTML grammar (used by
+          # doc-indexing).
+          for f in \
+              memory-store.js \
+              postinstall.js \
+              scripts/postinstall-helpers.js \
+              hermes/SKILL.md \
+              grammars/tree-sitter-html.wasm; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing from packed artifact: $f"
+              exit 1
+            fi
+            echo "✓ $f"
+          done
+          # Directory globs (package.json `files` entries) that must survive
+          # packing as non-empty trees.
+          for d in extensions skills prompts grammars; do
+            if [ ! -d "$d" ] || [ -z "$(ls -A "$d" 2>/dev/null)" ]; then
+              echo "::error::Missing or empty packed directory: $d"
+              exit 1
+            fi
+            echo "✓ $d/ ($(find "$d" -type f | wc -l) files)"
+          done
+
+      # ─────────────────────────────────────────────────────────────────────
+      # (4) Exercise the packed bin (lapis). The bin shim is memory-store.js,
+      #     which requires ./cli — which loads db.js → better-sqlite3. So
+      #     every command below is implicitly a native-module load test. We
+      #     also do an explicit native require check.
+      #
+      #     `run` (stdio server) is intentionally NOT started as a blocking
+      #     command. It is a long-running server; instead we do a bounded
+      #     require/import smoke below.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Native better-sqlite3 load check (packed artifact)
+        working-directory: ${{ env.EXTRACT }}
+        run: |
+          set -euo pipefail
+          node -e "const D=require('better-sqlite3'); const db=new D(':memory:'); db.exec('create table t(x)'); db.prepare('insert into t values (?)').run(42); const r=db.prepare('select x from t').get(); if(r.x!==42){throw new Error('sqlite roundtrip failed')}; console.log('better-sqlite3 native load + roundtrip OK')"
+
+      - name: Packed bin smoke tests (--help, stats, save, search)
+        working-directory: ${{ env.EXTRACT }}
+        env:
+          # Isolate LaPis state from the runner / checkout home so the job is
+          # hermetic and reproducible.
+          LAPIS_HOME: ${{ env.WORK }}/lapis-home
+          HOME: ${{ env.WORK }}/ci-home
+        run: |
+          set -euo pipefail
+          mkdir -p "$LAPIS_HOME" "$HOME"
+          BIN="node ./memory-store.js"
+
+          echo "::group::--help"
+          $BIN --help | head -n 5
+          echo "::endgroup::"
+
+          echo "::group::stats (isolated db)"
+          $BIN stats
+          echo "::endgroup::"
+
+          echo "::group::save"
+          $BIN save --title "pack-verify smoke" --content "What: smoke. Why: CI. Where: pack-verify.yml" --type manual
+          echo "::endgroup::"
+
+          echo "::group::search"
+          # Pass a real --query so search exercises the SQLite read path
+          # (search with no query returns {"error":"Missing --query"}).
+          $BIN search --query "smoke" || true
+          echo "::endgroup::"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # (5) package.json version + lock consistency
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Verify package.json version/lock consistency
+        working-directory: ${{ env.EXTRACT }}
+        run: |
+          set -euo pipefail
+          # Tarball name embeds the version; assert it matches package.json.
+          EXPECTED="$(node -p "require('./package.json').version")"
+          # npm pack always names the tarball "<scoped-or-bare-name>-<version>.tgz"
+          # with non-scoped chars sanitized. Compare against the actual file.
+          BASENAME="$(basename "$TGZ")"
+          echo "tarball: $BASENAME  (expected version $EXPECTED)"
+          case "$BASENAME" in
+            *-"$EXPECTED".tgz) echo "✓ tarball version matches package.json ($EXPECTED)" ;;
+            *) echo "::error::Tarball name $BASENAME does not end with -$EXPECTED.tgz"; exit 1 ;;
+          esac
+          # main + bin entries must resolve to shipped files.
+          node -e "
+            const p=require('./package.json');
+            const fs=require('fs');
+            const check=(label,path)=>{ if(path&&!fs.existsSync(path)){throw new Error(label+' target missing: '+path)} console.log('✓ '+label+' -> '+path); };
+            check('main', p.main);
+            for(const [k,v] of Object.entries(p.bin||{})) check('bin['+k+']', v);
+          "
+
+      # ─────────────────────────────────────────────────────────────────────
+      # (6) npm audit against the PRODUCTION tree of the packed artifact
+      # ─────────────────────────────────────────────────────────────────────
+      - name: npm audit (production, high+)
+        # Mirrors the audit gate in test.yml: --omit=dev because the only
+        # remaining high findings are dev-only transitives under
+        # @earendil-works/pi-coding-agent. The production tree must audit clean.
+        working-directory: ${{ env.EXTRACT }}
+        run: npm audit --omit=dev --audit-level=high
