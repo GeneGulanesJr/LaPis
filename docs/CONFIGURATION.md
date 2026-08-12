@@ -2,6 +2,16 @@
 
 This guide covers configuration for the LaPis memory layer extension.
 
+## Tree-sitter grammar ownership
+
+LaPis uses three grammar ownership paths:
+
+- **HTML**: `postinstall.js` copies `tree-sitter-html.wasm` from the installed `tree-sitter-html` package into `grammars/` and verifies the destination.
+- **JavaScript, TypeScript, and SQL**: `scripts/fetch-grammars.sh` fetches the development grammar packages and builds/copies their WASM files.
+- **Go, Python, Rust, and other bundled grammars**: the WASM artifacts are committed under `grammars/` and shipped in the package.
+
+If HTML parsing is unavailable after installation, rerun `npm install` and inspect the postinstall warning. For development grammar refreshes, run `bash scripts/fetch-grammars.sh`.
+
 ## Setup
 
 LaPis does not install npm dependencies during Pi startup or database access. Install dependencies explicitly when running from a local checkout:
