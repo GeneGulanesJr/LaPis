@@ -11,6 +11,7 @@ import {
 } from './guardrail-utils';
 import { getKnownRepos, invalidateRepoCache } from '../host/project-detector';
 import { memStreaming } from '../host/memory-client';
+import { getConfig } from '../../config';
 import path from 'node:path';
 
 interface GuardrailsDeps {
@@ -58,6 +59,14 @@ function ensureIndexed(deps: GuardrailsDeps, resolvedCwd: string, projectName: s
 
 export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
   pi.on('tool_call', async (event, _ctx) => {
+    // Honor the `tool_guardrails.enabled: false` config toggle
+    // (see ~/.pi/memory/config.jsonc). When disabled, the raw grep/find
+    // and unread-file guardrails are skipped entirely so raw repository
+    // search and direct file reads work without the memory-code redirect.
+    if (getConfig().tool_guardrails?.enabled === false) {
+      return;
+    }
+
     const toolName = event.toolName;
     const input = event.input as Record<string, unknown>;
 
