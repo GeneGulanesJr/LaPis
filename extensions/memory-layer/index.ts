@@ -62,6 +62,7 @@ export default function memoryLayer(pi: ExtensionAPI) {
     formatCodeResult,
     formatDocResult,
     getSettings: () => ({ contextLimit: getConfig().context_limit }),
+    getConfig,
   };
 
   safeRegister(pi, deps, 'session-lifecycle hooks', registerSessionStart);
