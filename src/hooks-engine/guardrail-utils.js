@@ -15,6 +15,9 @@ const QUOTED_PATTERN_RE = /(?:['"])([^'"]+)(?:['"])/g;
 const SEARCH_COMMAND_RE = /\b(grep|rg|ag|ack|find)\b/;
 const FILTER_COMMAND_RE = /^\s*(grep|rg|ag|ack)\b/;
 const SIMPLE_LIMIT_PIPE_RE = /^\s*(?:head|tail)\b/;
+const EXCLUSION_FILTER_RE = /^\s*(?:grep|rg|ag|ack)\b[\s\S]*?(?:^|\s)(?:-v|--invert-match)\b/;
+const TEXT_FILE_PATH_RE =
+  /(?:^|\s)(?:\.{0,2}\/|\/)?[^\s'*?\"']+\.(?:md|mdx|txt|json|jsonl|yaml|yml|toml|ini|cfg|conf|csv|log)(?:\s|$)/i;
 const CODE_FILE_PATH_RE = /(?:^|\s)(?:\.{0,2}\/|\/)?[^\s'"]+\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)(?:\s|$)/;
 
 function splitPipeline(cmd) {
@@ -56,6 +59,22 @@ function isPipedOutputFilter(cmd) {
   return filterStages.some((stage) => FILTER_COMMAND_RE.test(stage));
 }
 
+function isTargetedTextFileLookup(cmd) {
+  if (/\bfind\b/i.test(cmd) || !/\b(grep|rg|ag|ack)\b/i.test(cmd)) {
+    return false;
+  }
+
+  const stages = splitPipeline(cmd);
+  if (
+    stages.length > 1 &&
+    stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
+  ) {
+    return false;
+  }
+
+  return TEXT_FILE_PATH_RE.test(cmd);
+}
+
 function isTargetedSymbolLookup(cmd) {
   if (/\bfind\b/.test(cmd)) {
     return false;
@@ -66,7 +85,10 @@ function isTargetedSymbolLookup(cmd) {
   }
 
   const stages = splitPipeline(cmd);
-  if (stages.length > 1 && stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage))) {
+  if (
+    stages.length > 1 &&
+    stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
+  ) {
     return false;
   }
 
@@ -286,6 +308,7 @@ module.exports = {
   splitPipeline,
   isPipedOutputFilter,
   isTargetedSymbolLookup,
+  isTargetedTextFileLookup,
   isSpecificCodeFilePath,
   isTargetedGrepLookup,
   isBroadGlob,

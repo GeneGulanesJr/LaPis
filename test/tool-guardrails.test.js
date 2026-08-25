@@ -1,4 +1,8 @@
-const { isPipedOutputFilter, isTargetedSymbolLookup } = require('../extensions/memory-layer/hooks/guardrail-utils');
+const {
+  isPipedOutputFilter,
+  isTargetedSymbolLookup,
+  isTargetedTextFileLookup,
+} = require('../extensions/memory-layer/hooks/guardrail-utils');
 
 describe('tool-guardrails: isTargetedSymbolLookup', () => {
   test('allows grep for single quoted symbol', () => {
@@ -71,6 +75,26 @@ describe('tool-guardrails: isTargetedSymbolLookup', () => {
 
   test('blocks grep with character class', () => {
     expect(isTargetedSymbolLookup('grep -rn "[Rr]ank" src/')).toBe(false);
+  });
+
+  test('allows targeted lookup with safe exclusion filters', () => {
+    expect(
+      isTargetedSymbolLookup(
+        'grep -rln "getVersions" --include="*.mjs" mcp/ | grep -v "archive" | grep -v "node_modules"',
+      ),
+    ).toBe(true);
+  });
+
+  test('still blocks targeted lookup followed by an arbitrary transformation', () => {
+    expect(isTargetedSymbolLookup('grep -rn "getVersions" mcp/ | sort')).toBe(false);
+  });
+
+  test('allows structural lookup in one documentation file', () => {
+    expect(isTargetedTextFileLookup('grep -n "^## Commands" AGENTS.md')).toBe(true);
+  });
+
+  test('blocks broad lookup across a documentation directory', () => {
+    expect(isTargetedTextFileLookup('grep -R "TODO" docs/')).toBe(false);
   });
 
   test('allows longer camelCase symbol', () => {

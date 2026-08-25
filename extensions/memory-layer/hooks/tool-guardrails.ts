@@ -4,6 +4,7 @@ import { isCodeFile, state } from '../state';
 import {
   isPipedOutputFilter,
   isTargetedSymbolLookup,
+  isTargetedTextFileLookup,
   CONFIG_FILENAMES,
   RAW_CODE_DISCOVERY_RE,
   CODE_PATH_HINT_RE,
@@ -86,6 +87,12 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
           // Allow grep/rg/etc. When they are only filtering another command's stdout,
           // Such as `npx oxlint 2>&1 | grep -i unused`.
           if (isPipedOutputFilter(cmd)) {
+            return;
+          }
+
+          // Documentation/config lookups scoped to one concrete text file are
+          // targeted reads, not broad source discovery (e.g. AGENTS.md).
+          if (isTargetedTextFileLookup(cmd)) {
             return;
           }
 
