@@ -19,6 +19,7 @@ interface GuardrailsDeps {
   isCodeFile: typeof isCodeFile;
   memStreaming: typeof memStreaming;
   invalidateRepoCache: typeof invalidateRepoCache;
+  getConfig: () => { tool_guardrails?: { enabled?: boolean } };
 }
 
 interface IndexResult {
@@ -58,6 +59,15 @@ function ensureIndexed(deps: GuardrailsDeps, resolvedCwd: string, projectName: s
 
 export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
   pi.on('tool_call', async (event, _ctx) => {
+    // Honor the `tool_guardrails.enabled: false` config toggle
+    // (see ~/.pi/memory/config.jsonc). When disabled, the raw grep/find
+    // and unread-file guardrails are skipped entirely so raw repository
+    // search and direct file reads work without the memory-code redirect.
+    // Tests and other callers that don't inject getConfig default to enabled.
+    if (deps.getConfig?.().tool_guardrails?.enabled === false) {
+      return;
+    }
+
     const toolName = event.toolName;
     const input = event.input as Record<string, unknown>;
 

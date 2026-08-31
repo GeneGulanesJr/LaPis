@@ -102,6 +102,14 @@ describe('tool-guardrails: isTargetedSymbolLookup', () => {
   });
 });
 
+describe('tool-guardrails: config toggle', () => {
+  test('tool_guardrails.enabled default is true', () => {
+    const { DEFAULTS } = require('../config');
+    expect(DEFAULTS.tool_guardrails).toBeDefined();
+    expect(DEFAULTS.tool_guardrails.enabled).toBe(true);
+  });
+});
+
 describe('tool-guardrails: isPipedOutputFilter', () => {
   test('allows grep when filtering command output', () => {
     expect(isPipedOutputFilter('npx oxlint 2>&1 | grep -iE "(lowercase|Unused)" || true')).toBe(true);

@@ -33,6 +33,9 @@ const DEFAULTS = {
     min_chars: 2000, // Don't compress output shorter than this
     min_savings_percent: 30, // Don't replace if savings < this %
   },
+  tool_guardrails: {
+    enabled: true, // Master toggle — set false to disable raw grep/find + unread-file guardrails
+  },
 };
 
 function deepMerge(target, source) {
