@@ -1,7 +1,7 @@
-const path = require('path'),
-  { ensureDb, sqlJson, sqlRaw } = require('../../db'),
-  { estimateTokens } = require('../../utils'),
-  { createCodeIndexRepository } = require('./repos');
+const path = require('path');
+const { ensureDb, sqlJson, sqlRaw } = require('../../db');
+const { estimateTokens } = require('../../utils');
+const { createCodeIndexRepository } = require('./repos');
 
 function sourceSliceFromRow(row) {
   const buf = Buffer.from(row.content, 'utf-8');
@@ -62,7 +62,7 @@ function ensureCodeFts() {
 
 function centralityBySymbol(repoName) {
   const rows = sqlJson(
-      `SELECT s.id,
+    `SELECT s.id,
       COALESCE(in_calls.count, 0) AS inbound_calls,
       COALESCE(out_calls.count, 0) AS outbound_calls,
       COALESCE(importers.count, 0) AS importers
@@ -72,9 +72,9 @@ function centralityBySymbol(repoName) {
      LEFT JOIN (SELECT caller_symbol_id AS id, COUNT(*) AS count FROM code_calls GROUP BY caller_symbol_id) out_calls ON out_calls.id = s.id
      LEFT JOIN (SELECT cf.id AS file_id, COUNT(*) AS count FROM code_imports ci JOIN code_files cf ON cf.id = ci.target_file_id GROUP BY cf.id) importers ON importers.file_id = s.file_id
      WHERE (? IS NULL OR r.name = ?)`,
-      [repoName, repoName],
-    ),
-    scores = new Map();
+    [repoName, repoName],
+  );
+  const scores = new Map();
   let max = 0;
   for (const row of rows) {
     const score = row.inbound_calls * 2 + row.importers * 1.5 + row.outbound_calls * 0.25;
@@ -118,22 +118,21 @@ function searchCodeLike(query, repoName, kind, maxResults) {
     JOIN code_repos r ON r.id = s.repo_id
     WHERE (s.name LIKE ? OR s.qualified_name LIKE ? OR s.signature LIKE ? OR s.summary LIKE ?)
   `;
-  const params = [likeQuery, likeQuery, likeQuery, likeQuery],
-    rows = (() => {
-      if (repoName) {
-        sql += ' AND r.name = ?';
-        params.push(repoName);
-      }
-      if (kind) {
-        sql += ' AND s.kind = ?';
-        params.push(kind);
-      }
+  const params = [likeQuery, likeQuery, likeQuery, likeQuery];
 
-      sql += ' LIMIT ?';
-      params.push(maxResults);
+  if (repoName) {
+    sql += ' AND r.name = ?';
+    params.push(repoName);
+  }
+  if (kind) {
+    sql += ' AND s.kind = ?';
+    params.push(kind);
+  }
 
-      return sqlJson(sql, params);
-    })();
+  sql += ' LIMIT ?';
+  params.push(maxResults);
+
+  const rows = sqlJson(sql, params);
   return {
     query,
     results: rows.map(mapSearchRow),
@@ -169,8 +168,7 @@ function searchCode(query, repoName, kind, maxResults) {
     JOIN code_symbols s ON s.id = code_symbols_fts.rowid
     JOIN code_repos r ON r.id = s.repo_id
     WHERE code_symbols_fts MATCH ?
-  `,
-    rows;
+  `;
   const params = [ftsQuery];
 
   if (repoName) {
@@ -185,33 +183,35 @@ function searchCode(query, repoName, kind, maxResults) {
   sql += ' ORDER BY bm25(code_symbols_fts) LIMIT ?';
   params.push(Math.max(maxResults * 4, maxResults));
 
+  let rows;
   try {
     rows = sqlJson(sql, params);
   } catch {
     return searchCodeLike(query, repoName, kind, maxResults);
   }
-  const { scores, max } = centralityBySymbol(repoName || null),
-    reranked = rows
-      .map((row) => {
-        const bm25Raw = Math.max(0, -Number(row.bm25_score || 0)),
-          bm25Norm = bm25Raw / (1 + bm25Raw),
-          centralityNorm = (scores.get(row.id) || 0) / max;
-        return { ...row, score: 0.75 * bm25Norm + 0.25 * centralityNorm };
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, maxResults),
-    results = reranked.map(mapSearchRow);
+  const { scores, max } = centralityBySymbol(repoName || null);
+  const reranked = rows
+    .map((row) => {
+      const bm25Raw = Math.max(0, -Number(row.bm25_score || 0));
+      const bm25Norm = bm25Raw / (1 + bm25Raw);
+      const centralityNorm = (scores.get(row.id) || 0) / max;
+      return { ...row, score: 0.75 * bm25Norm + 0.25 * centralityNorm };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxResults);
+
+  const results = reranked.map(mapSearchRow);
   return { query, results, total: results.length, strategy: 'bm25-centrality' };
 }
 
 function rankedContext(query, repoName, options = {}) {
   ensureDb();
-  const tokenBudget = Math.max(200, Number(options.tokenBudget || options.token_budget || 4000)),
-    maxResults = Math.max(1, Number(options.maxResults || options.max_results || 20)),
-    search = searchCode(query, repoName || null, options.kind || null, maxResults),
-    items = [];
-  let totalTokens = 0,
-    considered = 0;
+  const tokenBudget = Math.max(200, Number(options.tokenBudget || options.token_budget || 4000));
+  const maxResults = Math.max(1, Number(options.maxResults || options.max_results || 20));
+  const search = searchCode(query, repoName || null, options.kind || null, maxResults);
+  const items = [];
+  let totalTokens = 0;
+  let considered = 0;
 
   for (const result of search.results || []) {
     considered++;
@@ -220,61 +220,57 @@ function rankedContext(query, repoName, options = {}) {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    {
-      const text = [result.signature, result.summary, source.source].filter(Boolean).join('\n'),
-        tokens = estimateTokens(text);
-      if (items.length > 0 && totalTokens + tokens > tokenBudget) {
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      items.push({
-        repo: result.repo,
-        file: result.file,
-        symbol: result.symbol,
-        qualified_name: result.qualified_name,
-        kind: result.kind,
-        score: result.score,
-        start_line: result.line,
-        end_line: result.end_line,
-        signature: result.signature,
-        summary: result.summary,
-        tokens,
-        source: source.source,
-      });
-      totalTokens += tokens;
-      if (totalTokens >= tokenBudget) {
-        break;
-      }
+    const text = [result.signature, result.summary, source.source].filter(Boolean).join('\n');
+    const tokens = estimateTokens(text);
+    if (items.length > 0 && totalTokens + tokens > tokenBudget) {
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
+    items.push({
+      repo: result.repo,
+      file: result.file,
+      symbol: result.symbol,
+      qualified_name: result.qualified_name,
+      kind: result.kind,
+      score: result.score,
+      start_line: result.line,
+      end_line: result.end_line,
+      signature: result.signature,
+      summary: result.summary,
+      tokens,
+      source: source.source,
+    });
+    totalTokens += tokens;
+    if (totalTokens >= tokenBudget) {
+      break;
     }
   }
 
-  {
-    const response = {
-      query,
-      repo: repoName || null,
-      context_items: items,
-      total_tokens: totalTokens,
-      budget_tokens: tokenBudget,
-      items_included: items.length,
-      items_considered: considered,
-      search_strategy: search.strategy,
+  const response = {
+    query,
+    repo: repoName || null,
+    context_items: items,
+    total_tokens: totalTokens,
+    budget_tokens: tokenBudget,
+    items_included: items.length,
+    items_considered: considered,
+    search_strategy: search.strategy,
+  };
+  if (items.length === 0) {
+    response.negative_evidence = {
+      verdict: 'no_implementation_found',
+      scanned_results: (search.results || []).length,
+      best_match_score: search.results && search.results[0] ? search.results[0].score : 0,
     };
-    if (items.length === 0) {
-      response.negative_evidence = {
-        verdict: 'no_implementation_found',
-        scanned_results: (search.results || []).length,
-        best_match_score: search.results && search.results[0] ? search.results[0].score : 0,
-      };
-      response.warning = `No implementation found for '${query.slice(0, 80)}'.`;
-    }
-    return response;
+    response.warning = `No implementation found for '${query.slice(0, 80)}'.`;
   }
+  return response;
 }
 
 function listCodeRepos(repository = null) {
   ensureDb();
-  const repo = repository || createCodeIndexRepository(require('../../db')),
-    repos = repo.listRepos();
+  const repo = repository || createCodeIndexRepository(require('../../db'));
+  const repos = repo.listRepos();
   return { repos, total: repos.length };
 }
 

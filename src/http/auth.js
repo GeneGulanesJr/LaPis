@@ -1,5 +1,5 @@
-const crypto = require('crypto'),
-  { jsonError } = require('./errors');
+const crypto = require('crypto');
+const { jsonError } = require('./errors');
 
 function resolveHttpApiKey(opts = {}) {
   if (opts.apiKey) {
@@ -9,8 +9,8 @@ function resolveHttpApiKey(opts = {}) {
     return process.env.LAPIS_HTTP_API_KEY;
   }
   try {
-    const { getConfig } = require('../../config'),
-      config = getConfig();
+    const { getConfig } = require('../../config');
+    const config = getConfig();
     return config.http_api_key || null;
   } catch {
     return null;
@@ -21,8 +21,8 @@ function keysMatch(provided, expected) {
   if (typeof provided !== 'string' || typeof expected !== 'string') {
     return false;
   }
-  const providedBuf = Buffer.from(provided),
-    expectedBuf = Buffer.from(expected);
+  const providedBuf = Buffer.from(provided);
+  const expectedBuf = Buffer.from(expected);
   if (providedBuf.length !== expectedBuf.length) {
     return false;
   }
@@ -47,16 +47,14 @@ function isAuthorized(req, apiKey) {
   if (headerKey && keysMatch(headerKey, apiKey)) {
     return true;
   }
-  {
-    const auth = headerValue(req.headers.authorization);
-    if (auth) {
-      const bearerMatch = auth.match(/^Bearer\s+(.+)$/i);
-      if (bearerMatch && keysMatch(bearerMatch[1], apiKey)) {
-        return true;
-      }
+  const auth = headerValue(req.headers.authorization);
+  if (auth) {
+    const bearerMatch = auth.match(/^Bearer\s+(.+)$/i);
+    if (bearerMatch && keysMatch(bearerMatch[1], apiKey)) {
+      return true;
     }
-    return false;
   }
+  return false;
 }
 
 function requireHttpAuth(apiKey) {

@@ -1,12 +1,13 @@
-const path = require('path'),
-  fs = require('fs'),
-  { CODE_EXTENSIONS, IGNORE_DIRS_CODE } = require('../../utils'),
-  DEFAULT_MAX_FILE_SIZE = 1024 * 1024,
-  DEFAULT_MAX_FILES = 20000,
-  SECRET_FILE_RE = /(^|[/\\])(\.env($|\.)|id_rsa$|id_dsa$|id_ecdsa$|id_ed25519$|.*\.(pem|key|p12|pfx)$)/i,
-  SKIP_FILE_RE =
-    /(^|[/\\])(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|Gemfile\.lock|poetry\.lock|Cargo\.lock|composer\.lock|pipfile\.lock|bun\.lockb|bun\.lock|conan\.lock|mix\.lock|podfile\.lock|go\.sum|requirements\.txt\.lock|\.yarn\/integrity|package\.json|bower\.json|composer\.json|tsconfig\.json|tsconfig\.[^/\\]+\.json|jsconfig\.json|\.babelrc|babel\.config\.[^/\\]+|\.eslintrc|eslint\.config\.[^/\\]+|\.prettierrc|prettier\.config\.[^/\\]+|\.stylelintrc|manifest\.json|manifest\.webmanifest|\.node-version|\.nvmrc|\.tool-versions)$|\.lock$|\.lock\.json$/i,
-  PRIORITY_DIRS = ['src/', 'lib/', 'pkg/', 'cmd/', 'internal/', 'app/', 'packages/'];
+const path = require('path');
+const fs = require('fs');
+const { CODE_EXTENSIONS, IGNORE_DIRS_CODE } = require('../../utils');
+
+const DEFAULT_MAX_FILE_SIZE = 1024 * 1024;
+const DEFAULT_MAX_FILES = 20000;
+const SECRET_FILE_RE = /(^|[/\\])(\.env($|\.)|id_rsa$|id_dsa$|id_ecdsa$|id_ed25519$|.*\.(pem|key|p12|pfx)$)/i;
+const SKIP_FILE_RE =
+  /(^|[/\\])(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|Gemfile\.lock|poetry\.lock|Cargo\.lock|composer\.lock|pipfile\.lock|bun\.lockb|bun\.lock|conan\.lock|mix\.lock|podfile\.lock|go\.sum|requirements\.txt\.lock|\.yarn\/integrity|package\.json|bower\.json|composer\.json|tsconfig\.json|tsconfig\.[^/\\]+\.json|jsconfig\.json|\.babelrc|babel\.config\.[^/\\]+|\.eslintrc|eslint\.config\.[^/\\]+|\.prettierrc|prettier\.config\.[^/\\]+|\.stylelintrc|manifest\.json|manifest\.webmanifest|\.node-version|\.nvmrc|\.tool-versions)$|\.lock$|\.lock\.json$/i;
+const PRIORITY_DIRS = ['src/', 'lib/', 'pkg/', 'cmd/', 'internal/', 'app/', 'packages/'];
 
 function shouldSkipDir(dirName, extraIgnoreDirs = []) {
   return dirName.startsWith('.') || IGNORE_DIRS_CODE.has(dirName) || extraIgnoreDirs.includes(dirName);
@@ -17,56 +18,55 @@ function isCodeFile(filePath) {
 }
 
 function loadIgnoreRules(repoPath, filename) {
-  let ig,
-    added = false;
+  let ig;
   try {
     ig = require('ignore')();
   } catch {
     return null;
   }
 
-  {
-    let current = path.resolve(repoPath),
-      limit = 20;
-    const rootsToTry = [];
+  let added = false;
 
-    // Walk up from repoPath, but stop at the Git repo boundary (directory containing .git/).
-    // Git itself never loads .gitignore from parent directories outside the repo root.
-    // Without this guard, a parent .gitignore with '*' (e.g. ~/.pi/agent/git/.gitignore)
-    // Would cause the scanner to ignore every file in the repo.
+  function tryLoad(dir) {
+    const ignorePath = path.join(dir, filename);
+    try {
+      const content = fs.readFileSync(ignorePath, 'utf-8');
+      ig.add(content);
+      added = true;
+    } catch {}
+  }
 
-    while (limit-- > 0) {
-      rootsToTry.push(current);
-      // Stop walking up if this directory is a Git repo root.
-      // This prevents parent .gitignore rules from leaking into the scan.
-      try {
-        if (fs.statSync(path.join(current, '.git')).isDirectory()) {
-          break;
-        }
-      } catch {
-        // .git doesn't exist here — keep walking up
-      }
-      const parent = path.dirname(current);
-      if (parent === current) {
+  let current = path.resolve(repoPath);
+  const rootsToTry = [];
+
+  // Walk up from repoPath, but stop at the Git repo boundary (directory containing .git/).
+  // Git itself never loads .gitignore from parent directories outside the repo root.
+  // Without this guard, a parent .gitignore with '*' (e.g. ~/.pi/agent/git/.gitignore)
+  // would cause the scanner to ignore every file in the repo.
+  let limit = 20;
+  while (limit-- > 0) {
+    rootsToTry.push(current);
+    // Stop walking up if this directory is a Git repo root.
+    // This prevents parent .gitignore rules from leaking into the scan.
+    try {
+      if (fs.statSync(path.join(current, '.git')).isDirectory()) {
         break;
       }
-      current = parent;
+    } catch {
+      // .git doesn't exist here — keep walking up
     }
-
-    for (let i = rootsToTry.length - 1; i >= 0; i--) {
-      tryLoad(rootsToTry[i]);
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
     }
-
-    return added ? ig : null;
-    function tryLoad(dir) {
-      const ignorePath = path.join(dir, filename);
-      try {
-        const content = fs.readFileSync(ignorePath, 'utf-8');
-        ig.add(content);
-        added = true;
-      } catch {}
-    }
+    current = parent;
   }
+
+  for (let i = rootsToTry.length - 1; i >= 0; i--) {
+    tryLoad(rootsToTry[i]);
+  }
+
+  return added ? ig : null;
 }
 
 function loadGitignoreRules(repoPath) {
@@ -92,8 +92,8 @@ function isBinaryFile(filePath, sampleSize = 8000) {
   try {
     const fd = fs.openSync(filePath, 'r');
     try {
-      const buf = Buffer.alloc(sampleSize),
-        bytesRead = fs.readSync(fd, buf, 0, sampleSize, 0);
+      const buf = Buffer.alloc(sampleSize);
+      const bytesRead = fs.readSync(fd, buf, 0, sampleSize, 0);
       if (bytesRead === 0) {
         return false;
       }
@@ -118,12 +118,12 @@ function pathIsInside(root, candidate) {
 
 function prioritySort(root) {
   return (a, b) => {
-    const ar = path.relative(root, a).replace(/\\/g, '/'),
-      br = path.relative(root, b).replace(/\\/g, '/'),
-      ap = PRIORITY_DIRS.findIndex((prefix) => ar.startsWith(prefix)),
-      bp = PRIORITY_DIRS.findIndex((prefix) => br.startsWith(prefix)),
-      ai = ap === -1 ? PRIORITY_DIRS.length : ap,
-      bi = bp === -1 ? PRIORITY_DIRS.length : bp;
+    const ar = path.relative(root, a).replace(/\\/g, '/');
+    const br = path.relative(root, b).replace(/\\/g, '/');
+    const ap = PRIORITY_DIRS.findIndex((prefix) => ar.startsWith(prefix));
+    const bp = PRIORITY_DIRS.findIndex((prefix) => br.startsWith(prefix));
+    const ai = ap === -1 ? PRIORITY_DIRS.length : ap;
+    const bi = bp === -1 ? PRIORITY_DIRS.length : bp;
     if (ai !== bi) {
       return ai - bi;
     }
@@ -132,34 +132,34 @@ function prioritySort(root) {
 }
 
 function scanRepository(repoPath, options = {}) {
-  const results = [],
-    absRoot = path.resolve(repoPath),
-    extraIgnoreDirs = options.ignoreDirs || [],
-    gitignoreIg = loadGitignoreRules(absRoot),
-    nestedGitignoreRules = [],
-    memorycodeignoreIg = loadMemorycodeignoreRules(absRoot),
-    extraIgnoreIg = tryCreateIgnore(options.extraIgnorePatterns || []),
-    maxFileSize = Number(options.maxFileSize || DEFAULT_MAX_FILE_SIZE),
-    maxFiles = Number(options.maxFiles || DEFAULT_MAX_FILES),
-    followSymlinks = options.followSymlinks === true,
-    skipReport = {
-      builtIn: {},
-      gitignore: {},
-      memorycodeignore: {},
-      extraIgnore: {},
-      unsupportedExt: 0,
-      tooLarge: 0,
-      binary: 0,
-      secret: 0,
-      lock: 0,
-      symlink: 0,
-      pathTraversal: 0,
-      unreadable: 0,
-      fileLimit: 0,
-    },
-    ignoreFiles = options.onProgress || null,
-    reportScanProgress = options.onScanProgress || null,
-    scanStats = { dirsVisited: 0, entriesSeen: 0, codeFiles: 0, currentPath: '.', currentKind: 'directory' };
+  const results = [];
+  const absRoot = path.resolve(repoPath);
+  const extraIgnoreDirs = options.ignoreDirs || [];
+  const gitignoreIg = loadGitignoreRules(absRoot);
+  const nestedGitignoreRules = [];
+  const memorycodeignoreIg = loadMemorycodeignoreRules(absRoot);
+  const extraIgnoreIg = tryCreateIgnore(options.extraIgnorePatterns || []);
+  const maxFileSize = Number(options.maxFileSize || DEFAULT_MAX_FILE_SIZE);
+  const maxFiles = Number(options.maxFiles || DEFAULT_MAX_FILES);
+  const followSymlinks = options.followSymlinks === true;
+  const skipReport = {
+    builtIn: {},
+    gitignore: {},
+    memorycodeignore: {},
+    extraIgnore: {},
+    unsupportedExt: 0,
+    tooLarge: 0,
+    binary: 0,
+    secret: 0,
+    lock: 0,
+    symlink: 0,
+    pathTraversal: 0,
+    unreadable: 0,
+    fileLimit: 0,
+  };
+  const ignoreFiles = options.onProgress || null;
+  const reportScanProgress = options.onScanProgress || null;
+  const scanStats = { dirsVisited: 0, entriesSeen: 0, codeFiles: 0, currentPath: '.', currentKind: 'directory' };
 
   function mark(reason, key, relativePath) {
     if (typeof skipReport[reason] === 'number') {
@@ -196,8 +196,8 @@ function scanRepository(repoPath, options = {}) {
         // oxlint-disable-next-line no-continue
         continue;
       }
-      const local = relativePath.slice(rule.prefix.length).replace(/\\/g, '/'),
-        localDir = local + (isDir && !local.endsWith('/') ? '/' : '');
+      const local = relativePath.slice(rule.prefix.length).replace(/\\/g, '/');
+      const localDir = local + (isDir && !local.endsWith('/') ? '/' : '');
       if (local && (rule.ig.ignores(local) || rule.ig.ignores(localDir))) {
         return 'gitignore';
       }
@@ -228,16 +228,16 @@ function scanRepository(repoPath, options = {}) {
 
     if (entries.some((entry) => entry.isFile() && entry.name === '.gitignore')) {
       try {
-        const ig = require('ignore')().add(fs.readFileSync(path.join(dir, '.gitignore'), 'utf-8')),
-          dirRel = path.relative(absRoot, dir);
+        const ig = require('ignore')().add(fs.readFileSync(path.join(dir, '.gitignore'), 'utf-8'));
+        const dirRel = path.relative(absRoot, dir);
         nestedGitignoreRules.push({ prefix: dirRel ? `${dirRel}${path.sep}` : '', ig });
       } catch {}
     }
 
     for (const entry of entries) {
       scanStats.entriesSeen++;
-      const fullPath = path.join(dir, entry.name),
-        relativePath = path.relative(absRoot, fullPath);
+      const fullPath = path.join(dir, entry.name);
+      const relativePath = path.relative(absRoot, fullPath);
       scanStats.currentPath = relativePath;
       scanStats.currentKind = entry.isDirectory() ? 'directory' : 'file';
       if (entry.isSymbolicLink() && !followSymlinks) {
