@@ -7,9 +7,10 @@
       name="description"
       content="LaPis is local, persistent AI memory for Pi Coding Agent, Claude Code, Hermes Agent, and MCP-compatible clients. SQLite-backed, open source, and API-key free."
     />
-    <meta name="theme-color" content="#07111f" />
+    <meta name="theme-color" content="#f4efe4" />
     <meta property="og:title" content="LaPis — Local AI Memory for Coding Agents" />
     <meta property="og:description" content="Persistent project memory for coding agents, stored locally in SQLite." />
+    <meta property="og:image" content="/assets/social-preview.jpg" />
     <meta property="og:type" content="website" />
     <title>LaPis — Local AI Memory for Coding Agents</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -31,8 +32,9 @@
 
     <header class="site-header">
       <a class="brand" href="#top" aria-label="LaPis home">
-        <span class="brand-mark" aria-hidden="true">L</span>
-        <span>LaPis</span>
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">LaPis</span>
+        <span class="brand-nomen">lapis lazuli · Na₄Al₆Si₆O₂₄S</span>
       </a>
       <nav aria-label="Primary navigation">
         <a href="#why">Why LaPis</a>
@@ -44,13 +46,25 @@
     </header>
 
     <main id="main">
+      <!-- ============ HERO: specimen plate ============ -->
       <section class="hero" id="top">
+        <figure class="specimen">
+          <div class="specimen-frame">
+            <img src="/assets/hero-stone.jpg" alt="Illustration of a raw lapis lazuli crystal with gold pyrite flecks on watercolor paper" />
+          </div>
+          <figcaption>
+            <span class="fig-label">Fig. 1</span>
+            <span>LaPis lazuli, raw specimen. Ultramarine with disseminated pyrite.</span>
+          </figcaption>
+        </figure>
+
         <div class="hero-copy">
-          <p class="eyebrow"><span></span> Open source · Local first · SQLite backed</p>
+          <p class="eyebrow"><span class="dot" aria-hidden="true"></span> Catalogue № 001 — Open source · Local first · SQLite backed</p>
           <h1>Project memory that stays with your <em>coding agent.</em></h1>
           <p class="hero-lede">
             LaPis is a local, persistent AI memory layer for coding agents. It preserves decisions, bug fixes,
-            constraints, code context, documentation, and discoveries across sessions.
+            constraints, code context, documentation, and discoveries across sessions — like pyrite in stone,
+            the good stuff stays embedded.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="#install">Install LaPis</a>
@@ -61,32 +75,6 @@
             <li>No API keys</li>
             <li>One local database</li>
           </ul>
-        </div>
-
-        <div class="terminal" aria-label="Example LaPis installation and memory recall">
-          <div class="terminal-bar">
-            <div class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-            <span>terminal</span>
-            <span class="terminal-status">local</span>
-          </div>
-          <div class="terminal-body">
-            <p><span class="prompt">$</span> pi install git:github.com/GeneGulanesJr/LaPis</p>
-            <p class="muted">Installing extension…</p>
-            <p><span class="ok">✓</span> LaPis connected</p>
-            <div class="terminal-rule"></div>
-            <p><span class="prompt">›</span> New session</p>
-            <p class="muted">Recalling relevant project context…</p>
-            <div class="memory-card">
-              <span class="memory-type">DECISION</span>
-              <strong>Keep feature services independent</strong>
-              <small>Rationale and linked code available · trust 0.92</small>
-            </div>
-            <div class="memory-card">
-              <span class="memory-type bug">BUG FIX</span>
-              <strong>Sync trust after branch changes</strong>
-              <small>Historical failure mode preserved · trust 0.88</small>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -100,7 +88,7 @@
 
       <section class="section split" id="why">
         <div>
-          <p class="section-label">Why LaPis?</p>
+          <p class="section-label">I. Why LaPis?</p>
           <h2>Useful context should not disappear at the end of a session.</h2>
         </div>
         <div class="section-copy">
@@ -116,36 +104,36 @@
       </section>
 
       <section class="section" aria-labelledby="memory-heading">
-        <p class="section-label">AI memory for coding agents</p>
+        <p class="section-label">II. AI memory for coding agents</p>
         <h2 id="memory-heading">More than a session transcript.</h2>
         <div class="feature-grid">
           <article>
-            <span class="feature-index">01</span>
+            <span class="feature-index">i.</span>
             <h3>Persistent memory</h3>
             <p>Decisions, bug fixes, conventions, constraints, patterns, and discoveries survive across sessions.</p>
           </article>
           <article>
-            <span class="feature-index">02</span>
+            <span class="feature-index">ii.</span>
             <h3>Automatic recall</h3>
             <p>Relevant memories are loaded when a session starts and can be retrieved through structured tools.</p>
           </article>
           <article>
-            <span class="feature-index">03</span>
+            <span class="feature-index">iii.</span>
             <h3>Code and docs indexing</h3>
             <p>Semantic code analysis and Markdown indexing make current project context directly searchable.</p>
           </article>
           <article>
-            <span class="feature-index">04</span>
+            <span class="feature-index">iv.</span>
             <h3>Trust-aware context</h3>
             <p>Memories linked to changed code lose confidence so stale information is less likely to be trusted.</p>
           </article>
           <article>
-            <span class="feature-index">05</span>
+            <span class="feature-index">v.</span>
             <h3>Memory maintenance</h3>
             <p>Deduplication and the Dream Cycle control clutter and remove superseded or low-value memories.</p>
           </article>
           <article>
-            <span class="feature-index">06</span>
+            <span class="feature-index">vi.</span>
             <h3>Pre-coding context</h3>
             <p>Preflight checks combine memory, code, and documentation before implementation begins.</p>
           </article>
@@ -155,7 +143,7 @@
       <section class="section integrations" id="integrations">
         <div class="section-heading-row">
           <div>
-            <p class="section-label">Integrations</p>
+            <p class="section-label">III. Integrations</p>
             <h2>One memory store. Multiple agent surfaces.</h2>
           </div>
           <p>Native lifecycle integration where available, standard MCP tools everywhere else.</p>
@@ -190,7 +178,7 @@
 
       <section class="section architecture" id="architecture">
         <div class="architecture-copy">
-          <p class="section-label">Architecture</p>
+          <p class="section-label">IV. Architecture</p>
           <h2>A local backend with clear module boundaries.</h2>
           <p>
             LaPis is a modular monolith. Pi adapters, CLI routing, feature services, and shared platform and storage
@@ -216,7 +204,7 @@
 
       <section class="section benchmark" id="benchmark">
         <div>
-          <p class="section-label">Paired regression benchmark</p>
+          <p class="section-label">V. Paired regression benchmark</p>
           <h2><span>92.6%</span> fewer active tokens</h2>
           <p>with persistent memory enabled while maintaining 18/18 fact accuracy in the latest paired run.</p>
         </div>
@@ -261,7 +249,7 @@
 
       <section class="section install" id="install">
         <div>
-          <p class="section-label">Quick start</p>
+          <p class="section-label">VI. Quick start</p>
           <h2>Keep the next session informed.</h2>
           <p>Install the Pi extension, restart Pi, and LaPis wires itself into session startup.</p>
         </div>
@@ -273,7 +261,7 @@
     </main>
 
     <footer>
-      <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">L</span><span>LaPis</span></a>
+      <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">LaPis</span></a>
       <p>Local AI memory for coding agents. ISC licensed.</p>
       <div>
         <a href="https://github.com/GeneGulanesJr/LaPis">GitHub</a>
