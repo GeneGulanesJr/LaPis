@@ -26,15 +26,15 @@ describe('parse-code v2 fixes', () => {
 
   describe('fix 1: JS/TS depth gating removed', () => {
     it('extracts nested arrow functions inside functions', () => {
-      const f = path.join('/tmp', 'v2-nested-arrow.js');
-      const syms = writeTmp(
-        f,
-        `
+      const f = path.join('/tmp', 'v2-nested-arrow.js'),
+        syms = writeTmp(
+          f,
+          `
 function outer() {
   const inner = (x) => x + 1;
   return inner(5);
 }`,
-      );
+        );
       cleanup(f);
       const outer = syms.find((s) => s.name === 'outer');
       expect(outer).toBeDefined();
@@ -45,14 +45,14 @@ function outer() {
     });
 
     it('extracts nested function expressions in callbacks', () => {
-      const f = path.join('/tmp', 'v2-nested-expr.js');
-      const syms = writeTmp(
-        f,
-        `
+      const f = path.join('/tmp', 'v2-nested-expr.js'),
+        syms = writeTmp(
+          f,
+          `
 const items = [1, 2, 3];
 const filtered = items.filter((x) => x > 1);
 `,
-      );
+        );
       cleanup(f);
       const filtered = syms.find((s) => s.name === 'filtered');
       expect(filtered).toBeDefined();
@@ -60,16 +60,16 @@ const filtered = items.filter((x) => x > 1);
     });
 
     it('extracts variable declarators at nested depth', () => {
-      const f = path.join('/tmp', 'v2-nested-var.js');
-      const syms = writeTmp(
-        f,
-        `
+      const f = path.join('/tmp', 'v2-nested-var.js'),
+        syms = writeTmp(
+          f,
+          `
 function main() {
   const API_URL = 'http://example.com';
   let counter = 0;
 }
 `,
-      );
+        );
       cleanup(f);
       const apiUrl = syms.find((s) => s.name === 'API_URL');
       expect(apiUrl).toBeDefined();
@@ -79,10 +79,10 @@ function main() {
 
   describe('fix 2: Rust depth gating removed', () => {
     it('extracts nested functions inside impl blocks', () => {
-      const f = path.join('/tmp', 'v2-rust-impl.rs');
-      const syms = writeTmp(
-        f,
-        `
+      const f = path.join('/tmp', 'v2-rust-impl.rs'),
+        syms = writeTmp(
+          f,
+          `
 struct Foo;
 
 impl Foo {
@@ -94,7 +94,7 @@ impl Foo {
     }
 }
 `,
-      );
+        );
       cleanup(f);
       const foo = syms.find((s) => s.name === 'Foo' && s.kind === 'class');
       expect(foo).toBeDefined();
@@ -106,16 +106,16 @@ impl Foo {
     });
 
     it('extracts Rust mod items', () => {
-      const f = path.join('/tmp', 'v2-rust-mod.rs');
-      const syms = writeTmp(
-        f,
-        `
+      const f = path.join('/tmp', 'v2-rust-mod.rs'),
+        syms = writeTmp(
+          f,
+          `
 mod models;
 mod handlers {
     pub fn index() {}
 }
 `,
-      );
+        );
       cleanup(f);
       const models = syms.find((s) => s.name === 'models' && s.kind === 'module');
       expect(models).toBeDefined();
@@ -124,15 +124,15 @@ mod handlers {
     });
 
     it('extracts Rust use declarations', () => {
-      const f = path.join('/tmp', 'v2-rust-use.rs');
-      const syms = writeTmp(
-        f,
-        `
+      const f = path.join('/tmp', 'v2-rust-use.rs'),
+        syms = writeTmp(
+          f,
+          `
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 fn main() {}
 `,
-      );
+        );
       cleanup(f);
       const useSym = syms.find((s) => s.kind === 'import');
       expect(useSym).toBeDefined();
@@ -140,10 +140,10 @@ fn main() {}
     });
 
     it('extracts Rust macro definitions', () => {
-      const f = path.join('/tmp', 'v2-rust-macro.rs');
-      const syms = writeTmp(
-        f,
-        `
+      const f = path.join('/tmp', 'v2-rust-macro.rs'),
+        syms = writeTmp(
+          f,
+          `
 macro_rules! vec {
     ( $( $x:expr ),* ) => {
         {
@@ -156,7 +156,7 @@ macro_rules! vec {
     };
 }
 `,
-      );
+        );
       cleanup(f);
       const vec = syms.find((s) => s.name === 'vec');
       expect(vec).toBeDefined();
@@ -166,10 +166,10 @@ macro_rules! vec {
 
   describe('fix 3: Multi-language callee extraction', () => {
     it('extracts Python callees from call nodes', () => {
-      const py = path.join('/tmp', 'v2-py-callees.py');
-      const content = 'result = process(data)\nobj.transform(x)\nprint("hello")\n';
-      const cal = calleesFor(py, content);
-      const names = cal.map((c) => c.callee);
+      const py = path.join('/tmp', 'v2-py-callees.py'),
+        content = 'result = process(data)\nobj.transform(x)\nprint("hello")\n',
+        cal = calleesFor(py, content),
+        names = cal.map((c) => c.callee);
       expect(names).toContain('process');
       expect(names).toContain('transform');
       expect(names).toContain('print');
@@ -179,10 +179,10 @@ macro_rules! vec {
     });
 
     it('extracts Go callees from selector expressions', () => {
-      const go = path.join('/tmp', 'v2-go-callees.go');
-      const content = 'package main\n\nfunc main() {\n\tfmt.Println("hi")\n\tos.Exit(1)\n}\n';
-      const cal = calleesFor(go, content);
-      const names = cal.map((c) => c.callee);
+      const go = path.join('/tmp', 'v2-go-callees.go'),
+        content = 'package main\n\nfunc main() {\n\tfmt.Println("hi")\n\tos.Exit(1)\n}\n',
+        cal = calleesFor(go, content),
+        names = cal.map((c) => c.callee);
       expect(names).toContain('Println');
       expect(names).toContain('Exit');
       const println = cal.find((c) => c.callee === 'Println');
@@ -190,10 +190,10 @@ macro_rules! vec {
     });
 
     it('extracts Rust callees from field expressions', () => {
-      const rs = path.join('/tmp', 'v2-rust-callees.rs');
-      const content = 'fn main() {\n    let v = Vec::new();\n    v.push(1);\n    println!("hi");\n}\n';
-      const cal = calleesFor(rs, content);
-      const names = cal.map((c) => c.callee);
+      const rs = path.join('/tmp', 'v2-rust-callees.rs'),
+        content = 'fn main() {\n    let v = Vec::new();\n    v.push(1);\n    println!("hi");\n}\n',
+        cal = calleesFor(rs, content),
+        names = cal.map((c) => c.callee);
       expect(names).toContain('push');
       const push = cal.find((c) => c.callee === 'push');
       expect(push.is_method).toBe(true);
@@ -202,10 +202,10 @@ macro_rules! vec {
 
   describe('fix 4: Docstring extraction for Python/Go/Rust', () => {
     it('extracts Python docstrings from triple-quoted strings', () => {
-      const f = path.join('/tmp', 'v2-py-doc.py');
-      const syms = writeTmp(
-        f,
-        `
+      const f = path.join('/tmp', 'v2-py-doc.py'),
+        syms = writeTmp(
+          f,
+          `
 def greet(name):
     """Say hello to someone."""
     return f"Hello {name}"
@@ -216,7 +216,7 @@ class Animal:
         """Make a sound."""
         return "roar"
 `,
-      );
+        );
       cleanup(f);
       const greet = syms.find((s) => s.name === 'greet');
       expect(greet).toBeDefined();
@@ -230,17 +230,17 @@ class Animal:
     });
 
     it('extracts Go doc comments', () => {
-      const f = path.join('/tmp', 'v2-go-doc.go');
-      const syms = writeTmp(
-        f,
-        `package main
+      const f = path.join('/tmp', 'v2-go-doc.go'),
+        syms = writeTmp(
+          f,
+          `package main
 
 // Greet says hello to the given name.
 func Greet(name string) string {
 	return "Hello " + name
 }
 `,
-      );
+        );
       cleanup(f);
       const greet = syms.find((s) => s.name === 'Greet');
       expect(greet).toBeDefined();
@@ -248,16 +248,16 @@ func Greet(name string) string {
     });
 
     it('extracts Rust /// doc comments', () => {
-      const f = path.join('/tmp', 'v2-rust-doc.rs');
-      const syms = writeTmp(
-        f,
-        `/// Adds two numbers together.
+      const f = path.join('/tmp', 'v2-rust-doc.rs'),
+        syms = writeTmp(
+          f,
+          `/// Adds two numbers together.
 /// Returns the sum.
 fn add(a: i32, b: i32) -> i32 {
     a + b
 }
 `,
-      );
+        );
       cleanup(f);
       const add = syms.find((s) => s.name === 'add');
       expect(add).toBeDefined();
@@ -268,14 +268,14 @@ fn add(a: i32, b: i32) -> i32 {
 
   describe('enrichment: Python module-level variables', () => {
     it('extracts module-level assignments', () => {
-      const f = path.join('/tmp', 'v2-py-vars.py');
-      const syms = writeTmp(
-        f,
-        `CONFIG = {"debug": True}
+      const f = path.join('/tmp', 'v2-py-vars.py'),
+        syms = writeTmp(
+          f,
+          `CONFIG = {"debug": True}
 MAX_RETRIES = 3
 UserId = int
 `,
-      );
+        );
       cleanup(f);
       const config = syms.find((s) => s.name === 'CONFIG');
       expect(config).toBeDefined();
@@ -289,15 +289,15 @@ UserId = int
 
   describe('enrichment: Go var/const and imports', () => {
     it('extracts Go var and const declarations', () => {
-      const f = path.join('/tmp', 'v2-go-vars.go');
-      const syms = writeTmp(
-        f,
-        `package main
+      const f = path.join('/tmp', 'v2-go-vars.go'),
+        syms = writeTmp(
+          f,
+          `package main
 
 const MaxSize = 100
 var DefaultName = "world"
 `,
-      );
+        );
       cleanup(f);
       const maxSize = syms.find((s) => s.name === 'MaxSize');
       expect(maxSize).toBeDefined();
@@ -307,10 +307,10 @@ var DefaultName = "world"
     });
 
     it('extracts Go import declarations', () => {
-      const f = path.join('/tmp', 'v2-go-import.go');
-      const syms = writeTmp(
-        f,
-        `package main
+      const f = path.join('/tmp', 'v2-go-import.go'),
+        syms = writeTmp(
+          f,
+          `package main
 
 import "fmt"
 import (
@@ -318,7 +318,7 @@ import (
     "strings"
 )
 `,
-      );
+        );
       cleanup(f);
       const imports = syms.filter((s) => s.kind === 'import');
       expect(imports.length).toBeGreaterThanOrEqual(3);
@@ -331,16 +331,16 @@ import (
 
   describe('enrichment: Rust enum variants and macro', () => {
     it('extracts Rust enum variants', () => {
-      const f = path.join('/tmp', 'v2-rust-enum.rs');
-      const syms = writeTmp(
-        f,
-        `enum Color {
+      const f = path.join('/tmp', 'v2-rust-enum.rs'),
+        syms = writeTmp(
+          f,
+          `enum Color {
     Red,
     Green,
     Blue,
 }
 `,
-      );
+        );
       cleanup(f);
       const color = syms.find((s) => s.name === 'Color');
       expect(color).toBeDefined();
@@ -354,15 +354,15 @@ import (
 
   describe('enrichment: Python import tracking', () => {
     it('extracts Python import statements', () => {
-      const f = path.join('/tmp', 'v2-py-imports.py');
-      const syms = writeTmp(
-        f,
-        `import os
+      const f = path.join('/tmp', 'v2-py-imports.py'),
+        syms = writeTmp(
+          f,
+          `import os
 import sys
 from collections import defaultdict
 from typing import List, Dict
 `,
-      );
+        );
       cleanup(f);
       const imports = syms.filter((s) => s.kind === 'import');
       expect(imports.length).toBeGreaterThanOrEqual(2);
@@ -374,8 +374,8 @@ from typing import List, Dict
       const f = path.join('/tmp', 'v2-diag.rb');
       fs.writeFileSync(f, 'def hello; end');
       try {
-        const syms = codeParser.parseFile(f);
-        const diag = syms.find((s) => s.kind === 'diagnostic');
+        const syms = codeParser.parseFile(f),
+          diag = syms.find((s) => s.kind === 'diagnostic');
         expect(diag).toBeDefined();
         expect(diag.signature).toContain('not supported');
       } finally {
@@ -386,8 +386,8 @@ from typing import List, Dict
     it('returns diagnostic symbol for known extension without grammar', () => {
       const origParsers = codeParser.info();
       if (!origParsers.ready) {
-        const syms = codeParser.parseFile('/tmp/test-fail.js');
-        const diag = syms.find((s) => s.kind === 'diagnostic');
+        const syms = codeParser.parseFile('/tmp/test-fail.js'),
+          diag = syms.find((s) => s.kind === 'diagnostic');
         expect(diag).toBeDefined();
         expect(diag.signature).toContain('not initialized');
       }

@@ -1,6 +1,6 @@
 function createDocIndexRepository(deps) {
-  const { sqlJson, sqlRun } = deps;
-  const findRepoByName = (name) => sqlJson('SELECT * FROM doc_repos WHERE name = ? LIMIT 1', [name]);
+  const { sqlJson, sqlRun } = deps,
+    findRepoByName = (name) => sqlJson('SELECT * FROM doc_repos WHERE name = ? LIMIT 1', [name]);
   return Object.freeze({
     findRepoByName,
     findRepoByPath(path) {

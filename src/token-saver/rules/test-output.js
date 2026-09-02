@@ -1,9 +1,9 @@
-const FAIL_PATTERNS = /\b(?:FAIL|failed|failure|error|Error|ERR)\b/;
-const PASS_PATTERNS = /\b(?:PASS|passed|✓|✔|✅)\b/;
-const SUMMARY_PATTERNS = /(?:Tests|Test Suites|Snapshots|Time|Ran|total|passed|failed|skipped|todo)/i;
-const DIFF_PATTERNS = /(?:\bExpected\b|\bReceived\b|\+.*|-.*|@@.*@@)/;
-const WATCH_HINT = /(?:Watch Usage|watch mode|Press.*to.*more|--watch)/i;
-const COVERAGE_PATTERNS = /(?:coverage|Statements|Branches|Functions|Lines|All files)/i;
+const FAIL_PATTERNS = /\b(?:FAIL|failed|failure|error|Error|ERR)\b/,
+  PASS_PATTERNS = /\b(?:PASS|passed|✓|✔|✅)\b/,
+  SUMMARY_PATTERNS = /(?:Tests|Test Suites|Snapshots|Time|Ran|total|passed|failed|skipped|todo)/i,
+  DIFF_PATTERNS = /(?:\bExpected\b|\bReceived\b|\+.*|-.*|@@.*@@)/,
+  WATCH_HINT = /(?:Watch Usage|watch mode|Press.*to.*more|--watch)/i,
+  COVERAGE_PATTERNS = /(?:coverage|Statements|Branches|Functions|Lines|All files)/i;
 
 function compressTestOutput({ stdout, stderr, exitCode }) {
   const combined = `${stdout}\n${stderr}`.trim();
@@ -15,14 +15,14 @@ function compressTestOutput({ stdout, stderr, exitCode }) {
     };
   }
 
-  const lines = combined.split('\n');
-  const kept = [];
-  const failedBlocks = [];
-  let inFailure = false;
-  let failureBuf = [];
-  let hiddenCount = 0;
-  const summaryLines = [];
-  const coverageLines = [];
+  const lines = combined.split('\n'),
+    kept = [],
+    failedBlocks = [];
+  let inFailure = false,
+    failureBuf = [],
+    hiddenCount = 0;
+  const summaryLines = [],
+    coverageLines = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];

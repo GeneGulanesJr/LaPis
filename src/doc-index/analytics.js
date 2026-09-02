@@ -23,9 +23,9 @@ function searchDocs(db, repoId, query, opts) {
   try {
     const results = db.prepare(sql).all(...params);
     for (const r of results) {
-      const content = r.content || '';
-      const hasCode = content.includes('```');
-      const codeRatio = (content.match(/```[\s\S]*?```/g) || []).join('').length / Math.max(content.length, 1);
+      const content = r.content || '',
+        hasCode = content.includes('```'),
+        codeRatio = (content.match(/```[\s\S]*?```/g) || []).join('').length / Math.max(content.length, 1);
       let roleScore = 0;
       if (r.role === 'how_to' || r.role === 'tutorial') {
         roleScore = 0.3;
@@ -56,9 +56,8 @@ function getTutorialPath(db, repoId, sectionId) {
     return { error: `Section ${sectionId} not found` };
   }
 
-  const chain = [{ section_id: section.id, title: section.title }];
-
-  const nextMatch = (section.content || '').match(/[Nn]ext:?\s*\[([^\]]+)\]\(([^)]+)\)/);
+  const chain = [{ section_id: section.id, title: section.title }],
+    nextMatch = (section.content || '').match(/[Nn]ext:?\s*\[([^\]]+)\]\(([^)]+)\)/);
   if (nextMatch) {
     const targetSection = db
       .prepare(`
@@ -75,14 +74,14 @@ function getTutorialPath(db, repoId, sectionId) {
   if (file) {
     const numMatch = file.path.match(/(\d+)-/);
     if (numMatch) {
-      const currentNum = parseInt(numMatch[1]);
-      const files = db.prepare('SELECT path FROM doc_files WHERE repo_id = ? ORDER BY path').all(repoId);
-      const ordered = files
-        .filter((f) => {
-          const m = f.path.match(/(\d+)-/);
-          return m && parseInt(m[1]) > currentNum;
-        })
-        .slice(0, 5);
+      const currentNum = parseInt(numMatch[1]),
+        files = db.prepare('SELECT path FROM doc_files WHERE repo_id = ? ORDER BY path').all(repoId),
+        ordered = files
+          .filter((f) => {
+            const m = f.path.match(/(\d+)-/);
+            return m && parseInt(m[1]) > currentNum;
+          })
+          .slice(0, 5);
       for (const nextFile of ordered) {
         const nextSection = db
           .prepare(
@@ -163,12 +162,12 @@ function getDocCoverageReport(symbols, sections) {
   }
 
   let documented = 0;
-  const documented_list = [];
-  const undocumented_list = [];
+  const documented_list = [],
+    undocumented_list = [];
 
   for (const sym of symbols) {
-    const lowerName = sym.name.toLowerCase();
-    const matched = docNames.has(lowerName) || docNames.has(lowerName.replace(/_/g, ''));
+    const lowerName = sym.name.toLowerCase(),
+      matched = docNames.has(lowerName) || docNames.has(lowerName.replace(/_/g, ''));
     if (matched) {
       documented++;
       documented_list.push(sym);
@@ -189,15 +188,15 @@ function getDocCoverageReport(symbols, sections) {
 }
 
 function getDocCoverage(db, repoId, docRepoId, opts = {}) {
-  const codeSymbolLookup = opts.codeSymbolLookup || createDbCodeSymbolLookup(db);
-  const symbols = codeSymbolLookup.listDocumentableSymbols(repoId);
-  const sections = db.prepare('SELECT id, title, content, role FROM doc_sections WHERE repo_id = ?').all(docRepoId);
+  const codeSymbolLookup = opts.codeSymbolLookup || createDbCodeSymbolLookup(db),
+    symbols = codeSymbolLookup.listDocumentableSymbols(repoId),
+    sections = db.prepare('SELECT id, title, content, role FROM doc_sections WHERE repo_id = ?').all(docRepoId);
   return getDocCoverageReport(symbols, sections);
 }
 
 function getDuplicateSections(db, repoId) {
   const duplicates = db
-    .prepare(`
+      .prepare(`
     SELECT
       content_hash,
       COUNT(*) as count,
@@ -210,18 +209,16 @@ function getDuplicateSections(db, repoId) {
     HAVING COUNT(*) > 1
     ORDER BY COUNT(*) DESC
   `)
-    .all(repoId);
-
-  const results = [];
+      .all(repoId),
+    results = [];
   for (const dup of duplicates) {
-    const ids = dup.section_ids.split(',').map(Number);
-    const titles = dup.titles.split('|||');
-    const fileIds = dup.file_ids.split(',').map(Number);
-
-    const sections = [];
+    const ids = dup.section_ids.split(',').map(Number),
+      titles = dup.titles.split('|||'),
+      fileIds = dup.file_ids.split(',').map(Number),
+      sections = [];
     for (let i = 0; i < ids.length; i++) {
-      const fileId = fileIds[i] || fileIds[0];
-      const fileRow = db.prepare('SELECT path FROM doc_files WHERE id = ?').get(fileId);
+      const fileId = fileIds[i] || fileIds[0],
+        fileRow = db.prepare('SELECT path FROM doc_files WHERE id = ?').get(fileId);
       sections.push({ id: ids[i], title: titles[i] || '', file_path: fileRow ? fileRow.path : '' });
     }
 
@@ -237,9 +234,9 @@ function getStalePages(db, repoId) {
     return { error: 'Repo not found' };
   }
 
-  const files = db.prepare('SELECT id, path, mtime, content_hash FROM doc_files WHERE repo_id = ?').all(repoId);
-  const stale = [];
-  const missing = [];
+  const files = db.prepare('SELECT id, path, mtime, content_hash FROM doc_files WHERE repo_id = ?').all(repoId),
+    stale = [],
+    missing = [];
 
   for (const file of files) {
     const fullPath = path.join(repo.path, file.path);

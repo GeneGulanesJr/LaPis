@@ -43,12 +43,12 @@ describe('services/dedup: trigramOverlap', () => {
 describe('services/dedup: checkDuplicate', () => {
   it('should return potential_duplicates from candidates', () => {
     const mockCandidates = [
-      { id: 1, title: 'Fix login bug in auth module', topic_key: null, created_at: '2025-01-01T00:00:00Z' },
-    ];
-    const deps = {
-      sqlJson: vi.fn(() => mockCandidates),
-    };
-    const result = checkDuplicate(deps, 'Fix login bug in auth module', 'bugfix', null, null);
+        { id: 1, title: 'Fix login bug in auth module', topic_key: null, created_at: '2025-01-01T00:00:00Z' },
+      ],
+      deps = {
+        sqlJson: vi.fn(() => mockCandidates),
+      },
+      result = checkDuplicate(deps, 'Fix login bug in auth module', 'bugfix', null, null);
     expect(result.potential_duplicates).toBeDefined();
     expect(result.potential_duplicates.length).toBe(1);
     expect(result.potential_duplicates[0].id).toBe(1);
@@ -57,12 +57,12 @@ describe('services/dedup: checkDuplicate', () => {
 
   it('should filter by warning threshold', () => {
     const mockCandidates = [
-      { id: 1, title: 'Completely unrelated topic here', topic_key: null, created_at: '2025-01-01T00:00:00Z' },
-    ];
-    const deps = {
-      sqlJson: vi.fn(() => mockCandidates),
-    };
-    const result = checkDuplicate(deps, 'Fix login bug in auth module', 'bugfix', null, null);
+        { id: 1, title: 'Completely unrelated topic here', topic_key: null, created_at: '2025-01-01T00:00:00Z' },
+      ],
+      deps = {
+        sqlJson: vi.fn(() => mockCandidates),
+      },
+      result = checkDuplicate(deps, 'Fix login bug in auth module', 'bugfix', null, null);
     expect(result.potential_duplicates).toBeDefined();
     expect(result.potential_duplicates.length).toBe(0);
   });
@@ -72,9 +72,9 @@ describe('services/dedup: checkDuplicate', () => {
       sqlJson: vi.fn(() => []),
     };
     checkDuplicate(deps, 'Test title', 'decision', 'my-project', null);
-    const call = deps.sqlJson.mock.calls[0];
-    const query = call[0];
-    const params = call[1];
+    const call = deps.sqlJson.mock.calls[0],
+      query = call[0],
+      params = call[1];
     expect(query).toContain('AND project = ?');
     expect(params).toContain('my-project');
   });
@@ -92,33 +92,33 @@ describe('services/dedup: checkDuplicate', () => {
 describe('services/dedup: markDuplicate', () => {
   it('should require source and target', () => {
     const deps = {
-      sqlJson: vi.fn(),
-      sqlRun: vi.fn(),
-      softDeleteObservation: vi.fn(),
-    };
-    const result = markDuplicate(deps, { source: '', target: '' });
+        sqlJson: vi.fn(),
+        sqlRun: vi.fn(),
+        softDeleteObservation: vi.fn(),
+      },
+      result = markDuplicate(deps, { source: '', target: '' });
     expect(result.error).toBeDefined();
     expect(result.error).toContain('source');
   });
 
   it('should reject identical source and target', () => {
     const deps = {
-      sqlJson: vi.fn(),
-      sqlRun: vi.fn(),
-      softDeleteObservation: vi.fn(),
-    };
-    const result = markDuplicate(deps, { source: '10', target: '10' });
+        sqlJson: vi.fn(),
+        sqlRun: vi.fn(),
+        softDeleteObservation: vi.fn(),
+      },
+      result = markDuplicate(deps, { source: '10', target: '10' });
     expect(result.error).toMatch(/different/i);
     expect(deps.softDeleteObservation).not.toHaveBeenCalled();
   });
 
   it('should call softDeleteObservation with target', () => {
     const deps = {
-      sqlJson: vi.fn(),
-      sqlRun: vi.fn(),
-      softDeleteObservation: vi.fn(),
-    };
-    const result = markDuplicate(deps, { source: '10', target: '20' });
+        sqlJson: vi.fn(),
+        sqlRun: vi.fn(),
+        softDeleteObservation: vi.fn(),
+      },
+      result = markDuplicate(deps, { source: '10', target: '20' });
     expect(result.ok).toBe(true);
     expect(result.merged.kept).toBe(10);
     expect(result.merged.removed).toBe(20);

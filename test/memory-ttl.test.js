@@ -27,37 +27,37 @@ describe('memory-domain/ttl: parseExpiresIn', () => {
   });
 
   it('parses days', () => {
-    const now = Date.now();
-    const result = parseExpiresIn('7d');
-    const parsed = Date.parse(result.replace(' ', 'T') + 'Z');
-    const days = (parsed - now) / 86400000;
+    const now = Date.now(),
+      result = parseExpiresIn('7d'),
+      parsed = Date.parse(`${result.replace(' ', 'T')}Z`),
+      days = (parsed - now) / 86400000;
     expect(days).toBeGreaterThan(6.9);
     expect(days).toBeLessThan(7.1);
   });
 
   it('parses weeks (1w = 7 days)', () => {
-    const now = Date.now();
-    const result = parseExpiresIn('2w');
-    const parsed = Date.parse(result.replace(' ', 'T') + 'Z');
-    const days = (parsed - now) / 86400000;
+    const now = Date.now(),
+      result = parseExpiresIn('2w'),
+      parsed = Date.parse(`${result.replace(' ', 'T')}Z`),
+      days = (parsed - now) / 86400000;
     expect(days).toBeGreaterThan(13.9);
     expect(days).toBeLessThan(14.1);
   });
 
   it('parses months (1m = 30 days)', () => {
-    const now = Date.now();
-    const result = parseExpiresIn('1m');
-    const parsed = Date.parse(result.replace(' ', 'T') + 'Z');
-    const days = (parsed - now) / 86400000;
+    const now = Date.now(),
+      result = parseExpiresIn('1m'),
+      parsed = Date.parse(`${result.replace(' ', 'T')}Z`),
+      days = (parsed - now) / 86400000;
     expect(days).toBeGreaterThan(29.5);
     expect(days).toBeLessThan(30.5);
   });
 
   it('parses hours', () => {
-    const now = Date.now();
-    const result = parseExpiresIn('12h');
-    const parsed = Date.parse(result.replace(' ', 'T') + 'Z');
-    const hours = (parsed - now) / 3600000;
+    const now = Date.now(),
+      result = parseExpiresIn('12h'),
+      parsed = Date.parse(`${result.replace(' ', 'T')}Z`),
+      hours = (parsed - now) / 3600000;
     expect(hours).toBeGreaterThan(11.9);
     expect(hours).toBeLessThan(12.1);
   });
@@ -82,32 +82,32 @@ describe('memory-domain/ttl: formatSqliteDatetime', () => {
 describe('services/observations: save with --expires-in', () => {
   it('rejects invalid expires-in', () => {
     const deps = {
-      jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
-      insertObservation: vi.fn(),
-      insertObservationRelation: vi.fn(),
-      softDeleteObservation: vi.fn(),
-      checkDuplicate: vi.fn(),
-      findLatestSession: vi.fn(),
-    };
-    const result = obsService.save(deps, {
-      title: 'T',
-      content: 'C',
-      'expires-in': 'not-a-duration',
-    });
+        jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
+        insertObservation: vi.fn(),
+        insertObservationRelation: vi.fn(),
+        softDeleteObservation: vi.fn(),
+        checkDuplicate: vi.fn(),
+        findLatestSession: vi.fn(),
+      },
+      result = obsService.save(deps, {
+        title: 'T',
+        content: 'C',
+        'expires-in': 'not-a-duration',
+      });
     expect(result.error).toContain('Invalid --expires-in');
     expect(deps.insertObservation).not.toHaveBeenCalled();
   });
 
   it('passes expiresAt to insertObservation when valid', () => {
-    const insertObservation = vi.fn(() => [{ id: 1, created_at: '2025-01-01', expires_at: '2026-01-08 00:00:00' }]);
-    const deps = {
-      jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
-      insertObservation,
-      insertObservationRelation: vi.fn(),
-      softDeleteObservation: vi.fn(),
-      checkDuplicate: vi.fn(() => ({ potential_duplicates: [] })),
-      findLatestSession: vi.fn(() => '1'),
-    };
+    const insertObservation = vi.fn(() => [{ id: 1, created_at: '2025-01-01', expires_at: '2026-01-08 00:00:00' }]),
+      deps = {
+        jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
+        insertObservation,
+        insertObservationRelation: vi.fn(),
+        softDeleteObservation: vi.fn(),
+        checkDuplicate: vi.fn(() => ({ potential_duplicates: [] })),
+        findLatestSession: vi.fn(() => '1'),
+      };
     obsService.save(deps, {
       title: 'Workaround',
       content: 'For bug #123',
@@ -119,30 +119,30 @@ describe('services/observations: save with --expires-in', () => {
   });
 
   it('passes null expiresAt when --expires-in is not provided', () => {
-    const insertObservation = vi.fn(() => [{ id: 1, created_at: '2025-01-01' }]);
-    const deps = {
-      jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
-      insertObservation,
-      insertObservationRelation: vi.fn(),
-      softDeleteObservation: vi.fn(),
-      checkDuplicate: vi.fn(() => ({ potential_duplicates: [] })),
-      findLatestSession: vi.fn(() => '1'),
-    };
+    const insertObservation = vi.fn(() => [{ id: 1, created_at: '2025-01-01' }]),
+      deps = {
+        jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
+        insertObservation,
+        insertObservationRelation: vi.fn(),
+        softDeleteObservation: vi.fn(),
+        checkDuplicate: vi.fn(() => ({ potential_duplicates: [] })),
+        findLatestSession: vi.fn(() => '1'),
+      };
     obsService.save(deps, { title: 'T', content: 'C' });
     const call = insertObservation.mock.calls[0][0];
     expect(call.expiresAt).toBeNull();
   });
 
   it('accepts expiresIn camelCase as well', () => {
-    const insertObservation = vi.fn(() => [{ id: 1, created_at: '2025-01-01' }]);
-    const deps = {
-      jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
-      insertObservation,
-      insertObservationRelation: vi.fn(),
-      softDeleteObservation: vi.fn(),
-      checkDuplicate: vi.fn(() => ({ potential_duplicates: [] })),
-      findLatestSession: vi.fn(() => '1'),
-    };
+    const insertObservation = vi.fn(() => [{ id: 1, created_at: '2025-01-01' }]),
+      deps = {
+        jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
+        insertObservation,
+        insertObservationRelation: vi.fn(),
+        softDeleteObservation: vi.fn(),
+        checkDuplicate: vi.fn(() => ({ potential_duplicates: [] })),
+        findLatestSession: vi.fn(() => '1'),
+      };
     obsService.save(deps, { title: 'T', content: 'C', expiresIn: '1d' });
     const call = insertObservation.mock.calls[0][0];
     expect(call.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
@@ -242,8 +242,8 @@ describe('data-access/observations: updateObservation with expiry', () => {
     const versionCall = deps.sqlRun.mock.calls.find((c) => c[0].includes('observation_versions'));
     expect(versionCall).toBeDefined();
     expect(versionCall[1]).toContain('expires_at');
-    // old_value is the prior date; new_value uses '' (NOT NULL convention)
-    // because observation_versions.new_value is TEXT NOT NULL.
+    // Old_value is the prior date; new_value uses '' (NOT NULL convention)
+    // Because observation_versions.new_value is TEXT NOT NULL.
     expect(versionCall[1]).toContain('2026-12-31 00:00:00');
     expect(versionCall[1]).toContain('');
   });
@@ -252,20 +252,20 @@ describe('data-access/observations: updateObservation with expiry', () => {
 describe('compaction: runCompact expires expired observations', () => {
   it('hard-deletes expired observations', () => {
     const result = (() => {
-      const deps = {
-        sqlRun: vi.fn(),
-        sqlRaw: vi.fn(),
-      };
-      const { runCompact } = require('../src/memory-domain/compaction');
-      return runCompact(deps);
-    })();
-    const expiredCall = result.steps.expiredPurged;
+        const deps = {
+          sqlRun: vi.fn(),
+          sqlRaw: vi.fn(),
+        };
+        const { runCompact } = require('../src/memory-domain/compaction');
+        return runCompact(deps);
+      })(),
+      expiredCall = result.steps.expiredPurged;
     expect(expiredCall).toBe(true);
   });
 
   it('emits the expired purge SQL as the first cleanup step', () => {
-    const sqlRun = vi.fn();
-    const sqlRaw = vi.fn();
+    const sqlRun = vi.fn(),
+      sqlRaw = vi.fn();
     const { runCompact } = require('../src/memory-domain/compaction');
     runCompact({ sqlRun, sqlRaw });
     const firstNonFtsRun = sqlRun.mock.calls[0];
@@ -275,9 +275,9 @@ describe('compaction: runCompact expires expired observations', () => {
 });
 
 // Schema migration tests are skipped by default — they require a working libSQL
-// backend (npm install). They are kept commented for the project maintainers.
+// Backend (npm install). They are kept commented for the project maintainers.
 //
-// describe('schema migration V17', () => {
-//   it('adds expires_at column to observations', () => { ... });
-//   it('creates partial index on expires_at', () => { ... });
+// Describe('schema migration V17', () => {
+//   It('adds expires_at column to observations', () => { ... });
+//   It('creates partial index on expires_at', () => { ... });
 // });

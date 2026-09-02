@@ -62,7 +62,7 @@ function ensureCodeFts() {
 
 function centralityBySymbol(repoName) {
   const rows = sqlJson(
-    `SELECT s.id,
+      `SELECT s.id,
       COALESCE(in_calls.count, 0) AS inbound_calls,
       COALESCE(out_calls.count, 0) AS outbound_calls,
       COALESCE(importers.count, 0) AS importers
@@ -72,9 +72,9 @@ function centralityBySymbol(repoName) {
      LEFT JOIN (SELECT caller_symbol_id AS id, COUNT(*) AS count FROM code_calls GROUP BY caller_symbol_id) out_calls ON out_calls.id = s.id
      LEFT JOIN (SELECT cf.id AS file_id, COUNT(*) AS count FROM code_imports ci JOIN code_files cf ON cf.id = ci.target_file_id GROUP BY cf.id) importers ON importers.file_id = s.file_id
      WHERE (? IS NULL OR r.name = ?)`,
-    [repoName, repoName],
-  );
-  const scores = new Map();
+      [repoName, repoName],
+    ),
+    scores = new Map();
   let max = 0;
   for (const row of rows) {
     const score = row.inbound_calls * 2 + row.importers * 1.5 + row.outbound_calls * 0.25;
@@ -189,29 +189,28 @@ function searchCode(query, repoName, kind, maxResults) {
   } catch {
     return searchCodeLike(query, repoName, kind, maxResults);
   }
-  const { scores, max } = centralityBySymbol(repoName || null);
-  const reranked = rows
-    .map((row) => {
-      const bm25Raw = Math.max(0, -Number(row.bm25_score || 0));
-      const bm25Norm = bm25Raw / (1 + bm25Raw);
-      const centralityNorm = (scores.get(row.id) || 0) / max;
-      return { ...row, score: 0.75 * bm25Norm + 0.25 * centralityNorm };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, maxResults);
-
-  const results = reranked.map(mapSearchRow);
+  const { scores, max } = centralityBySymbol(repoName || null),
+    reranked = rows
+      .map((row) => {
+        const bm25Raw = Math.max(0, -Number(row.bm25_score || 0)),
+          bm25Norm = bm25Raw / (1 + bm25Raw),
+          centralityNorm = (scores.get(row.id) || 0) / max;
+        return { ...row, score: 0.75 * bm25Norm + 0.25 * centralityNorm };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxResults),
+    results = reranked.map(mapSearchRow);
   return { query, results, total: results.length, strategy: 'bm25-centrality' };
 }
 
 function rankedContext(query, repoName, options = {}) {
   ensureDb();
-  const tokenBudget = Math.max(200, Number(options.tokenBudget || options.token_budget || 4000));
-  const maxResults = Math.max(1, Number(options.maxResults || options.max_results || 20));
-  const search = searchCode(query, repoName || null, options.kind || null, maxResults);
-  const items = [];
-  let totalTokens = 0;
-  let considered = 0;
+  const tokenBudget = Math.max(200, Number(options.tokenBudget || options.token_budget || 4000)),
+    maxResults = Math.max(1, Number(options.maxResults || options.max_results || 20)),
+    search = searchCode(query, repoName || null, options.kind || null, maxResults),
+    items = [];
+  let totalTokens = 0,
+    considered = 0;
 
   for (const result of search.results || []) {
     considered++;
@@ -220,8 +219,8 @@ function rankedContext(query, repoName, options = {}) {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    const text = [result.signature, result.summary, source.source].filter(Boolean).join('\n');
-    const tokens = estimateTokens(text);
+    const text = [result.signature, result.summary, source.source].filter(Boolean).join('\n'),
+      tokens = estimateTokens(text);
     if (items.length > 0 && totalTokens + tokens > tokenBudget) {
       // oxlint-disable-next-line no-continue
       continue;
@@ -269,8 +268,8 @@ function rankedContext(query, repoName, options = {}) {
 
 function listCodeRepos(repository = null) {
   ensureDb();
-  const repo = repository || createCodeIndexRepository(require('../../db'));
-  const repos = repo.listRepos();
+  const repo = repository || createCodeIndexRepository(require('../../db')),
+    repos = repo.listRepos();
   return { repos, total: repos.length };
 }
 

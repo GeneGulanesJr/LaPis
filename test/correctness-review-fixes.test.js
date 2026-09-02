@@ -20,8 +20,8 @@ describe('correctness review fixes', () => {
     const { sqlJson, sqlRun, ensureDb } = dbModule;
     ensureDb();
     sqlRun("INSERT INTO session_log (project, started_at) VALUES ('correctness-fix', datetime('now'))");
-    const id = sqlJson('SELECT id FROM session_log ORDER BY id DESC LIMIT 1')[0].id;
-    const result = sessionCmd.sessionEnd({ sqlJson, sqlRun }, { id: String(id), memories: '0' });
+    const id = sqlJson('SELECT id FROM session_log ORDER BY id DESC LIMIT 1')[0].id,
+      result = sessionCmd.sessionEnd({ sqlJson, sqlRun }, { id: String(id), memories: '0' });
     expect(result.compacted).toBeDefined();
     expect(result.compacted.ok).toBe(true);
   });
@@ -50,9 +50,9 @@ describe('correctness review fixes', () => {
   });
 
   it('listMissionLedgers includes todos for each ledger', () => {
-    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun });
-    const missionA = `mission-list-a-${Date.now()}`;
-    const missionB = `mission-list-b-${Date.now()}`;
+    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun }),
+      missionA = `mission-list-a-${Date.now()}`,
+      missionB = `mission-list-b-${Date.now()}`;
     repo.createMissionLedger({ missionId: missionA, missionTitle: 'List A', status: 'planning' });
     repo.createMissionLedger({ missionId: missionB, missionTitle: 'List B', status: 'planning' });
     repo.createTodo(missionA, { title: 'Todo A', status: 'ready', goal: 'g' });
@@ -63,32 +63,32 @@ describe('correctness review fixes', () => {
   });
 
   it('listMissionLedgers loads todos in a single batch query', () => {
-    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun });
-    const missionA = `mission-batch-a-${Date.now()}`;
-    const missionB = `mission-batch-b-${Date.now()}`;
+    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun }),
+      missionA = `mission-batch-a-${Date.now()}`,
+      missionB = `mission-batch-b-${Date.now()}`;
     repo.createMissionLedger({ missionId: missionA, missionTitle: 'Batch A', status: 'planning' });
     repo.createMissionLedger({ missionId: missionB, missionTitle: 'Batch B', status: 'planning' });
     repo.createTodo(missionA, { title: 'Batch todo A', status: 'ready', goal: 'g' });
     repo.createTodo(missionB, { title: 'Batch todo B', status: 'ready', goal: 'g' });
 
-    const originalSqlJson = dbModule.sqlJson;
-    const todoQueries = [];
-    const sqlJsonSpy = (query, params) => {
-      if (typeof query === 'string' && query.includes('FROM todo_items WHERE mission_id IN')) {
-        todoQueries.push(query);
-      }
-      return originalSqlJson(query, params);
-    };
-    const spiedRepo = createAurexRepository({ sqlJson: sqlJsonSpy, sqlRun: dbModule.sqlRun });
+    const originalSqlJson = dbModule.sqlJson,
+      todoQueries = [],
+      sqlJsonSpy = (query, params) => {
+        if (typeof query === 'string' && query.includes('FROM todo_items WHERE mission_id IN')) {
+          todoQueries.push(query);
+        }
+        return originalSqlJson(query, params);
+      },
+      spiedRepo = createAurexRepository({ sqlJson: sqlJsonSpy, sqlRun: dbModule.sqlRun });
     spiedRepo.listMissionLedgers();
     expect(todoQueries).toHaveLength(1);
   });
 
   it('claimNextReadyTodo skips todos with incomplete dependencies', () => {
-    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun });
-    const missionId = `mission-claim-${Date.now()}`;
-    const blockerId = `blocker-${Date.now()}`;
-    const blockedId = `blocked-${Date.now()}`;
+    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun }),
+      missionId = `mission-claim-${Date.now()}`,
+      blockerId = `blocker-${Date.now()}`,
+      blockedId = `blocked-${Date.now()}`;
     repo.createMissionLedger({ missionId, missionTitle: 'Claim test', status: 'planning' });
     const blocker = repo.createTodo(missionId, { id: blockerId, title: 'Blocker', status: 'ready', goal: 'g' })[0];
     repo.createTodo(missionId, {
@@ -105,10 +105,10 @@ describe('correctness review fixes', () => {
   });
 
   it('claimNextReadyTodo allows claim when dependency is implemented', () => {
-    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun });
-    const missionId = `mission-claim-impl-${Date.now()}`;
-    const blockerId = `blocker-impl-${Date.now()}`;
-    const blockedId = `blocked-impl-${Date.now()}`;
+    const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun }),
+      missionId = `mission-claim-impl-${Date.now()}`,
+      blockerId = `blocker-impl-${Date.now()}`,
+      blockedId = `blocked-impl-${Date.now()}`;
     repo.createMissionLedger({ missionId, missionTitle: 'Implemented dep', status: 'planning' });
     repo.createTodo(missionId, { id: blockerId, title: 'Blocker', status: 'ready', goal: 'g' });
     repo.createTodo(missionId, {
@@ -136,8 +136,8 @@ describe('correctness review fixes', () => {
   });
 
   it('resolveScopeBindings runs without missing-column SQL errors', () => {
-    const db = dbModule.getDb();
-    const repoPath = `/tmp/scope-fix-${Date.now()}`;
+    const db = dbModule.getDb(),
+      repoPath = `/tmp/scope-fix-${Date.now()}`;
     db.prepare('INSERT INTO code_repos (name, path, head_commit) VALUES (?, ?, NULL)').run('scope-fix', repoPath);
     const repoId = db.prepare('SELECT id FROM code_repos WHERE name = ?').get('scope-fix').id;
     db.prepare('INSERT INTO code_files (repo_id, path, content_hash, language, content) VALUES (?, ?, ?, ?, ?)').run(

@@ -10,30 +10,30 @@ function _likeEscape(str) {
 }
 
 // PERF(issue #133): Decision-point patterns hoisted to module scope. Previously
-// this 10-element RegExp array was re-allocated once per symbol inside
-// buildComplexity, i.e. 10N regex allocations for N functions in the repo. The
-// patterns carry the /g flag and lastIndex is reset before each use below, so
-// reuse across iterations is safe (single-threaded synchronous scan).
+// This 10-element RegExp array was re-allocated once per symbol inside
+// BuildComplexity, i.e. 10N regex allocations for N functions in the repo. The
+// Patterns carry the /g flag and lastIndex is reset before each use below, so
+// Reuse across iterations is safe (single-threaded synchronous scan).
 // Do NOT move this array back into the per-symbol loop body.
 const DECISION_PATTERNS = [
-  // (?<!else\s+) excludes the `if` token in `else if` (with any whitespace —
-  // space, tab, newline, or multiple) so it's counted once by the dedicated
-  // /else\s+if/ pattern below, not double-counted.
-  /(?<!else\s+)if\b/g,
-  /else\s+if\b/g,
-  /\bfor\b/g,
-  /\bwhile\b/g,
-  /\bdo\b/g,
-  /\bcase\b/g,
-  /\bcatch\b/g,
-  /\&\&/g,
-  /\|\|/g,
-  /\?\?/g,
-];
-// PERF(issue #133): Ternary pattern hoisted alongside DECISION_PATTERNS for the
-// same reason (was re-created per symbol). lastIndex is reset before its
-// .exec() loop below.
-const TERNARY_RE = /\?(?:\s*[^.:])/g;
+    // (?<!else\s+) excludes the `if` token in `else if` (with any whitespace —
+    // Space, tab, newline, or multiple) so it's counted once by the dedicated
+    // /else\s+if/ pattern below, not double-counted.
+    /(?<!else\s+)if\b/g,
+    /else\s+if\b/g,
+    /\bfor\b/g,
+    /\bwhile\b/g,
+    /\bdo\b/g,
+    /\bcase\b/g,
+    /\bcatch\b/g,
+    /\&\&/g,
+    /\|\|/g,
+    /\?\?/g,
+  ],
+  // PERF(issue #133): Ternary pattern hoisted alongside DECISION_PATTERNS for the
+  // same reason (was re-created per symbol). lastIndex is reset before its
+  // .exec() loop below.
+  TERNARY_RE = /\?(?:\s*[^.:])/g;
 
 function normalizeRepoPath(filePath, repoRoot = null) {
   const normalized = String(filePath || '')
@@ -62,15 +62,14 @@ function buildComplexity(db, repoId) {
   );
 
   const insertStmt = db.prepare(
-    `INSERT OR REPLACE INTO symbol_complexity (symbol_id, cyclomatic, nesting_depth, param_count, lines_of_code, assessment) VALUES (?, ?, ?, ?, ?, ?)`,
-  );
-
-  const symbols = db
-    .prepare(`
+      `INSERT OR REPLACE INTO symbol_complexity (symbol_id, cyclomatic, nesting_depth, param_count, lines_of_code, assessment) VALUES (?, ?, ?, ?, ?, ?)`,
+    ),
+    symbols = db
+      .prepare(`
     SELECT cs.id, cs.name, cs.start_byte, cs.end_byte, cs.start_line, cs.end_line, cs.signature, cf.content as file_content
     FROM code_symbols cs JOIN code_files cf ON cf.id = cs.file_id WHERE cs.repo_id = ? AND cs.kind IN ('function', 'method')
   `)
-    .all(repoId);
+      .all(repoId);
 
   let count = 0;
   for (const sym of symbols) {
@@ -105,8 +104,8 @@ function buildComplexity(db, repoId) {
     // Do NOT replace charCode checks with string comparisons; the integer path is the
     // Performance-critical fast path. Template depth tracking logic is preserved as-is.
     let maxDepth = 0,
-      currentDepth = 0;
-    let inString = false,
+      currentDepth = 0,
+      inString = false,
       stringCharCode = 0,
       templateDepth = 0;
     for (let i = 0; i < body.length; i++) {
@@ -168,10 +167,10 @@ function buildComplexity(db, repoId) {
       }
     }
 
-    const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null;
-    const paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0;
-    const lines = body.split('\n');
-    const codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
+    const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null,
+      paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0,
+      lines = body.split('\n'),
+      codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
     let assessment = 'high';
     if (cyclomatic <= COMPLEXITY.LOW_THRESHOLD) {
       assessment = 'low';
@@ -218,16 +217,16 @@ function getFileOutline(db, repoId, filePath) {
   if (guard) {
     return guard;
   }
-  const repoRoot = getRepoRoot(db, repoId);
-  const normalizedPath = normalizeRepoPath(filePath, repoRoot);
-  const allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ? ORDER BY path').all(repoId);
-  const filesWithRelativePath = allFiles.map((row) => ({
-    ...row,
-    relative_path: normalizeRepoPath(row.path, repoRoot),
-  }));
-  const directoryMatches = filesWithRelativePath
-    .filter((row) => row.relative_path.startsWith(`${normalizedPath}/`))
-    .sort((a, b) => a.relative_path.localeCompare(b.relative_path));
+  const repoRoot = getRepoRoot(db, repoId),
+    normalizedPath = normalizeRepoPath(filePath, repoRoot),
+    allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ? ORDER BY path').all(repoId),
+    filesWithRelativePath = allFiles.map((row) => ({
+      ...row,
+      relative_path: normalizeRepoPath(row.path, repoRoot),
+    })),
+    directoryMatches = filesWithRelativePath
+      .filter((row) => row.relative_path.startsWith(`${normalizedPath}/`))
+      .sort((a, b) => a.relative_path.localeCompare(b.relative_path));
   if (directoryMatches.length > 1) {
     const visibleMatches = directoryMatches.slice(0, 25);
     return {
@@ -241,19 +240,19 @@ function getFileOutline(db, repoId, filePath) {
   }
 
   const exactFile =
-    filesWithRelativePath.find((row) => row.path === filePath || row.relative_path === normalizedPath) || null;
-  const suffixFile = exactFile
-    ? null
-    : filesWithRelativePath.find((row) => row.relative_path.endsWith(`/${normalizedPath}`));
-  const fileRow = exactFile || suffixFile;
+      filesWithRelativePath.find((row) => row.path === filePath || row.relative_path === normalizedPath) || null,
+    suffixFile = exactFile
+      ? null
+      : filesWithRelativePath.find((row) => row.relative_path.endsWith(`/${normalizedPath}`)),
+    fileRow = exactFile || suffixFile;
   if (!fileRow) {
     // Suggest available files that partially match
-    const basename = normalizedPath.split('/').pop();
-    const suggestions = filesWithRelativePath
-      .filter((row) => row.relative_path.includes(basename))
-      .sort((a, b) => a.relative_path.localeCompare(b.relative_path))
-      .slice(0, 20);
-    const totalFiles = allFiles.length;
+    const basename = normalizedPath.split('/').pop(),
+      suggestions = filesWithRelativePath
+        .filter((row) => row.relative_path.includes(basename))
+        .sort((a, b) => a.relative_path.localeCompare(b.relative_path))
+        .slice(0, 20),
+      totalFiles = allFiles.length;
     if (suggestions.length) {
       return {
         file: filePath,
@@ -278,17 +277,16 @@ function getFileOutline(db, repoId, filePath) {
   }
 
   const symbols = db
-    .prepare(`
+      .prepare(`
     SELECT cs.id, cs.name, cs.kind, cs.start_line, cs.end_line, cs.signature, cs.qualified_name, cs.parent_name,
            sc.cyclomatic, sc.assessment
     FROM code_symbols cs LEFT JOIN symbol_complexity sc ON sc.symbol_id = cs.id
     WHERE cs.repo_id = ? AND (cs.file_id = ? OR cs.file_path = ? OR cs.file_path LIKE ? ESCAPE '!')
     ORDER BY cs.start_line
   `)
-    .all(repoId, fileRow.id, fileRow.path, `%/${_likeEscape(fileRow.path)}`);
-
-  const classes = [];
-  const standalone = [];
+      .all(repoId, fileRow.id, fileRow.path, `%/${_likeEscape(fileRow.path)}`),
+    classes = [],
+    standalone = [];
   for (const sym of symbols) {
     if (sym.parent_name) {
       let cls = classes.find((c) => c.name === sym.parent_name);

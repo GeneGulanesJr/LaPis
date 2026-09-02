@@ -29,8 +29,8 @@ describe('hooks-engine prompt-classifiers: extractUserPrompt', () => {
   });
 
   test('truncates long prompts to 500 chars', () => {
-    const long = 'x'.repeat(600);
-    const out = extractUserPrompt({ prompt: long });
+    const long = 'x'.repeat(600),
+      out = extractUserPrompt({ prompt: long });
     expect(out.length).toBeLessThanOrEqual(503);
     expect(out.endsWith('...')).toBe(true);
   });

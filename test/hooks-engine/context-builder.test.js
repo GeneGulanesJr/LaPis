@@ -6,28 +6,27 @@ const {
   capInjectedContext,
 } = require('../../src/hooks-engine/context-builder');
 const {
-  appendPreflightBlock,
-  appendCodingContextBlock,
-  chooseCodingContextTarget,
-  unwrapAnalysisData,
-} = require('../../src/hooks-engine/preflight-assembly');
-
-const baseBag = {
-  promptQuery: null,
-  currentProject: 'TestProject',
-  projectDir: process.cwd(),
-  cwdRepo: null,
-  isStale: false,
-  isNewProject: false,
-  observations: [],
-  effectiveObservations: [],
-  personal: [],
-  stats: { total_memories: 42, total_personal: 1 },
-  effectiveStats: { total_memories: 42, total_personal: 1 },
-  topic: null,
-  crossProjectSuggestions: [],
-  cwd: process.cwd(),
-};
+    appendPreflightBlock,
+    appendCodingContextBlock,
+    chooseCodingContextTarget,
+    unwrapAnalysisData,
+  } = require('../../src/hooks-engine/preflight-assembly'),
+  baseBag = {
+    promptQuery: null,
+    currentProject: 'TestProject',
+    projectDir: process.cwd(),
+    cwdRepo: null,
+    isStale: false,
+    isNewProject: false,
+    observations: [],
+    effectiveObservations: [],
+    personal: [],
+    stats: { total_memories: 42, total_personal: 1 },
+    effectiveStats: { total_memories: 42, total_personal: 1 },
+    topic: null,
+    crossProjectSuggestions: [],
+    cwd: process.cwd(),
+  };
 
 describe('hooks-engine context-builder: summarizeMemoryContent', () => {
   test('normalizes What/Why/Where priority lines', () => {
@@ -63,8 +62,8 @@ describe('hooks-engine context-builder: capInjectedContext', () => {
   });
 
   test('truncates over limit with ellipsis', () => {
-    const long = 'a'.repeat(5000);
-    const out = capInjectedContext(long);
+    const long = 'a'.repeat(5000),
+      out = capInjectedContext(long);
     expect(out.length).toBeLessThan(long.length);
     expect(out.endsWith('…')).toBe(true);
   });
@@ -83,10 +82,10 @@ describe('hooks-engine context-builder: buildContextBlock', () => {
 
   test('includes code index details when cwdRepo provided', () => {
     const lines = buildContextBlock({
-      ...baseBag,
-      cwdRepo: { name: 'TestRepo', path: process.cwd(), file_count: 10, symbol_count: 200, indexed_at: 'x' },
-    });
-    const content = lines.join('\n');
+        ...baseBag,
+        cwdRepo: { name: 'TestRepo', path: process.cwd(), file_count: 10, symbol_count: 200, indexed_at: 'x' },
+      }),
+      content = lines.join('\n');
     expect(content).toContain('Code index: `TestRepo`');
     expect(content).toContain('10 files');
   });
@@ -113,14 +112,14 @@ describe('hooks-engine context-builder: buildContextBlock', () => {
 
   test('injects one memory for policy prompts, two for navigation', () => {
     const obs = [
-      { type: 'decision', title: 'MatchedDecAlpha', trust_score: 0.95, content: '**What**: x\n**Where**: src/a.js' },
-      { type: 'bugfix', title: 'MatchedFixBeta', trust_score: 0.95, content: '**What**: y\n**Where**: src/b.js' },
-    ];
-    const policy = buildContextBlock({
-      ...baseBag,
-      promptQuery: 'what should the agent do',
-      effectiveObservations: obs,
-    });
+        { type: 'decision', title: 'MatchedDecAlpha', trust_score: 0.95, content: '**What**: x\n**Where**: src/a.js' },
+        { type: 'bugfix', title: 'MatchedFixBeta', trust_score: 0.95, content: '**What**: y\n**Where**: src/b.js' },
+      ],
+      policy = buildContextBlock({
+        ...baseBag,
+        promptQuery: 'what should the agent do',
+        effectiveObservations: obs,
+      });
     expect(policy.join('\n')).toContain('MatchedDecAlpha');
     expect(policy.join('\n')).not.toContain('MatchedFixBeta');
 

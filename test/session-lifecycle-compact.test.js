@@ -21,20 +21,19 @@ function buildDeps(memImpl) {
 describe('session_compact re-injection', () => {
   test('uses cross-project memories when project context is non-null but empty', async () => {
     const deps = buildDeps(async (_cmd, args) => {
-      if (args && args['all-projects'] === 'true') {
-        return {
-          observations: [{ type: 'decision', title: 'Cross-project decision' }],
-          personal: [],
-          stats: {},
-        };
-      }
-      // Project context call returns a non-null result with ZERO observations.
-      return { observations: [], personal: [], stats: { total_memories: 0 } };
-    });
-    const handler = extractHandler(deps);
-
-    const result = await handler({}, {});
-    const content = result.message.content;
+        if (args && args['all-projects'] === 'true') {
+          return {
+            observations: [{ type: 'decision', title: 'Cross-project decision' }],
+            personal: [],
+            stats: {},
+          };
+        }
+        // Project context call returns a non-null result with ZERO observations.
+        return { observations: [], personal: [], stats: { total_memories: 0 } };
+      }),
+      handler = extractHandler(deps),
+      result = await handler({}, {}),
+      content = result.message.content;
 
     // Pre-fix bug: fetched cross-project memories were discarded, showing "0 memories".
     expect(content).toContain('Cross-project decision');
@@ -43,18 +42,17 @@ describe('session_compact re-injection', () => {
 
   test('uses project observations when present and does not fetch cross-project', async () => {
     const mem = vi.fn(async () => ({
-      observations: [{ type: 'pattern', title: 'Project pattern', trust_score: 0.9 }],
-      personal: [],
-      stats: { total_memories: 5 },
-    }));
-    const deps = {
-      state: { currentProject: 'TestProject', sessionId: 1 },
-      mem,
-    };
-    const handler = extractHandler(deps);
-
-    const result = await handler({}, {});
-    const content = result.message.content;
+        observations: [{ type: 'pattern', title: 'Project pattern', trust_score: 0.9 }],
+        personal: [],
+        stats: { total_memories: 5 },
+      })),
+      deps = {
+        state: { currentProject: 'TestProject', sessionId: 1 },
+        mem,
+      },
+      handler = extractHandler(deps),
+      result = await handler({}, {}),
+      content = result.message.content;
 
     expect(content).toContain('Project pattern');
     expect(content).toContain('5 memories');
@@ -65,19 +63,18 @@ describe('session_compact re-injection', () => {
 
   test('handles truly new project (null project context)', async () => {
     const deps = buildDeps(async (_cmd, args) => {
-      if (args && args['all-projects'] === 'true') {
-        return {
-          observations: [{ type: 'bugfix', title: 'Related from elsewhere' }],
-          personal: [],
-          stats: {},
-        };
-      }
-      return null;
-    });
-    const handler = extractHandler(deps);
-
-    const result = await handler({}, {});
-    const content = result.message.content;
+        if (args && args['all-projects'] === 'true') {
+          return {
+            observations: [{ type: 'bugfix', title: 'Related from elsewhere' }],
+            personal: [],
+            stats: {},
+          };
+        }
+        return null;
+      }),
+      handler = extractHandler(deps),
+      result = await handler({}, {}),
+      content = result.message.content;
 
     expect(content).toContain('🆕 new project');
     expect(content).toContain('Related from elsewhere');

@@ -17,15 +17,14 @@ function buildExtendsEdges(db, repoId) {
   db.prepare("DELETE FROM code_relations WHERE repo_id = ? AND kind = 'extends'").run(repoId);
 
   const classes = db
-    .prepare(
-      "SELECT id, name, signature, file_id, file_path, language FROM code_symbols WHERE repo_id = ? AND kind = 'class'",
-    )
-    .all(repoId);
-
-  const insertStmt = db.prepare(
-    `INSERT OR IGNORE INTO code_relations (repo_id, source_symbol_id, target_symbol_id, source_file_id, target_file_id, kind, weight)
+      .prepare(
+        "SELECT id, name, signature, file_id, file_path, language FROM code_symbols WHERE repo_id = ? AND kind = 'class'",
+      )
+      .all(repoId),
+    insertStmt = db.prepare(
+      `INSERT OR IGNORE INTO code_relations (repo_id, source_symbol_id, target_symbol_id, source_file_id, target_file_id, kind, weight)
      VALUES (?, ?, ?, ?, ?, 'extends', 1.0)`,
-  );
+    );
 
   let count = 0;
   for (const cls of classes) {
@@ -60,16 +59,15 @@ function buildImplementsEdges(db, repoId) {
   db.prepare("DELETE FROM code_relations WHERE repo_id = ? AND kind = 'implements'").run(repoId);
 
   const classes = db
-    .prepare(
-      `SELECT id, name, signature, file_id, file_path, language FROM code_symbols
+      .prepare(
+        `SELECT id, name, signature, file_id, file_path, language FROM code_symbols
      WHERE repo_id = ? AND kind = 'class' AND language IN ('javascript', 'typescript')`,
-    )
-    .all(repoId);
-
-  const insertStmt = db.prepare(
-    `INSERT OR IGNORE INTO code_relations (repo_id, source_symbol_id, target_symbol_id, source_file_id, target_file_id, kind, weight)
+      )
+      .all(repoId),
+    insertStmt = db.prepare(
+      `INSERT OR IGNORE INTO code_relations (repo_id, source_symbol_id, target_symbol_id, source_file_id, target_file_id, kind, weight)
      VALUES (?, ?, ?, ?, ?, 'implements', 1.0)`,
-  );
+    );
 
   let count = 0;
   for (const cls of classes) {
@@ -104,16 +102,15 @@ function buildReexportEdges(db, repoId) {
   db.prepare("DELETE FROM code_relations WHERE repo_id = ? AND kind = 'reexport'").run(repoId);
 
   const reexports = db
-    .prepare(
-      `SELECT source_file_id, target_file_id FROM code_imports
+      .prepare(
+        `SELECT source_file_id, target_file_id FROM code_imports
      WHERE repo_id = ? AND import_type = 're-export' AND target_file_id IS NOT NULL`,
-    )
-    .all(repoId);
-
-  const insertStmt = db.prepare(
-    `INSERT OR IGNORE INTO code_relations (repo_id, source_file_id, target_file_id, kind, weight)
+      )
+      .all(repoId),
+    insertStmt = db.prepare(
+      `INSERT OR IGNORE INTO code_relations (repo_id, source_file_id, target_file_id, kind, weight)
      VALUES (?, ?, ?, 'reexport', ?)`,
-  );
+    );
 
   let count = 0;
 
@@ -130,8 +127,8 @@ function buildReexportEdges(db, repoId) {
   }
 
   for (const [sourceId] of fileById) {
-    const visited = new Set([sourceId]);
-    const queue = [{ fileId: sourceId, depth: 0 }];
+    const visited = new Set([sourceId]),
+      queue = [{ fileId: sourceId, depth: 0 }];
 
     while (queue.length > 0) {
       const { fileId, depth } = queue.shift();
@@ -178,7 +175,7 @@ function buildReferenceEdges(db, repoId) {
   db.prepare("DELETE FROM code_relations WHERE repo_id = ? AND kind = 'references'").run(repoId);
 
   const resolved = db
-    .prepare(`
+      .prepare(`
     SELECT sr.binding_id, sr.resolved_symbol_id, sr.resolved_file_id,
            fsb.file_id AS source_file_id, fsb.name AS binding_name,
            cs.name AS target_name, cs.kind AS target_kind, cs.file_id AS target_file_id
@@ -189,12 +186,11 @@ function buildReferenceEdges(db, repoId) {
       AND cs.kind NOT IN ('function', 'method')
       AND sr.resolved_symbol_id IS NOT NULL
   `)
-    .all(repoId);
-
-  const insertStmt = db.prepare(
-    `INSERT OR IGNORE INTO code_relations (repo_id, source_symbol_id, target_symbol_id, source_file_id, target_file_id, kind, weight)
+      .all(repoId),
+    insertStmt = db.prepare(
+      `INSERT OR IGNORE INTO code_relations (repo_id, source_symbol_id, target_symbol_id, source_file_id, target_file_id, kind, weight)
      VALUES (?, NULL, ?, ?, ?, 'references', 0.8)`,
-  );
+    );
 
   let count = 0;
   const seen = new Set();

@@ -8,9 +8,9 @@ import path from 'node:path';
 import { extractMessageText } from '../../../src/hooks-engine/prompt-classifiers.js';
 import {
   buildAutoDecisionPayload,
+  isAutoDecisionCoolingDown,
   shouldCheckpoint,
   shouldDream,
-  isAutoDecisionCoolingDown,
 } from '../../../src/hooks-engine/passive-capture.js';
 
 interface PassiveCaptureDeps {
@@ -56,13 +56,13 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
       return;
     }
 
-    const capture = shouldAutoCapture(text);
-    const payload = buildAutoDecisionPayload({
-      text,
-      capture,
-      project: deps.state.currentProject,
-      sessionId: deps.state.sessionId,
-    });
+    const capture = shouldAutoCapture(text),
+      payload = buildAutoDecisionPayload({
+        text,
+        capture,
+        project: deps.state.currentProject,
+        sessionId: deps.state.sessionId,
+      });
     if (payload) {
       deps.state.lastAutoDecisionSave = Date.now();
       await deps.mem('save', payload);

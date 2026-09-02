@@ -25,21 +25,21 @@ describe('Module boundary: doc-index failure does not break memory save/search',
     // The key assertion: memory-domain search still works.
 
     // Verify search can still rank without doc-index
-    const createdAt = new Date().toISOString().replace('Z', '');
-    const ranked = rankObservations(
-      [
-        {
-          id: 1,
-          title: 'Decision X',
-          type: 'decision',
-          created_at: createdAt,
-          trust_score: 0.5,
-          recall_count: 0,
-          rank: 0,
-        },
-      ],
-      'Decision',
-    );
+    const createdAt = new Date().toISOString().replace('Z', ''),
+      ranked = rankObservations(
+        [
+          {
+            id: 1,
+            title: 'Decision X',
+            type: 'decision',
+            created_at: createdAt,
+            trust_score: 0.5,
+            recall_count: 0,
+            rank: 0,
+          },
+        ],
+        'Decision',
+      );
     expect(ranked).toHaveLength(1);
     expect(ranked[0]._score).toBeGreaterThan(0);
 
@@ -55,17 +55,16 @@ const { capturePassive } = require('../src/memory-domain/observations');
 describe('Module boundary: passive capture failure does not block session startup', () => {
   it('returns a result (not an exception) when content has no learnings section', () => {
     const brokenDbOps = {
-      insertCapturePassiveObservation: () => {
-        throw new Error('db connection lost');
+        insertCapturePassiveObservation: () => {
+          throw new Error('db connection lost');
+        },
+        findLatestSession: () => 'session-1',
       },
-      findLatestSession: () => 'session-1',
-    };
-
-    // Content has no "## Key Learnings" section so the function returns early
-    // Before touching insertCapturePassiveObservation — no exception thrown
-    const result = capturePassive(brokenDbOps, {
-      content: 'No key learnings here, just a normal message',
-    });
+      // Content has no "## Key Learnings" section so the function returns early
+      // Before touching insertCapturePassiveObservation — no exception thrown
+      result = capturePassive(brokenDbOps, {
+        content: 'No key learnings here, just a normal message',
+      });
 
     expect(result).toBeDefined();
     expect(result.extracted).toBe(0);
@@ -73,11 +72,10 @@ describe('Module boundary: passive capture failure does not block session startu
 
   it('gracefully handles missing content', () => {
     const deps = {
-      jsonErrNoExit: (msg) => ({ error: msg }),
-    };
-
-    // No content field → returns error result, does not throw
-    const result = capturePassive(deps, { message: 'Test' });
+        jsonErrNoExit: (msg) => ({ error: msg }),
+      },
+      // No content field → returns error result, does not throw
+      result = capturePassive(deps, { message: 'Test' });
     expect(result).toBeDefined();
     expect(result.error).toBeDefined();
   });
@@ -96,53 +94,52 @@ describe('Module boundary: trust sync failure does not block basic memory tools'
 
     // Prove memory-domain save still works with proper deps
     const calls = {
-      jsonErrNoExit: 0,
-      checkDuplicate: 0,
-      findLatestSession: 0,
-      insertObservation: 0,
-      insertObservationRelation: 0,
-      softDeleteObservation: 0,
-    };
-    const jsonErrNoExit = (msg) => {
-      calls.jsonErrNoExit++;
-      return { error: msg };
-    };
-    const checkDuplicate = () => {
-      calls.checkDuplicate++;
-      return { potential_duplicates: [] };
-    };
-    const findLatestSession = () => {
-      calls.findLatestSession++;
-      return 'session-1';
-    };
-    const insertObservation = () => {
-      calls.insertObservation++;
-      return [{ id: 99, created_at: '2026-01-01' }];
-    };
-    const insertObservationRelation = () => {
-      calls.insertObservationRelation++;
-    };
-    const softDeleteObservation = () => {
-      calls.softDeleteObservation++;
-    };
-
-    const saved = saveObs(
-      {
-        jsonErrNoExit,
-        insertObservation,
-        insertObservationRelation,
-        softDeleteObservation,
-        checkDuplicate,
-        findLatestSession,
+        jsonErrNoExit: 0,
+        checkDuplicate: 0,
+        findLatestSession: 0,
+        insertObservation: 0,
+        insertObservationRelation: 0,
+        softDeleteObservation: 0,
       },
-      {
-        title: 'Trust-independent observation',
-        type: 'discovery',
-        project: 'test-project',
-        content: 'Should work regardless of trust sync state',
-        force: 'true',
+      jsonErrNoExit = (msg) => {
+        calls.jsonErrNoExit++;
+        return { error: msg };
       },
-    );
+      checkDuplicate = () => {
+        calls.checkDuplicate++;
+        return { potential_duplicates: [] };
+      },
+      findLatestSession = () => {
+        calls.findLatestSession++;
+        return 'session-1';
+      },
+      insertObservation = () => {
+        calls.insertObservation++;
+        return [{ id: 99, created_at: '2026-01-01' }];
+      },
+      insertObservationRelation = () => {
+        calls.insertObservationRelation++;
+      },
+      softDeleteObservation = () => {
+        calls.softDeleteObservation++;
+      },
+      saved = saveObs(
+        {
+          jsonErrNoExit,
+          insertObservation,
+          insertObservationRelation,
+          softDeleteObservation,
+          checkDuplicate,
+          findLatestSession,
+        },
+        {
+          title: 'Trust-independent observation',
+          type: 'discovery',
+          project: 'test-project',
+          content: 'Should work regardless of trust sync state',
+          force: 'true',
+        },
+      );
     expect(saved.id).toBe(99);
     expect(calls.insertObservation).toBeGreaterThan(0);
   });
@@ -228,8 +225,8 @@ describe('Module boundary: formatter failure returns a scoped result without thr
     // FormatAnalysisForLlm calls buildAnalysisEnvelope which calls checkFreshness
     // With repoPath. If repoPath is undefined it throws. This test verifies
     // The calling code can wrap it safely — the isolation pattern.
-    let caught = false;
-    let caughtError = null;
+    let caught = false,
+      caughtError = null;
     try {
       formatAnalysisForLlm('outline', {}, {}, Date.now(), 'compact', {
         getDb: () => ({ prepare: () => ({ get: () => null, all: () => [] }) }),

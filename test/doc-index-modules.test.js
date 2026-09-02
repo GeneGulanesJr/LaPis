@@ -41,34 +41,33 @@ describe('doc-index focused modules', () => {
   });
 
   it('computes search answerability without a per-result content lookup', () => {
-    const preparedSql = [];
-    const db = {
-      prepare(sql) {
-        preparedSql.push(sql);
-        if (sql.includes('SELECT content FROM doc_sections')) {
-          throw new Error('N+1 content lookup should not be used');
-        }
-        return {
-          all() {
-            return [
-              {
-                id: 1,
-                title: 'Quickstart',
-                level: 2,
-                role: 'tutorial',
-                tags: '',
-                content: 'Install and run.```js\nstart();\n```',
-                content_hash: 'abc',
-                file_path: 'README.md',
-                content_length: 32,
-              },
-            ];
-          },
-        };
+    const preparedSql = [],
+      db = {
+        prepare(sql) {
+          preparedSql.push(sql);
+          if (sql.includes('SELECT content FROM doc_sections')) {
+            throw new Error('N+1 content lookup should not be used');
+          }
+          return {
+            all() {
+              return [
+                {
+                  id: 1,
+                  title: 'Quickstart',
+                  level: 2,
+                  role: 'tutorial',
+                  tags: '',
+                  content: 'Install and run.```js\nstart();\n```',
+                  content_hash: 'abc',
+                  file_path: 'README.md',
+                  content_length: 32,
+                },
+              ];
+            },
+          };
+        },
       },
-    };
-
-    const result = analytics.searchDocs(db, 1, 'start');
+      result = analytics.searchDocs(db, 1, 'start');
 
     expect(preparedSql).toHaveLength(1);
     expect(preparedSql[0]).toContain('ds.content');
@@ -77,8 +76,8 @@ describe('doc-index focused modules', () => {
   });
 
   it('warns and returns structured diagnostics when a doc file cannot be read during a batch', async () => {
-    const originalWarn = console.warn;
-    const warnings = [];
+    const originalWarn = console.warn,
+      warnings = [];
     console.warn = (message) => warnings.push(message);
     try {
       const result = await repos.readDocBatch(['/tmp/lapis-missing-doc-file.md']);
@@ -107,8 +106,8 @@ describe('doc-index focused modules', () => {
 
 describe('html-parser module', () => {
   it('extracts sections from HTML headings', () => {
-    const html = `<html><body><h1>Title</h1><p>Intro</p><h2>Section A</h2><p>Content A</p><h3>Sub</h3><p>Detail</p></body></html>`;
-    const sections = htmlParser.extractHtmlSections(html, 'test.html');
+    const html = `<html><body><h1>Title</h1><p>Intro</p><h2>Section A</h2><p>Content A</p><h3>Sub</h3><p>Detail</p></body></html>`,
+      sections = htmlParser.extractHtmlSections(html, 'test.html');
     expect(sections.length).toBeGreaterThanOrEqual(3);
     expect(sections.some((s) => s.title === 'Title' && s.level === 1)).toBe(true);
     expect(sections.some((s) => s.title === 'Section A' && s.level === 2)).toBe(true);
@@ -116,31 +115,31 @@ describe('html-parser module', () => {
   });
 
   it('creates a single section for HTML without headings', () => {
-    const html = `<html><body><p>Just a paragraph.</p></body></html>`;
-    const sections = htmlParser.extractHtmlSections(html, 'test.html');
+    const html = `<html><body><p>Just a paragraph.</p></body></html>`,
+      sections = htmlParser.extractHtmlSections(html, 'test.html');
     expect(sections).toHaveLength(1);
     expect(sections[0].level).toBe(0);
     expect(sections[0].content).toContain('Just a paragraph');
   });
 
   it('uses <title> as the file title', () => {
-    const html = `<html><head><title>My Page</title></head><body><p>Content</p></body></html>`;
-    const sections = htmlParser.extractHtmlSections(html, 'test.html');
+    const html = `<html><head><title>My Page</title></head><body><p>Content</p></body></html>`,
+      sections = htmlParser.extractHtmlSections(html, 'test.html');
     expect(sections[0].title).toBe('My Page');
   });
 
   it('strips HTML tags from section content', () => {
-    const html = `<h1>Heading</h1><p>Hello <strong>world</strong> and <em>more</em></p>`;
-    const sections = htmlParser.extractHtmlSections(html, 'test.html');
-    const content = sections.find((s) => s.level > 0);
+    const html = `<h1>Heading</h1><p>Hello <strong>world</strong> and <em>more</em></p>`,
+      sections = htmlParser.extractHtmlSections(html, 'test.html'),
+      content = sections.find((s) => s.level > 0);
     expect(content.content).toContain('Hello world and more');
     expect(content.content).not.toContain('<strong>');
     expect(content.content).not.toContain('<em>');
   });
 
   it('computes byte offsets for sections', () => {
-    const html = `<h1>Title</h1><p>Intro</p><h2>Next</h2><p>More</p>`;
-    const sections = htmlParser.extractHtmlSections(html, 'test.html');
+    const html = `<h1>Title</h1><p>Intro</p><h2>Next</h2><p>More</p>`,
+      sections = htmlParser.extractHtmlSections(html, 'test.html');
     for (const sec of sections) {
       expect(sec.byte_start).toBeGreaterThanOrEqual(0);
       expect(sec.byte_end).toBeGreaterThanOrEqual(sec.byte_start);
@@ -149,14 +148,14 @@ describe('html-parser module', () => {
   });
 
   it('classifies HTML-specific roles', () => {
-    const navHtml = `<h1>Navigation Menu</h1><nav><a href="/">Home</a></nav>`;
-    const sections = htmlParser.extractHtmlSections(navHtml, 'test.html');
+    const navHtml = `<h1>Navigation Menu</h1><nav><a href="/">Home</a></nav>`,
+      sections = htmlParser.extractHtmlSections(navHtml, 'test.html');
     expect(sections.some((s) => s.role === 'navigation')).toBe(true);
   });
 
   it('extracts links from HTML content', () => {
-    const html = `<a href="/about">About Us</a><a href="/contact">Contact</a><a href="/about">About Us</a>`;
-    const htmlLinks = htmlParser.extractHtmlLinks(html);
+    const html = `<a href="/about">About Us</a><a href="/contact">Contact</a><a href="/about">About Us</a>`,
+      htmlLinks = htmlParser.extractHtmlLinks(html);
     expect(htmlLinks).toHaveLength(2);
     expect(htmlLinks[0]).toEqual({ href: '/about', text: 'About Us' });
     expect(htmlLinks[1]).toEqual({ href: '/contact', text: 'Contact' });

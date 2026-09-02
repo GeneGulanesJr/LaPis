@@ -7,24 +7,22 @@ function getDeadCode(db, repoId, opts) {
   if (guard) {
     return guard;
   }
-  const minConfidence = opts.minConfidence || DEAD_CODE.DEFAULT_MIN_CONFIDENCE;
-  const includeTests = opts.includeTests || false;
-
-  // ── Gather entry points ──
-  const entryFiles = new Set();
-
-  // 1. Filename patterns
-  const entryPatterns = [
-    '%main.js',
-    '%index.js',
-    '%index.ts',
-    '%mod.ts',
-    '%cli.js',
-    '%app.js',
-    '%app.ts',
-    '%server.js',
-    '%server.ts',
-  ];
+  const minConfidence = opts.minConfidence || DEAD_CODE.DEFAULT_MIN_CONFIDENCE,
+    includeTests = opts.includeTests || false,
+    // ── Gather entry points ──
+    entryFiles = new Set(),
+    // 1. Filename patterns
+    entryPatterns = [
+      '%main.js',
+      '%index.js',
+      '%index.ts',
+      '%mod.ts',
+      '%cli.js',
+      '%app.js',
+      '%app.ts',
+      '%server.js',
+      '%server.ts',
+    ];
   for (const pattern of entryPatterns) {
     const rows = db.prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?').all(repoId, pattern);
     for (const r of rows) {
@@ -88,15 +86,15 @@ function getDeadCode(db, repoId, opts) {
   }
 
   // ── BFS from entry points through import graph ──
-  const reachable = new Set(entryFiles);
-  const queue = [...entryFiles];
+  const reachable = new Set(entryFiles),
+    queue = [...entryFiles];
   while (queue.length > 0) {
-    const current = queue.shift();
-    const importers = db
-      .prepare(
-        'SELECT DISTINCT source_file_id FROM code_imports WHERE target_file_id = ? AND source_file_id IS NOT NULL',
-      )
-      .all(current);
+    const current = queue.shift(),
+      importers = db
+        .prepare(
+          'SELECT DISTINCT source_file_id FROM code_imports WHERE target_file_id = ? AND source_file_id IS NOT NULL',
+        )
+        .all(current);
     for (const imp of importers) {
       if (!reachable.has(imp.source_file_id)) {
         reachable.add(imp.source_file_id);
@@ -105,56 +103,52 @@ function getDeadCode(db, repoId, opts) {
     }
   }
 
-  const allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId);
-  const deadFiles = allFiles.filter((f) => !reachable.has(f.id));
-  const deadFileSet = new Set(deadFiles.map((f) => f.id));
-
-  // ── Symbols with zero callers ──
-  const uncalledSymbols = db
-    .prepare(`
+  const allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
+    deadFiles = allFiles.filter((f) => !reachable.has(f.id)),
+    deadFileSet = new Set(deadFiles.map((f) => f.id)),
+    // ── Symbols with zero callers ──
+    uncalledSymbols = db
+      .prepare(`
     SELECT cs.id, cs.name, cs.file_path, cs.kind, cs.file_id FROM code_symbols cs
     WHERE cs.repo_id = ? AND cs.id NOT IN (SELECT callee_symbol_id FROM code_calls WHERE callee_symbol_id IS NOT NULL AND repo_id = ?)
   `)
-    .all(repoId, repoId);
-
-  // ── Symbols that are re-exported (barrel exports) ──
-  // Populate the name set from `file_scope_bindings` where kind='re_export'.
-  // `code_imports` only stores the target module path (e.g. './utils') — it
-  // does NOT record the exported identifier name — so we cannot derive the
-  // exported symbol name set from that table alone. Scope bindings, however,
-  // capture the binding name (`export { foo } from './bar'` → name='foo').
-  // Falling back to scope bindings is the correct fix; the previous
-  // implementation compared module paths against symbol names and matched
-  // essentially never, so the RE_EXPORTED_PENALTY was dead and the
-  // NO_CALLERS_WEIGHT was always added even for barrel-re-exported symbols.
-  const reExportedNames = new Set(
-    db
-      .prepare(
-        "SELECT name FROM file_scope_bindings WHERE repo_id = ? AND kind = 're_export' AND name IS NOT NULL AND name != ''",
-      )
-      .all(repoId)
-      .map((row) => row.name),
-  );
-
-  // PERF: Batch-retrieved re-export target file IDs (replaces per-symbol SQL query).
-  // Do NOT replace with per-element queries — see issue #138.
-  // This Set must remain a pre-computed lookup; moving the query back inside the
-  // Loop below reintroduces N+1 SQLite round-trips that dominate runtime for
-  // Large repos (thousands of uncalled symbols → thousands of sequential queries).
-  const reExportedFileIds = new Set(
-    db
-      .prepare(
-        "SELECT DISTINCT target_file_id FROM code_imports WHERE import_type = 're-export' AND target_file_id IS NOT NULL",
-      )
-      .all()
-      .map((r) => r.target_file_id),
-  );
-
-  const results = [];
+      .all(repoId, repoId),
+    // ── Symbols that are re-exported (barrel exports) ──
+    // Populate the name set from `file_scope_bindings` where kind='re_export'.
+    // `code_imports` only stores the target module path (e.g. './utils') — it
+    // does NOT record the exported identifier name — so we cannot derive the
+    // exported symbol name set from that table alone. Scope bindings, however,
+    // capture the binding name (`export { foo } from './bar'` → name='foo').
+    // Falling back to scope bindings is the correct fix; the previous
+    // implementation compared module paths against symbol names and matched
+    // essentially never, so the RE_EXPORTED_PENALTY was dead and the
+    // NO_CALLERS_WEIGHT was always added even for barrel-re-exported symbols.
+    reExportedNames = new Set(
+      db
+        .prepare(
+          "SELECT name FROM file_scope_bindings WHERE repo_id = ? AND kind = 're_export' AND name IS NOT NULL AND name != ''",
+        )
+        .all(repoId)
+        .map((row) => row.name),
+    ),
+    // PERF: Batch-retrieved re-export target file IDs (replaces per-symbol SQL query).
+    // Do NOT replace with per-element queries — see issue #138.
+    // This Set must remain a pre-computed lookup; moving the query back inside the
+    // Loop below reintroduces N+1 SQLite round-trips that dominate runtime for
+    // Large repos (thousands of uncalled symbols → thousands of sequential queries).
+    reExportedFileIds = new Set(
+      db
+        .prepare(
+          "SELECT DISTINCT target_file_id FROM code_imports WHERE import_type = 're-export' AND target_file_id IS NOT NULL",
+        )
+        .all()
+        .map((r) => r.target_file_id),
+    ),
+    results = [];
   for (const sym of uncalledSymbols) {
-    const isFileDead = deadFileSet.has(sym.file_id);
-    const isReExported = reExportedFileIds.has(sym.file_id);
-    const isNameReExported = reExportedNames.has(sym.name);
+    const isFileDead = deadFileSet.has(sym.file_id),
+      isReExported = reExportedFileIds.has(sym.file_id),
+      isNameReExported = reExportedNames.has(sym.name);
 
     let confidence = 0;
     const signals = [];

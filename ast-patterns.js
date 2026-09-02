@@ -21,8 +21,8 @@ const PRESET_DETECTORS = [
         return null;
       }
       // Match empty catch blocks: catch (...) { }
-      const re = /catch\s*\([^)]*\)\s*\{\s*\}/g;
-      const matches = [...symbol.body_preview.matchAll(re)];
+      const re = /catch\s*\([^)]*\)\s*\{\s*\}/g,
+        matches = [...symbol.body_preview.matchAll(re)];
       if (matches.length === 0) {
         return null;
       }
@@ -84,8 +84,8 @@ const PRESET_DETECTORS = [
       }
       // Count loop keywords at different indentation levels as rough nesting proxy
       const lines = symbol.body_preview.split('\n');
-      let maxNesting = 0;
-      let currentNesting = 0;
+      let maxNesting = 0,
+        currentNesting = 0;
       const loopRe = /\b(for|while|do)\b/;
       for (const line of lines) {
         const trimmed = line.trim();
@@ -134,13 +134,13 @@ const PRESET_DETECTORS = [
       if (!symbol.body_preview) {
         return null;
       }
-      const patterns = [/\beval\s*\(/g, /\bnew\s+Function\s*\(/g, /\bFunction\s*\(/g];
-      const allMatches = [];
+      const patterns = [/\beval\s*\(/g, /\bnew\s+Function\s*\(/g, /\bFunction\s*\(/g],
+        allMatches = [];
       for (const re of patterns) {
         const matches = [...symbol.body_preview.matchAll(re)];
         for (const m of matches) {
-          const preceding = symbol.body_preview.substring(0, m.index);
-          const line = preceding.split('\n').length + symbol.start_line - 1;
+          const preceding = symbol.body_preview.substring(0, m.index),
+            line = preceding.split('\n').length + symbol.start_line - 1;
           allMatches.push({ pattern: m[0], line });
         }
       }
@@ -159,8 +159,8 @@ const PRESET_DETECTORS = [
       if (!symbol.body_preview) {
         return null;
       }
-      const secretRe = /(['"`])(.*?(?:password|api[_-]?key|secret|token).*?)\1/gi;
-      const matches = [...symbol.body_preview.matchAll(secretRe)];
+      const secretRe = /(['"`])(.*?(?:password|api[_-]?key|secret|token).*?)\1/gi,
+        matches = [...symbol.body_preview.matchAll(secretRe)];
       if (matches.length === 0) {
         return null;
       }
@@ -181,8 +181,8 @@ const PRESET_DETECTORS = [
       if (!symbol.body_preview) {
         return null;
       }
-      const commentRe = /\/\/\s*(TODO|FIXME|HACK)\b[^\n]*/gi;
-      const matches = [...symbol.body_preview.matchAll(commentRe)];
+      const commentRe = /\/\/\s*(TODO|FIXME|HACK)\b[^\n]*/gi,
+        matches = [...symbol.body_preview.matchAll(commentRe)];
       if (matches.length === 0) {
         return null;
       }
@@ -205,8 +205,8 @@ const PRESET_DETECTORS = [
         return null;
       }
       // Match numeric literals that aren't common constants
-      const numRe = /(?<![a-zA-Z0-9_.])(\d{2,}|[3-9]\b|(?<!\d)-[3-9]\b)(?![a-zA-Z0-9_.])/g;
-      const matches = [...symbol.body_preview.matchAll(numRe)];
+      const numRe = /(?<![a-zA-Z0-9_.])(\d{2,}|[3-9]\b|(?<!\d)-[3-9]\b)(?![a-zA-Z0-9_.])/g,
+        matches = [...symbol.body_preview.matchAll(numRe)];
       if (matches.length === 0) {
         return null;
       }
@@ -234,8 +234,8 @@ const PRESET_DETECTORS = [
         return null;
       }
       // Extract parameter names from signature
-      const paramRe = /\(([^)]*)\)/;
-      const sigMatch = symbol.signature.match(paramRe);
+      const paramRe = /\(([^)]*)\)/,
+        sigMatch = symbol.signature.match(paramRe);
       if (!sigMatch) {
         return null;
       }
@@ -250,8 +250,8 @@ const PRESET_DETECTORS = [
 
       const reassigned = [];
       for (const param of params) {
-        const assignRe = new RegExp(`\\b${param}\\s*=(?!=)`, 'g');
-        const matches = [...symbol.body_preview.matchAll(assignRe)];
+        const assignRe = new RegExp(`\\b${param}\\s*=(?!=)`, 'g'),
+          matches = [...symbol.body_preview.matchAll(assignRe)];
         for (const m of matches) {
           const line = symbol.body_preview.substring(0, m.index).split('\n').length + symbol.start_line - 1;
           reassigned.push({ param, line });
@@ -279,8 +279,8 @@ function parseCustomPattern(raw) {
     return { error: `Invalid pattern: ${raw} (expected type:value)` };
   }
 
-  const type = raw.substring(0, colonIdx);
-  const value = raw.substring(colonIdx + 1);
+  const type = raw.substring(0, colonIdx),
+    value = raw.substring(colonIdx + 1);
 
   switch (type) {
     case 'call': {
@@ -417,15 +417,13 @@ function scanAstPatterns(db, repoId, opts = {}) {
 
   // Get all symbols in repo
   const symbols = db
-    .prepare(
-      'SELECT id, name, kind, body_preview, signature, start_line, end_line, file_path FROM code_symbols WHERE repo_id = ?',
-    )
-    .all(repoId);
-
-  // Get symbol IDs with body data for confidence calculation
-  const symbolsWithBody = symbols.filter((s) => s.body_preview && s.body_preview.trim().length > 0);
-
-  const matches = [];
+      .prepare(
+        'SELECT id, name, kind, body_preview, signature, start_line, end_line, file_path FROM code_symbols WHERE repo_id = ?',
+      )
+      .all(repoId),
+    // Get symbol IDs with body data for confidence calculation
+    symbolsWithBody = symbols.filter((s) => s.body_preview && s.body_preview.trim().length > 0),
+    matches = [];
 
   for (const symbol of symbols) {
     for (const detector of detectors) {

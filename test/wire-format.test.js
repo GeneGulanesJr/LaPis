@@ -16,9 +16,9 @@ describe('wire-format.js', () => {
     });
 
     it('should handle edge case: literal backslash-p', () => {
-      const input = 'foo\\pbar';
-      const escaped = wireFormat._escapePipe(input);
-      const unescaped = wireFormat._unescapePipe(escaped);
+      const input = 'foo\\pbar',
+        escaped = wireFormat._escapePipe(input),
+        unescaped = wireFormat._unescapePipe(escaped);
       expect(unescaped).toBe(input);
     });
   });
@@ -33,11 +33,11 @@ describe('wire-format.js', () => {
 
     it('should encode and decode a list of homogeneous objects', () => {
       const rows = [
-        { name: 'foo', kind: 'function', file: 'src/a.js' },
-        { name: 'bar', kind: 'class', file: 'src/b.js' },
-        { name: 'baz', kind: 'method', file: 'src/c.js' },
-      ];
-      const compact = wireFormat._encodeList(rows);
+          { name: 'foo', kind: 'function', file: 'src/a.js' },
+          { name: 'bar', kind: 'class', file: 'src/b.js' },
+          { name: 'baz', kind: 'method', file: 'src/c.js' },
+        ],
+        compact = wireFormat._encodeList(rows);
       expect(compact._header).toEqual(['name', 'kind', 'file']);
       expect(compact._rows.length).toBe(3);
 
@@ -51,22 +51,22 @@ describe('wire-format.js', () => {
 
     it('should handle null values in rows', () => {
       const rows = [
-        { name: 'foo', value: null },
-        { name: 'bar', value: 42 },
-      ];
-      const compact = wireFormat._encodeList(rows);
-      const decoded = wireFormat._decodeList(compact);
+          { name: 'foo', value: null },
+          { name: 'bar', value: 42 },
+        ],
+        compact = wireFormat._encodeList(rows),
+        decoded = wireFormat._decodeList(compact);
       expect(decoded[0].value).toBeNull();
       expect(decoded[1].value).toBe(42);
     });
 
     it('should handle numeric values', () => {
       const rows = [
-        { name: 'a', count: 5, ratio: 0.5 },
-        { name: 'b', count: 10, ratio: 0.8 },
-      ];
-      const compact = wireFormat._encodeList(rows);
-      const decoded = wireFormat._decodeList(compact);
+          { name: 'a', count: 5, ratio: 0.5 },
+          { name: 'b', count: 10, ratio: 0.8 },
+        ],
+        compact = wireFormat._encodeList(rows),
+        decoded = wireFormat._decodeList(compact);
       expect(decoded[0].count).toBe(5);
       expect(decoded[1].count).toBe(10);
       expect(decoded[0].ratio).toBe(0.5);
@@ -74,12 +74,12 @@ describe('wire-format.js', () => {
 
     it('should apply path prefix interning for 3+ shared prefixes', () => {
       const rows = [
-        { file: 'src/utils/helpers/string.js' },
-        { file: 'src/utils/helpers/number.js' },
-        { file: 'src/utils/helpers/array.js' },
-        { file: 'src/utils/helpers/object.js' },
-      ];
-      const compact = wireFormat._encodeList(rows);
+          { file: 'src/utils/helpers/string.js' },
+          { file: 'src/utils/helpers/number.js' },
+          { file: 'src/utils/helpers/array.js' },
+          { file: 'src/utils/helpers/object.js' },
+        ],
+        compact = wireFormat._encodeList(rows);
       expect(compact._prefixes).toBeDefined();
       // Should intern the common prefix
       const decoded = wireFormat._decodeList(compact);
@@ -89,19 +89,19 @@ describe('wire-format.js', () => {
     });
 
     it('should handle values with pipe and backslash', () => {
-      const rows = [{ name: 'foo|bar', kind: 'func\\tion' }];
-      const compact = wireFormat._encodeList(rows);
-      const decoded = wireFormat._decodeList(compact);
+      const rows = [{ name: 'foo|bar', kind: 'func\\tion' }],
+        compact = wireFormat._encodeList(rows),
+        decoded = wireFormat._decodeList(compact);
       expect(decoded[0].name).toBe('foo|bar');
       expect(decoded[0].kind).toBe('func\\tion');
     });
 
     it('should strip specified fields from encoded rows', () => {
       const rows = [
-        { id: 100, name: 'foo', kind: 'function' },
-        { id: 200, name: 'bar', kind: 'class' },
-      ];
-      const compact = wireFormat._encodeList(rows, { stripFields: ['id'] });
+          { id: 100, name: 'foo', kind: 'function' },
+          { id: 200, name: 'bar', kind: 'class' },
+        ],
+        compact = wireFormat._encodeList(rows, { stripFields: ['id'] });
       expect(compact._header).toEqual(['name', 'kind']);
       expect(compact._stripped).toEqual(['id']);
       expect(compact._rows.length).toBe(2);
@@ -109,11 +109,11 @@ describe('wire-format.js', () => {
 
     it('should round-trip stripped fields (restored as null)', () => {
       const rows = [
-        { id: 100, name: 'foo', kind: 'function' },
-        { id: 200, name: 'bar', kind: 'class' },
-      ];
-      const compact = wireFormat._encodeList(rows, { stripFields: ['id'] });
-      const decoded = wireFormat._decodeList(compact);
+          { id: 100, name: 'foo', kind: 'function' },
+          { id: 200, name: 'bar', kind: 'class' },
+        ],
+        compact = wireFormat._encodeList(rows, { stripFields: ['id'] }),
+        decoded = wireFormat._decodeList(compact);
       expect(decoded[0].id).toBeNull();
       expect(decoded[0].name).toBe('foo');
       expect(decoded[1].id).toBeNull();
@@ -122,11 +122,11 @@ describe('wire-format.js', () => {
 
     it('should hoist columns where all rows have the same value', () => {
       const rows = [
-        { name: 'foo', kind: 'function', count: 1 },
-        { name: 'bar', kind: 'function', count: 1 },
-        { name: 'baz', kind: 'function', count: 1 },
-      ];
-      const compact = wireFormat._encodeList(rows);
+          { name: 'foo', kind: 'function', count: 1 },
+          { name: 'bar', kind: 'function', count: 1 },
+          { name: 'baz', kind: 'function', count: 1 },
+        ],
+        compact = wireFormat._encodeList(rows);
       expect(compact._header).not.toContain('count');
       expect(compact._header).not.toContain('kind');
       expect(compact._hoisted).toEqual({ kind: 'function', count: 1 });
@@ -134,21 +134,21 @@ describe('wire-format.js', () => {
 
     it('should round-trip hoisted columns', () => {
       const rows = [
-        { name: 'foo', kind: 'function', count: 1 },
-        { name: 'bar', kind: 'function', count: 1 },
-      ];
-      const compact = wireFormat._encodeList(rows);
-      const decoded = wireFormat._decodeList(compact);
+          { name: 'foo', kind: 'function', count: 1 },
+          { name: 'bar', kind: 'function', count: 1 },
+        ],
+        compact = wireFormat._encodeList(rows),
+        decoded = wireFormat._decodeList(compact);
       expect(decoded[0]).toEqual({ name: 'foo', kind: 'function', count: 1 });
       expect(decoded[1]).toEqual({ name: 'bar', kind: 'function', count: 1 });
     });
 
     it('should hoist array values that are identical across rows', () => {
       const rows = [
-        { name: 'a', signals: ['no_callers', 'dead'] },
-        { name: 'b', signals: ['no_callers', 'dead'] },
-      ];
-      const compact = wireFormat._encodeList(rows);
+          { name: 'a', signals: ['no_callers', 'dead'] },
+          { name: 'b', signals: ['no_callers', 'dead'] },
+        ],
+        compact = wireFormat._encodeList(rows);
       expect(compact._header).not.toContain('signals');
       expect(compact._hoisted.signals).toEqual(['no_callers', 'dead']);
       const decoded = wireFormat._decodeList(compact);
@@ -186,13 +186,13 @@ describe('wire-format.js', () => {
   describe('_findEncodableList', () => {
     it('should find the largest homogeneous array', () => {
       const data = {
-        files: [
-          { name: 'a', kind: 'fn' },
-          { name: 'b', kind: 'cls' },
-        ],
-        other: [{ x: 1 }, { x: 2 }, { x: 3 }],
-      };
-      const result = wireFormat._findEncodableList(data);
+          files: [
+            { name: 'a', kind: 'fn' },
+            { name: 'b', kind: 'cls' },
+          ],
+          other: [{ x: 1 }, { x: 2 }, { x: 3 }],
+        },
+        result = wireFormat._findEncodableList(data);
       expect(result).not.toBeNull();
       expect(result.key).toBe('other'); // Larger list
       expect(result.len).toBe(3);
@@ -211,14 +211,14 @@ describe('wire-format.js', () => {
   describe('compactResponse / expandResponse', () => {
     it('should round-trip a full response', () => {
       const data = {
-        files: [
-          { name: 'foo.js', commits: 5, authors: 2 },
-          { name: 'bar.js', commits: 3, authors: 1 },
-          { name: 'baz.js', commits: 0, authors: 0 },
-        ],
-        total: 3,
-      };
-      const compact = wireFormat.compactResponse(data);
+          files: [
+            { name: 'foo.js', commits: 5, authors: 2 },
+            { name: 'bar.js', commits: 3, authors: 1 },
+            { name: 'baz.js', commits: 0, authors: 0 },
+          ],
+          total: 3,
+        },
+        compact = wireFormat.compactResponse(data);
       expect(compact.files._header).toBeDefined();
 
       const expanded = wireFormat.expandResponse(compact);
@@ -229,25 +229,25 @@ describe('wire-format.js', () => {
     });
 
     it('should not touch data without encodable lists', () => {
-      const data = { ok: true, message: 'done' };
-      const result = wireFormat.compactResponse(data);
+      const data = { ok: true, message: 'done' },
+        result = wireFormat.compactResponse(data);
       expect(result).toEqual(data);
     });
 
     it('should encode ALL homogeneous lists, not just the largest', () => {
       const data = {
-        main_items: [
-          { name: 'foo', kind: 'function', file: 'src/a.js' },
-          { name: 'bar', kind: 'function', file: 'src/b.js' },
-          { name: 'baz', kind: 'function', file: 'src/c.js' },
-        ],
-        secondary_items: [
-          { id: 1, path: 'src/dead.js' },
-          { id: 2, path: 'src/old.js' },
-        ],
-        count: 5,
-      };
-      const compact = wireFormat.compactResponse(data);
+          main_items: [
+            { name: 'foo', kind: 'function', file: 'src/a.js' },
+            { name: 'bar', kind: 'function', file: 'src/b.js' },
+            { name: 'baz', kind: 'function', file: 'src/c.js' },
+          ],
+          secondary_items: [
+            { id: 1, path: 'src/dead.js' },
+            { id: 2, path: 'src/old.js' },
+          ],
+          count: 5,
+        },
+        compact = wireFormat.compactResponse(data);
       expect(compact.main_items._header).toBeDefined();
       expect(compact.main_items._rows).toBeDefined();
       expect(compact.secondary_items._header).toBeDefined();
@@ -257,17 +257,17 @@ describe('wire-format.js', () => {
 
     it('should round-trip multi-list encoding via expandResponse', () => {
       const data = {
-        symbols: [
-          { name: 'a', kind: 'fn', score: 0.5 },
-          { name: 'b', kind: 'fn', score: 0.8 },
-        ],
-        files: [
-          { path: 'src/x.js', size: 100 },
-          { path: 'src/y.js', size: 200 },
-        ],
-      };
-      const compact = wireFormat.compactResponse(data);
-      const expanded = wireFormat.expandResponse(compact);
+          symbols: [
+            { name: 'a', kind: 'fn', score: 0.5 },
+            { name: 'b', kind: 'fn', score: 0.8 },
+          ],
+          files: [
+            { path: 'src/x.js', size: 100 },
+            { path: 'src/y.js', size: 200 },
+          ],
+        },
+        compact = wireFormat.compactResponse(data),
+        expanded = wireFormat.expandResponse(compact);
       expect(expanded.symbols).toEqual(data.symbols);
       expect(expanded.files).toEqual(data.files);
     });
@@ -284,8 +284,8 @@ describe('wire-format.js', () => {
       for (let i = 0; i < 50; i++) {
         rows.push({ name: `symbol_${i}`, kind: 'function', file: `src/module/file_${i}.js` });
       }
-      const data = { symbols: rows };
-      const fmt = wireFormat.autoFormat(data);
+      const data = { symbols: rows },
+        fmt = wireFormat.autoFormat(data);
       // 50 homogeneous rows should trigger compact
       expect(fmt).toBe('compact');
     });
@@ -298,10 +298,10 @@ describe('wire-format.js', () => {
   describe('estimateTokens', () => {
     it('should estimate token count using 1 token ≈ 3.5 chars', () => {
       // 35 chars → 10 tokens
-      const obj = { hello: 'world', extra: 'this is some padding text' };
-      const tokens = wireFormat.estimateTokens(obj);
-      const jsonStr = JSON.stringify(obj);
-      const expected = Math.ceil(jsonStr.length / 3.5);
+      const obj = { hello: 'world', extra: 'this is some padding text' },
+        tokens = wireFormat.estimateTokens(obj),
+        jsonStr = JSON.stringify(obj),
+        expected = Math.ceil(jsonStr.length / 3.5);
       expect(tokens).toBe(expected);
       expect(tokens).toBeGreaterThan(0);
     });

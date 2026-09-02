@@ -59,15 +59,15 @@ describe('response-meta.js', () => {
         return;
       }
 
-      const result1 = responseMeta.getFreshness(null, 1, repoPath, null);
-      const result2 = responseMeta.getFreshness(null, 1, repoPath, null);
+      const result1 = responseMeta.getFreshness(null, 1, repoPath, null),
+        result2 = responseMeta.getFreshness(null, 1, repoPath, null);
       // Should return the same cached value
       expect(result1).toBe(result2);
     });
 
     it('should use different cache keys for different repos', () => {
-      const result1 = responseMeta.getFreshness(null, 100, '/tmp/repo1', null);
-      const result2 = responseMeta.getFreshness(null, 200, '/tmp/repo2', null);
+      const result1 = responseMeta.getFreshness(null, 100, '/tmp/repo1', null),
+        result2 = responseMeta.getFreshness(null, 200, '/tmp/repo2', null);
       // Different repos — both should return 'fresh' for non-git dirs
       expect(result1).toBe('fresh');
       expect(result2).toBe('fresh');
@@ -84,8 +84,8 @@ describe('response-meta.js', () => {
     });
 
     it('should compute confidence for getSymbolImportance', () => {
-      const data = { nodes: [{ pagerank: 0.05 }, { pagerank: 0.03 }, { pagerank: 0.02 }] };
-      const conf = responseMeta.computeConfidence('getSymbolImportance', data);
+      const data = { nodes: [{ pagerank: 0.05 }, { pagerank: 0.03 }, { pagerank: 0.02 }] },
+        conf = responseMeta.computeConfidence('getSymbolImportance', data);
       // Gap is 0.02, normalized: 0.5 + 0.02 * 20 = 0.9
       expect(conf).toBeCloseTo(0.9, 1);
     });
@@ -99,14 +99,14 @@ describe('response-meta.js', () => {
     });
 
     it('should compute confidence for getDeadCode', () => {
-      const data = { symbols: [{ confidence: 0.9 }, { confidence: 0.7 }, { confidence: 0.5 }] };
-      const conf = responseMeta.computeConfidence('getDeadCode', data);
+      const data = { symbols: [{ confidence: 0.9 }, { confidence: 0.7 }, { confidence: 0.5 }] },
+        conf = responseMeta.computeConfidence('getDeadCode', data);
       expect(conf).toBeCloseTo(0.7, 1);
     });
 
     it('should compute confidence for getHotspots', () => {
-      const data = { files: [{ commits: 5 }, { commits: 0 }, { commits: 3 }] };
-      const conf = responseMeta.computeConfidence('getHotspots', data);
+      const data = { files: [{ commits: 5 }, { commits: 0 }, { commits: 3 }] },
+        conf = responseMeta.computeConfidence('getHotspots', data);
       // 2 of 3 have churn → 0.67
       expect(conf).toBeCloseTo(0.67, 1);
     });
@@ -136,16 +136,16 @@ describe('response-meta.js', () => {
 
   describe('buildEnvelope', () => {
     it('should wrap data in _meta envelope', () => {
-      const repoPath = require('path').resolve(__dirname, '..');
-      const result = responseMeta.buildEnvelope({
-        toolName: 'getFileOutline',
-        data: { classes: [{ name: 'MyClass', methods: [] }], standalone: [{ name: 'testFn' }] },
-        db: null,
-        repoId: 1,
-        repoPath,
-        storedHeadCommit: 'abc123',
-        startTime: 1000,
-      });
+      const repoPath = require('path').resolve(__dirname, '..'),
+        result = responseMeta.buildEnvelope({
+          toolName: 'getFileOutline',
+          data: { classes: [{ name: 'MyClass', methods: [] }], standalone: [{ name: 'testFn' }] },
+          db: null,
+          repoId: 1,
+          repoPath,
+          storedHeadCommit: 'abc123',
+          startTime: 1000,
+        });
 
       expect(result._meta).toBeDefined();
       expect(result._meta.schema_version).toBe(1);

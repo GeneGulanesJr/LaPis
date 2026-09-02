@@ -42,8 +42,8 @@ describe('db.js (database layer)', () => {
     });
 
     it('ensureDb() should be idempotent', () => {
-      const r1 = dbModule.ensureDb();
-      const r2 = dbModule.ensureDb();
+      const r1 = dbModule.ensureDb(),
+        r2 = dbModule.ensureDb();
       expect(r1.ok).toBe(true);
       expect(r2.ok).toBe(true);
       expect(r1.db).toBe(r2.db);
@@ -139,8 +139,8 @@ describe('db.js (database layer)', () => {
     });
 
     it('createDb should open a database at custom path', () => {
-      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-${Date.now()}.db`);
-      const result = dbModule.createDb({ db_path: tmpPath });
+      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-${Date.now()}.db`),
+        result = dbModule.createDb({ db_path: tmpPath });
       expect(result.ok).toBe(true);
       // Cleanup
       dbModule.resetDb();

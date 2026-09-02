@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-const PKG_ROOT = path.resolve(__dirname, '..', '..');
-const MEMORY_SCRIPT = path.join(PKG_ROOT, 'memory-store.js');
+const PKG_ROOT = path.resolve(__dirname, '..', '..'),
+  MEMORY_SCRIPT = path.join(PKG_ROOT, 'memory-store.js');
 
 export { PKG_ROOT, MEMORY_SCRIPT };
 

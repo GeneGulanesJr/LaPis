@@ -24,8 +24,8 @@ function _likeEscape(str) {
 // ══════════════════════════════════════════════════════════
 
 function extractImportsFromSource(content) {
-  const imports = [];
-  const seen = new Set();
+  const imports = [],
+    seen = new Set();
 
   function add(mod, type, line) {
     const key = `${mod}:${line}`;
@@ -35,15 +35,15 @@ function extractImportsFromSource(content) {
     }
   }
 
-  const esRe = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+(?:\s*,\s*\{[^}]*\})?)\s+from\s+)?['"]([^'"]+)['"]/g;
-  const reExportRe = /export\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+)\s+from\s+)['"]([^'"]+)['"]/g;
-  const requireRe = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-  const dynamicRe = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+  const esRe = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+(?:\s*,\s*\{[^}]*\})?)\s+from\s+)?['"]([^'"]+)['"]/g,
+    reExportRe = /export\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+)\s+from\s+)['"]([^'"]+)['"]/g,
+    requireRe = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+    dynamicRe = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
   let match;
   while ((match = esRe.exec(content)) !== null) {
-    const line = content.substring(0, match.index).split('\n').length;
-    const isReExport = /^export\s/.test(match[0]);
+    const line = content.substring(0, match.index).split('\n').length,
+      isReExport = /^export\s/.test(match[0]);
     add(match[1], isReExport ? 're-export' : 'static', line);
   }
   while ((match = reExportRe.exec(content)) !== null) {
@@ -63,9 +63,8 @@ function extractImportsFromSource(content) {
 }
 
 function extractImportBindings(content) {
-  const bindings = [];
-
-  const lines = content.split('\n');
+  const bindings = [],
+    lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     let m;
@@ -176,22 +175,21 @@ function resolveImportTarget(db, repoId, sourceFilePath, targetModule) {
     return null;
   }
 
-  const sourceDir = path.dirname(sourceFilePath);
-  const resolved = path.resolve(sourceDir, targetModule);
-
-  const candidates = [
-    resolved,
-    `${resolved}.js`,
-    `${resolved}.mjs`,
-    `${resolved}.cjs`,
-    `${resolved}.ts`,
-    `${resolved}.mts`,
-    `${resolved}.cts`,
-    `${resolved}.tsx`,
-    path.join(resolved, 'index.js'),
-    path.join(resolved, 'index.ts'),
-    path.join(resolved, 'index.tsx'),
-  ];
+  const sourceDir = path.dirname(sourceFilePath),
+    resolved = path.resolve(sourceDir, targetModule),
+    candidates = [
+      resolved,
+      `${resolved}.js`,
+      `${resolved}.mjs`,
+      `${resolved}.cjs`,
+      `${resolved}.ts`,
+      `${resolved}.mts`,
+      `${resolved}.cts`,
+      `${resolved}.tsx`,
+      path.join(resolved, 'index.js'),
+      path.join(resolved, 'index.ts'),
+      path.join(resolved, 'index.tsx'),
+    ];
 
   for (const candidate of candidates) {
     const row = db.prepare('SELECT id FROM code_files WHERE repo_id = ? AND path = ?').get(repoId, candidate);
@@ -207,22 +205,21 @@ function resolveImportTargetLocal(filePathMap, sourceFilePath, targetModule) {
     return null;
   }
 
-  const sourceDir = path.dirname(sourceFilePath);
-  const resolved = path.resolve(sourceDir, targetModule);
-
-  const candidates = [
-    resolved,
-    `${resolved}.js`,
-    `${resolved}.mjs`,
-    `${resolved}.cjs`,
-    `${resolved}.ts`,
-    `${resolved}.mts`,
-    `${resolved}.cts`,
-    `${resolved}.tsx`,
-    path.join(resolved, 'index.js'),
-    path.join(resolved, 'index.ts'),
-    path.join(resolved, 'index.tsx'),
-  ];
+  const sourceDir = path.dirname(sourceFilePath),
+    resolved = path.resolve(sourceDir, targetModule),
+    candidates = [
+      resolved,
+      `${resolved}.js`,
+      `${resolved}.mjs`,
+      `${resolved}.cjs`,
+      `${resolved}.ts`,
+      `${resolved}.mts`,
+      `${resolved}.cts`,
+      `${resolved}.tsx`,
+      path.join(resolved, 'index.js'),
+      path.join(resolved, 'index.ts'),
+      path.join(resolved, 'index.tsx'),
+    ];
 
   for (const candidate of candidates) {
     const id = filePathMap.get(candidate);
@@ -241,13 +238,11 @@ function buildImportGraph(db, repoId) {
   db.prepare('DELETE FROM code_imports WHERE repo_id = ?').run(repoId);
 
   const insertStmt = db.prepare(
-    `INSERT OR IGNORE INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
-  );
-
-  const files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId);
-  const contentStmt = db.prepare('SELECT content FROM code_files WHERE id = ?');
-
-  const filePathMap = new Map();
+      `INSERT OR IGNORE INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
+    ),
+    files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
+    contentStmt = db.prepare('SELECT content FROM code_files WHERE id = ?'),
+    filePathMap = new Map();
   for (const file of files) {
     filePathMap.set(file.path, file.id);
   }
@@ -389,11 +384,10 @@ function getBlastRadius(db, repoId, opts) {
     return { error: `Multiple symbols named "${symbol}"`, candidates: symRow };
   }
 
-  const symbolId = symRow[0].id;
-  const fileId = symRow[0].file_id;
-
-  const callers = db
-    .prepare(`
+  const symbolId = symRow[0].id,
+    fileId = symRow[0].file_id,
+    callers = db
+      .prepare(`
     WITH RECURSIVE upstream AS (
       SELECT cc.caller_symbol_id, cs.name, cs.file_path, cc.confidence, 1 as depth
       FROM code_calls cc JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
@@ -404,16 +398,15 @@ function getBlastRadius(db, repoId, opts) {
       WHERE u.depth < ? AND cc.confidence >= ?
     ) SELECT * FROM upstream
   `)
-    .all(symbolId, minConfidence, depth, minConfidence);
-
-  const fileImporters = db
-    .prepare(`
+      .all(symbolId, minConfidence, depth, minConfidence),
+    fileImporters = db
+      .prepare(`
     WITH RECURSIVE imp AS (
       SELECT ci.source_file_id, cf.path, 1 as depth FROM code_imports ci JOIN code_files cf ON cf.id = ci.source_file_id WHERE ci.target_file_id = ? AND ci.target_file_id IS NOT NULL
       UNION ALL SELECT ci.source_file_id, cf.path, u.depth + 1 FROM code_imports ci JOIN imp u ON ci.target_file_id = u.source_file_id JOIN code_files cf ON cf.id = ci.source_file_id WHERE u.depth < ? AND ci.target_file_id IS NOT NULL
     ) SELECT DISTINCT path, depth FROM imp
   `)
-    .all(fileId, depth);
+      .all(fileId, depth);
 
   return {
     symbol: symRow[0].name,
@@ -434,12 +427,11 @@ function getHotspots(db, repoId, opts = {}) {
   if (guard) {
     return guard;
   }
-  const topN = opts.top || RESULT_LIMITS.HOTSPOTS_DEFAULT_TOP;
-  const days = opts.days || 90;
-
-  const churnCount = db
-    .prepare('SELECT count(*) as c FROM churn_metrics WHERE repo_id = ? AND window_days = ?')
-    .get(repoId, days);
+  const topN = opts.top || RESULT_LIMITS.HOTSPOTS_DEFAULT_TOP,
+    days = opts.days || 90,
+    churnCount = db
+      .prepare('SELECT count(*) as c FROM churn_metrics WHERE repo_id = ? AND window_days = ?')
+      .get(repoId, days);
   if (!churnCount || churnCount.c === 0) {
     return { hotspots: [], note: 'No churn data. Run `churn --repo X` first to populate git history metrics.' };
   }
@@ -485,17 +477,16 @@ function getDependencyCycles(db, repoId) {
   }
   // Build adjacency list from import edges (source → target)
   const edges = db
-    .prepare(`
+      .prepare(`
     SELECT DISTINCT cf_source.path as source, cf_target.path as target
     FROM code_imports ci
     JOIN code_files cf_source ON cf_source.id = ci.source_file_id
     JOIN code_files cf_target ON cf_target.id = ci.target_file_id
     WHERE ci.repo_id = ? AND ci.target_file_id IS NOT NULL
   `)
-    .all(repoId);
-
-  const adj = new Map();
-  const allNodes = new Set();
+      .all(repoId),
+    adj = new Map(),
+    allNodes = new Set();
   for (const e of edges) {
     if (!adj.has(e.source)) {
       adj.set(e.source, []);
@@ -507,11 +498,11 @@ function getDependencyCycles(db, repoId) {
 
   // Tarjan's SCC
   let index = 0;
-  const stack = [];
-  const onStack = new Set();
-  const indices = new Map();
-  const lowlink = new Map();
-  const sccs = [];
+  const stack = [],
+    onStack = new Set(),
+    indices = new Map(),
+    lowlink = new Map(),
+    sccs = [];
 
   function strongconnect(v) {
     indices.set(v, index);
@@ -551,8 +542,8 @@ function getDependencyCycles(db, repoId) {
 
   // Find actual cycles (paths that close the loop)
   const cycles = sccs.map((scc) => {
-    const sccSet = new Set(scc);
-    const cycleEdges = [];
+    const sccSet = new Set(scc),
+      cycleEdges = [];
     for (const node of scc) {
       for (const neighbor of adj.get(node) || []) {
         if (sccSet.has(neighbor)) {
@@ -580,29 +571,27 @@ function winnow(db, repoId, opts = {}) {
   }
 
   const {
-    kind = null,
-    minComplexity = null,
-    minChurn = null,
-    minPageRank = null,
-    minCallers = null,
-    fileGlob = null,
-    nameRegex = null,
-    sortBy = 'pagerank',
-    top = 20,
-  } = opts;
-
-  // Get PageRank data — lazy require to avoid circular deps
-  const pr = _getCoupling().buildPageRank(db, repoId);
+      kind = null,
+      minComplexity = null,
+      minChurn = null,
+      minPageRank = null,
+      minCallers = null,
+      fileGlob = null,
+      nameRegex = null,
+      sortBy = 'pagerank',
+      top = 20,
+    } = opts,
+    // Get PageRank data — lazy require to avoid circular deps
+    pr = _getCoupling().buildPageRank(db, repoId);
   if (pr.error) {
     return pr;
   }
-  const { symbolMap, n: totalSymbols } = pr;
-
-  // Build query dynamically based on active axes
-  const conditions = ['s.repo_id = ?'];
-  const params = [repoId];
-  const joins = [];
-  const activeAxes = [];
+  const { symbolMap, n: totalSymbols } = pr,
+    // Build query dynamically based on active axes
+    conditions = ['s.repo_id = ?'],
+    params = [repoId],
+    joins = [],
+    activeAxes = [];
 
   // Kind filter
   if (kind) {
@@ -659,8 +648,8 @@ function winnow(db, repoId, opts = {}) {
   }
 
   // Ensure the JOIN needed for the chosen sort axis exists (even without a min*
-  // filter) and expose the column the comparator sorts on. Without these columns
-  // in the SELECT, the sort comparators read `undefined` and become no-ops.
+  // Filter) and expose the column the comparator sorts on. Without these columns
+  // In the SELECT, the sort comparators read `undefined` and become no-ops.
   const selectCols = ['s.id', 's.name', 's.kind', 's.file_path', 's.signature', 's.start_line', 's.end_line'];
 
   if (sortBy === 'complexity') {
@@ -691,10 +680,9 @@ function winnow(db, repoId, opts = {}) {
     FROM code_symbols s
     ${joins.join('\n    ')}
     WHERE ${conditions.join(' AND ')}
-  `;
-
-  // Apply name regex filter in SQL if possible, otherwise filter in JS
-  const rows = db.prepare(sql).all(...params);
+  `,
+    // Apply name regex filter in SQL if possible, otherwise filter in JS
+    rows = db.prepare(sql).all(...params);
 
   // Filter by name regex if needed
   let filteredRows = rows;
@@ -704,24 +692,23 @@ function winnow(db, repoId, opts = {}) {
 
   // Annotate with PageRank
   const enriched = filteredRows
-    .map((row) => {
-      const prData = symbolMap.get(row.id);
-      const rank = prData ? pr.ranks.get(row.id) || 0 : 0;
-      return {
-        ...row,
-        pagerank: Math.round(rank * 1000000) / 1000000,
-      };
-    })
-    .filter((row) => minPageRank == null || row.pagerank >= Number(minPageRank));
-
-  // Sort
-  const sortFn =
-    {
-      pagerank: (a, b) => b.pagerank - a.pagerank,
-      complexity: (a, b) => (b.cyclomatic || 0) - (a.cyclomatic || 0),
-      churn: (a, b) => (b.commits || 0) - (a.commits || 0),
-      callers: (a, b) => (b.caller_count || 0) - (a.caller_count || 0),
-    }[sortBy] || ((a, b) => b.pagerank - a.pagerank);
+      .map((row) => {
+        const prData = symbolMap.get(row.id),
+          rank = prData ? pr.ranks.get(row.id) || 0 : 0;
+        return {
+          ...row,
+          pagerank: Math.round(rank * 1000000) / 1000000,
+        };
+      })
+      .filter((row) => minPageRank == null || row.pagerank >= Number(minPageRank)),
+    // Sort
+    sortFn =
+      {
+        pagerank: (a, b) => b.pagerank - a.pagerank,
+        complexity: (a, b) => (b.cyclomatic || 0) - (a.cyclomatic || 0),
+        churn: (a, b) => (b.commits || 0) - (a.commits || 0),
+        callers: (a, b) => (b.caller_count || 0) - (a.caller_count || 0),
+      }[sortBy] || ((a, b) => b.pagerank - a.pagerank);
 
   enriched.sort(sortFn);
 

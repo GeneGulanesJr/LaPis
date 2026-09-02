@@ -5,8 +5,8 @@ const { getDb } = require('../../../db');
 
 function runCompression() {
   return async (req, res, ctx) => {
-    const trigger = ctx.body?.trigger || 'manual';
-    const missionId = ctx.params.missionId;
+    const trigger = ctx.body?.trigger || 'manual',
+      missionId = ctx.params.missionId;
 
     if (!missionId) {
       return jsonError(res, 400, 'missionId is required', 'missionId is required');

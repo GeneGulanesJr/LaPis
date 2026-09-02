@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * hooks-engine: project
+ * Hooks-engine: project
  *
  * Shared, pure project-detection helpers. Promotes the basename heuristic from
  * src/mcp/server.js:35-38 and the up-tree walks in
@@ -58,10 +58,10 @@ function findMatchingRepo(resolvedCwd, repos) {
   // Normalize separators so a Windows cwd matches a DB path stored with `/`
   // (or vice versa). Prefix match always uses `/` after normalization (#227).
   // When several indexed repos match (nested paths), prefer the deepest/longest
-  // path — mirrors detectProject()'s depth tie-break in project-detector.ts.
+  // Path — mirrors detectProject()'s depth tie-break in project-detector.ts.
   const abs = normalizeRepoPath(resolvedCwd);
-  let best = null;
-  let bestLen = -1;
+  let best = null,
+    bestLen = -1;
   for (const r of repos) {
     if (!r?.path) {
       continue;
@@ -90,8 +90,8 @@ function findMatchingProject(resolvedCwd, knownProjects) {
   let dir = path.resolve(resolvedCwd);
   const root = path.parse(dir).root;
   while (dir !== root && dir !== path.dirname(dir)) {
-    const name = path.basename(dir);
-    const match = knownProjects.find((p) => p && p.toLowerCase() === name.toLowerCase());
+    const name = path.basename(dir),
+      match = knownProjects.find((p) => p && p.toLowerCase() === name.toLowerCase());
     if (match) {
       return match;
     }

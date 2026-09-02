@@ -15,10 +15,9 @@ const { ListToolsRequestSchema, CallToolRequestSchema } = require('@modelcontext
 const { tools } = require('./tools');
 const { toCallToolResult } = require('./translate-result');
 const { resolveCwd, projectFromCwd, resolveProjectKey } = require('../hooks-engine/project');
-const { getKnownRepos, getKnownProjects } = require('../platform/project-db');
-
-const SERVER_NAME = 'lapis';
-const SERVER_VERSION = require('../../package.json').version || '0.0.0';
+const { getKnownRepos, getKnownProjects } = require('../platform/project-db'),
+  SERVER_NAME = 'lapis',
+  SERVER_VERSION = require('../../package.json').version || '0.0.0';
 
 /**
  * Derive the MCP project key from cwd, preferring an indexed repo whose path
@@ -43,22 +42,21 @@ function detectMcpProject(cwd) {
  * @returns {Server}
  */
 function createServer(opts = {}) {
-  const dispatch = opts.dispatch || require('../cli/gateway').dispatch;
-  const project = opts.project || detectMcpProject();
-  const ctx = { project };
-
-  const server = new Server(
-    { name: SERVER_NAME, version: SERVER_VERSION },
-    {
-      capabilities: {
-        tools: {},
+  const dispatch = opts.dispatch || require('../cli/gateway').dispatch,
+    project = opts.project || detectMcpProject(),
+    ctx = { project },
+    server = new Server(
+      { name: SERVER_NAME, version: SERVER_VERSION },
+      {
+        capabilities: {
+          tools: {},
+        },
+        instructions:
+          'LaPis persistent memory. Use memory-save for decisions/bugfixes/discoveries, ' +
+          'memory-search to recall them, memory-code/memory-doc to query indexed code & docs. ' +
+          'Memories are scoped to the current project (cwd-derived).',
       },
-      instructions:
-        'LaPis persistent memory. Use memory-save for decisions/bugfixes/discoveries, ' +
-        'memory-search to recall them, memory-code/memory-doc to query indexed code & docs. ' +
-        'Memories are scoped to the current project (cwd-derived).',
-    },
-  );
+    );
 
   // --- tools/list ---
   server.setRequestHandler(ListToolsRequestSchema, () => ({
@@ -71,8 +69,8 @@ function createServer(opts = {}) {
 
   // --- tools/call ---
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: params } = request.params;
-    const tool = tools.find((t) => t.name === name);
+    const { name, arguments: params } = request.params,
+      tool = tools.find((t) => t.name === name);
     if (!tool) {
       return {
         content: [{ type: 'text', text: `Unknown tool: ${name}` }],
@@ -126,8 +124,8 @@ async function startMcpServer(opts = {}) {
     process.exit(1);
   }
 
-  const server = createServer(opts);
-  const transport = new StdioServerTransport();
+  const server = createServer(opts),
+    transport = new StdioServerTransport();
   await server.connect(transport);
   return server;
 }

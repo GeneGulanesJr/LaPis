@@ -23,38 +23,36 @@ const path = require('node:path');
 const os = require('node:os');
 
 const {
-  yamlScalar,
-  upsertSubBlock,
-  upsertListItem,
-  upsertScalar,
-  readText,
-  writeTextAtomic,
-} = require('./config-editor');
-
-const DEFAULT_MCP_NAME = 'lapis';
-const ALLOWLIST_FILENAME = 'shell-hooks-allowlist.json';
-const SKILL_SOURCE = path.resolve(__dirname, '..', '..', 'hermes', 'SKILL.md');
-const SKILL_DEST_REL = ['skills', 'memory', 'lapis', 'SKILL.md'];
-
-// Hermes shell-hook events LaPis wires. Matchers are regex fullmatch on the
-// Hermes tool name; the same hook command handles every event (the event and
-// tool arrive on stdin — see hook.js).
-const HOOK_EVENTS = [
-  { event: 'pre_tool_call', matcher: '^(read_file|search_files)$', timeout: 15 },
-  { event: 'post_tool_call', matcher: '^(write_file|patch)$', timeout: 20 },
-  { event: 'pre_llm_call', matcher: null, timeout: 15 },
-  { event: 'on_session_start', matcher: null, timeout: 20 },
-  { event: 'on_session_end', matcher: null, timeout: 20 },
-];
+    yamlScalar,
+    upsertSubBlock,
+    upsertListItem,
+    upsertScalar,
+    readText,
+    writeTextAtomic,
+  } = require('./config-editor'),
+  DEFAULT_MCP_NAME = 'lapis',
+  ALLOWLIST_FILENAME = 'shell-hooks-allowlist.json',
+  SKILL_SOURCE = path.resolve(__dirname, '..', '..', 'hermes', 'SKILL.md'),
+  SKILL_DEST_REL = ['skills', 'memory', 'lapis', 'SKILL.md'],
+  // Hermes shell-hook events LaPis wires. Matchers are regex fullmatch on the
+  // Hermes tool name; the same hook command handles every event (the event and
+  // tool arrive on stdin — see hook.js).
+  HOOK_EVENTS = [
+    { event: 'pre_tool_call', matcher: '^(read_file|search_files)$', timeout: 15 },
+    { event: 'post_tool_call', matcher: '^(write_file|patch)$', timeout: 20 },
+    { event: 'pre_llm_call', matcher: null, timeout: 15 },
+    { event: 'on_session_start', matcher: null, timeout: 20 },
+    { event: 'on_session_end', matcher: null, timeout: 20 },
+  ];
 
 function parseFlags(argv) {
   const flags = {
-    mcpName: DEFAULT_MCP_NAME,
-    home: null,
-    skill: true,
-    hooks: true,
-  };
-  const args = Array.isArray(argv) ? argv : [];
+      mcpName: DEFAULT_MCP_NAME,
+      home: null,
+      skill: true,
+      hooks: true,
+    },
+    args = Array.isArray(argv) ? argv : [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--mcp-name') {
@@ -109,8 +107,8 @@ function lapisEntryPoint() {
 
 /** The single-string shell command Hermes uses to spawn the hook handler. */
 function hookCommand() {
-  const node = process.execPath;
-  const script = lapisEntryPoint();
+  const node = process.execPath,
+    script = lapisEntryPoint();
   return `${yamlScalar(node)} ${yamlScalar(script)} hermes hook`;
 }
 
@@ -126,8 +124,8 @@ function buildMcpEntry(flags, home) {
 }
 
 function mcpBodyLines(flags, home) {
-  const entry = buildMcpEntry(flags, home);
-  const lines = [`command: ${entry.command}`, 'args:'];
+  const entry = buildMcpEntry(flags, home),
+    lines = [`command: ${entry.command}`, 'args:'];
   for (const a of entry.args) {
     lines.push(`  - ${a}`);
   }
@@ -141,7 +139,7 @@ function hookItemLines(event) {
   if (event.matcher) {
     lines.push(`- matcher: ${yamlScalar(event.matcher)}`);
   } else {
-    lines.push('- command: ' + yamlScalar(hookCommand()));
+    lines.push(`- command: ${yamlScalar(hookCommand())}`);
     lines.push(`  timeout: ${event.timeout}`);
     return lines;
   }
@@ -170,17 +168,16 @@ function mergeAllowlist(filePath, command) {
 }
 
 async function runInstall(argv, io = {}) {
-  const flags = parseFlags(argv);
-  const home = resolveHermesHome(flags, io);
-  const paths = hermesPaths(home);
-  const log = io.log || ((l) => console.log(l));
-  const written = [];
-
-  const command = hookCommand();
+  const flags = parseFlags(argv),
+    home = resolveHermesHome(flags, io),
+    paths = hermesPaths(home),
+    log = io.log || ((l) => console.log(l)),
+    written = [],
+    command = hookCommand();
 
   // READ + WRITE phase: single read, then staged text edits, then one atomic
-  // write. A corrupt/absent config starts empty — install never crashes the
-  // user's config, and only touches the keys LaPis owns.
+  // Write. A corrupt/absent config starts empty — install never crashes the
+  // User's config, and only touches the keys LaPis owns.
   let text = readText(paths.config);
 
   text = upsertSubBlock(text, 'mcp_servers', flags.mcpName, mcpBodyLines(flags, home));

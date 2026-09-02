@@ -1,8 +1,7 @@
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', 'memory-store.js');
+const { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', 'memory-store.js');
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -23,8 +22,8 @@ function writeTmpRepo(repoPath, files) {
 }
 
 describe('agent intelligence preflight', () => {
-  const repoName = `test-agent-preflight-${Date.now()}`;
-  const tmpRepo = path.join('/tmp', repoName);
+  const repoName = `test-agent-preflight-${Date.now()}`,
+    tmpRepo = path.join('/tmp', repoName);
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {

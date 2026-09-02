@@ -6,8 +6,7 @@ const { insertObservation, updateObservation } = require('../data-access/observa
 const { get } = require('../commands/observation');
 
 describe('observation_versions table', () => {
-  let deps;
-  let tempDir;
+  let deps, tempDir;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-observation-versions-'));
@@ -49,8 +48,7 @@ describe('observation_versions table', () => {
 });
 
 describe('updateObservation versioning', () => {
-  let deps;
-  let tempDir;
+  let deps, tempDir;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-observation-versions-'));
@@ -71,15 +69,15 @@ describe('updateObservation versioning', () => {
 
   it('records version entry when title is updated', () => {
     const inserted = insertObservation(deps, {
-      sessionId: '1',
-      type: 'decision',
-      title: 'Old title',
-      content: 'content',
-      project: 'test',
-      scope: 'project',
-      topicKey: null,
-    });
-    const id = inserted[0].id;
+        sessionId: '1',
+        type: 'decision',
+        title: 'Old title',
+        content: 'content',
+        project: 'test',
+        scope: 'project',
+        topicKey: null,
+      }),
+      id = inserted[0].id;
 
     updateObservation(deps, { id, title: 'New title' });
 
@@ -94,15 +92,15 @@ describe('updateObservation versioning', () => {
 
   it('records version entries for multiple changed fields', () => {
     const inserted = insertObservation(deps, {
-      sessionId: '1',
-      type: 'decision',
-      title: 'Old',
-      content: 'old content',
-      project: 'test',
-      scope: 'project',
-      topicKey: null,
-    });
-    const id = inserted[0].id;
+        sessionId: '1',
+        type: 'decision',
+        title: 'Old',
+        content: 'old content',
+        project: 'test',
+        scope: 'project',
+        topicKey: null,
+      }),
+      id = inserted[0].id;
 
     updateObservation(deps, { id, title: 'New', content: 'new content' });
 
@@ -113,17 +111,16 @@ describe('updateObservation versioning', () => {
 
   it('does not record version when nothing changes', () => {
     const inserted = insertObservation(deps, {
-      sessionId: '1',
-      type: 'decision',
-      title: 'Title',
-      content: 'content',
-      project: 'test',
-      scope: 'project',
-      topicKey: null,
-    });
-    const id = inserted[0].id;
-
-    const result = updateObservation(deps, { id });
+        sessionId: '1',
+        type: 'decision',
+        title: 'Title',
+        content: 'content',
+        project: 'test',
+        scope: 'project',
+        topicKey: null,
+      }),
+      id = inserted[0].id,
+      result = updateObservation(deps, { id });
     expect(result).toBeNull();
 
     const versions = deps.sqlJson('SELECT * FROM observation_versions WHERE memory_id = ?', [id]);
@@ -132,8 +129,7 @@ describe('updateObservation versioning', () => {
 });
 
 describe('memory-get includes version history', () => {
-  let deps;
-  let tempDir;
+  let deps, tempDir;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-observation-versions-'));
@@ -155,31 +151,30 @@ describe('memory-get includes version history', () => {
 
   it('returns empty versions array for memory with no edits', () => {
     const inserted = insertObservation(deps, {
-      sessionId: '1',
-      type: 'decision',
-      title: 'Test',
-      content: 'content',
-      project: 'test',
-      scope: 'project',
-      topicKey: null,
-    });
-    const id = inserted[0].id;
-
-    const result = get(deps, { id: String(id) });
+        sessionId: '1',
+        type: 'decision',
+        title: 'Test',
+        content: 'content',
+        project: 'test',
+        scope: 'project',
+        topicKey: null,
+      }),
+      id = inserted[0].id,
+      result = get(deps, { id: String(id) });
     expect(result.versions).toEqual([]);
   });
 
   it('returns version entries after an update', () => {
     const inserted = insertObservation(deps, {
-      sessionId: '1',
-      type: 'decision',
-      title: 'V1',
-      content: 'content',
-      project: 'test',
-      scope: 'project',
-      topicKey: null,
-    });
-    const id = inserted[0].id;
+        sessionId: '1',
+        type: 'decision',
+        title: 'V1',
+        content: 'content',
+        project: 'test',
+        scope: 'project',
+        topicKey: null,
+      }),
+      id = inserted[0].id;
 
     updateObservation(deps, { id, title: 'V2' });
     const result = get(deps, { id: String(id) });

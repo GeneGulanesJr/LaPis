@@ -49,16 +49,16 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
   if (typeof fetchFn !== 'function') {
     throw new Error('fetch is unavailable for daemon dispatch');
   }
-  // args.project is already serialized into payload.args.project by
-  // stringifyArgs; the server's mergeDispatchArgs reads it from there. A
-  // redundant top-level `project` field was never consumed and only obscured
-  // the real source of truth (#229).
-  const payload = { cmd, args: stringifyArgs(args) };
-  const res = await fetchFn(`${baseUrl.replace(/\/$/, '')}/dispatch`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  // Args.project is already serialized into payload.args.project by
+  // StringifyArgs; the server's mergeDispatchArgs reads it from there. A
+  // Redundant top-level `project` field was never consumed and only obscured
+  // The real source of truth (#229).
+  const payload = { cmd, args: stringifyArgs(args) },
+    res = await fetchFn(`${baseUrl.replace(/\/$/, '')}/dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
   if (!res.ok) {
     let message = `Daemon dispatch failed (${res.status})`;
     try {
@@ -67,7 +67,7 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
         message = errBody.error.message;
       }
     } catch {
-      // ignore parse errors
+      // Ignore parse errors
     }
     throw new Error(message);
   }
@@ -78,8 +78,8 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
  * Dispatch a gateway command. Uses daemon mode when available, else direct.
  */
 async function dispatch(cmd, args, opts = {}) {
-  const resolveUrl = opts.resolveDaemonUrl || resolveDaemonUrl;
-  const daemonUrl = resolveUrl(opts);
+  const resolveUrl = opts.resolveDaemonUrl || resolveDaemonUrl,
+    daemonUrl = resolveUrl(opts);
   if (daemonUrl && !opts.forceDirect) {
     try {
       return await dispatchViaDaemon(daemonUrl, cmd, args || {}, opts);
@@ -106,8 +106,8 @@ function countSessionMemories(sessionId) {
     return 0;
   }
   try {
-    const { getDb } = require('../../db');
-    const row = getDb().prepare('SELECT COUNT(*) AS n FROM observations WHERE session_id = ?').get(sessionId);
+    const { getDb } = require('../../db'),
+      row = getDb().prepare('SELECT COUNT(*) AS n FROM observations WHERE session_id = ?').get(sessionId);
     return Number(row?.n) || 0;
   } catch {
     return 0;

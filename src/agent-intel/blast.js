@@ -3,17 +3,16 @@
 // Wraps existing call-graph analysis with a simpler interface and runtime weighting.
 
 function blastRadius(db, repoId, symbolName, options = {}) {
-  const { includeRuntime = true } = options;
-
-  // Find the symbol
-  const symbolRow = db
-    .prepare(`
+  const { includeRuntime = true } = options,
+    // Find the symbol
+    symbolRow = db
+      .prepare(`
     SELECT id, name, qualified_name, kind, file_path
     FROM code_symbols
     WHERE repo_id = ? AND (name = ? OR qualified_name = ?)
     LIMIT 1
   `)
-    .get(repoId, symbolName, symbolName);
+      .get(repoId, symbolName, symbolName);
 
   if (!symbolRow) {
     return { error: `Symbol not found: ${symbolName}` };
@@ -21,17 +20,16 @@ function blastRadius(db, repoId, symbolName, options = {}) {
 
   // Direct callers
   const directCallers = db
-    .prepare(`
+      .prepare(`
     SELECT DISTINCT cs.id, cs.name, cs.qualified_name, cs.kind, cs.file_path
     FROM code_calls cc
     JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
     WHERE cc.repo_id = ? AND cc.callee_symbol_id = ?
   `)
-    .all(repoId, symbolRow.id);
-
-  // Transitive callers (2 hops)
-  const transitiveCallers = db
-    .prepare(`
+      .all(repoId, symbolRow.id),
+    // Transitive callers (2 hops)
+    transitiveCallers = db
+      .prepare(`
     SELECT DISTINCT cs2.id, cs2.name, cs2.qualified_name, cs2.kind, cs2.file_path
     FROM code_calls cc1
     JOIN code_symbols cs1 ON cs1.id = cc1.caller_symbol_id
@@ -40,15 +38,15 @@ function blastRadius(db, repoId, symbolName, options = {}) {
     WHERE cc1.repo_id = ? AND cc1.callee_symbol_id = ?
       AND cs2.id != ?
   `)
-    .all(repoId, symbolRow.id, symbolRow.id);
+      .all(repoId, symbolRow.id, symbolRow.id);
 
   // Tests that likely call this symbol.
   // Previous implementation matched test files whose path string contained the
-  // symbol's name — that's a heuristic on the file path, not on call-graph
-  // evidence. It systematically excluded tests like `test/api.test.js` that
-  // import and exercise the symbol, and only matched tests whose file path
-  // happened to embed the symbol name. Use the call graph instead: find any
-  // file that contains a symbol whose caller chain reaches the target.
+  // Symbol's name — that's a heuristic on the file path, not on call-graph
+  // Evidence. It systematically excluded tests like `test/api.test.js` that
+  // Import and exercise the symbol, and only matched tests whose file path
+  // Happened to embed the symbol name. Use the call graph instead: find any
+  // File that contains a symbol whose caller chain reaches the target.
   let likelyTests = [];
   try {
     likelyTests = db
@@ -92,7 +90,7 @@ function blastRadius(db, repoId, symbolName, options = {}) {
       .all(repoId, `%${symbolRow.name}%`);
     docsAffected = docsWithSymbol.map((d) => d.file_path);
   } catch {
-    // doc_sections may not have required structure - graceful degradation
+    // Doc_sections may not have required structure - graceful degradation
   }
 
   // Runtime hotness (if available)
@@ -127,14 +125,14 @@ function blastRadius(db, repoId, symbolName, options = {}) {
         };
       }
     } catch {
-      // runtime_symbols table may not exist yet
+      // Runtime_symbols table may not exist yet
     }
   }
 
   // Compute risk based on blast + runtime
   const totalCallers = directCallers.length + transitiveCallers.length;
-  let risk = 'low';
-  let riskScore = 0;
+  let risk = 'low',
+    riskScore = 0;
 
   if (totalCallers >= 20) {
     risk = 'critical';

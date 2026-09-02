@@ -1,5 +1,5 @@
-const MAX_MATCHES_PER_FILE = 10;
-const MAX_FILES = 30;
+const MAX_MATCHES_PER_FILE = 10,
+  MAX_FILES = 30;
 
 function compressSearchOutput({ stdout, stderr, commandArgs }) {
   const combined = `${stdout}\n${stderr}`.trim();
@@ -11,8 +11,8 @@ function compressSearchOutput({ stdout, stderr, commandArgs }) {
     };
   }
 
-  const lines = combined.split('\n');
-  const fileMap = {};
+  const lines = combined.split('\n'),
+    fileMap = {};
   let totalMatches = 0;
   const headerLines = [];
 
@@ -32,9 +32,9 @@ function compressSearchOutput({ stdout, stderr, commandArgs }) {
     }
   }
 
-  const files = Object.keys(fileMap);
-  const isTruncated = files.length > MAX_FILES;
-  const shownFiles = files.slice(0, MAX_FILES);
+  const files = Object.keys(fileMap),
+    isTruncated = files.length > MAX_FILES,
+    shownFiles = files.slice(0, MAX_FILES);
 
   let output = '';
   const searchTerm = commandArgs.join(' ');

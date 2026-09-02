@@ -22,8 +22,8 @@ function loadReposAndProjects(getKnownRepos, getKnownProjects) {
  * @returns {{ resolvedCwd: string, repos: object[], knownProjects: string[], project: string }}
  */
 function resolveProjectForCwd(cwdHint, getKnownRepos, getKnownProjects) {
-  const resolvedCwd = path.resolve(resolveCwd(cwdHint));
-  const { repos, knownProjects } = loadReposAndProjects(getKnownRepos, getKnownProjects);
+  const resolvedCwd = path.resolve(resolveCwd(cwdHint)),
+    { repos, knownProjects } = loadReposAndProjects(getKnownRepos, getKnownProjects);
   return {
     resolvedCwd,
     repos,

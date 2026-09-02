@@ -1,8 +1,7 @@
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', 'memory-store.js');
+const { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', 'memory-store.js');
 
 function run(cmd) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -166,8 +165,8 @@ describe('index-repo (comprehensive)', () => {
 
   describe('empty and edge cases', () => {
     it('should handle a repo with zero source files', () => {
-      const name = repoName('empty');
-      const tmpRepo = path.join('/tmp', `test-idx-empty-${Date.now()}`);
+      const name = repoName('empty'),
+        tmpRepo = path.join('/tmp', `test-idx-empty-${Date.now()}`);
       writeTmpRepo(tmpRepo, { 'README.txt': 'Hello world' });
 
       const result = run(`index-repo --path "${tmpRepo}" --name ${name}`);
@@ -187,8 +186,8 @@ describe('index-repo (comprehensive)', () => {
     });
 
     it('should handle files with syntax errors gracefully', () => {
-      const name = repoName('syntax');
-      const tmpRepo = path.join('/tmp', `test-idx-syntax-${Date.now()}`);
+      const name = repoName('syntax'),
+        tmpRepo = path.join('/tmp', `test-idx-syntax-${Date.now()}`);
       writeTmpRepo(tmpRepo, {
         'bad.js': 'function {{{ broken syntax',
         'good.js': 'function working() { return 1; }',
@@ -205,8 +204,8 @@ describe('index-repo (comprehensive)', () => {
     });
 
     it('should handle binary files mixed with source', () => {
-      const name = repoName('binary');
-      const tmpRepo = path.join('/tmp', `test-idx-binary-${Date.now()}`);
+      const name = repoName('binary'),
+        tmpRepo = path.join('/tmp', `test-idx-binary-${Date.now()}`);
       writeTmpRepo(tmpRepo, {
         'app.js': 'function main() {}',
       });
@@ -297,8 +296,8 @@ describe('index-repo (comprehensive)', () => {
     });
 
     it('should remove a repo', () => {
-      const name = repoName('remove');
-      const tmpRepo = path.join('/tmp', `test-idx-remove-${Date.now()}`);
+      const name = repoName('remove'),
+        tmpRepo = path.join('/tmp', `test-idx-remove-${Date.now()}`);
       writeTmpRepo(tmpRepo, { 'x.js': 'function x() {}' });
       run(`index-repo --path "${tmpRepo}" --name ${name}`);
 
@@ -335,8 +334,8 @@ describe('index-repo (comprehensive)', () => {
     });
 
     it('should build import graph', () => {
-      const result = run(`import-graph --repo ${name}`);
-      const edges = result.edges || result.data?.edges;
+      const result = run(`import-graph --repo ${name}`),
+        edges = result.edges || result.data?.edges;
       expect(edges).toBeDefined();
       expect(Array.isArray(edges)).toBe(true);
       expect(edges.length).toBeGreaterThanOrEqual(1);
@@ -358,8 +357,8 @@ describe('index-repo (comprehensive)', () => {
   describe('large repo call graph scalability', () => {
     const name = repoName('large');
     let tmpRepo;
-    const FILE_COUNT = 50;
-    const FUNCS_PER_FILE = 10;
+    const FILE_COUNT = 50,
+      FUNCS_PER_FILE = 10;
 
     beforeAll(() => {
       tmpRepo = path.join('/tmp', `test-idx-large-${Date.now()}`);

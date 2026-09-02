@@ -3,21 +3,21 @@ const http = require('http');
 
 function request(server, { method = 'GET', path = '/health', headers = {} } = {}) {
   return new Promise((resolve, reject) => {
-    const addr = server.address();
-    const req = http.request(
-      {
-        hostname: '127.0.0.1',
-        port: addr.port,
-        path,
-        method,
-        headers,
-      },
-      (res) => {
-        let body = '';
-        res.on('data', (chunk) => (body += chunk));
-        res.on('end', () => resolve({ status: res.statusCode, body }));
-      },
-    );
+    const addr = server.address(),
+      req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path,
+          method,
+          headers,
+        },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => (body += chunk));
+          res.on('end', () => resolve({ status: res.statusCode, body }));
+        },
+      );
     req.on('error', reject);
     req.end();
   });

@@ -7,26 +7,25 @@ const { buildPythonScopeBindings } = require('./python-scope');
 const { buildGoScopeBindings } = require('./go-scope');
 const { buildRustScopeBindings } = require('./rust-scope');
 const { buildSqlScopeBindings } = require('./sql-scope');
-const { buildHtmlScopeBindings } = require('./html-scope');
-
-// Map file extensions to builder functions.
-// This mirrors the LANGUAGE_MAP in parse-code.js.
-const SCOPE_BUILDER_MAP = {
-  '.js': buildJsTsScopeBindings,
-  '.jsx': buildJsTsScopeBindings,
-  '.mjs': buildJsTsScopeBindings,
-  '.cjs': buildJsTsScopeBindings,
-  '.ts': buildJsTsScopeBindings,
-  '.mts': buildJsTsScopeBindings,
-  '.cts': buildJsTsScopeBindings,
-  '.tsx': buildJsTsScopeBindings,
-  '.py': buildPythonScopeBindings,
-  '.pyw': buildPythonScopeBindings,
-  '.go': buildGoScopeBindings,
-  '.rs': buildRustScopeBindings,
-  '.sql': buildSqlScopeBindings,
-  '.html': buildHtmlScopeBindings,
-};
+const { buildHtmlScopeBindings } = require('./html-scope'),
+  // Map file extensions to builder functions.
+  // This mirrors the LANGUAGE_MAP in parse-code.js.
+  SCOPE_BUILDER_MAP = {
+    '.js': buildJsTsScopeBindings,
+    '.jsx': buildJsTsScopeBindings,
+    '.mjs': buildJsTsScopeBindings,
+    '.cjs': buildJsTsScopeBindings,
+    '.ts': buildJsTsScopeBindings,
+    '.mts': buildJsTsScopeBindings,
+    '.cts': buildJsTsScopeBindings,
+    '.tsx': buildJsTsScopeBindings,
+    '.py': buildPythonScopeBindings,
+    '.pyw': buildPythonScopeBindings,
+    '.go': buildGoScopeBindings,
+    '.rs': buildRustScopeBindings,
+    '.sql': buildSqlScopeBindings,
+    '.html': buildHtmlScopeBindings,
+  };
 
 /**
  * Get the appropriate scope builder function for a file.

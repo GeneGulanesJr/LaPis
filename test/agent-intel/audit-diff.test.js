@@ -1,8 +1,7 @@
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
+const { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -23,8 +22,8 @@ function writeTmpRepo(repoPath, files) {
 }
 
 describe('audit-diff command', () => {
-  const repoName = `test-audit-diff-${Date.now()}`;
-  const tmpRepo = path.join('/tmp', repoName);
+  const repoName = `test-audit-diff-${Date.now()}`,
+    tmpRepo = path.join('/tmp', repoName);
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {

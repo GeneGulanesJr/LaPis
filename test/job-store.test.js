@@ -1,10 +1,9 @@
 const { createDb, sqlJson, sqlRun } = require('../db');
-const jobStore = require('../src/code-index/job-store');
-
-// After createDb() returns, the global sqlJson/sqlRun functions in db.js
-// operate on the in-memory database. job-store accepts a { sqlJson, sqlRun }
-// shape so we can pass them through directly.
-const deps = { sqlJson, sqlRun };
+const jobStore = require('../src/code-index/job-store'),
+  // After createDb() returns, the global sqlJson/sqlRun functions in db.js
+  // operate on the in-memory database. job-store accepts a { sqlJson, sqlRun }
+  // shape so we can pass them through directly.
+  deps = { sqlJson, sqlRun };
 
 let initialized = false;
 beforeAll(() => {
@@ -39,8 +38,8 @@ describe('job-store', () => {
   });
 
   it('listRunningJobs returns only status=running jobs', () => {
-    const a = jobStore.createJob(deps, { repoName: 'a', mode: 'full', filesTotal: 10 });
-    const b = jobStore.createJob(deps, { repoName: 'b', mode: 'incremental', filesTotal: 10 });
+    const a = jobStore.createJob(deps, { repoName: 'a', mode: 'full', filesTotal: 10 }),
+      b = jobStore.createJob(deps, { repoName: 'b', mode: 'incremental', filesTotal: 10 });
     jobStore.completeJob(deps, b, { status: 'completed' });
     const running = jobStore.listRunningJobs(deps);
     expect(running.map((j) => j.id)).toContain(a);

@@ -50,42 +50,37 @@ function withDb(fn, featureName) {
 
 /* ── ignore directories ────────────────────────────────────── */
 
-const IGNORE_DIRS_COMMON = new Set(['node_modules', '.git', '.next', '.nuxt', 'dist', 'build']);
+const IGNORE_DIRS_COMMON = new Set(['node_modules', '.git', '.next', '.nuxt', 'dist', 'build']),
+  IGNORE_DIRS_CODE = new Set([...IGNORE_DIRS_COMMON, '.venv', 'coverage']),
+  IGNORE_DIRS_DOCS = new Set([...IGNORE_DIRS_COMMON, '.svn', '.hg', '__pycache__', '.cache', '.pi', 'vendor']),
+  /* ── file extension sets ────────────────────────────────────── */
 
-const IGNORE_DIRS_CODE = new Set([...IGNORE_DIRS_COMMON, '.venv', 'coverage']);
-
-const IGNORE_DIRS_DOCS = new Set([...IGNORE_DIRS_COMMON, '.svn', '.hg', '__pycache__', '.cache', '.pi', 'vendor']);
-
-/* ── file extension sets ────────────────────────────────────── */
-
-const CODE_EXTENSIONS = new Set([
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-  '.ts',
-  '.mts',
-  '.cts',
-  '.tsx',
-  '.go',
-  '.rs',
-  '.py',
-  '.pyw',
-  '.sh',
-  '.bash',
-  '.json',
-  '.jsonc',
-  '.yaml',
-  '.yml',
-  '.html',
-  '.css',
-  '.scss',
-  '.sql',
-]);
-
-const MD_EXTENSIONS = new Set(['.md', '.mdx']);
-
-const DOC_EXTENSIONS = new Set(['.md', '.mdx', '.html', '.htm']);
+  CODE_EXTENSIONS = new Set([
+    '.js',
+    '.jsx',
+    '.mjs',
+    '.cjs',
+    '.ts',
+    '.mts',
+    '.cts',
+    '.tsx',
+    '.go',
+    '.rs',
+    '.py',
+    '.pyw',
+    '.sh',
+    '.bash',
+    '.json',
+    '.jsonc',
+    '.yaml',
+    '.yml',
+    '.html',
+    '.css',
+    '.scss',
+    '.sql',
+  ]),
+  MD_EXTENSIONS = new Set(['.md', '.mdx']),
+  DOC_EXTENSIONS = new Set(['.md', '.mdx', '.html', '.htm']);
 
 /* ── directory walking ──────────────────────────────────────── */
 
@@ -115,8 +110,8 @@ function walkDirForCode(dirPath) {
 }
 
 function walkDirForDocs(dirPath, ignoreGlob) {
-  const results = [];
-  const ignoreRe = ignoreGlob ? new RegExp(ignoreGlob.replace(/\*/g, '.*').replace(/\?/g, '.')) : null;
+  const results = [],
+    ignoreRe = ignoreGlob ? new RegExp(ignoreGlob.replace(/\*/g, '.*').replace(/\?/g, '.')) : null;
 
   function walk(dir) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });

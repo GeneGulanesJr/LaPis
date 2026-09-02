@@ -7,8 +7,8 @@ function getClassHierarchy(db, repoId, opts = {}) {
   if (guard) {
     return guard;
   }
-  const className = opts.class || opts.symbol;
-  const direction = opts.direction || 'both'; // 'ancestors', 'descendants', 'both'
+  const className = opts.class || opts.symbol,
+    direction = opts.direction || 'both'; // 'ancestors', 'descendants', 'both'
 
   if (!className) {
     return { error: 'Class name required. Pass --class or --symbol.' };
@@ -59,32 +59,28 @@ function getClassHierarchy(db, repoId, opts = {}) {
 }
 
 const _HTTP_PATTERNS = [
-  /\.(get|post|put|delete|patch|head|options|all)\s*\(\s*['"\`]([^'"\`]+)['"\`]/g,
-  /\.(use|route)\s*\(\s*['"\`]([^'"\`]+)['"\`]/g,
-];
-
-const _CLI_PATTERNS = [/@click\.command\s*\(/g, /@app\.route\s*\(\s*['"\`]([^'"\`]+)['"\`]/g];
+    /\.(get|post|put|delete|patch|head|options|all)\s*\(\s*['"\`]([^'"\`]+)['"\`]/g,
+    /\.(use|route)\s*\(\s*['"\`]([^'"\`]+)['"\`]/g,
+  ],
+  _CLI_PATTERNS = [/@click\.command\s*\(/g, /@app\.route\s*\(\s*['"\`]([^'"\`]+)['"\`]/g];
 
 function getSignalChains(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db);
   if (guard) {
     return guard;
   }
-  const kind = opts.kind || null; // 'http', 'cli', or null for all
-  const symbol = opts.symbol || null;
-  const maxDepth = opts.maxDepth || 5;
-
-  // Get all symbols with their signatures
-  const symbols = db
-    .prepare('SELECT id, name, kind, file_path, signature, start_line FROM code_symbols WHERE repo_id = ?')
-    .all(repoId);
-
-  // Build call graph for tracing
-  const calls = db
-    .prepare('SELECT caller_symbol_id, callee_name, callee_symbol_id FROM code_calls WHERE repo_id = ?')
-    .all(repoId);
-
-  const callGraph = new Map(); // Caller_id → [{callee_id, callee_name}]
+  const kind = opts.kind || null, // 'http', 'cli', or null for all
+    symbol = opts.symbol || null,
+    maxDepth = opts.maxDepth || 5,
+    // Get all symbols with their signatures
+    symbols = db
+      .prepare('SELECT id, name, kind, file_path, signature, start_line FROM code_symbols WHERE repo_id = ?')
+      .all(repoId),
+    // Build call graph for tracing
+    calls = db
+      .prepare('SELECT caller_symbol_id, callee_name, callee_symbol_id FROM code_calls WHERE repo_id = ?')
+      .all(repoId),
+    callGraph = new Map(); // Caller_id → [{callee_id, callee_name}]
   for (const c of calls) {
     if (!callGraph.has(c.caller_symbol_id)) {
       callGraph.set(c.caller_symbol_id, []);
@@ -92,10 +88,9 @@ function getSignalChains(db, repoId, opts = {}) {
     callGraph.get(c.caller_symbol_id).push({ callee_id: c.callee_symbol_id, callee_name: c.callee_name });
   }
 
-  const symbolMap = new Map(symbols.map((s) => [s.id, s]));
-
-  // Detect gateways from symbol signatures
-  const gateways = [];
+  const symbolMap = new Map(symbols.map((s) => [s.id, s])),
+    // Detect gateways from symbol signatures
+    gateways = [];
   for (const sym of symbols) {
     if (!sym.signature) {
       // oxlint-disable-next-line no-continue
@@ -109,8 +104,8 @@ function getSignalChains(db, repoId, opts = {}) {
         pat.lastIndex = 0;
         const match = pat.exec(sig);
         if (match) {
-          const method = match[1] ? match[1].toUpperCase() : 'ANY';
-          const routePath = match[2] || '/';
+          const method = match[1] ? match[1].toUpperCase() : 'ANY',
+            routePath = match[2] || '/';
           gateways.push({
             symbol_id: sym.id,
             name: sym.name,
@@ -155,9 +150,9 @@ function getSignalChains(db, repoId, opts = {}) {
     }
 
     // Trace upstream to find which gateway leads to this symbol
-    const visited = new Set();
-    const queue = [symRow.id];
-    const parentMap = new Map();
+    const visited = new Set(),
+      queue = [symRow.id],
+      parentMap = new Map();
 
     while (queue.length) {
       const current = queue.shift();
@@ -188,8 +183,8 @@ function getSignalChains(db, repoId, opts = {}) {
       const chain = [{ symbol_id: gw.symbol_id, name: gw.name, kind: gw.kind, method: gw.method, path: gw.path }];
       let current = gw.symbol_id;
       while (parentMap.has(current) && current !== symRow.id) {
-        const next = parentMap.get(current);
-        const nextSym = symbolMap.get(next);
+        const next = parentMap.get(current),
+          nextSym = symbolMap.get(next);
         chain.push({ symbol_id: next, name: nextSym ? nextSym.name : `id:${next}`, kind: 'callee' });
         current = next;
       }
@@ -247,8 +242,8 @@ function getLayerViolations(db, repoId, opts = {}) {
       return { error: 'Repo not found' };
     }
 
-    const fs = require('fs');
-    const configPath = path.join(repo.path, '.pimemory-layers.jsonc');
+    const fs = require('fs'),
+      configPath = path.join(repo.path, '.pimemory-layers.jsonc');
     if (!fs.existsSync(configPath)) {
       return {
         violations: [],
@@ -293,15 +288,15 @@ function getLayerViolations(db, repoId, opts = {}) {
     return null; // Unaffiliated file
   }
 
-  const violations = [];
-  const layerMap = new Map();
+  const violations = [],
+    layerMap = new Map();
   for (const layer of rules.layers) {
     layerMap.set(layer.name, new Set(layer.may_not_import || []));
   }
 
   for (const imp of imports) {
-    const sourceLayer = fileLayer(imp.source_path, rules.layers);
-    const targetLayer = fileLayer(imp.target_path, rules.layers);
+    const sourceLayer = fileLayer(imp.source_path, rules.layers),
+      targetLayer = fileLayer(imp.target_path, rules.layers);
 
     if (!sourceLayer || !targetLayer) {
       // oxlint-disable-next-line no-continue

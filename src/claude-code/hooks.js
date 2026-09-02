@@ -24,16 +24,15 @@ const { handleUserPromptSubmit } = require('./handlers/user-prompt-submit');
 const { handleStop } = require('./handlers/stop');
 const { handleSessionEnd } = require('./handlers/session-end');
 const { handlePreToolUse } = require('./handlers/pre-tool-use');
-const { handlePostToolUse } = require('./handlers/post-tool-use');
-
-const HANDLERS = {
-  SessionStart: handleSessionStart,
-  UserPromptSubmit: handleUserPromptSubmit,
-  Stop: handleStop,
-  SessionEnd: handleSessionEnd,
-  PreToolUse: handlePreToolUse,
-  PostToolUse: handlePostToolUse,
-};
+const { handlePostToolUse } = require('./handlers/post-tool-use'),
+  HANDLERS = {
+    SessionStart: handleSessionStart,
+    UserPromptSubmit: handleUserPromptSubmit,
+    Stop: handleStop,
+    SessionEnd: handleSessionEnd,
+    PreToolUse: handlePreToolUse,
+    PostToolUse: handlePostToolUse,
+  };
 
 function readStdin() {
   return new Promise((resolve) => {
@@ -44,7 +43,7 @@ function readStdin() {
     });
     process.stdin.on('end', () => resolve(data));
     // Claude Code closes stdin after the payload; if stdin is a TTY (manual
-    // run with no pipe) resolve immediately with an empty payload.
+    // Run with no pipe) resolve immediately with an empty payload.
     if (process.stdin.isTTY) {
       resolve('');
     }
@@ -70,8 +69,7 @@ function sanitizeOutput(output) {
  * heavy dispatch can run in the background without double-firing.
  */
 function parseRoleFilter(argv) {
-  let only;
-  let skip;
+  let only, skip;
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === '--only' && argv[i + 1]) {
       only = argv[++i];
@@ -89,8 +87,8 @@ function parseRoleFilter(argv) {
  * Run a hook. argv is the slice AFTER `claude-code`, e.g. ['hook', 'SessionStart'].
  */
 async function runHook(argv, opts = {}) {
-  const subcommand = argv[0];
-  const event = argv[1];
+  const subcommand = argv[0],
+    event = argv[1];
 
   if (subcommand !== 'hook' || !event) {
     process.stderr.write('Usage: lapis claude-code hook <event> [--only <role>] [--skip <role>]\n');
@@ -98,10 +96,9 @@ async function runHook(argv, opts = {}) {
     return;
   }
 
-  const roleFilter = parseRoleFilter(argv);
-
-  // Parse stdin payload (best-effort; malformed → empty object).
-  const raw = opts.stdin !== undefined ? opts.stdin : await readStdin();
+  const roleFilter = parseRoleFilter(argv),
+    // Parse stdin payload (best-effort; malformed → empty object).
+    raw = opts.stdin !== undefined ? opts.stdin : await readStdin();
   let payload = {};
   if (raw && raw.trim()) {
     try {
@@ -112,8 +109,8 @@ async function runHook(argv, opts = {}) {
   }
 
   // Event name precedence: explicit argv > payload.hook_event_name.
-  const resolvedEvent = event || payload.hook_event_name;
-  const handler = HANDLERS[resolvedEvent];
+  const resolvedEvent = event || payload.hook_event_name,
+    handler = HANDLERS[resolvedEvent];
 
   if (!handler) {
     // Unknown/unwired event (e.g. PreToolUse in Phase 2): no-op, never crash.
@@ -121,15 +118,15 @@ async function runHook(argv, opts = {}) {
   }
 
   // Allow tests / alternate backends to inject the state store and dispatch
-  // client the same way they inject dispatch/getKnownRepos (#231). `dispatch`
-  // and `getKnownRepos` fall back to the (possibly injected) client's methods.
-  const resolvedDispatchClient = opts.dispatchClient || dispatchClient;
-  const dispatch = opts.dispatch || resolvedDispatchClient.dispatch;
-  const getKnownRepos = opts.getKnownRepos || resolvedDispatchClient.getKnownRepos;
-  const getKnownProjects = opts.getKnownProjects || resolvedDispatchClient.getKnownProjects;
-  const resolvedStateStore = opts.stateStore || stateStore;
+  // Client the same way they inject dispatch/getKnownRepos (#231). `dispatch`
+  // And `getKnownRepos` fall back to the (possibly injected) client's methods.
+  const resolvedDispatchClient = opts.dispatchClient || dispatchClient,
+    dispatch = opts.dispatch || resolvedDispatchClient.dispatch,
+    getKnownRepos = opts.getKnownRepos || resolvedDispatchClient.getKnownRepos,
+    getKnownProjects = opts.getKnownProjects || resolvedDispatchClient.getKnownProjects,
+    resolvedStateStore = opts.stateStore || stateStore;
 
-  // ensureDb once — mirrors src/mcp/server.js:118-130.
+  // EnsureDb once — mirrors src/mcp/server.js:118-130.
   if (opts.ensureDb !== false) {
     try {
       require('../../db').ensureDb();

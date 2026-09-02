@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 'use strict';
 
-const READ_TOOLS = new Set(['read', 'glob', 'grep', 'memory-code', 'memory-doc', 'memory-search', 'memory-get']);
-const EDIT_TOOLS = new Set(['edit', 'write']);
-const BASH_TOOL = 'bash';
+const READ_TOOLS = new Set(['read', 'glob', 'grep', 'memory-code', 'memory-doc', 'memory-search', 'memory-get']),
+  EDIT_TOOLS = new Set(['edit', 'write']),
+  BASH_TOOL = 'bash';
 
 function checkTrajectory(parsedOutput) {
-  const toolCounts = parsedOutput.tool_counts || {};
-  const behavior = parsedOutput.behavior || {};
+  const toolCounts = parsedOutput.tool_counts || {},
+    behavior = parsedOutput.behavior || {},
+    totalToolCalls = behavior.tool_calls || 0,
+    failedToolCalls = behavior.failed_tool_calls || 0,
+    memoryToolCalls = behavior.memory_tool_calls || 0;
 
-  const totalToolCalls = behavior.tool_calls || 0;
-  const failedToolCalls = behavior.failed_tool_calls || 0;
-  const memoryToolCalls = behavior.memory_tool_calls || 0;
-
-  let readCount = 0;
-  let editCount = 0;
-  let bashCount = 0;
+  let readCount = 0,
+    editCount = 0,
+    bashCount = 0;
 
   for (const [tool, count] of Object.entries(toolCounts)) {
     if (READ_TOOLS.has(tool)) {
@@ -36,9 +35,8 @@ function checkTrajectory(parsedOutput) {
     readEditRatio = 1;
   }
 
-  const uniqueTools = Object.keys(toolCounts).length;
-
-  const errorRate = totalToolCalls > 0 ? failedToolCalls / totalToolCalls : 0;
+  const uniqueTools = Object.keys(toolCounts).length,
+    errorRate = totalToolCalls > 0 ? failedToolCalls / totalToolCalls : 0;
 
   let score = 1.0;
   if (totalToolCalls > 0 && readCount === 0) {

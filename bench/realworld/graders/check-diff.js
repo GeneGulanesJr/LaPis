@@ -10,8 +10,8 @@ const { execSync } = require('child_process');
  * @returns {{ passed: boolean, touched: string[], violations: string[], missed: string[] }}
  */
 function checkDiff(task, worktreePath) {
-  const mustTouch = task.success?.must_touch || [];
-  const mustNotTouch = task.success?.must_not_touch || [];
+  const mustTouch = task.success?.must_touch || [],
+    mustNotTouch = task.success?.must_not_touch || [];
 
   let rawDiff;
   try {
@@ -24,27 +24,25 @@ function checkDiff(task, worktreePath) {
     rawDiff = '';
   }
 
-  const touched = rawDiff ? rawDiff.split(/\r?\n/).filter(Boolean) : [];
-
-  const normalize = (p) => p.replace(/\\/g, '/');
-  const touchedNorm = new Set(touched.map(normalize));
-
-  const violations = mustNotTouch.filter((f) => touchedNorm.has(normalize(f)));
-  const missed = mustTouch.filter((f) => !touchedNorm.has(normalize(f)));
+  const touched = rawDiff ? rawDiff.split(/\r?\n/).filter(Boolean) : [],
+    normalize = (p) => p.replace(/\\/g, '/'),
+    touchedNorm = new Set(touched.map(normalize)),
+    violations = mustNotTouch.filter((f) => touchedNorm.has(normalize(f))),
+    missed = mustTouch.filter((f) => !touchedNorm.has(normalize(f)));
 
   let linesChanged = 0;
   try {
     const statDiff = execSync('git diff --stat', {
-      cwd: worktreePath,
-      encoding: 'utf-8',
-      timeout: 10_000,
-    }).trim();
-    const lastLine = statDiff.split(/\r?\n/).pop() || '';
-    const insMatch = lastLine.match(/(\d+) insertion/);
-    const delMatch = lastLine.match(/(\d+) deletion/);
+        cwd: worktreePath,
+        encoding: 'utf-8',
+        timeout: 10_000,
+      }).trim(),
+      lastLine = statDiff.split(/\r?\n/).pop() || '',
+      insMatch = lastLine.match(/(\d+) insertion/),
+      delMatch = lastLine.match(/(\d+) deletion/);
     if (insMatch || delMatch) {
-      const insertions = insMatch ? parseInt(insMatch[1], 10) : 0;
-      const deletions = delMatch ? parseInt(delMatch[1], 10) : 0;
+      const insertions = insMatch ? parseInt(insMatch[1], 10) : 0,
+        deletions = delMatch ? parseInt(delMatch[1], 10) : 0;
       linesChanged = insertions + deletions;
     }
   } catch {
@@ -61,14 +59,14 @@ function checkDiff(task, worktreePath) {
 }
 
 if (require.main === module) {
-  const taskPath = process.argv[2];
-  const worktreePath = process.argv[3];
+  const taskPath = process.argv[2],
+    worktreePath = process.argv[3];
   if (!taskPath || !worktreePath) {
     console.error('Usage: node check-diff.js <task.json> <worktree-path>');
     process.exit(1);
   }
-  const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8'));
-  const result = checkDiff(task, worktreePath);
+  const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8')),
+    result = checkDiff(task, worktreePath);
   console.log(JSON.stringify(result, null, 2));
 }
 

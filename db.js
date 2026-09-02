@@ -22,13 +22,13 @@ class MemoryError extends Error {
 }
 
 /* ── paths ────────────────────────────────────────────────── */
-const HOME = process.env.LAPIS_HOME || process.env.HOME || process.env.USERPROFILE || os.homedir();
-const SCHEMA_PATH = path.resolve(__dirname, 'schema.sql');
+const HOME = process.env.LAPIS_HOME || process.env.HOME || process.env.USERPROFILE || os.homedir(),
+  SCHEMA_PATH = path.resolve(__dirname, 'schema.sql');
 
 /* ── module state ─────────────────────────────────────────── */
-let _db = null;
-let _engine = null; // 'better-sqlite3'
-let _lastBackendError = null; // last error from openBetterSqlite3(), surfaced by openDb()
+let _db = null,
+  _engine = null, // 'better-sqlite3'
+  _lastBackendError = null; // Last error from openBetterSqlite3(), surfaced by openDb()
 
 function getDb() {
   return _db;
@@ -53,10 +53,10 @@ function resetDb() {
 }
 
 function createDb(configOverride = {}) {
-  const mergedConfig = { ...getConfig(), ...configOverride };
-  const savedConfig = getConfig._cached;
-  const savedDb = _db;
-  const savedEngine = _engine;
+  const mergedConfig = { ...getConfig(), ...configOverride },
+    savedConfig = getConfig._cached,
+    savedDb = _db,
+    savedEngine = _engine;
 
   getConfig._cached = mergedConfig;
   try {
@@ -104,8 +104,8 @@ function findLapisRoot() {
 function openBetterSqlite3() {
   try {
     const cfg = getConfig();
-    const Database = require('better-sqlite3');
-    const d = new Database(cfg.db_path);
+    const Database = require('better-sqlite3'),
+      d = new Database(cfg.db_path);
     d.pragma('journal_mode = WAL');
     d.pragma('synchronous = NORMAL');
     d.pragma('temp_store = MEMORY');
@@ -132,27 +132,27 @@ function openDb() {
     _db = db;
     return db;
   }
-  const lapisRoot = findLapisRoot();
-  const why = _lastBackendError
-    ? ` Reason: ${_lastBackendError.code ? '[' + _lastBackendError.code + '] ' : ''}${_lastBackendError.message || String(_lastBackendError)}`
-    : '';
-  const hint = (() => {
-    const code = _lastBackendError && _lastBackendError.code;
-    const msg = (_lastBackendError && _lastBackendError.message) || '';
-    // Don't tell the user to `npm install` when the module clearly loads but
-    // failed at runtime (ABI / open / Bun). Those need different fixes.
-    if (code === 'ERR_DLOPEN_FAILED' || /not yet supported in Bun/i.test(msg)) {
-      return `  better-sqlite3 cannot load under this runtime. If pi is running under Bun, run pi under Node instead, or build a Node-compatible backend.\n`;
-    }
-    if (code === 'SQLITE_BUSY' || /database is locked|SQLITE_BUSY/i.test(msg)) {
-      return `  The memory DB is locked by another process. Close other pi/LaPis processes or raise busy_timeout_ms.\n`;
-    }
-    if (code === 'MODULE_NOT_FOUND') {
-      return `  Run: cd ${lapisRoot} && npm install\n`;
-    }
-    return `  If better-sqlite3 is not installed: cd ${lapisRoot} && npm install\n`;
-  })();
-  const msg = `No SQLite backend found. LaPis does not install dependencies at runtime.${why}\n` + hint;
+  const lapisRoot = findLapisRoot(),
+    why = _lastBackendError
+      ? ` Reason: ${_lastBackendError.code ? `[${_lastBackendError.code}] ` : ''}${_lastBackendError.message || String(_lastBackendError)}`
+      : '',
+    hint = (() => {
+      const code = _lastBackendError && _lastBackendError.code,
+        msg = (_lastBackendError && _lastBackendError.message) || '';
+      // Don't tell the user to `npm install` when the module clearly loads but
+      // Failed at runtime (ABI / open / Bun). Those need different fixes.
+      if (code === 'ERR_DLOPEN_FAILED' || /not yet supported in Bun/i.test(msg)) {
+        return `  better-sqlite3 cannot load under this runtime. If pi is running under Bun, run pi under Node instead, or build a Node-compatible backend.\n`;
+      }
+      if (code === 'SQLITE_BUSY' || /database is locked|SQLITE_BUSY/i.test(msg)) {
+        return `  The memory DB is locked by another process. Close other pi/LaPis processes or raise busy_timeout_ms.\n`;
+      }
+      if (code === 'MODULE_NOT_FOUND') {
+        return `  Run: cd ${lapisRoot} && npm install\n`;
+      }
+      return `  If better-sqlite3 is not installed: cd ${lapisRoot} && npm install\n`;
+    })(),
+    msg = `No SQLite backend found. LaPis does not install dependencies at runtime.${why}\n${hint}`;
   throw new Error(msg);
 }
 
@@ -237,9 +237,9 @@ function _sqlExec(sql) {
 }
 
 // Public aliases
-const sqlJson = _sqlJson;
-const sqlRun = _sqlRun;
-const sqlRaw = _sqlExec;
+const sqlJson = _sqlJson,
+  sqlRun = _sqlRun,
+  sqlRaw = _sqlExec;
 
 /* ── transaction helper ───────────────────────────────────── */
 
@@ -283,8 +283,8 @@ function withTransaction(fn, onRollbackError) {
 /* ── ensureDb ─────────────────────────────────────────────── */
 
 function ensureDb() {
-  const dbPath = getDbPath();
-  const dir = path.dirname(dbPath);
+  const dbPath = getDbPath(),
+    dir = path.dirname(dbPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -485,33 +485,32 @@ function _createTableIndexes(name, db) {
 /* ── migrations ───────────────────────────────────────────── */
 
 const MIGRATIONS = [
-  { to: 2, run: runMigrationV2 },
-  { to: 3, run: runMigrationV3 },
-  { to: 4, run: runMigrationV4 },
-  { to: 5, run: runMigrationV5 },
-  { to: 6, run: runMigrationV6 },
-  { to: 7, run: runMigrationV7 },
-  { to: 8, run: runMigrationV8 },
-  { to: 9, run: runMigrationV9 },
-  { to: 10, run: runMigrationV10 },
-  { to: 11, run: runMigrationV11 },
-  { to: 12, run: runMigrationV12 },
-  { to: 13, run: runMigrationV13 },
-  { to: 14, run: runMigrationV14 },
-  { to: 15, run: runMigrationV15 },
-  { to: 16, run: runMigrationV16 },
-  { to: 17, run: runMigrationV17 },
-  { to: 18, run: runMigrationV18 },
-  { to: 19, run: runMigrationV19 },
-  { to: 20, run: runMigrationV20 },
-  { to: 21, run: runMigrationV21 },
-  { to: 22, run: runMigrationV22 },
-  { to: 23, run: runMigrationV23 },
-  { to: 24, run: runMigrationV24 },
-  { to: 25, run: runMigrationV25 },
-];
-
-const LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
+    { to: 2, run: runMigrationV2 },
+    { to: 3, run: runMigrationV3 },
+    { to: 4, run: runMigrationV4 },
+    { to: 5, run: runMigrationV5 },
+    { to: 6, run: runMigrationV6 },
+    { to: 7, run: runMigrationV7 },
+    { to: 8, run: runMigrationV8 },
+    { to: 9, run: runMigrationV9 },
+    { to: 10, run: runMigrationV10 },
+    { to: 11, run: runMigrationV11 },
+    { to: 12, run: runMigrationV12 },
+    { to: 13, run: runMigrationV13 },
+    { to: 14, run: runMigrationV14 },
+    { to: 15, run: runMigrationV15 },
+    { to: 16, run: runMigrationV16 },
+    { to: 17, run: runMigrationV17 },
+    { to: 18, run: runMigrationV18 },
+    { to: 19, run: runMigrationV19 },
+    { to: 20, run: runMigrationV20 },
+    { to: 21, run: runMigrationV21 },
+    { to: 22, run: runMigrationV22 },
+    { to: 23, run: runMigrationV23 },
+    { to: 24, run: runMigrationV24 },
+    { to: 25, run: runMigrationV25 },
+  ],
+  LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
 
 function runMigrations() {
   let version = 0;
@@ -526,8 +525,8 @@ function runMigrations() {
     return { migrated: false, version };
   }
 
-  const fromVersion = version;
-  const pending = MIGRATIONS.filter((m) => version < m.to);
+  const fromVersion = version,
+    pending = MIGRATIONS.filter((m) => version < m.to);
   for (const migration of pending) {
     const errors = migration.run();
     if (errors.length > 0) {
@@ -629,8 +628,8 @@ function runMigrationV4() {
   const errors = [];
   try {
     // Check table existence BEFORE transaction — SQLite fails inside tx after error
-    const hasObs = sqlJson("SELECT name FROM sqlite_master WHERE type='table' AND name='observations'").length > 0;
-    const hasSession = sqlJson("SELECT name FROM sqlite_master WHERE type='table' AND name='session_log'").length > 0;
+    const hasObs = sqlJson("SELECT name FROM sqlite_master WHERE type='table' AND name='observations'").length > 0,
+      hasSession = sqlJson("SELECT name FROM sqlite_master WHERE type='table' AND name='session_log'").length > 0;
 
     withTransaction(() => {
       sqlRaw(`CREATE TABLE IF NOT EXISTS workspaces (
@@ -775,16 +774,16 @@ function runMigrationV7() {
 }
 
 function runMigrationV9() {
-  const errors = [];
-  const addColumn = (table, column, definition) => {
-    try {
-      sqlRaw(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-    } catch (e) {
-      if (!/duplicate column/i.test(e.message)) {
-        throw e;
+  const errors = [],
+    addColumn = (table, column, definition) => {
+      try {
+        sqlRaw(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      } catch (e) {
+        if (!/duplicate column/i.test(e.message)) {
+          throw e;
+        }
       }
-    }
-  };
+    };
   try {
     withTransaction(() => {
       addColumn('code_repos', 'current_branch', 'TEXT');
@@ -1214,11 +1213,13 @@ function runMigrationV17() {
     withTransaction(() => {
       // ALTER TABLE ADD COLUMN is not idempotent in SQLite — swallow the
       // "duplicate column" error so re-running V17 against a DB that already
-      // got the column via schema.sql is a no-op (mirrors V5/V6 pattern).
+      // Got the column via schema.sql is a no-op (mirrors V5/V6 pattern).
       try {
         sqlRaw('ALTER TABLE observations ADD COLUMN expires_at TEXT DEFAULT NULL');
       } catch (e) {
-        if (!/duplicate column/i.test(e.message)) throw e;
+        if (!/duplicate column/i.test(e.message)) {
+          throw e;
+        }
       }
       sqlRaw('CREATE INDEX IF NOT EXISTS idx_obs_expires ON observations(expires_at) WHERE expires_at IS NOT NULL');
       sqlRaw('PRAGMA user_version = 17');
@@ -1233,9 +1234,9 @@ function runMigrationV18() {
   const errors = [];
   try {
     withTransaction(() => {
-      // index_jobs backs the async code-indexing feature. The worker writes
-      // progress here while the CLI/extension tool reads status from the
-      // same table; WAL mode (already enabled) lets both proceed in parallel.
+      // Index_jobs backs the async code-indexing feature. The worker writes
+      // Progress here while the CLI/extension tool reads status from the
+      // Same table; WAL mode (already enabled) lets both proceed in parallel.
       sqlRaw(`CREATE TABLE IF NOT EXISTS index_jobs (
          id INTEGER PRIMARY KEY AUTOINCREMENT,
          repo_name TEXT NOT NULL,
@@ -1329,12 +1330,14 @@ function runMigrationV20() {
   try {
     withTransaction(() => {
       // Add rescope_guidance to checkpoints so user-initiated re-plan
-      // requests can be persisted and read back by the polling runner.
+      // Requests can be persisted and read back by the polling runner.
       // Nullable; old rows get NULL.
       try {
         sqlRaw('ALTER TABLE checkpoints ADD COLUMN rescope_guidance TEXT');
       } catch (e) {
-        if (!/duplicate column/i.test(e.message)) throw e;
+        if (!/duplicate column/i.test(e.message)) {
+          throw e;
+        }
       }
       sqlRaw('PRAGMA user_version = 20');
     });
@@ -1427,8 +1430,8 @@ function runMigrationV24() {
   const errors = [];
   try {
     withTransaction(() => {
-      const cols = sqlJson('PRAGMA table_info(file_scope_bindings)');
-      const hasSourceModule = cols.some((c) => c.name === 'source_module');
+      const cols = sqlJson('PRAGMA table_info(file_scope_bindings)'),
+        hasSourceModule = cols.some((c) => c.name === 'source_module');
       if (!hasSourceModule) {
         sqlRaw('ALTER TABLE file_scope_bindings ADD COLUMN source_module TEXT NULL');
       }
@@ -1441,16 +1444,16 @@ function runMigrationV24() {
 }
 
 function runMigrationV25() {
-  const errors = [];
-  const addColumn = (table, column, definition) => {
-    try {
-      sqlRaw(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-    } catch (e) {
-      if (!/duplicate column/i.test(e.message)) {
-        throw e;
+  const errors = [],
+    addColumn = (table, column, definition) => {
+      try {
+        sqlRaw(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      } catch (e) {
+        if (!/duplicate column/i.test(e.message)) {
+          throw e;
+        }
       }
-    }
-  };
+    };
   try {
     withTransaction(() => {
       addColumn('churn_metrics', 'total_files_changed', 'INTEGER NOT NULL DEFAULT 0');

@@ -5,14 +5,13 @@ import { MEMORY_SCRIPT, MemResult, getTimeout } from '../state';
 
 export type { MemResult };
 
-let _inProcessDispatch: ((cmd: string, args: Record<string, string>) => Promise<MemResult | null>) | null = null;
-
-// In-process dispatch can fail for reasons unrelated to correctness (e.g. the
-// host runtime can't dlopen better-sqlite3). When that happens we fall back to
-// a child process — but we should only surface the failure ONCE per session,
-// not on every preflight/coding-context call. The real cause is reported via
-// openDb()'s improved error message (see db.js).
-let _inProcessFailureReported = false;
+let _inProcessDispatch: ((cmd: string, args: Record<string, string>) => Promise<MemResult | null>) | null = null,
+  // In-process dispatch can fail for reasons unrelated to correctness (e.g. the
+  // host runtime can't dlopen better-sqlite3). When that happens we fall back to
+  // a child process — but we should only surface the failure ONCE per session,
+  // not on every preflight/coding-context call. The real cause is reported via
+  // openDb()'s improved error message (see db.js).
+  _inProcessFailureReported = false;
 function reportInProcessFailure(cmd: string, msg: string, kind: 'load' | 'dispatch' | 'streaming') {
   if (_inProcessFailureReported) {
     return;
@@ -86,23 +85,23 @@ async function memViaChildProcess(
   }
   try {
     const out = await new Promise<string>((resolve, reject) => {
-      const timeout = getTimeout(cmd);
-      const child = execFile(
-        'node',
-        [MEMORY_SCRIPT, ...argList],
-        {
-          encoding: 'utf8',
-          timeout,
-          maxBuffer: 10 * 1024 * 1024,
-        },
-        (err, stdout) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(stdout.trim());
-          }
-        },
-      );
+      const timeout = getTimeout(cmd),
+        child = execFile(
+          'node',
+          [MEMORY_SCRIPT, ...argList],
+          {
+            encoding: 'utf8',
+            timeout,
+            maxBuffer: 10 * 1024 * 1024,
+          },
+          (err, stdout) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(stdout.trim());
+            }
+          },
+        );
       child.on('error', reject);
     });
     return out ? JSON.parse(out) : null;
@@ -165,9 +164,9 @@ export async function memStreaming(
   const dispatch = await getInProcessDispatch();
   // Main-thread blocking commands must always use the child-process path
   // (spawn). The in-process dispatch runs better-sqlite3 synchronously on the
-  // main thread, which freezes Pi's TUI (spinner stops, stdin becomes
-  // unresponsive) when the DB is large. The child-process path is non-blocking
-  // and streams progress via stderr.
+  // Main thread, which freezes Pi's TUI (spinner stops, stdin becomes
+  // Unresponsive) when the DB is large. The child-process path is non-blocking
+  // And streams progress via stderr.
   if (dispatch && !MAIN_THREAD_BLOCKING_COMMANDS.has(cmd)) {
     try {
       const stringArgs: Record<string, string> = {};
@@ -202,8 +201,8 @@ export async function memStreaming(
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
-      let stdout = '';
-      let timer: ReturnType<typeof setTimeout> | null = null;
+      let stdout = '',
+        timer: ReturnType<typeof setTimeout> | null = null;
       const resetTimer = () => {
         if (timer) {
           clearTimeout(timer);
@@ -227,11 +226,11 @@ export async function memStreaming(
           try {
             const parsed = JSON.parse(line);
             if (parsed.progress) {
-              const phase = parsed.phase || '';
-              const message = parsed.message || phase;
-              const filesDone = parsed.files_done ?? '';
-              const filesTotal = parsed.files_total ?? '';
-              const symbols = parsed.symbols ?? '';
+              const phase = parsed.phase || '',
+                message = parsed.message || phase,
+                filesDone = parsed.files_done ?? '',
+                filesTotal = parsed.files_total ?? '',
+                symbols = parsed.symbols ?? '';
               let statusText = message;
               if (filesTotal) {
                 statusText = `${message} (${filesDone}/${filesTotal} files, ${symbols} symbols)`;

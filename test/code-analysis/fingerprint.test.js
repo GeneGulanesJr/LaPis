@@ -1,35 +1,35 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  normalizeBody,
-  tokenize,
-  shingle,
-  minhashSignature,
+  fingerprintSymbol,
   jaccardSimilarity,
   lshBands,
-  fingerprintSymbol,
+  minhashSignature,
+  normalizeBody,
+  shingle,
+  tokenize,
 } from '../../src/code-analysis/fingerprint.js';
 
 describe('fingerprint', () => {
   describe('normalizeBody', () => {
     it('removes comments and normalizes whitespace', () => {
-      const input = `// comment\nconst x = 1;\n/* block */\nconst y = 2;`;
-      const result = normalizeBody(input);
+      const input = `// comment\nconst x = 1;\n/* block */\nconst y = 2;`,
+        result = normalizeBody(input);
       expect(result).not.toContain('//');
       expect(result).not.toContain('/*');
       expect(result.match(/\S+/g).length).toBeGreaterThan(0);
     });
 
     it('normalizes string literals to placeholder', () => {
-      const input = `const msg = "hello world"; const err = 'failed';`;
-      const result = normalizeBody(input);
+      const input = `const msg = "hello world"; const err = 'failed';`,
+        result = normalizeBody(input);
       expect(result).not.toContain('hello');
       expect(result).not.toContain('failed');
       expect(result).toContain('__STR__');
     });
 
     it('normalizes numeric literals', () => {
-      const input = `const x = 42; const y = 3.14;`;
-      const result = normalizeBody(input);
+      const input = `const x = 42; const y = 3.14;`,
+        result = normalizeBody(input);
       expect(result).not.toContain('42');
       expect(result).not.toContain('3.14');
       expect(result).toContain('__NUM__');
@@ -53,8 +53,8 @@ describe('fingerprint', () => {
 
   describe('shingle', () => {
     it('creates shingles of configurable size', () => {
-      const tokens = ['a', 'b', 'c', 'd', 'e'];
-      const shingles = shingle(tokens, 3);
+      const tokens = ['a', 'b', 'c', 'd', 'e'],
+        shingles = shingle(tokens, 3);
       expect(shingles.length).toBe(3);
       expect(shingles[0]).toBe('a b c');
     });
@@ -67,49 +67,49 @@ describe('fingerprint', () => {
 
   describe('minhashSignature', () => {
     it('produces consistent signatures for same input', () => {
-      const shingles = ['a b c', 'b c d', 'c d e'];
-      const sig1 = minhashSignature(shingles, 64);
-      const sig2 = minhashSignature(shingles, 64);
+      const shingles = ['a b c', 'b c d', 'c d e'],
+        sig1 = minhashSignature(shingles, 64),
+        sig2 = minhashSignature(shingles, 64);
       expect(sig1).toEqual(sig2);
     });
 
     it('produces different signatures for different input', () => {
-      const sig1 = minhashSignature(['a b c', 'b c d'], 64);
-      const sig2 = minhashSignature(['x y z', 'y z w'], 64);
+      const sig1 = minhashSignature(['a b c', 'b c d'], 64),
+        sig2 = minhashSignature(['x y z', 'y z w'], 64);
       expect(sig1).not.toEqual(sig2);
     });
   });
 
   describe('jaccardSimilarity', () => {
     it('returns 1 for identical sets', () => {
-      const sig1 = minhashSignature(['a b', 'b c', 'c d'], 128);
-      const sig2 = minhashSignature(['a b', 'b c', 'c d'], 128);
+      const sig1 = minhashSignature(['a b', 'b c', 'c d'], 128),
+        sig2 = minhashSignature(['a b', 'b c', 'c d'], 128);
       expect(jaccardSimilarity(sig1, sig2)).toBeCloseTo(1.0, 1);
     });
 
     it('returns ~0 for completely different sets', () => {
-      const sig1 = minhashSignature(['alpha beta', 'beta gamma'], 128);
-      const sig2 = minhashSignature(['one two', 'two three'], 128);
+      const sig1 = minhashSignature(['alpha beta', 'beta gamma'], 128),
+        sig2 = minhashSignature(['one two', 'two three'], 128);
       expect(jaccardSimilarity(sig1, sig2)).toBeLessThan(0.3);
     });
   });
 
   describe('lshBands', () => {
     it('produces len/rowsPerBand bands for an evenly divisible signature', () => {
-      const sig = Array.from({ length: 128 }, (_, i) => i);
-      const bands = lshBands(sig, 4);
+      const sig = Array.from({ length: 128 }, (_, i) => i),
+        bands = lshBands(sig, 4);
       expect(bands).toHaveLength(32);
-      // band index is prefixed to each key
+      // Band index is prefixed to each key
       expect(bands[0]).toMatch(/^0:/);
       expect(bands[31]).toMatch(/^31:/);
     });
 
     it('keeps a trailing partial band instead of dropping remainder elements', () => {
       // 130 elements, 4 rows/band: ceil(130/4) = 33 bands (last band = 2 rows)
-      const sig = Array.from({ length: 130 }, (_, i) => i);
-      const bands = lshBands(sig, 4);
+      const sig = Array.from({ length: 130 }, (_, i) => i),
+        bands = lshBands(sig, 4);
       expect(bands).toHaveLength(33);
-      // last band still covers the trailing two elements (indices 128, 129)
+      // Last band still covers the trailing two elements (indices 128, 129)
       expect(bands[32]).toBe('32:128|129');
     });
 
@@ -125,12 +125,12 @@ describe('fingerprint', () => {
     });
 
     it('yields colliding band keys for identical signatures', () => {
-      const sig1 = minhashSignature(['a b c', 'b c d', 'c d e'], 128);
-      const sig2 = minhashSignature(['a b c', 'b c d', 'c d e'], 128);
-      const bands1 = lshBands(sig1, 4);
-      const bands2 = lshBands(sig2, 4);
+      const sig1 = minhashSignature(['a b c', 'b c d', 'c d e'], 128),
+        sig2 = minhashSignature(['a b c', 'b c d', 'c d e'], 128),
+        bands1 = lshBands(sig1, 4),
+        bands2 = lshBands(sig2, 4);
       expect(bands1).toEqual(bands2);
-      // identical signatures must collide in every band to be LSH candidates
+      // Identical signatures must collide in every band to be LSH candidates
       expect(bands1.length).toBeGreaterThan(0);
     });
   });
@@ -138,13 +138,13 @@ describe('fingerprint', () => {
   describe('fingerprintSymbol', () => {
     it('produces a fingerprint object from a symbol row', () => {
       const symbol = {
-        name: 'getUserPrefs',
-        kind: 'function',
-        body_preview: 'function getUserPrefs(id) { return db.query("SELECT * FROM prefs WHERE user_id = " + id); }',
-        file_path: 'src/prefs.ts',
-        start_line: 10,
-      };
-      const fp = fingerprintSymbol(symbol);
+          name: 'getUserPrefs',
+          kind: 'function',
+          body_preview: 'function getUserPrefs(id) { return db.query("SELECT * FROM prefs WHERE user_id = " + id); }',
+          file_path: 'src/prefs.ts',
+          start_line: 10,
+        },
+        fp = fingerprintSymbol(symbol);
       expect(fp).not.toBeNull();
       expect(fp.signature).toBeDefined();
       expect(fp.signature.length).toBeGreaterThan(0);

@@ -2,12 +2,10 @@
 const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
-const { buildExtendsEdges, buildImplementsEdges } = require('../src/code-analysis/relation-builder');
+const { buildExtendsEdges, buildImplementsEdges } = require('../src/code-analysis/relation-builder'),
+  TMP_DB = path.join('/tmp', 'relation-builder-test.db');
 
-const TMP_DB = path.join('/tmp', 'relation-builder-test.db');
-
-let db;
-let repoId;
+let db, repoId;
 
 function setupTestDb(symbols) {
   if (fs.existsSync(TMP_DB)) {
@@ -36,15 +34,14 @@ function setupTestDb(symbols) {
   )`);
   db.exec('CREATE INDEX idx_cr_repo_kind ON code_relations(repo_id, kind)');
 
-  const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)');
-  const insertFile = db.prepare(
-    'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
-  );
-  const insertSymbol =
-    db.prepare(`INSERT INTO code_symbols (repo_id, file_id, name, kind, signature, file_path, start_line, end_line,
-    start_byte, end_byte, language, qualified_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-
-  const result = insertRepo.run('test-repo', '/tmp/test');
+  const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)'),
+    insertFile = db.prepare(
+      'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+    ),
+    insertSymbol =
+      db.prepare(`INSERT INTO code_symbols (repo_id, file_id, name, kind, signature, file_path, start_line, end_line,
+    start_byte, end_byte, language, qualified_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+    result = insertRepo.run('test-repo', '/tmp/test');
   repoId = Number(result.lastInsertRowid);
 
   for (const sym of symbols) {
@@ -84,17 +81,16 @@ afterEach(() => {
 describe('buildExtendsEdges', () => {
   it('should extract extends edge from JS/TS class signature', () => {
     const { db: testDb, repoId: rid } = setupTestDb([
-      { name: 'Animal', kind: 'class', signature: 'class Animal {', file_path: 'animal.js', language: 'javascript' },
-      {
-        name: 'Dog',
-        kind: 'class',
-        signature: 'class Dog extends Animal {',
-        file_path: 'dog.js',
-        language: 'javascript',
-      },
-    ]);
-
-    const result = buildExtendsEdges(testDb, rid);
+        { name: 'Animal', kind: 'class', signature: 'class Animal {', file_path: 'animal.js', language: 'javascript' },
+        {
+          name: 'Dog',
+          kind: 'class',
+          signature: 'class Dog extends Animal {',
+          file_path: 'dog.js',
+          language: 'javascript',
+        },
+      ]),
+      result = buildExtendsEdges(testDb, rid);
     expect(result.success).toBe(true);
     expect(result.count).toBe(1);
 
@@ -106,37 +102,34 @@ describe('buildExtendsEdges', () => {
 
   it('should extract extends edge from Python class signature', () => {
     const { db: testDb, repoId: rid } = setupTestDb([
-      { name: 'Base', kind: 'class', signature: 'class Base:', file_path: 'base.py', language: 'python' },
-      { name: 'Child', kind: 'class', signature: 'class Child(Base):', file_path: 'child.py', language: 'python' },
-    ]);
-
-    const result = buildExtendsEdges(testDb, rid);
+        { name: 'Base', kind: 'class', signature: 'class Base:', file_path: 'base.py', language: 'python' },
+        { name: 'Child', kind: 'class', signature: 'class Child(Base):', file_path: 'child.py', language: 'python' },
+      ]),
+      result = buildExtendsEdges(testDb, rid);
     expect(result.success).toBe(true);
     expect(result.count).toBe(1);
   });
 
   it('should skip Rust and Go classes', () => {
     const { db: testDb, repoId: rid } = setupTestDb([
-      { name: 'Animal', kind: 'class', signature: '', file_path: 'animal.rs', language: 'rust' },
-      { name: 'Dog', kind: 'struct', signature: '', file_path: 'dog.go', language: 'go' },
-    ]);
-
-    const result = buildExtendsEdges(testDb, rid);
+        { name: 'Animal', kind: 'class', signature: '', file_path: 'animal.rs', language: 'rust' },
+        { name: 'Dog', kind: 'struct', signature: '', file_path: 'dog.go', language: 'go' },
+      ]),
+      result = buildExtendsEdges(testDb, rid);
     expect(result.count).toBe(0);
   });
 
   it('should not create edge when base class not found', () => {
     const { db: testDb, repoId: rid } = setupTestDb([
-      {
-        name: 'Dog',
-        kind: 'class',
-        signature: 'class Dog extends NonExistent {',
-        file_path: 'dog.js',
-        language: 'javascript',
-      },
-    ]);
-
-    const result = buildExtendsEdges(testDb, rid);
+        {
+          name: 'Dog',
+          kind: 'class',
+          signature: 'class Dog extends NonExistent {',
+          file_path: 'dog.js',
+          language: 'javascript',
+        },
+      ]),
+      result = buildExtendsEdges(testDb, rid);
     expect(result.count).toBe(0);
   });
 });
@@ -144,23 +137,22 @@ describe('buildExtendsEdges', () => {
 describe('buildImplementsEdges', () => {
   it('should extract implements edge from TS class', () => {
     const { db: testDb, repoId: rid } = setupTestDb([
-      {
-        name: 'Serializable',
-        kind: 'interface',
-        signature: 'interface Serializable {',
-        file_path: 'types.ts',
-        language: 'typescript',
-      },
-      {
-        name: 'Model',
-        kind: 'class',
-        signature: 'class Model implements Serializable {',
-        file_path: 'model.ts',
-        language: 'typescript',
-      },
-    ]);
-
-    const result = buildImplementsEdges(testDb, rid);
+        {
+          name: 'Serializable',
+          kind: 'interface',
+          signature: 'interface Serializable {',
+          file_path: 'types.ts',
+          language: 'typescript',
+        },
+        {
+          name: 'Model',
+          kind: 'class',
+          signature: 'class Model implements Serializable {',
+          file_path: 'model.ts',
+          language: 'typescript',
+        },
+      ]),
+      result = buildImplementsEdges(testDb, rid);
     expect(result.success).toBe(true);
     expect(result.count).toBe(1);
 
@@ -170,21 +162,19 @@ describe('buildImplementsEdges', () => {
 
   it('should extract multiple implements edges', () => {
     const { db: testDb, repoId: rid } = setupTestDb([
-      { name: 'A', kind: 'interface', signature: 'interface A {', file_path: 'a.ts', language: 'typescript' },
-      { name: 'B', kind: 'interface', signature: 'interface B {', file_path: 'b.ts', language: 'typescript' },
-      { name: 'C', kind: 'class', signature: 'class C implements A, B {', file_path: 'c.ts', language: 'typescript' },
-    ]);
-
-    const result = buildImplementsEdges(testDb, rid);
+        { name: 'A', kind: 'interface', signature: 'interface A {', file_path: 'a.ts', language: 'typescript' },
+        { name: 'B', kind: 'interface', signature: 'interface B {', file_path: 'b.ts', language: 'typescript' },
+        { name: 'C', kind: 'class', signature: 'class C implements A, B {', file_path: 'c.ts', language: 'typescript' },
+      ]),
+      result = buildImplementsEdges(testDb, rid);
     expect(result.count).toBe(2);
   });
 
   it('should not create implements edges for Python', () => {
     const { db: testDb, repoId: rid } = setupTestDb([
-      { name: 'Base', kind: 'class', signature: 'class Child(Base):', file_path: 'child.py', language: 'python' },
-    ]);
-
-    const result = buildImplementsEdges(testDb, rid);
+        { name: 'Base', kind: 'class', signature: 'class Child(Base):', file_path: 'child.py', language: 'python' },
+      ]),
+      result = buildImplementsEdges(testDb, rid);
     expect(result.count).toBe(0);
   });
 });
@@ -205,25 +195,25 @@ describe('buildReexportEdges', () => {
     db.exec(
       `CREATE TABLE code_relations (id INTEGER PRIMARY KEY AUTOINCREMENT, repo_id INTEGER, source_symbol_id INTEGER, target_symbol_id INTEGER, source_file_id INTEGER, target_file_id INTEGER, kind TEXT NOT NULL, weight REAL NOT NULL DEFAULT 1.0, line_number INTEGER, UNIQUE(repo_id, source_symbol_id, target_symbol_id, source_file_id, target_file_id, kind))`,
     );
-    const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)');
-    const result = insertRepo.run('test-repo', '/tmp/test');
+    const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)'),
+      result = insertRepo.run('test-repo', '/tmp/test');
     repoId = Number(result.lastInsertRowid);
     return { db, repoId };
   }
 
   it('should create reexport edge from code_imports with import_type re-export', () => {
-    const { db: testDb, repoId: rid } = setupReexportDb();
-    const insertFile = testDb.prepare(
-      'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
-    );
-    const insertImport = testDb.prepare(
-      'INSERT INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type) VALUES (?, ?, ?, ?, ?)',
-    );
-    const fA = insertFile.run(rid, 'barrel.js', 'javascript', '', '');
-    const fB = insertFile.run(rid, 'impl.js', 'javascript', '', '');
+    const { db: testDb, repoId: rid } = setupReexportDb(),
+      insertFile = testDb.prepare(
+        'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+      ),
+      insertImport = testDb.prepare(
+        'INSERT INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type) VALUES (?, ?, ?, ?, ?)',
+      ),
+      fA = insertFile.run(rid, 'barrel.js', 'javascript', '', ''),
+      fB = insertFile.run(rid, 'impl.js', 'javascript', '', '');
     insertImport.run(rid, Number(fA.lastInsertRowid), './impl', Number(fB.lastInsertRowid), 're-export');
-    const { buildReexportEdges } = require('../src/code-analysis/relation-builder');
-    const result = buildReexportEdges(testDb, rid);
+    const { buildReexportEdges } = require('../src/code-analysis/relation-builder'),
+      result = buildReexportEdges(testDb, rid);
     expect(result.success).toBe(true);
     expect(result.count).toBeGreaterThanOrEqual(1);
     const rows = testDb.prepare("SELECT * FROM code_relations WHERE kind = 'reexport'").all();
@@ -232,18 +222,18 @@ describe('buildReexportEdges', () => {
   });
 
   it('should skip non-re-export imports', () => {
-    const { db: testDb, repoId: rid } = setupReexportDb();
-    const insertFile = testDb.prepare(
-      'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
-    );
-    const insertImport = testDb.prepare(
-      'INSERT INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type) VALUES (?, ?, ?, ?, ?)',
-    );
-    const fA = insertFile.run(rid, 'consumer.js', 'javascript', '', '');
-    const fB = insertFile.run(rid, 'lib.js', 'javascript', '', '');
+    const { db: testDb, repoId: rid } = setupReexportDb(),
+      insertFile = testDb.prepare(
+        'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+      ),
+      insertImport = testDb.prepare(
+        'INSERT INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type) VALUES (?, ?, ?, ?, ?)',
+      ),
+      fA = insertFile.run(rid, 'consumer.js', 'javascript', '', ''),
+      fB = insertFile.run(rid, 'lib.js', 'javascript', '', '');
     insertImport.run(rid, Number(fA.lastInsertRowid), './lib', Number(fB.lastInsertRowid), 'static');
-    const { buildReexportEdges } = require('../src/code-analysis/relation-builder');
-    const result = buildReexportEdges(testDb, rid);
+    const { buildReexportEdges } = require('../src/code-analysis/relation-builder'),
+      result = buildReexportEdges(testDb, rid);
     expect(result.count).toBe(0);
   });
 });
@@ -270,42 +260,42 @@ describe('buildReferenceEdges', () => {
     db.exec(
       `CREATE TABLE code_relations (id INTEGER PRIMARY KEY AUTOINCREMENT, repo_id INTEGER, source_symbol_id INTEGER, target_symbol_id INTEGER, source_file_id INTEGER, target_file_id INTEGER, kind TEXT NOT NULL, weight REAL NOT NULL DEFAULT 1.0, line_number INTEGER, UNIQUE(repo_id, source_symbol_id, target_symbol_id, source_file_id, target_file_id, kind))`,
     );
-    const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)');
-    const result = insertRepo.run('test-repo', '/tmp/test');
+    const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)'),
+      result = insertRepo.run('test-repo', '/tmp/test');
     repoId = Number(result.lastInsertRowid);
     return { db, repoId };
   }
 
   it('should create reference edge for non-function resolved bindings', () => {
-    const { db: testDb, repoId: rid } = setupReferenceDb();
-    const insertFile = testDb.prepare(
-      'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
-    );
-    const insertSymbol = testDb.prepare(
-      `INSERT INTO code_symbols (repo_id, file_id, name, kind, signature, file_path, start_line, end_line, start_byte, end_byte, language, qualified_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const insertBinding = testDb.prepare(
-      'INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, line_start, line_end) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    );
-    const insertResolution = testDb.prepare(
-      'INSERT INTO scope_resolution (binding_id, resolved_symbol_id, resolved_file_id, status, resolved_at_pass, confidence) VALUES (?, ?, ?, ?, ?, ?)',
-    );
-    const fA = insertFile.run(rid, 'consumer.ts', 'typescript', '', '');
-    const fB = insertFile.run(rid, 'types.ts', 'typescript', '', '');
-    const typeSym = insertSymbol.run(
-      rid,
-      Number(fB.lastInsertRowid),
-      'MyType',
-      'class',
-      'class MyType',
-      'types.ts',
-      1,
-      5,
-      0,
-      100,
-      'typescript',
-      'MyType',
-    );
+    const { db: testDb, repoId: rid } = setupReferenceDb(),
+      insertFile = testDb.prepare(
+        'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+      ),
+      insertSymbol = testDb.prepare(
+        `INSERT INTO code_symbols (repo_id, file_id, name, kind, signature, file_path, start_line, end_line, start_byte, end_byte, language, qualified_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ),
+      insertBinding = testDb.prepare(
+        'INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, line_start, line_end) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ),
+      insertResolution = testDb.prepare(
+        'INSERT INTO scope_resolution (binding_id, resolved_symbol_id, resolved_file_id, status, resolved_at_pass, confidence) VALUES (?, ?, ?, ?, ?, ?)',
+      ),
+      fA = insertFile.run(rid, 'consumer.ts', 'typescript', '', ''),
+      fB = insertFile.run(rid, 'types.ts', 'typescript', '', ''),
+      typeSym = insertSymbol.run(
+        rid,
+        Number(fB.lastInsertRowid),
+        'MyType',
+        'class',
+        'class MyType',
+        'types.ts',
+        1,
+        5,
+        0,
+        100,
+        'typescript',
+        'MyType',
+      );
     insertSymbol.run(
       rid,
       Number(fA.lastInsertRowid),
@@ -329,8 +319,8 @@ describe('buildReferenceEdges', () => {
       2,
       1.0,
     );
-    const { buildReferenceEdges } = require('../src/code-analysis/relation-builder');
-    const result = buildReferenceEdges(testDb, rid);
+    const { buildReferenceEdges } = require('../src/code-analysis/relation-builder'),
+      result = buildReferenceEdges(testDb, rid);
     expect(result.success).toBe(true);
     expect(result.count).toBe(1);
     const rows = testDb.prepare("SELECT * FROM code_relations WHERE kind = 'references'").all();
@@ -339,36 +329,36 @@ describe('buildReferenceEdges', () => {
   });
 
   it('should not create reference edge for function/method bindings', () => {
-    const { db: testDb, repoId: rid } = setupReferenceDb();
-    const insertFile = testDb.prepare(
-      'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
-    );
-    const insertSymbol = testDb.prepare(
-      `INSERT INTO code_symbols (repo_id, file_id, name, kind, signature, file_path, start_line, end_line, start_byte, end_byte, language, qualified_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const insertBinding = testDb.prepare(
-      'INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, line_start, line_end) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    );
-    const insertResolution = testDb.prepare(
-      'INSERT INTO scope_resolution (binding_id, resolved_symbol_id, resolved_file_id, status, resolved_at_pass, confidence) VALUES (?, ?, ?, ?, ?, ?)',
-    );
-    const fA = insertFile.run(rid, 'caller.ts', 'typescript', '', '');
-    const fB = insertFile.run(rid, 'lib.ts', 'typescript', '', '');
-    const fnSym = insertSymbol.run(
-      rid,
-      Number(fB.lastInsertRowid),
-      'helper',
-      'function',
-      'function helper()',
-      'lib.ts',
-      1,
-      5,
-      0,
-      100,
-      'typescript',
-      'helper',
-    );
-    const binding = insertBinding.run(rid, Number(fA.lastInsertRowid), 'helper', 'function', 'import', 1, 1);
+    const { db: testDb, repoId: rid } = setupReferenceDb(),
+      insertFile = testDb.prepare(
+        'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+      ),
+      insertSymbol = testDb.prepare(
+        `INSERT INTO code_symbols (repo_id, file_id, name, kind, signature, file_path, start_line, end_line, start_byte, end_byte, language, qualified_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ),
+      insertBinding = testDb.prepare(
+        'INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, line_start, line_end) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ),
+      insertResolution = testDb.prepare(
+        'INSERT INTO scope_resolution (binding_id, resolved_symbol_id, resolved_file_id, status, resolved_at_pass, confidence) VALUES (?, ?, ?, ?, ?, ?)',
+      ),
+      fA = insertFile.run(rid, 'caller.ts', 'typescript', '', ''),
+      fB = insertFile.run(rid, 'lib.ts', 'typescript', '', ''),
+      fnSym = insertSymbol.run(
+        rid,
+        Number(fB.lastInsertRowid),
+        'helper',
+        'function',
+        'function helper()',
+        'lib.ts',
+        1,
+        5,
+        0,
+        100,
+        'typescript',
+        'helper',
+      ),
+      binding = insertBinding.run(rid, Number(fA.lastInsertRowid), 'helper', 'function', 'import', 1, 1);
     insertResolution.run(
       Number(binding.lastInsertRowid),
       Number(fnSym.lastInsertRowid),
@@ -377,8 +367,8 @@ describe('buildReferenceEdges', () => {
       2,
       1.0,
     );
-    const { buildReferenceEdges } = require('../src/code-analysis/relation-builder');
-    const result = buildReferenceEdges(testDb, rid);
+    const { buildReferenceEdges } = require('../src/code-analysis/relation-builder'),
+      result = buildReferenceEdges(testDb, rid);
     expect(result.count).toBe(0);
   });
 });

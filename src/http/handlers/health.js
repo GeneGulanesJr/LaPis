@@ -2,9 +2,9 @@ const { getDb } = require('../../../db');
 
 function healthCheck(deps) {
   return async (req, res, ctx) => {
-    const { jsonOk } = require('../errors');
-    // Prefer an injected getDb (test seam), else fall back to the shared DB.
-    const getDbFn = (deps && deps.getDb) || getDb;
+    const { jsonOk } = require('../errors'),
+      // Prefer an injected getDb (test seam), else fall back to the shared DB.
+      getDbFn = (deps && deps.getDb) || getDb;
     let dbReachable = false;
     try {
       const db = getDbFn();

@@ -74,8 +74,8 @@ describe('data-access/observations', () => {
     });
 
     it('should return null if no fields to update', () => {
-      const deps = mockDeps();
-      const result = updateObservation(deps, { id: 1 });
+      const deps = mockDeps(),
+        result = updateObservation(deps, { id: 1 });
       expect(result).toBeNull();
     });
   });

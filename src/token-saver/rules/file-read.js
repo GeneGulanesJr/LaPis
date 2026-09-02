@@ -11,9 +11,9 @@ function compressFileRead({ stdout, stderr }) {
     };
   }
 
-  const lines = combined.split('\n');
-  const headLimit = 80;
-  const tailLimit = 80;
+  const lines = combined.split('\n'),
+    headLimit = 80,
+    tailLimit = 80;
 
   if (lines.length <= headLimit + tailLimit) {
     return {
@@ -23,9 +23,9 @@ function compressFileRead({ stdout, stderr }) {
     };
   }
 
-  const head = lines.slice(0, headLimit);
-  const tail = lines.slice(-tailLimit);
-  const important = [];
+  const head = lines.slice(0, headLimit),
+    tail = lines.slice(-tailLimit),
+    important = [];
 
   for (let i = 0; i < lines.length; i++) {
     if (IMPORTANT_KEYWORDS.test(lines[i])) {

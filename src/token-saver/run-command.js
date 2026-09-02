@@ -1,7 +1,6 @@
-const { spawn } = require('child_process');
-
-const DEFAULT_TIMEOUT_MS = 120000;
-const DEFAULT_MAX_BUFFER_CHARS = 2_000_000;
+const { spawn } = require('child_process'),
+  DEFAULT_TIMEOUT_MS = 120000,
+  DEFAULT_MAX_BUFFER_CHARS = 2_000_000;
 
 function shellEscape(arg) {
   if (/[^A-Za-z0-9_\/:.\-]/.test(arg)) {
@@ -13,13 +12,12 @@ function shellEscape(arg) {
 function runCommand(commandArgs, options = {}) {
   return new Promise((resolve) => {
     const {
-      cwd = process.cwd(),
-      timeoutMs = DEFAULT_TIMEOUT_MS,
-      maxBufferChars = DEFAULT_MAX_BUFFER_CHARS,
-      env = process.env,
-    } = options;
-
-    const isWindows = process.platform === 'win32';
+        cwd = process.cwd(),
+        timeoutMs = DEFAULT_TIMEOUT_MS,
+        maxBufferChars = DEFAULT_MAX_BUFFER_CHARS,
+        env = process.env,
+      } = options,
+      isWindows = process.platform === 'win32';
     let child;
 
     if (isWindows) {
@@ -37,11 +35,11 @@ function runCommand(commandArgs, options = {}) {
       });
     }
 
-    let stdout = '';
-    let stderr = '';
-    let truncated = false;
-    let killed = false;
-    let timer = null;
+    let stdout = '',
+      stderr = '',
+      truncated = false,
+      killed = false,
+      timer = null;
 
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString();

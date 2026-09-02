@@ -25,24 +25,23 @@ const { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
 const { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher');
 const { readTranscriptStream } = require('../hooks-engine/transcript-reader');
 const {
-  buildAutoDecisionPayload,
-  shouldCheckpoint,
-  shouldDream,
-  isAutoDecisionCoolingDown,
-} = require('../../hooks-engine/passive-capture');
-
-// Thresholds mirror extensions/memory-layer/state.ts (CHECKPOINT_INTERVAL /
-// AUTO_DECISION_COOLDOWN) and the hooks-engine passive-capture defaults.
-const CHECKPOINT_EVERY = 10;
-const COOLDOWN_MS = 60000;
+    buildAutoDecisionPayload,
+    shouldCheckpoint,
+    shouldDream,
+    isAutoDecisionCoolingDown,
+  } = require('../../hooks-engine/passive-capture'),
+  // Thresholds mirror extensions/memory-layer/state.ts (CHECKPOINT_INTERVAL /
+  // AUTO_DECISION_COOLDOWN) and the hooks-engine passive-capture defaults.
+  CHECKPOINT_EVERY = 10,
+  COOLDOWN_MS = 60000;
 
 function extractInlineAssistantText(payload) {
   // Preferred inline field (#207). Newer Claude Code builds may ship the last
-  // assistant message directly; older builds only send transcript_path, which
-  // is resolved asynchronously inside runStopCapture (see resolveAssistantText)
-  // so the file read never blocks handleStop's synchronous return.
-  const inline = payload?.last_assistant_message || payload?.assistant_message;
-  const inlineText = extractMessageText(inline);
+  // Assistant message directly; older builds only send transcript_path, which
+  // Is resolved asynchronously inside runStopCapture (see resolveAssistantText)
+  // So the file read never blocks handleStop's synchronous return.
+  const inline = payload?.last_assistant_message || payload?.assistant_message,
+    inlineText = extractMessageText(inline);
   if (typeof inlineText === 'string' && inlineText.trim()) {
     return inlineText;
   }
@@ -81,11 +80,11 @@ async function checkpoint({ dispatch, state, project }) {
     return;
   }
 
-  const editedPaths = uniqueEditedPaths(state.editedFiles).slice(0, 20);
-  const summaryFiles = editedPaths
-    .slice(0, 10)
-    .map((f) => `- ${path.basename(f)}`)
-    .join('\n');
+  const editedPaths = uniqueEditedPaths(state.editedFiles).slice(0, 20),
+    summaryFiles = editedPaths
+      .slice(0, 10)
+      .map((f) => `- ${path.basename(f)}`)
+      .join('\n');
 
   let auditNote = '';
   try {
@@ -103,7 +102,7 @@ async function checkpoint({ dispatch, state, project }) {
       }
     }
   } catch {
-    // audit-diff is optional.
+    // Audit-diff is optional.
   }
 
   await dispatch('save', {
@@ -124,23 +123,21 @@ async function checkpoint({ dispatch, state, project }) {
 
 async function handleStop({ payload, dispatch, stateStore, getKnownRepos, getKnownProjects }) {
   // Avoid re-entrancy: Claude Code sets stop_hook_active when already inside a
-  // stop continuation. Bail out so we never create a feedback loop.
+  // Stop continuation. Bail out so we never create a feedback loop.
   if (payload?.stop_hook_active) {
     return null;
   }
 
-  const cwd = resolveCwd(payload.cwd);
-  const { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
-  const claudeSessionId = payload.session_id;
-  const now = Date.now();
-  const mutate = makeMutate(stateStore, claudeSessionId);
-
-  const turnCount = await mutate((state) => {
-    state.turnCount += 1;
-    return state.turnCount;
-  });
-
-  const lastText = extractInlineAssistantText(payload);
+  const cwd = resolveCwd(payload.cwd),
+    { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
+    claudeSessionId = payload.session_id,
+    now = Date.now(),
+    mutate = makeMutate(stateStore, claudeSessionId),
+    turnCount = await mutate((state) => {
+      state.turnCount += 1;
+      return state.turnCount;
+    }),
+    lastText = extractInlineAssistantText(payload);
 
   // All capture work is fire-and-forget: Stop must not block Claude Code.
   void runStopCapture({
@@ -154,7 +151,7 @@ async function handleStop({ payload, dispatch, stateStore, getKnownRepos, getKno
     transcriptPath: payload?.transcript_path,
   }).catch(() => {});
 
-  return null; // silent — no stdout, no turn continuation
+  return null; // Silent — no stdout, no turn continuation
 }
 
 /**
@@ -174,22 +171,21 @@ async function runStopCapture({
   const mutate = makeMutate(stateStore, claudeSessionId);
 
   try {
-    const text = await resolveAssistantText(lastText, transcriptPath);
-
-    // Passive capture: locked read → dispatch (unlocked) → locked cooldown stamp.
-    const autoPayload = await mutate((state) => {
-      if (!text || text.length < 100) {
-        return null;
-      }
-      if (isAutoDecisionCoolingDown(state.lastAutoDecisionSave, now, COOLDOWN_MS)) {
-        return null;
-      }
-      if (text.includes('memory-save') || text.includes('memory-search') || text.includes('memory-get')) {
-        return null;
-      }
-      const capture = shouldAutoCapture(text);
-      return buildAutoDecisionPayload({ text, capture, project, sessionId: state.sessionId });
-    });
+    const text = await resolveAssistantText(lastText, transcriptPath),
+      // Passive capture: locked read → dispatch (unlocked) → locked cooldown stamp.
+      autoPayload = await mutate((state) => {
+        if (!text || text.length < 100) {
+          return null;
+        }
+        if (isAutoDecisionCoolingDown(state.lastAutoDecisionSave, now, COOLDOWN_MS)) {
+          return null;
+        }
+        if (text.includes('memory-save') || text.includes('memory-search') || text.includes('memory-get')) {
+          return null;
+        }
+        const capture = shouldAutoCapture(text);
+        return buildAutoDecisionPayload({ text, capture, project, sessionId: state.sessionId });
+      });
     if (autoPayload) {
       try {
         await dispatch('save', autoPayload);

@@ -115,16 +115,16 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
   }
 
   function handleImportStatement(node) {
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1;
     // Import foo, bar
     // Import foo as baz
     let child = node.firstChild;
     while (child) {
       if (child.type === 'dotted_name' || child.type === 'aliased_import') {
         if (child.type === 'aliased_import') {
-          const nameNode = child.childForFieldName('alias') || findLastIdentifier(child);
-          const origNode = child.childForFieldName('name') || child.firstChild;
+          const nameNode = child.childForFieldName('alias') || findLastIdentifier(child),
+            origNode = child.childForFieldName('name') || child.firstChild;
           if (nameNode) {
             addBinding(bindings, {
               name: nameNode.text,
@@ -159,12 +159,11 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
   }
 
   function handleFromImportStatement(node) {
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
-
-    // Find module name: from foo.bar import baz
-    const moduleNode = node.childForFieldName('module_name');
-    const modulePath = moduleNode ? moduleNode.text : null;
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1,
+      // Find module name: from foo.bar import baz
+      moduleNode = node.childForFieldName('module_name'),
+      modulePath = moduleNode ? moduleNode.text : null;
     if (!modulePath) {
       return;
     }
@@ -204,8 +203,8 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
           });
         }
       } else if (child.type === 'aliased_import') {
-        const aliasNode = child.childForFieldName('alias') || findLastIdentifier(child);
-        const nameNode = child.childForFieldName('name') || child.firstChild;
+        const aliasNode = child.childForFieldName('alias') || findLastIdentifier(child),
+          nameNode = child.childForFieldName('name') || child.firstChild;
         if (aliasNode) {
           addBinding(bindings, {
             name: aliasNode.text,
@@ -238,8 +237,8 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
               byteEnd: importChild.endIndex,
             });
           } else if (importChild.type === 'aliased_import') {
-            const aliasNode = importChild.childForFieldName('alias') || findLastIdentifier(importChild);
-            const nameNode = importChild.childForFieldName('name') || importChild.firstChild;
+            const aliasNode = importChild.childForFieldName('alias') || findLastIdentifier(importChild),
+              nameNode = importChild.childForFieldName('name') || importChild.firstChild;
             if (aliasNode) {
               addBinding(bindings, {
                 name: aliasNode.text,
@@ -264,8 +263,8 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
 
   function handleDecorator(node, scopeDepth) {
     // @some_decorator
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1;
     let child = node.firstChild;
     while (child) {
       if (child.type === 'identifier' || child.type === 'attribute') {
@@ -359,8 +358,8 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
   }
 
   function findLastIdentifier(node) {
-    let last = null;
-    let child = node.firstChild;
+    let last = null,
+      child = node.firstChild;
     while (child) {
       if (child.type === 'identifier') {
         last = child;

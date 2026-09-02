@@ -43,19 +43,19 @@ function save(deps, args) {
 }
 
 function get(deps, args) {
-  const { jsonErrNoExit } = deps;
-  const id = args.id;
+  const { jsonErrNoExit } = deps,
+    id = args.id;
   if (!id) {
     return jsonErrNoExit('Missing --id');
   }
-  const memoryRepository = getMemoryRepository(deps);
-  const rows = memoryRepository.getObservation(id);
+  const memoryRepository = getMemoryRepository(deps),
+    rows = memoryRepository.getObservation(id);
   if (rows.length === 0) {
     return { error: 'Observation not found' };
   }
 
-  const obs = rows[0];
-  const links = memoryRepository.getSymbolLinksForMemory(id);
+  const obs = rows[0],
+    links = memoryRepository.getSymbolLinksForMemory(id);
   if (links.length > 0) {
     obs.symbols = links;
   }
@@ -67,15 +67,15 @@ function get(deps, args) {
 }
 
 function update(deps, args) {
-  const { jsonErrNoExit } = deps;
-  const id = args.id;
+  const { jsonErrNoExit } = deps,
+    id = args.id;
   if (!id) {
     return jsonErrNoExit('Missing --id');
   }
   const memoryRepository = getMemoryRepository(deps);
 
-  let expiresAt;
-  let clearExpiry = false;
+  let expiresAt,
+    clearExpiry = false;
   if (args['clear-expiry'] === 'true' || args['clear-expiry'] === true) {
     clearExpiry = true;
   } else if (args['expires-in']) {
@@ -107,13 +107,13 @@ function update(deps, args) {
 }
 
 function del(deps, args) {
-  const id = args.id;
-  const hard = args.hard === 'true' || args.hard === true;
+  const id = args.id,
+    hard = args.hard === 'true' || args.hard === true;
   if (!id) {
     return deps.jsonErrNoExit('Missing --id');
   }
-  const memoryRepository = getMemoryRepository(deps);
-  const existing = memoryRepository.getObservation(id);
+  const memoryRepository = getMemoryRepository(deps),
+    existing = memoryRepository.getObservation(id);
   if (!existing || existing.length === 0) {
     return deps.jsonErrNoExit('Observation not found');
   }
@@ -126,9 +126,9 @@ function del(deps, args) {
 }
 
 function timeline(deps, args) {
-  const id = parseInt(args.id);
-  const before = parseInt(args.before || '5', 10);
-  const after = parseInt(args.after || '5', 10);
+  const id = parseInt(args.id),
+    before = parseInt(args.before || '5', 10),
+    after = parseInt(args.after || '5', 10);
   if (isNaN(id)) {
     return deps.jsonErrNoExit('Missing --id');
   }
@@ -141,15 +141,15 @@ function suggestTopicKey(args) {
 }
 
 function savePrompt(deps, args) {
-  const { jsonErrNoExit } = deps;
-  const content = args.content;
-  const project = args.project || null;
-  const sessionId = args['session-id'] || sessionsService.findLatestSession(project);
+  const { jsonErrNoExit } = deps,
+    content = args.content,
+    project = args.project || null,
+    sessionId = args['session-id'] || sessionsService.findLatestSession(project);
   if (!content) {
     return jsonErrNoExit('Missing --content');
   }
-  const memoryRepository = getMemoryRepository(deps);
-  const rows = memoryRepository.insertUserPrompt({ sessionId, content, project });
+  const memoryRepository = getMemoryRepository(deps),
+    rows = memoryRepository.insertUserPrompt({ sessionId, content, project });
   return { id: rows[0].id, created_at: rows[0].created_at };
 }
 

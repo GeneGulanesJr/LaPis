@@ -86,8 +86,8 @@ describe('claude-code state-store', () => {
   });
 
   test('sweepStaleSessions removes files older than the threshold', () => {
-    const fresh = { ...stateStore.defaultState(), sessionId: 1 };
-    const stale = { ...stateStore.defaultState(), sessionId: 2 };
+    const fresh = { ...stateStore.defaultState(), sessionId: 1 },
+      stale = { ...stateStore.defaultState(), sessionId: 2 };
     stateStore.saveState('fresh', fresh, { dir });
     stateStore.saveState('stale', stale, { dir });
 
@@ -272,8 +272,8 @@ describe('claude-code state-store: TTL + gc', () => {
     stateStore.saveState('b', stateStore.defaultState(), { dir });
     const oldTime = new Date(Date.now() - 100 * 3600 * 1000).getTime() / 1000;
     fs.utimesSync(path.join(dir, 'b.json'), oldTime, oldTime);
-    const lines = [];
-    const result = stateStore.runGc(['--max-age-hours', '50'], { dir, log: (l) => lines.push(l) });
+    const lines = [],
+      result = stateStore.runGc(['--max-age-hours', '50'], { dir, log: (l) => lines.push(l) });
     expect(result.swept).toBe(1);
     expect(result.maxAgeHours).toBe(50);
     expect(lines.join('\n')).toContain('Swept 1');

@@ -21,8 +21,8 @@ function dispatchCommand(deps) {
       return jsonError(res, 400, 'bad_request', 'Missing or invalid "cmd"');
     }
 
-    const dispatchFn = deps.dispatch || require('../../cli/gateway').dispatch;
-    const result = await dispatchFn(cmd, mergeDispatchArgs(ctx.body));
+    const dispatchFn = deps.dispatch || require('../../cli/gateway').dispatch,
+      result = await dispatchFn(cmd, mergeDispatchArgs(ctx.body));
     jsonOk(res, result);
   };
 }

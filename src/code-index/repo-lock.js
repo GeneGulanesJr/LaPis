@@ -1,9 +1,8 @@
 const crypto = require('crypto');
-const os = require('os');
-
-const localHolding = new Set();
-const DEFAULT_LOCK_TIMEOUT_MS = 10 * 60 * 1000;
-const LOCK_POLL_MS = 200;
+const os = require('os'),
+  localHolding = new Set(),
+  DEFAULT_LOCK_TIMEOUT_MS = 10 * 60 * 1000,
+  LOCK_POLL_MS = 200;
 
 function makeHolderId() {
   return `${process.pid}:${crypto.randomBytes(4).toString('hex')}`;

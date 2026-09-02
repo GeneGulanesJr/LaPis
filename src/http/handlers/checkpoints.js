@@ -6,8 +6,8 @@ function createCheckpoint(repo) {
     if (!missionId || !trigger || !milestoneId) {
       return jsonError(res, 400, 'bad_request', 'missionId, trigger, and milestoneId are required');
     }
-    const id = `cp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const rows = repo.createCheckpoint({ id, missionId, trigger, milestoneId, summary: summary || '' });
+    const id = `cp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      rows = repo.createCheckpoint({ id, missionId, trigger, milestoneId, summary: summary || '' });
     jsonCreated(res, rows[0] || { id });
   };
 }
@@ -42,8 +42,8 @@ function resolveCheckpoint(repo) {
 
 function getPendingCheckpoints(repo) {
   return async (req, res, ctx) => {
-    const missionId = ctx.params.missionId;
-    const rows = repo.getPendingCheckpoints(missionId);
+    const missionId = ctx.params.missionId,
+      rows = repo.getPendingCheckpoints(missionId);
     jsonOk(res, rows);
   };
 }

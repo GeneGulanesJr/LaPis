@@ -3,21 +3,19 @@
  * Finds all files/symbols affected by a change using code_calls, code_imports,
  * code_relations, and file_cochange with per-type decay scoring.
  */
-const { _requireNativeDb } = require('./shared-deps');
-
-const EDGE_DECAY = {
-  call: 0.7,
-  import: 0.5,
-  extends: 0.8,
-  implements: 0.8,
-  reexport: 0.7,
-  references: 0.4,
-  cochange: 0.3,
-};
-
-const DISTANCE_DECAY = 0.85;
-const DEFAULT_MIN_REACHABILITY = 0.1;
-const DEFAULT_MAX_DEPTH = 5;
+const { _requireNativeDb } = require('./shared-deps'),
+  EDGE_DECAY = {
+    call: 0.7,
+    import: 0.5,
+    extends: 0.8,
+    implements: 0.8,
+    reexport: 0.7,
+    references: 0.4,
+    cochange: 0.3,
+  },
+  DISTANCE_DECAY = 0.85,
+  DEFAULT_MIN_REACHABILITY = 0.1,
+  DEFAULT_MAX_DEPTH = 5;
 
 /**
  * Unified weighted BFS across all edge types.
@@ -35,9 +33,9 @@ function getAffectedGraph(db, repoId, opts = {}) {
     return { error: 'Missing --symbol or --file' };
   }
 
-  let seedFileId = null;
-  let seedFilePath = file || null;
-  let seedSymbolName = symbol || null;
+  let seedFileId = null,
+    seedFilePath = file || null,
+    seedSymbolName = symbol || null;
   const seedSymbolIds = [];
 
   if (symbol) {
@@ -65,10 +63,10 @@ function getAffectedGraph(db, repoId, opts = {}) {
     }
   }
 
-  const visited = new Map(); // Key → { reachability, depth, signals }
-  const queue = [];
-  const affectedFiles = new Map(); // FileId → { path, reachability, signals, depth }
-  const affectedSymbols = new Map(); // SymbolId → { name, file, reachability, via }
+  const visited = new Map(), // Key → { reachability, depth, signals }
+    queue = [],
+    affectedFiles = new Map(), // FileId → { path, reachability, signals, depth }
+    affectedSymbols = new Map(); // SymbolId → { name, file, reachability, via }
 
   if (seedSymbolIds.length > 0) {
     const key = `sym:${seedSymbolIds[0]}`;
@@ -103,10 +101,10 @@ function getAffectedGraph(db, repoId, opts = {}) {
             .all(current.id, 0.3);
 
           for (const c of callers) {
-            const score = c.confidence * EDGE_DECAY.call * DISTANCE_DECAY ** (current.depth + 1);
-            const key = `sym:${c.caller_symbol_id}`;
-            const existing = visited.get(key);
-            const shouldVisit = score >= minReachability && (!existing || existing.reachability < score);
+            const score = c.confidence * EDGE_DECAY.call * DISTANCE_DECAY ** (current.depth + 1),
+              key = `sym:${c.caller_symbol_id}`,
+              existing = visited.get(key),
+              shouldVisit = score >= minReachability && (!existing || existing.reachability < score);
 
             if (shouldVisit) {
               visited.set(key, { reachability: score, depth: current.depth + 1, signals: ['call'] });
@@ -145,10 +143,10 @@ function getAffectedGraph(db, repoId, opts = {}) {
             .all(fileId);
 
           for (const imp of importers) {
-            const score = EDGE_DECAY.import * DISTANCE_DECAY ** (current.depth + 1);
-            const key = `file:${imp.source_file_id}`;
-            const existing = visited.get(key);
-            const shouldVisit = score >= minReachability && (!existing || existing.reachability < score);
+            const score = EDGE_DECAY.import * DISTANCE_DECAY ** (current.depth + 1),
+              key = `file:${imp.source_file_id}`,
+              existing = visited.get(key),
+              shouldVisit = score >= minReachability && (!existing || existing.reachability < score);
 
             if (shouldVisit) {
               visited.set(key, { reachability: score, depth: current.depth + 1, signals: ['import'] });
@@ -193,12 +191,12 @@ function getAffectedGraph(db, repoId, opts = {}) {
         } catch {}
 
         for (const r of rels) {
-          const decay = EDGE_DECAY[r.kind] || 0.5;
-          const score = (r.weight || 1.0) * decay * DISTANCE_DECAY ** (current.depth + 1);
+          const decay = EDGE_DECAY[r.kind] || 0.5,
+            score = (r.weight || 1.0) * decay * DISTANCE_DECAY ** (current.depth + 1);
           if (score >= minReachability) {
             if (r.source_symbol_id) {
-              const key = `sym:${r.source_symbol_id}`;
-              const existing = visited.get(key);
+              const key = `sym:${r.source_symbol_id}`,
+                existing = visited.get(key);
               if (!existing || existing.reachability < score) {
                 visited.set(key, { reachability: score, depth: current.depth + 1, signals: [r.kind] });
                 queue.push({
@@ -220,8 +218,8 @@ function getAffectedGraph(db, repoId, opts = {}) {
               }
             }
             if (r.source_file_id) {
-              const key = `file:${r.source_file_id}`;
-              const existing = visited.get(key);
+              const key = `file:${r.source_file_id}`,
+                existing = visited.get(key);
               if (!existing || existing.reachability < score) {
                 visited.set(key, { reachability: score, depth: current.depth + 1, signals: [r.kind] });
                 queue.push({ type: 'file', id: r.source_file_id, reachability: score, depth: current.depth + 1 });
@@ -246,11 +244,11 @@ function getAffectedGraph(db, repoId, opts = {}) {
             .all(repoId, fileId, fileId);
 
           for (const cc of cochanges) {
-            const otherId = cc.file_a_id === fileId ? cc.file_b_id : cc.file_a_id;
-            const score = (cc.strength || 0.3) * EDGE_DECAY.cochange * DISTANCE_DECAY ** (current.depth + 1);
-            const key = `file:${otherId}`;
-            const existing = visited.get(key);
-            const shouldVisit = score >= minReachability && (!existing || existing.reachability < score);
+            const otherId = cc.file_a_id === fileId ? cc.file_b_id : cc.file_a_id,
+              score = (cc.strength || 0.3) * EDGE_DECAY.cochange * DISTANCE_DECAY ** (current.depth + 1),
+              key = `file:${otherId}`,
+              existing = visited.get(key),
+              shouldVisit = score >= minReachability && (!existing || existing.reachability < score);
 
             if (shouldVisit) {
               visited.set(key, { reachability: score, depth: current.depth + 1, signals: ['cochange'] });
@@ -267,8 +265,8 @@ function getAffectedGraph(db, repoId, opts = {}) {
     }
   }
 
-  const sortedFiles = [...affectedFiles.values()].sort((a, b) => b.reachability - a.reachability);
-  const sortedSymbols = [...affectedSymbols.values()].sort((a, b) => b.reachability - a.reachability);
+  const sortedFiles = [...affectedFiles.values()].sort((a, b) => b.reachability - a.reachability),
+    sortedSymbols = [...affectedSymbols.values()].sort((a, b) => b.reachability - a.reachability);
 
   return {
     symbol: seedSymbolName,

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * hooks-engine: session-summary
+ * Hooks-engine: session-summary
  *
  * Pure session-summary builder extracted from
  * extensions/memory-layer/hooks/session-lifecycle.ts:176-208. Uses
@@ -44,18 +44,16 @@ function buildSessionSummary({
   }
 
   // Goal: the first user message's text, regardless of whether `content` is a
-  // plain string (Claude Code transcripts) or an array of parts (Pi extension).
+  // Plain string (Claude Code transcripts) or an array of parts (Pi extension).
   // The previous `.content?.[0]?.text` chain only worked for the array shape and
-  // fell back to "Session work" for string content — losing the goal for every
+  // Fell back to "Session work" for string content — losing the goal for every
   // Claude Code session. extractMessageText handles both shapes.
   const goalText =
-    userMessages.length > 0
-      ? extractMessageText(userMessages[0]?.message)?.slice(0, 200) || 'Session work'
-      : 'Session work';
-
-  const summaryParts = ['## Goal', goalText, '', '## Topics Discussed', ...topics.slice(0, 10).map((t) => `- ${t}`)];
-
-  const files = uniqueEditedPaths(editedFiles);
+      userMessages.length > 0
+        ? extractMessageText(userMessages[0]?.message)?.slice(0, 200) || 'Session work'
+        : 'Session work',
+    summaryParts = ['## Goal', goalText, '', '## Topics Discussed', ...topics.slice(0, 10).map((t) => `- ${t}`)],
+    files = uniqueEditedPaths(editedFiles);
   if (files.length > 0) {
     summaryParts.push('', '## Files Modified');
     for (const f of files.slice(0, 20)) {

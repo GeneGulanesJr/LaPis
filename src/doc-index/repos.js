@@ -22,8 +22,8 @@ function clearRepo(db, repoId) {
 }
 
 function upsertDocRepo(db, rootPath, repoName) {
-  const existingByName = db.prepare('SELECT id FROM doc_repos WHERE name = ?').get(repoName);
-  const existingByPath = db.prepare('SELECT id FROM doc_repos WHERE path = ?').get(rootPath);
+  const existingByName = db.prepare('SELECT id FROM doc_repos WHERE name = ?').get(repoName),
+    existingByPath = db.prepare('SELECT id FROM doc_repos WHERE path = ?').get(rootPath);
   if (existingByName) {
     if (existingByName.id !== existingByPath?.id) {
       db.prepare('UPDATE doc_repos SET path = ? WHERE id = ?').run(rootPath, existingByName.id);
@@ -59,75 +59,72 @@ async function indexDocs(db, rootPath, repoName, ignoreGlob) {
     return { error: `Path not found: ${rootPath}` };
   }
 
-  const repoId = upsertDocRepo(db, rootPath, repoName);
-  const files = walkDir(rootPath, ignoreGlob);
+  const repoId = upsertDocRepo(db, rootPath, repoName),
+    files = walkDir(rootPath, ignoreGlob);
   let totalSections = 0,
     totalLinks = 0,
     totalTerms = 0,
     totalCodeBlocks = 0;
-  const warnings = [];
-
-  const insertFile = db.prepare(
-    'INSERT INTO doc_files (repo_id, path, content, content_hash, mtime) VALUES (?, ?, ?, ?, ?) RETURNING id',
-  );
-  const insertSection = db.prepare(
-    'INSERT INTO doc_sections (repo_id, file_id, title, level, parent_id, content, content_hash, byte_start, byte_end, role, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
-  );
-  const insertLink = db.prepare(
-    'INSERT INTO doc_links (source_section_id, target_path, target_section_id, link_text, is_broken) VALUES (?, ?, ?, ?, ?)',
-  );
-  const insertTerm = db.prepare(
-    'INSERT OR IGNORE INTO doc_terms (repo_id, term, definition, section_id) VALUES (?, ?, ?, ?)',
-  );
-  const insertCodeBlock = db.prepare(
-    'INSERT INTO doc_code_blocks (section_id, lang, content, byte_start, byte_end) VALUES (?, ?, ?, ?, ?)',
-  );
-
-  const useTx =
-    typeof db.transaction === 'function'
-      ? (fn) => db.transaction(fn)()
-      : (fn) => {
-          db.exec('BEGIN');
-          try {
-            const result = fn();
-            db.exec('COMMIT');
-            return result;
-          } catch (e) {
+  const warnings = [],
+    insertFile = db.prepare(
+      'INSERT INTO doc_files (repo_id, path, content, content_hash, mtime) VALUES (?, ?, ?, ?, ?) RETURNING id',
+    ),
+    insertSection = db.prepare(
+      'INSERT INTO doc_sections (repo_id, file_id, title, level, parent_id, content, content_hash, byte_start, byte_end, role, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+    ),
+    insertLink = db.prepare(
+      'INSERT INTO doc_links (source_section_id, target_path, target_section_id, link_text, is_broken) VALUES (?, ?, ?, ?, ?)',
+    ),
+    insertTerm = db.prepare(
+      'INSERT OR IGNORE INTO doc_terms (repo_id, term, definition, section_id) VALUES (?, ?, ?, ?)',
+    ),
+    insertCodeBlock = db.prepare(
+      'INSERT INTO doc_code_blocks (section_id, lang, content, byte_start, byte_end) VALUES (?, ?, ?, ?, ?)',
+    ),
+    useTx =
+      typeof db.transaction === 'function'
+        ? (fn) => db.transaction(fn)()
+        : (fn) => {
+            db.exec('BEGIN');
             try {
-              db.exec('ROLLBACK');
-            } catch {}
-            throw e;
-          }
-        };
-
-  const BATCH_SIZE = RESULT_LIMITS.DOC_BATCH_SIZE;
+              const result = fn();
+              db.exec('COMMIT');
+              return result;
+            } catch (e) {
+              try {
+                db.exec('ROLLBACK');
+              } catch {}
+              throw e;
+            }
+          },
+    BATCH_SIZE = RESULT_LIMITS.DOC_BATCH_SIZE;
 
   function processEntry(entry) {
-    const { filePath, content, stat } = entry;
-    const relPath = path.relative(rootPath, filePath);
-    const fileId = insertFile.get(repoId, relPath, content, hashContent(content), stat.mtimeMs).id;
-    const ext = path.extname(filePath).toLowerCase();
-    const isHtml = ext === '.html' || ext === '.htm';
-    const rawSections = isHtml ? extractHtmlSections(content, filePath) : parseMarkdownSections(content, filePath);
-    const withParent = buildSectionHierarchy(rawSections);
-    const sectionIdMap = new Map();
+    const { filePath, content, stat } = entry,
+      relPath = path.relative(rootPath, filePath),
+      fileId = insertFile.get(repoId, relPath, content, hashContent(content), stat.mtimeMs).id,
+      ext = path.extname(filePath).toLowerCase(),
+      isHtml = ext === '.html' || ext === '.htm',
+      rawSections = isHtml ? extractHtmlSections(content, filePath) : parseMarkdownSections(content, filePath),
+      withParent = buildSectionHierarchy(rawSections),
+      sectionIdMap = new Map();
 
     for (let idx = 0; idx < withParent.length; idx++) {
-      const sec = withParent[idx];
-      const parentId = sec.parent_idx !== null ? sectionIdMap.get(sec.parent_idx) || null : null;
-      const sectionDbId = insertSection.get(
-        repoId,
-        fileId,
-        sec.title,
-        sec.level,
-        parentId,
-        sec.content,
-        sec.content_hash,
-        sec.byte_start,
-        sec.byte_end,
-        sec.role,
-        sec.tags,
-      ).id;
+      const sec = withParent[idx],
+        parentId = sec.parent_idx !== null ? sectionIdMap.get(sec.parent_idx) || null : null,
+        sectionDbId = insertSection.get(
+          repoId,
+          fileId,
+          sec.title,
+          sec.level,
+          parentId,
+          sec.content,
+          sec.content_hash,
+          sec.byte_start,
+          sec.byte_end,
+          sec.role,
+          sec.tags,
+        ).id;
       sectionIdMap.set(idx, sectionDbId);
       totalSections++;
 

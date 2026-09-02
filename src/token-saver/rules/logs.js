@@ -1,5 +1,5 @@
-const ERROR_PATTERNS = /\b(?:error|exception|fatal|panic|critical|stack\s*trace|segfault|OOM|out\s+of\s+memory)\b/i;
-const TIMESTAMP_PATTERNS = /\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}/;
+const ERROR_PATTERNS = /\b(?:error|exception|fatal|panic|critical|stack\s*trace|segfault|OOM|out\s+of\s+memory)\b/i,
+  TIMESTAMP_PATTERNS = /\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}/;
 
 function compressLogs({ stdout, stderr }) {
   const combined = `${stdout}\n${stderr}`.trim();
@@ -11,11 +11,11 @@ function compressLogs({ stdout, stderr }) {
     };
   }
 
-  const lines = combined.split('\n');
-  const errors = [];
-  const uniqueMessages = {};
-  let lastTimestamp = null;
-  let deduped = 0;
+  const lines = combined.split('\n'),
+    errors = [],
+    uniqueMessages = {};
+  let lastTimestamp = null,
+    deduped = 0;
 
   for (const line of lines) {
     if (ERROR_PATTERNS.test(line)) {
@@ -38,12 +38,11 @@ function compressLogs({ stdout, stderr }) {
   }
 
   const recurring = Object.entries(uniqueMessages)
-    .filter(([, v]) => v.count > 1)
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 10);
-
-  const uniqueCount = Object.keys(uniqueMessages).length;
-  const totalLines = lines.length;
+      .filter(([, v]) => v.count > 1)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 10),
+    uniqueCount = Object.keys(uniqueMessages).length,
+    totalLines = lines.length;
   deduped = totalLines - uniqueCount;
 
   let output = 'Log summary:\n';

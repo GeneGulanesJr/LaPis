@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * hooks-engine: passive-capture
+ * Hooks-engine: passive-capture
  *
  * Pure payload builder + gating helpers extracted from
  * extensions/memory-layer/hooks/passive-capture.ts. Thresholds are passed as
@@ -26,12 +26,12 @@ function buildAutoDecisionPayload({ text, capture, project, sessionId }) {
   }
 
   const lastLine =
-    text
-      .split('\n')
-      .filter((l) => l.trim())
-      .pop()
-      ?.slice(0, 120) || text.slice(0, 120);
-  const title = `${capture.pattern.label}: ${lastLine.slice(0, 80)}`;
+      text
+        .split('\n')
+        .filter((l) => l.trim())
+        .pop()
+        ?.slice(0, 120) || text.slice(0, 120),
+    title = `${capture.pattern.label}: ${lastLine.slice(0, 80)}`;
 
   return {
     title,

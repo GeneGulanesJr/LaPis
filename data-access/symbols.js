@@ -5,8 +5,8 @@ const { TRUST_DELTA } = require('../constants');
  * @returns {{ ok:boolean, memoryId, symbolId, repo, trustScore }}
  */
 function linkSymbol(deps, { memoryId, symbolId, repo, trust }) {
-  const { sqlRun } = deps;
-  const symVal = symbolId || '__unlinked__';
+  const { sqlRun } = deps,
+    symVal = symbolId || '__unlinked__';
   sqlRun('INSERT OR REPLACE INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)', [
     memoryId,
     symVal,
@@ -138,8 +138,8 @@ function getSymbolCluster(deps, { symbolId, repo }) {
 }
 
 function getRelatedMemories(deps, { memoryId, symbolIds, _limit }) {
-  const { sqlJson } = deps;
-  const placeholders = symbolIds.map(() => '?').join(',');
+  const { sqlJson } = deps,
+    placeholders = symbolIds.map(() => '?').join(',');
   return sqlJson(
     `SELECT sl.symbol_id, o.id, o.title, o.type, o.project, o.created_at
      FROM observations o

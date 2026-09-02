@@ -25,8 +25,8 @@ describe('code-index path guards', () => {
   });
 
   it('rejects paths that escape the repo', () => {
-    const outside = path.join(os.tmpdir(), 'outside-secret.env');
-    const rejections = [];
+    const outside = path.join(os.tmpdir(), 'outside-secret.env'),
+      rejections = [];
     expect(resolveRepoScopedPath(tmpRoot, outside, rejections)).toBeNull();
     expect(resolveRepoScopedPath(tmpRoot, '../outside-secret.env', rejections)).toBeNull();
     expect(rejections.some((r) => r.reason === 'outside_repo')).toBe(true);

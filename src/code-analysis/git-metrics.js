@@ -4,8 +4,8 @@ const { createCodeIndexReadRepository } = require('./read-model');
 const { runAnalyzer } = require('./analyzer-runner');
 
 function withRepo(db, analyzer, fn) {
-  const codeIndex = createCodeIndexReadRepository(db);
-  const guard = codeIndex.guard();
+  const codeIndex = createCodeIndexReadRepository(db),
+    guard = codeIndex.guard();
   if (guard) {
     return guard;
   }

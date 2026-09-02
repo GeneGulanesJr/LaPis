@@ -185,28 +185,28 @@ describe('ast-patterns.js', () => {
 
     it('should detect 3 nested loops via indentation', () => {
       const body = [
-        'for (let i = 0; i < 10; i++) {',
-        '  for (let j = 0; j < 10; j++) {',
-        '    for (let k = 0; k < 10; k++) {',
-        '      doSomething(i, j, k);',
-        '    }',
-        '  }',
-        '}',
-      ].join('\n');
-      const result = detector.detect({ body_preview: body, start_line: 1 }, null);
+          'for (let i = 0; i < 10; i++) {',
+          '  for (let j = 0; j < 10; j++) {',
+          '    for (let k = 0; k < 10; k++) {',
+          '      doSomething(i, j, k);',
+          '    }',
+          '  }',
+          '}',
+        ].join('\n'),
+        result = detector.detect({ body_preview: body, start_line: 1 }, null);
       expect(result).not.toBeNull();
       expect(result.loop_nesting_depth).toBe(3);
     });
 
     it('should not flag 2 nested loops', () => {
       const body = [
-        'for (let i = 0; i < 10; i++) {',
-        '  for (let j = 0; j < 10; j++) {',
-        '    doSomething(i, j);',
-        '  }',
-        '}',
-      ].join('\n');
-      const result = detector.detect({ body_preview: body }, null);
+          'for (let i = 0; i < 10; i++) {',
+          '  for (let j = 0; j < 10; j++) {',
+          '    doSomething(i, j);',
+          '  }',
+          '}',
+        ].join('\n'),
+        result = detector.detect({ body_preview: body }, null);
       expect(result).toBeNull();
     });
 

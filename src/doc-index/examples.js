@@ -1,12 +1,12 @@
 const { RESULT_LIMITS } = require('../../constants');
 
 function extractCodeBlocks(content, sectionByteStart) {
-  const blocks = [];
-  const lines = content.split('\n');
-  let inBlock = false;
-  let lang = '';
-  let blockContent = [];
-  let blockStartLine = 0;
+  const blocks = [],
+    lines = content.split('\n');
+  let inBlock = false,
+    lang = '',
+    blockContent = [],
+    blockStartLine = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -17,9 +17,9 @@ function extractCodeBlocks(content, sectionByteStart) {
       blockStartLine = i;
     } else if (inBlock && line.match(/^```\s*$/)) {
       inBlock = false;
-      const blockText = blockContent.join('\n');
-      const preBytes = lines.slice(0, blockStartLine).reduce((s, l) => s + l.length + 1, 0);
-      const closingFenceBytes = lines.slice(0, i).reduce((s, l) => s + l.length + 1, 0) + line.length;
+      const blockText = blockContent.join('\n'),
+        preBytes = lines.slice(0, blockStartLine).reduce((s, l) => s + l.length + 1, 0),
+        closingFenceBytes = lines.slice(0, i).reduce((s, l) => s + l.length + 1, 0) + line.length;
       blocks.push({
         lang: lang || '',
         content: blockText,

@@ -30,13 +30,12 @@ const {
 const { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
 
 async function runUninstall(argv, io = {}) {
-  const flags = parseFlags(argv);
-  const home = resolveHermesHome(flags, io);
-  const paths = hermesPaths(home);
-  const log = io.log || ((l) => console.log(l));
-  const removed = [];
-
-  const command = hookCommand();
+  const flags = parseFlags(argv),
+    home = resolveHermesHome(flags, io),
+    paths = hermesPaths(home),
+    log = io.log || ((l) => console.log(l)),
+    removed = [],
+    command = hookCommand();
 
   // MCP server entry.
   let text = readText(paths.config);
@@ -57,7 +56,7 @@ async function runUninstall(argv, io = {}) {
 
   // Prune empty `hooks.<event>` shells, then drop the `hooks:` block and the
   // `hooks_auto_accept` scalar — but only when no other hooks remain. The
-  // scalar is shared config that other hooks may rely on for headless consent.
+  // Scalar is shared config that other hooks may rely on for headless consent.
   for (const { event } of HOOK_EVENTS) {
     text = removeEmptySubBlock(text, 'hooks', event);
   }
@@ -72,7 +71,7 @@ async function runUninstall(argv, io = {}) {
   }
 
   // Always write: if every LaPis-owned entry is gone the config may now be
-  // empty, and leaving stale content behind would be worse than an empty file.
+  // Empty, and leaving stale content behind would be worse than an empty file.
   writeTextAtomic(paths.config, text);
 
   // Allowlist approvals for the LaPis hook command.
@@ -84,7 +83,7 @@ async function runUninstall(argv, io = {}) {
       if (allow.approvals.length !== before) {
         if (allow.approvals.length === 0 && Object.keys(allow).length === 1) {
           // Nothing left to approve and the file holds only `approvals` (the
-          // shape install writes) — drop it so uninstall leaves no residue.
+          // Shape install writes) — drop it so uninstall leaves no residue.
           try {
             fs.unlinkSync(paths.allowlist);
           } catch {
@@ -102,17 +101,17 @@ async function runUninstall(argv, io = {}) {
   }
 
   // Skill directory (ours by path), then prune now-empty parent dirs so
-  // uninstall leaves zero residue under `skills/`.
+  // Uninstall leaves zero residue under `skills/`.
   const skillDir = path.dirname(paths.skillFile);
   if (fs.existsSync(paths.skillFile)) {
     fs.rmSync(skillDir, { recursive: true, force: true });
     removed.push(`skill (${path.join('skills', 'memory', 'lapis')})`);
-    let parent = path.dirname(skillDir); // skills/memory
+    let parent = path.dirname(skillDir); // Skills/memory
     for (let depth = 0; depth < 2; depth++) {
       try {
         fs.rmdirSync(parent);
       } catch {
-        break; // not empty (or missing) — stop pruning
+        break; // Not empty (or missing) — stop pruning
       }
       parent = path.dirname(parent);
     }

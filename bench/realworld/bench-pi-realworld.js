@@ -2,13 +2,13 @@
 // Realworld Pi memory benchmark.
 //
 // Runs Pi against real code-editing tasks (bugfixes, features, refactors)
-// with and without memory, then grades: tests pass, diff correct, answer
-// includes expected facts.
+// With and without memory, then grades: tests pass, diff correct, answer
+// Includes expected facts.
 //
 // Usage:
-//   npm run bench:pi-realworld
-//   node bench/realworld/bench-pi-realworld.js --runs 3
-//   node bench/realworld/bench-pi-realworld.js --only bugfix-createdb-config
+//   Npm run bench:pi-realworld
+//   Node bench/realworld/bench-pi-realworld.js --runs 3
+//   Node bench/realworld/bench-pi-realworld.js --only bugfix-createdb-config
 
 'use strict';
 
@@ -22,13 +22,12 @@ const { runTests } = require('./graders/run-tests');
 const { checkDiff } = require('./graders/check-diff');
 const { checkAnswer } = require('./graders/check-answer');
 const { checkTrajectory } = require('./graders/check-trajectory');
-const { checkConstraints } = require('./graders/check-constraints');
-
-const TASKS_DIR = path.join(__dirname, 'tasks');
-const FIXTURES_DIR = path.join(__dirname, 'fixtures');
-const DEFAULT_RUNS = 3;
-const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
-const PI_CONFIG_FILES = ['models.json', 'settings.json', 'auth.json'];
+const { checkConstraints } = require('./graders/check-constraints'),
+  TASKS_DIR = path.join(__dirname, 'tasks'),
+  FIXTURES_DIR = path.join(__dirname, 'fixtures'),
+  DEFAULT_RUNS = 3,
+  DEFAULT_TIMEOUT_MS = 30 * 60 * 1000,
+  PI_CONFIG_FILES = ['models.json', 'settings.json', 'auth.json'];
 
 // ══════════════════════════════════════════════════════════
 // ARG PARSING
@@ -178,8 +177,8 @@ function seedMemory(memorySeedPath, memoryOnHome) {
     return;
   }
 
-  const lapisRoot = findLapisRoot();
-  const msPath = path.join(lapisRoot, 'memory-store.js');
+  const lapisRoot = findLapisRoot(),
+    msPath = path.join(lapisRoot, 'memory-store.js');
 
   for (const seed of seeds) {
     const args = ['save', '--type', seed.type || 'architecture', '--title', seed.title, '--content', seed.content];
@@ -204,9 +203,9 @@ function seedMemory(memorySeedPath, memoryOnHome) {
 // ══════════════════════════════════════════════════════════
 
 function prepareNoMemoryHome(outDir) {
-  const sourceAgentDir = path.join(os.homedir(), '.pi', 'agent');
-  const homeDir = path.join(outDir, '.pi-memory-off-home');
-  const targetAgentDir = path.join(homeDir, '.pi', 'agent');
+  const sourceAgentDir = path.join(os.homedir(), '.pi', 'agent'),
+    homeDir = path.join(outDir, '.pi-memory-off-home'),
+    targetAgentDir = path.join(homeDir, '.pi', 'agent');
   fs.mkdirSync(targetAgentDir, { recursive: true });
 
   for (const file of PI_CONFIG_FILES) {
@@ -229,10 +228,10 @@ function prepareNoMemoryHome(outDir) {
 }
 
 function prepareMemoryOnHome(outDir, taskId) {
-  const sourceAgentDir = path.join(os.homedir(), '.pi', 'agent');
-  const homeDir = path.join(outDir, `.pi-memory-on-home-${taskId}`);
-  const targetAgentDir = path.join(homeDir, '.pi', 'agent');
-  const targetMemoryDir = path.join(homeDir, '.pi', 'memory');
+  const sourceAgentDir = path.join(os.homedir(), '.pi', 'agent'),
+    homeDir = path.join(outDir, `.pi-memory-on-home-${taskId}`),
+    targetAgentDir = path.join(homeDir, '.pi', 'agent'),
+    targetMemoryDir = path.join(homeDir, '.pi', 'memory');
   fs.mkdirSync(targetAgentDir, { recursive: true });
   fs.mkdirSync(targetMemoryDir, { recursive: true });
 
@@ -243,8 +242,8 @@ function prepareMemoryOnHome(outDir, taskId) {
     }
   }
 
-  const dbPath = path.join(targetMemoryDir, 'memory.db');
-  const configContent = JSON.stringify({ db_path: dbPath }, null, 2);
+  const dbPath = path.join(targetMemoryDir, 'memory.db'),
+    configContent = JSON.stringify({ db_path: dbPath }, null, 2);
   fs.writeFileSync(path.join(targetMemoryDir, 'config.jsonc'), `${configContent}\n`);
 
   return homeDir;
@@ -267,23 +266,22 @@ function runCommand(command, cwd, timeoutMs) {
   const started = Date.now();
 
   return new Promise((resolve) => {
-    let stdout = '';
-    let stderr = '';
-    let settled = false;
+    let stdout = '',
+      stderr = '',
+      settled = false;
 
     const child = spawn(command, {
-      cwd,
-      shell: true,
-      env: { ...process.env },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    const timeout = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        child.kill('SIGTERM');
-      }
-    }, timeoutMs);
+        cwd,
+        shell: true,
+        env: { ...process.env },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+      timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          child.kill('SIGTERM');
+        }
+      }, timeoutMs);
 
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString();
@@ -329,11 +327,11 @@ function runCommand(command, cwd, timeoutMs) {
 // ══════════════════════════════════════════════════════════
 
 function gradeRun(task, worktreePath, parsedOutput) {
-  const testResult = runTests(task, worktreePath);
-  const diffResult = checkDiff(task, worktreePath);
-  const answerResult = checkAnswer(parsedOutput.answer, task.success?.expected_facts || []);
-  const trajectoryResult = checkTrajectory(parsedOutput);
-  const constraintResult = checkConstraints(task, worktreePath);
+  const testResult = runTests(task, worktreePath),
+    diffResult = checkDiff(task, worktreePath),
+    answerResult = checkAnswer(parsedOutput.answer, task.success?.expected_facts || []),
+    trajectoryResult = checkTrajectory(parsedOutput),
+    constraintResult = checkConstraints(task, worktreePath);
 
   return {
     tests: testResult,
@@ -364,10 +362,10 @@ function loadTasksFromDir(dir) {
 }
 
 function loadTasks(tasksDir, opts) {
-  const { only, onlyLong, onlyShort, category } = opts || {};
-  const shortDir = path.join(tasksDir, 'short');
-  const longTasks = loadTasksFromDir(tasksDir);
-  const shortTasks = loadTasksFromDir(shortDir);
+  const { only, onlyLong, onlyShort, category } = opts || {},
+    shortDir = path.join(tasksDir, 'short'),
+    longTasks = loadTasksFromDir(tasksDir),
+    shortTasks = loadTasksFromDir(shortDir);
   let tasks;
   if (onlyLong && onlyShort) {
     tasks = [...longTasks, ...shortTasks];
@@ -393,9 +391,9 @@ function loadTasks(tasksDir, opts) {
 // ══════════════════════════════════════════════════════════
 
 async function runTaskSide(task, side, runIndex, args, repoRoot, noMemoryHome, memoryOnHome) {
-  const runId = `${task.id}.${side}.run${runIndex}`;
-  const worktreePath = path.join(args.outDir, 'worktrees', runId);
-  const outFile = path.join(args.outDir, 'transcripts', `${runId}.jsonl`);
+  const runId = `${task.id}.${side}.run${runIndex}`,
+    worktreePath = path.join(args.outDir, 'worktrees', runId),
+    outFile = path.join(args.outDir, 'transcripts', `${runId}.jsonl`);
 
   benchLog(`[${runId}] Creating worktree at ${task.setup.checkout}`);
   createWorktree(repoRoot, task.setup.checkout, worktreePath);
@@ -487,8 +485,8 @@ async function runTaskSide(task, side, runIndex, args, repoRoot, noMemoryHome, m
 // ══════════════════════════════════════════════════════════
 
 function median(values) {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
+  const sorted = [...values].sort((a, b) => a - b),
+    mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
@@ -512,24 +510,23 @@ function fmtNum(n) {
 }
 
 function printReport(results) {
-  const sides = ['memory-off', 'memory-on'];
-  const taskIds = [...new Set(results.map((r) => r.task_id))];
-
-  const bySide = {};
+  const sides = ['memory-off', 'memory-on'],
+    taskIds = [...new Set(results.map((r) => r.task_id))],
+    bySide = {};
   for (const side of sides) {
-    const sideResults = results.filter((r) => r.side === side);
-    const solved = sideResults.filter((r) => r.grade.overall).length;
-    const testPassed = sideResults.filter(
-      (r) => r.grade.tests.passed === r.grade.tests.total && r.grade.tests.total > 0,
-    ).length;
-    const activeTokens = sideResults.map((r) => r.usage.active_tokens || 0);
-    const wallTimes = sideResults.map((r) => r.elapsed_ms || 0);
-    const toolCalls = sideResults.map((r) => r.behavior?.tool_calls || 0);
-    const wrongFile = sideResults.filter((r) => !r.grade.diff.passed).length;
-    const constraintViolations = sideResults.filter((r) => !r.grade.constraints.passed).length;
-    const trajectoryScores = sideResults.map((r) => r.grade.trajectory?.score || 0).filter((s) => s > 0);
-    const linesChanged = sideResults.map((r) => r.grade.diff?.linesChanged || 0);
-    const readEditRatios = sideResults.map((r) => r.grade.trajectory?.readEditRatio || 0).filter((r) => r > 0);
+    const sideResults = results.filter((r) => r.side === side),
+      solved = sideResults.filter((r) => r.grade.overall).length,
+      testPassed = sideResults.filter(
+        (r) => r.grade.tests.passed === r.grade.tests.total && r.grade.tests.total > 0,
+      ).length,
+      activeTokens = sideResults.map((r) => r.usage.active_tokens || 0),
+      wallTimes = sideResults.map((r) => r.elapsed_ms || 0),
+      toolCalls = sideResults.map((r) => r.behavior?.tool_calls || 0),
+      wrongFile = sideResults.filter((r) => !r.grade.diff.passed).length,
+      constraintViolations = sideResults.filter((r) => !r.grade.constraints.passed).length,
+      trajectoryScores = sideResults.map((r) => r.grade.trajectory?.score || 0).filter((s) => s > 0),
+      linesChanged = sideResults.map((r) => r.grade.diff?.linesChanged || 0),
+      readEditRatios = sideResults.map((r) => r.grade.trajectory?.readEditRatio || 0).filter((r) => r > 0);
 
     bySide[side] = {
       solved: `${solved}/${sideResults.length}`,
@@ -546,22 +543,12 @@ function printReport(results) {
   }
 
   // Print table
-  const col1 = 24;
-  const colN = 12;
+  const col1 = 24,
+    colN = 12;
   benchLog('');
-  benchLog('╔' + '═'.repeat(col1 + 2) + '╤' + '═'.repeat(colN + 2) + '╤' + '═'.repeat(colN + 2) + '╗');
-  benchLog(
-    '║' +
-      'Metric'.padEnd(col1 + 2) +
-      '│' +
-      'Memory Off'.padStart(colN + 1) +
-      ' ' +
-      '│' +
-      'Memory On'.padStart(colN + 1) +
-      ' ' +
-      '║',
-  );
-  benchLog('╟' + '─'.repeat(col1 + 2) + '┼' + '─'.repeat(colN + 2) + '┼' + '─'.repeat(colN + 2) + '╢');
+  benchLog(`╔${'═'.repeat(col1 + 2)}╤${'═'.repeat(colN + 2)}╤${'═'.repeat(colN + 2)}╗`);
+  benchLog(`║${'Metric'.padEnd(col1 + 2)}│${'Memory Off'.padStart(colN + 1)} │${'Memory On'.padStart(colN + 1)} ║`);
+  benchLog(`╟${'─'.repeat(col1 + 2)}┼${'─'.repeat(colN + 2)}┼${'─'.repeat(colN + 2)}╢`);
 
   const rows = [
     ['Tasks solved', bySide['memory-off'].solved, bySide['memory-on'].solved],
@@ -594,33 +581,27 @@ function printReport(results) {
 
   for (const [label, offVal, onVal] of rows) {
     benchLog(
-      '║ ' +
-        label.padEnd(col1) +
-        ' ' +
-        '│' +
-        String(offVal).padStart(colN + 1) +
-        ' ' +
-        '│' +
-        String(onVal).padStart(colN + 1) +
-        ' ' +
-        '║',
+      `║ ${label.padEnd(col1)} ` +
+        `│${String(offVal).padStart(colN + 1)} ` +
+        `│${String(onVal).padStart(colN + 1)} ` +
+        `║`,
     );
   }
 
-  benchLog('╚' + '═'.repeat(col1 + 2) + '╧' + '═'.repeat(colN + 2) + '╧' + '═'.repeat(colN + 2) + '╝');
+  benchLog(`╚${'═'.repeat(col1 + 2)}╧${'═'.repeat(colN + 2)}╧${'═'.repeat(colN + 2)}╝`);
   benchLog('');
 
   // Per-task detail
   benchLog('Per-task results:');
   for (const taskId of taskIds) {
     for (const side of sides) {
-      const taskResults = results.filter((r) => r.task_id === taskId && r.side === side);
-      const overall = taskResults.filter((r) => r.grade.overall).length;
-      const tokens = taskResults.map((r) => r.usage.active_tokens || 0);
-      const tools = taskResults.map((r) => r.behavior?.tool_calls || 0);
-      const trajScore = taskResults.map((r) => r.grade.trajectory?.score || 0);
-      const constraints = taskResults.filter((r) => !r.grade.constraints.passed).length;
-      const lines = taskResults.map((r) => r.grade.diff?.linesChanged || 0);
+      const taskResults = results.filter((r) => r.task_id === taskId && r.side === side),
+        overall = taskResults.filter((r) => r.grade.overall).length,
+        tokens = taskResults.map((r) => r.usage.active_tokens || 0),
+        tools = taskResults.map((r) => r.behavior?.tool_calls || 0),
+        trajScore = taskResults.map((r) => r.grade.trajectory?.score || 0),
+        constraints = taskResults.filter((r) => !r.grade.constraints.passed).length,
+        lines = taskResults.map((r) => r.grade.diff?.linesChanged || 0);
       benchLog(
         `  ${taskId} (${side}): ${overall}/${taskResults.length} solved, ` +
           `median ${fmtNum(median(tokens))} tokens, ${fmtNum(median(tools))} tools, ` +
@@ -671,13 +652,13 @@ async function runWarmup(warmupFile, repoRoot, outDir, warmupHome) {
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const tasks = loadTasks(TASKS_DIR, {
-    only: args.only,
-    onlyLong: args.onlyLong,
-    onlyShort: args.onlyShort,
-    category: args.category,
-  });
+  const args = parseArgs(process.argv.slice(2)),
+    tasks = loadTasks(TASKS_DIR, {
+      only: args.only,
+      onlyLong: args.onlyLong,
+      onlyShort: args.onlyShort,
+      category: args.category,
+    });
 
   if (tasks.length === 0) {
     console.error('No tasks found. Add task JSON files to bench/realworld/tasks/');
@@ -686,8 +667,8 @@ async function main() {
 
   const outDir = path.resolve(args.outDir);
   fs.mkdirSync(outDir, { recursive: true });
-  const repoRoot = getRepoRoot();
-  const noMemoryHome = prepareNoMemoryHome(outDir);
+  const repoRoot = getRepoRoot(),
+    noMemoryHome = prepareNoMemoryHome(outDir);
 
   // For accumulate mode, create a single shared memory-on HOME
   let accumulateMemoryOnHome = null;
@@ -695,8 +676,8 @@ async function main() {
     accumulateMemoryOnHome = prepareMemoryOnHome(outDir, 'accumulate');
   }
 
-  const longCount = tasks.filter((t) => t.horizon === 'long').length;
-  const shortCount = tasks.length - longCount;
+  const longCount = tasks.filter((t) => t.horizon === 'long').length,
+    shortCount = tasks.length - longCount;
   benchLog(`[bench] Realworld Pi Memory Benchmark`);
   benchLog(`[bench] Tasks: ${tasks.length} (${longCount} long, ${shortCount} short), Runs per side: ${args.runs}`);
   benchLog(`[bench] Output: ${outDir}`);
@@ -735,9 +716,9 @@ async function main() {
 
       // Memory-off first, then memory-on
       // eslint-disable-next-line no-await-in-loop
-      const off = await runTaskSide(task, 'memory-off', runIndex, args, repoRoot, noMemoryHome, memoryOnHome);
-      // eslint-disable-next-line no-await-in-loop
-      const on = await runTaskSide(task, 'memory-on', runIndex, args, repoRoot, noMemoryHome, memoryOnHome);
+      const off = await runTaskSide(task, 'memory-off', runIndex, args, repoRoot, noMemoryHome, memoryOnHome),
+        // eslint-disable-next-line no-await-in-loop
+        on = await runTaskSide(task, 'memory-on', runIndex, args, repoRoot, noMemoryHome, memoryOnHome);
 
       allResults.push({ task_id: task.id, category: task.category, ...off });
       allResults.push({ task_id: task.id, category: task.category, ...on });
@@ -746,13 +727,13 @@ async function main() {
 
   // Save full results
   const report = {
-    generated_at: new Date().toISOString(),
-    host: os.hostname(),
-    runs: args.runs,
-    tasks: tasks.map((t) => t.id),
-    results: allResults,
-  };
-  const reportPath = path.join(outDir, 'report.json');
+      generated_at: new Date().toISOString(),
+      host: os.hostname(),
+      runs: args.runs,
+      tasks: tasks.map((t) => t.id),
+      results: allResults,
+    },
+    reportPath = path.join(outDir, 'report.json');
   fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
   // Print report

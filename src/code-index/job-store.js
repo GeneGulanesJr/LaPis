@@ -1,11 +1,11 @@
 // CRUD for the index_jobs table. Uses the high-level sqlJson/sqlRun wrappers
-// from db.js so it works in both the worker thread (which calls createDb()
-// inside the worker) and in CLI/tests. SQLite WAL mode lets readers and
-// writers proceed in parallel without blocking each other.
+// From db.js so it works in both the worker thread (which calls createDb()
+// Inside the worker) and in CLI/tests. SQLite WAL mode lets readers and
+// Writers proceed in parallel without blocking each other.
 //
 // The wrapper accepts a "deps" object shaped like { sqlJson, sqlRun }.
 // Tests pass { sqlJson, sqlRun } from a fresh createDb() session; the worker
-// uses the same functions from db.js.
+// Uses the same functions from db.js.
 
 function createJob(deps, { repoName, mode = 'full', filesTotal = 0 }) {
   const rows = deps.sqlJson(
@@ -17,8 +17,8 @@ function createJob(deps, { repoName, mode = 'full', filesTotal = 0 }) {
 }
 
 function updateProgress(deps, jobId, { filesDone, currentFile, languageBreakdown }) {
-  const sets = ['files_done = ?'];
-  const params = [filesDone];
+  const sets = ['files_done = ?'],
+    params = [filesDone];
   if (currentFile !== undefined) {
     sets.push('current_file = ?');
     params.push(currentFile);
@@ -32,8 +32,8 @@ function updateProgress(deps, jobId, { filesDone, currentFile, languageBreakdown
 }
 
 function completeJob(deps, jobId, { status, error } = {}) {
-  const finalStatus = status || 'completed';
-  const params = [finalStatus];
+  const finalStatus = status || 'completed',
+    params = [finalStatus];
   let sql = `UPDATE index_jobs SET status = ?, completed_at = datetime('now')`;
   if (error) {
     sql += ', error = ?';

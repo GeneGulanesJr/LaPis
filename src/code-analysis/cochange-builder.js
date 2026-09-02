@@ -9,8 +9,8 @@ const { execFileSync } = require('child_process');
  * Returns a map of "fileA::fileB" → co_commit_count.
  */
 function parseGitLogForCochange(logOutput) {
-  const pairs = {};
-  const lines = logOutput.split('\n');
+  const pairs = {},
+    lines = logOutput.split('\n');
   let currentFiles = [];
 
   for (const line of lines) {
@@ -44,19 +44,18 @@ function processCommitFiles(files, pairs) {
  */
 function storeCochangePairs(db, repoId, pairs, pathToId, windowDays) {
   const insertStmt = db.prepare(
-    `INSERT INTO file_cochange (repo_id, file_a_id, file_b_id, co_commit_count, strength, window_days)
+      `INSERT INTO file_cochange (repo_id, file_a_id, file_b_id, co_commit_count, strength, window_days)
      VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(repo_id, file_a_id, file_b_id) DO UPDATE SET
        co_commit_count = excluded.co_commit_count,
        strength = excluded.strength`,
-  );
-
-  const maxCount = Math.max(...Object.values(pairs), 1);
+    ),
+    maxCount = Math.max(...Object.values(pairs), 1);
 
   for (const [key, count] of Object.entries(pairs)) {
-    const [pathA, pathB] = key.split('::');
-    const idA = pathToId.get(pathA);
-    const idB = pathToId.get(pathB);
+    const [pathA, pathB] = key.split('::'),
+      idA = pathToId.get(pathA),
+      idB = pathToId.get(pathB);
     if (idA && idB) {
       const strength = Math.round((count / maxCount) * 100) / 100;
 
@@ -71,9 +70,8 @@ function storeCochangePairs(db, repoId, pairs, pathToId, windowDays) {
  * Full reindex only — expensive operation, cached in file_cochange table.
  */
 function buildCochangeEdges(db, repoId, opts = {}) {
-  const { windowDays = 90 } = opts;
-
-  const repo = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId);
+  const { windowDays = 90 } = opts,
+    repo = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId);
   if (!repo || !repo.path) {
     return { success: false, count: 0, reason: 'repo not found' };
   }
@@ -94,8 +92,8 @@ function buildCochangeEdges(db, repoId, opts = {}) {
     return { success: true, count: 0 };
   }
 
-  const files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId);
-  const pathToId = new Map(files.map((f) => [f.path, f.id]));
+  const files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
+    pathToId = new Map(files.map((f) => [f.path, f.id]));
 
   db.prepare('DELETE FROM file_cochange WHERE repo_id = ? AND window_days = ?').run(repoId, windowDays);
 

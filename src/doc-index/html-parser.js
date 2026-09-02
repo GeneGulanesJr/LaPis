@@ -1,11 +1,10 @@
 const path = require('path');
 const { hashContent } = require('../../utils');
-const { classifyRole } = require('./markdown-parser');
-
-const HTML_ROLE_PATTERNS = [
-  { pattern: /navigation|sidebar|menu/i, role: 'navigation' },
-  { pattern: /landing|hero|banner|jumbotron/i, role: 'landing' },
-];
+const { classifyRole } = require('./markdown-parser'),
+  HTML_ROLE_PATTERNS = [
+    { pattern: /navigation|sidebar|menu/i, role: 'navigation' },
+    { pattern: /landing|hero|banner|jumbotron/i, role: 'landing' },
+  ];
 
 function classifyHtmlRole(title, content, classAttrs) {
   const text = `${title} ${(content || '').slice(0, 200)} ${(classAttrs || '').slice(0, 100)}`;
@@ -35,8 +34,8 @@ function stripHtmlTags(html) {
 }
 
 function extractHtmlSections(content, filePath) {
-  const sections = [];
-  const hasHeadings = /<h[1-6][\s>]/i.test(content);
+  const sections = [],
+    hasHeadings = /<h[1-6][\s>]/i.test(content);
 
   if (!hasHeadings) {
     const textContent = stripHtmlTags(content);
@@ -72,8 +71,8 @@ function extractHtmlSections(content, filePath) {
   const title = extractTitle(content) || path.basename(filePath);
 
   if (headingRanges[0].start > 0) {
-    const preamble = content.slice(0, headingRanges[0].start);
-    const textContent = stripHtmlTags(preamble);
+    const preamble = content.slice(0, headingRanges[0].start),
+      textContent = stripHtmlTags(preamble);
     if (textContent.trim()) {
       sections.push({
         title,
@@ -89,10 +88,10 @@ function extractHtmlSections(content, filePath) {
   }
 
   for (let i = 0; i < headingRanges.length; i++) {
-    const heading = headingRanges[i];
-    const nextStart = i + 1 < headingRanges.length ? headingRanges[i + 1].start : content.length;
-    const sectionContent = content.slice(heading.end, nextStart);
-    const textContent = stripHtmlTags(sectionContent);
+    const heading = headingRanges[i],
+      nextStart = i + 1 < headingRanges.length ? headingRanges[i + 1].start : content.length,
+      sectionContent = content.slice(heading.end, nextStart),
+      textContent = stripHtmlTags(sectionContent);
     sections.push({
       title: stripHtmlTags(heading.text),
       level: heading.level,
@@ -109,14 +108,14 @@ function extractHtmlSections(content, filePath) {
 }
 
 function findHeadings(content) {
-  const headings = [];
-  const re = /<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>/gi;
+  const headings = [],
+    re = /<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>/gi;
   let match;
   while ((match = re.exec(content)) !== null) {
-    const level = parseInt(match[1], 10);
-    const text = match[3];
-    const start = match.index;
-    const end = start + match[0].length;
+    const level = parseInt(match[1], 10),
+      text = match[3],
+      start = match.index,
+      end = start + match[0].length;
     headings.push({ level, text, start, end });
   }
   return headings;
@@ -135,8 +134,8 @@ function extractTitle(content) {
 }
 
 function extractHtmlTags(content) {
-  const tags = new Set();
-  const classRe = /\bclass\s*=\s*["']([^"']+)["']/gi;
+  const tags = new Set(),
+    classRe = /\bclass\s*=\s*["']([^"']+)["']/gi;
   let match;
   while ((match = classRe.exec(content)) !== null) {
     for (const cls of match[1].split(/\s+/)) {
@@ -163,14 +162,14 @@ function extractHtmlTags(content) {
 }
 
 function extractHtmlLinks(content) {
-  const links = [];
-  const seen = new Set();
-  const re = /<a\s[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const links = [],
+    seen = new Set(),
+    re = /<a\s[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
   let match;
   while ((match = re.exec(content)) !== null) {
-    const href = match[1];
-    const text = stripHtmlTags(match[2]).trim();
-    const key = `${href}:${text}`;
+    const href = match[1],
+      text = stripHtmlTags(match[2]).trim(),
+      key = `${href}:${text}`;
     if (!seen.has(key)) {
       seen.add(key);
       links.push({ href, text });

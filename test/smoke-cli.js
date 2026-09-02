@@ -7,14 +7,13 @@
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
+const os = require('os'),
+  ROOT = path.resolve(__dirname, '..'),
+  CLI = `node "${path.join(ROOT, 'memory-store.js')}"`,
+  TMP_DIR = path.join(os.tmpdir(), `lapis-smoke-${Date.now()}`);
 
-const ROOT = path.resolve(__dirname, '..');
-const CLI = `node "${path.join(ROOT, 'memory-store.js')}"`;
-const TMP_DIR = path.join(os.tmpdir(), `lapis-smoke-${Date.now()}`);
-
-let passed = 0;
-let failed = 0;
+let passed = 0,
+  failed = 0;
 const failures = [];
 
 function ensureDir(dir) {
@@ -112,93 +111,92 @@ smokeTest('save -h prints save usage', `${CLI} save -h`, {
 
 // Verify key subcommands are listed
 const helpOutput = (() => {
-  try {
-    return execSync(`${CLI} --help`, {
-      cwd: ROOT,
-      encoding: 'utf8',
-      timeout: 10000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-  } catch (e) {
-    // Fallback: capture from combined streams if exit code differs
-    return (e.stdout || '') + (e.stderr || '');
-  }
-})();
-
-const requiredCommands = [
-  'save',
-  'search',
-  'context',
-  'get',
-  'update',
-  'delete',
-  'index-repo',
-  'reindex-repo',
-  'search-code',
-  'list-code-repos',
-  'remove-code-repo',
-  'import-graph',
-  'call-hierarchy',
-  'blast-radius',
-  'dead-code',
-  'complexity',
-  'outline',
-  'churn',
-  'hotspots',
-  'cycles',
-  'importance',
-  'coupling',
-  'extractable',
-  'hierarchy',
-  'signal-chains',
-  'layer-violations',
-  'winnow',
-  'ast-patterns',
-  'untested',
-  'pr-risk',
-  'index-docs',
-  'reindex-docs',
-  'doc-search',
-  'doc-outline',
-  'backlinks',
-  'broken-links',
-  'glossary',
-  'tutorial-path',
-  'code-examples',
-  'doc-orphans',
-  'doc-coverage',
-  'stale-pages',
-  'doc-duplicates',
-  'link-symbol',
-  'auto-link',
-  'adjust-trust',
-  'sync-code-trust',
-  'symbol-cluster',
-  'related',
-  'session-start',
-  'session-end',
-  'session-summary',
-  'init',
-  'compact',
-  'dream',
-  'auto-recover',
-  'recover-orphans',
-  'trust-recovery',
-  'list-projects',
-  'list-workspaces',
-  'create-workspace',
-  'archive-workspace',
-  'stats',
-  'timeline',
-  'check-dup',
-  'mark-dup',
-  'save-prompt',
-  'capture-passive',
-  'suggest-topic-key',
-  'record-recall',
-  'stale-links',
-  'provenance',
-];
+    try {
+      return execSync(`${CLI} --help`, {
+        cwd: ROOT,
+        encoding: 'utf8',
+        timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch (e) {
+      // Fallback: capture from combined streams if exit code differs
+      return (e.stdout || '') + (e.stderr || '');
+    }
+  })(),
+  requiredCommands = [
+    'save',
+    'search',
+    'context',
+    'get',
+    'update',
+    'delete',
+    'index-repo',
+    'reindex-repo',
+    'search-code',
+    'list-code-repos',
+    'remove-code-repo',
+    'import-graph',
+    'call-hierarchy',
+    'blast-radius',
+    'dead-code',
+    'complexity',
+    'outline',
+    'churn',
+    'hotspots',
+    'cycles',
+    'importance',
+    'coupling',
+    'extractable',
+    'hierarchy',
+    'signal-chains',
+    'layer-violations',
+    'winnow',
+    'ast-patterns',
+    'untested',
+    'pr-risk',
+    'index-docs',
+    'reindex-docs',
+    'doc-search',
+    'doc-outline',
+    'backlinks',
+    'broken-links',
+    'glossary',
+    'tutorial-path',
+    'code-examples',
+    'doc-orphans',
+    'doc-coverage',
+    'stale-pages',
+    'doc-duplicates',
+    'link-symbol',
+    'auto-link',
+    'adjust-trust',
+    'sync-code-trust',
+    'symbol-cluster',
+    'related',
+    'session-start',
+    'session-end',
+    'session-summary',
+    'init',
+    'compact',
+    'dream',
+    'auto-recover',
+    'recover-orphans',
+    'trust-recovery',
+    'list-projects',
+    'list-workspaces',
+    'create-workspace',
+    'archive-workspace',
+    'stats',
+    'timeline',
+    'check-dup',
+    'mark-dup',
+    'save-prompt',
+    'capture-passive',
+    'suggest-topic-key',
+    'record-recall',
+    'stale-links',
+    'provenance',
+  ];
 
 for (const cmd of requiredCommands) {
   const found = helpOutput.includes(cmd);

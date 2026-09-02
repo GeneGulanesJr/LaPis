@@ -1,9 +1,8 @@
 const path = require('path');
 const fs = require('fs');
 const codeParser = require('../parse-code');
-const { extractImportBindings } = require('../src/code-analysis');
-
-const TMP_DIR = path.join('/tmp', 'accuracy-tests');
+const { extractImportBindings } = require('../src/code-analysis'),
+  TMP_DIR = path.join('/tmp', 'accuracy-tests');
 
 function writeTmp(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -41,8 +40,8 @@ function foo() {
 `,
     );
     try {
-      const callees = codeParser.extractCallees(tmpFile);
-      const objCall = callees.find((c) => c.callee === 'method');
+      const callees = codeParser.extractCallees(tmpFile),
+        objCall = callees.find((c) => c.callee === 'method');
       expect(objCall).toBeDefined();
       expect(objCall.receiver).toBe('obj');
       expect(objCall.full_path).toBe('obj.method');
@@ -78,8 +77,8 @@ function foo() {
 `,
     );
     try {
-      const callees = codeParser.extractCallees(tmpFile);
-      const prepareCall = callees.find((c) => c.callee === 'prepare');
+      const callees = codeParser.extractCallees(tmpFile),
+        prepareCall = callees.find((c) => c.callee === 'prepare');
       expect(prepareCall).toBeDefined();
       expect(prepareCall.receiver).toBe('db');
 
@@ -103,8 +102,8 @@ function foo() {
 `,
     );
     try {
-      const callees = codeParser.extractCallees(tmpFile);
-      const names = callees.map((c) => c.callee);
+      const callees = codeParser.extractCallees(tmpFile),
+        names = callees.map((c) => c.callee);
       expect(names).toContain('bar');
       expect(names).toContain('baz');
       expect(names).toContain('ClassName');
@@ -123,8 +122,8 @@ function foo() {
 
 describe('accuracy: extractImportBindings', () => {
   it('should parse default imports', () => {
-    const content = `import foo from './utils';`;
-    const bindings = extractImportBindings(content);
+    const content = `import foo from './utils';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(1);
     expect(bindings[0].localName).toBe('foo');
     expect(bindings[0].originalName).toBe('default');
@@ -132,8 +131,8 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse named imports', () => {
-    const content = `import { foo, bar } from './utils';`;
-    const bindings = extractImportBindings(content);
+    const content = `import { foo, bar } from './utils';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(2);
     expect(bindings[0].localName).toBe('foo');
     expect(bindings[0].originalName).toBe('foo');
@@ -142,8 +141,8 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse aliased imports (import { foo as bar })', () => {
-    const content = `import { parse as parseExpr, validate as check } from './parser';`;
-    const bindings = extractImportBindings(content);
+    const content = `import { parse as parseExpr, validate as check } from './parser';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(2);
     expect(bindings[0].localName).toBe('parseExpr');
     expect(bindings[0].originalName).toBe('parse');
@@ -153,8 +152,8 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse mixed default + named imports', () => {
-    const content = `import React, { useState, useEffect } from 'react';`;
-    const bindings = extractImportBindings(content);
+    const content = `import React, { useState, useEffect } from 'react';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(3);
     expect(bindings[0].localName).toBe('React');
     expect(bindings[0].originalName).toBe('default');
@@ -164,16 +163,16 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse namespace imports (* as)', () => {
-    const content = `import * as utils from './utils';`;
-    const bindings = extractImportBindings(content);
+    const content = `import * as utils from './utils';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(1);
     expect(bindings[0].localName).toBe('utils');
     expect(bindings[0].originalName).toBe('*');
   });
 
   it('should parse require() destructuring with aliases', () => {
-    const content = `const { parse: parseExpr, validate } = require('./parser');`;
-    const bindings = extractImportBindings(content);
+    const content = `const { parse: parseExpr, validate } = require('./parser');`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(2);
     expect(bindings[0].localName).toBe('parseExpr');
     expect(bindings[0].originalName).toBe('parse');
@@ -182,26 +181,26 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse require() whole module', () => {
-    const content = `const utils = require('./utils');`;
-    const bindings = extractImportBindings(content);
+    const content = `const utils = require('./utils');`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(1);
     expect(bindings[0].localName).toBe('utils');
     expect(bindings[0].originalName).toBe('*');
   });
 
   it('should return empty for files with no imports', () => {
-    const content = `function foo() { return 1; }`;
-    const bindings = extractImportBindings(content);
+    const content = `function foo() { return 1; }`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(0);
   });
 
   it('should handle multiple imports across lines', () => {
     const content = [
-      `import { foo } from './a';`,
-      `import { bar as baz } from './b';`,
-      `import defVal from './c';`,
-    ].join('\n');
-    const bindings = extractImportBindings(content);
+        `import { foo } from './a';`,
+        `import { bar as baz } from './b';`,
+        `import defVal from './c';`,
+      ].join('\n'),
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(3);
     const localNames = bindings.map((b) => b.localName);
     expect(localNames).toContain('foo');
@@ -212,12 +211,11 @@ describe('accuracy: extractImportBindings', () => {
 
 describe('accuracy: end-to-end cross-file resolution', () => {
   const Database = require('better-sqlite3');
-  const codeAnalysis = require('../src/code-analysis');
-  const TEST_DB_PATH = path.join(TMP_DIR, 'accuracy-test.db');
-  const TEST_REPO_DIR = path.join(TMP_DIR, 'test-repo');
-
-  const files = {
-    'utils.js': `
+  const codeAnalysis = require('../src/code-analysis'),
+    TEST_DB_PATH = path.join(TMP_DIR, 'accuracy-test.db'),
+    TEST_REPO_DIR = path.join(TMP_DIR, 'test-repo'),
+    files = {
+      'utils.js': `
 function helper() {
   return 42;
 }
@@ -226,13 +224,13 @@ function processItem(item) {
 }
 module.exports = { helper, processItem };
 `,
-    'parser.js': `
+      'parser.js': `
 function parse(input) {
   return JSON.parse(input);
 }
 module.exports = { parse };
 `,
-    'consumer.js': `
+      'consumer.js': `
 const { helper: getHelp, processItem } = require('./utils');
 const { parse } = require('./parser');
 
@@ -242,7 +240,7 @@ function doWork() {
   parse('{}');
 }
 `,
-    'classes.js': `
+      'classes.js': `
 class Base {
   init() {
     return 'base';
@@ -256,10 +254,9 @@ class Child extends Base {
   }
 }
 `,
-  };
+    };
 
-  let db;
-  let repoId;
+  let db, repoId;
 
   beforeAll(async () => {
     fs.mkdirSync(TEST_REPO_DIR, { recursive: true });
@@ -274,26 +271,25 @@ class Child extends Base {
     const schemaSql = fs.readFileSync(path.resolve(__dirname, '..', 'schema.sql'), 'utf-8');
     db.exec(schemaSql);
 
-    const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)');
-    const info = insertRepo.run('AccuracyTestRepo', TEST_REPO_DIR);
+    const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)'),
+      info = insertRepo.run('AccuracyTestRepo', TEST_REPO_DIR);
     repoId = info.lastInsertRowid;
 
     const insertFile = db.prepare(
-      'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
-    );
-    const insertSymbol = db.prepare(
-      `INSERT INTO code_symbols (repo_id, file_id, name, kind, language, file_path, signature, qualified_name, start_line, end_line, start_byte, end_byte, parent_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
+        'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+      ),
+      insertSymbol = db.prepare(
+        `INSERT INTO code_symbols (repo_id, file_id, name, kind, language, file_path, signature, qualified_name, start_line, end_line, start_byte, end_byte, parent_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
 
     await codeParser.init();
 
     for (const [name, content] of Object.entries(files)) {
-      const filePath = path.join(TEST_REPO_DIR, name);
-      const hash = require('crypto').createHash('md5').update(content).digest('hex');
-      const fileInfo = insertFile.run(repoId, filePath, 'javascript', content, hash);
-      const fileId = fileInfo.lastInsertRowid;
-
-      const symbols = codeParser.parseFile(filePath);
+      const filePath = path.join(TEST_REPO_DIR, name),
+        hash = require('crypto').createHash('md5').update(content).digest('hex'),
+        fileInfo = insertFile.run(repoId, filePath, 'javascript', content, hash),
+        fileId = fileInfo.lastInsertRowid,
+        symbols = codeParser.parseFile(filePath);
       for (const sym of symbols) {
         insertSymbol.run(
           repoId,
@@ -404,9 +400,9 @@ class Child extends Base {
 
   it('should track qualified names for class methods', () => {
     const symbols = db
-      .prepare('SELECT name, qualified_name, parent_name FROM code_symbols WHERE repo_id = ?')
-      .all(repoId);
-    const initMethod = symbols.find((s) => s.name === 'init' && s.parent_name === 'Base');
+        .prepare('SELECT name, qualified_name, parent_name FROM code_symbols WHERE repo_id = ?')
+        .all(repoId),
+      initMethod = symbols.find((s) => s.name === 'init' && s.parent_name === 'Base');
     expect(initMethod).toBeDefined();
     expect(initMethod.qualified_name).toBe('Base.init');
   });

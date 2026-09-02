@@ -42,11 +42,10 @@ export function invalidateRepoCache(): void {
 export function isRepoStale(repo: RepoInfo): boolean {
   try {
     const fs = require('fs');
-    const pathMod = require('path');
-    const indexedTime = new Date(repo.indexed_at).getTime() + 3600000; // 1h grace
-
-    // Sample up to 50 source files for mtime changes
-    const extensions = new Set(['.js', '.ts', '.tsx', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java']);
+    const pathMod = require('path'),
+      indexedTime = new Date(repo.indexed_at).getTime() + 3600000, // 1h grace
+      // Sample up to 50 source files for mtime changes
+      extensions = new Set(['.js', '.ts', '.tsx', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java']);
     let checked = 0;
     const maxCheck = 50;
 
@@ -108,8 +107,8 @@ export async function detectProject(cwd: string): Promise<string> {
   try {
     const codeRepos = await getKnownRepos();
     if (codeRepos.length > 0) {
-      let bestRepo: { repo: RepoInfo; depth: number } | null = null;
-      let dir = resolved;
+      let bestRepo: { repo: RepoInfo; depth: number } | null = null,
+        dir = resolved;
       const root = path.parse(dir).root;
       while (dir !== root && dir !== path.dirname(dir)) {
         for (const repo of codeRepos) {
@@ -133,8 +132,8 @@ export async function detectProject(cwd: string): Promise<string> {
   let dir = resolved;
   const root = path.parse(dir).root;
   while (dir !== root && dir !== path.dirname(dir)) {
-    const name = path.basename(dir);
-    const match = knownProjects.find((p) => p && p.toLowerCase() === name.toLowerCase());
+    const name = path.basename(dir),
+      match = knownProjects.find((p) => p && p.toLowerCase() === name.toLowerCase());
     if (match) {
       return match;
     }

@@ -1,14 +1,13 @@
 const {
-  readGuardReason,
-  guardReason,
-  searchGuardReason,
-  buildSessionEndArgs,
-  handlePayload,
-  runHook,
-  countSessionMemories,
-} = require('../../src/hermes/hook');
-
-const REPOS = [{ name: 'Proj', path: '/work/proj' }];
+    readGuardReason,
+    guardReason,
+    searchGuardReason,
+    buildSessionEndArgs,
+    handlePayload,
+    runHook,
+    countSessionMemories,
+  } = require('../../src/hermes/hook'),
+  REPOS = [{ name: 'Proj', path: '/work/proj' }];
 
 function payload(overrides = {}) {
   return {

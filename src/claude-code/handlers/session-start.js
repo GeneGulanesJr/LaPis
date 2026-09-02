@@ -29,20 +29,20 @@ const { buildInjectedContext } = require('../context-inject');
  * @returns {Promise<object|null>}       Claude Code JSON or null
  */
 async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore }) {
-  const source = payload.source || 'startup';
-  const { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
-  const cwd = resolveCwd(payload.cwd);
-  const claudeSessionId = payload.session_id;
+  const source = payload.source || 'startup',
+    { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
+    cwd = resolveCwd(payload.cwd),
+    claudeSessionId = payload.session_id;
 
   let state = stateStore.loadState(claudeSessionId);
 
-  // compact re-uses the existing sessionId and skips session-start entirely.
+  // Compact re-uses the existing sessionId and skips session-start entirely.
   const isCompact = source === 'compact';
 
   if (!isCompact) {
     // GC orphaned state files from force-killed sessions before starting fresh.
     // The TTL honors LAPIS_SESSION_TTL_HOURS (default 24h); surface a sweep so
-    // the user can correlate a missing state file (#233).
+    // The user can correlate a missing state file (#233).
     try {
       const sweep = stateStore.sweepStaleSessions();
       if (sweep && sweep.swept > 0) {
@@ -72,8 +72,8 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownPr
 
     const result = await dispatch('session-start', { project });
     // A nullish server value must NOT overwrite the default null — SessionEnd's
-    // guard treats sessionId === null as "no session ever started" and skips the
-    // summary. Only accept a concrete value so the two checks stay symmetric.
+    // Guard treats sessionId === null as "no session ever started" and skips the
+    // Summary. Only accept a concrete value so the two checks stay symmetric.
     if (result && result.sessionId !== undefined && result.sessionId !== null) {
       state.sessionId = result.sessionId;
       state.projectSessionCount = result.sessionCount || 0;
@@ -87,7 +87,7 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownPr
   }
 
   // Inject (or re-inject after compact) context. sessionId may be null on a
-  // failed session-start; context still loads without a session binding.
+  // Failed session-start; context still loads without a session binding.
   const additionalContext = await buildInjectedContext({
     dispatch,
     getKnownRepos,

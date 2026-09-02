@@ -1,8 +1,8 @@
 const PROGRESS_PATTERNS =
-  /(?:^npm warn|⠙|⠴|⠦|⠧|⠇|⠏|⠋|⠉|⠓|⠒|⠐|⠄|bulk|extracting|fetching|receiving|resolving|downloading|hovering|htmlandering)/i;
-const WARNING_PATTERNS = /\b(?:warn|warning|peer dep|mismatch|deprecated|vulnerab)\b/i;
-const ERROR_PATTERNS = /\b(?:ERR|error|ERR!|ENOENT|EACCES|404|500)\b/i;
-const SUMMARY_PATTERNS = /\b(?:added|removed|changed|audited|packages|up to date|vulnerabilities)\b/i;
+    /(?:^npm warn|⠙|⠴|⠦|⠧|⠇|⠏|⠋|⠉|⠓|⠒|⠐|⠄|bulk|extracting|fetching|receiving|resolving|downloading|hovering|htmlandering)/i,
+  WARNING_PATTERNS = /\b(?:warn|warning|peer dep|mismatch|deprecated|vulnerab)\b/i,
+  ERROR_PATTERNS = /\b(?:ERR|error|ERR!|ENOENT|EACCES|404|500)\b/i,
+  SUMMARY_PATTERNS = /\b(?:added|removed|changed|audited|packages|up to date|vulnerabilities)\b/i;
 
 function compressInstallOutput({ stdout, stderr, exitCode }) {
   const combined = `${stdout}\n${stderr}`.trim();
@@ -14,10 +14,10 @@ function compressInstallOutput({ stdout, stderr, exitCode }) {
     };
   }
 
-  const lines = combined.split('\n');
-  const warnings = [];
-  const errors = [];
-  const summaryLines = [];
+  const lines = combined.split('\n'),
+    warnings = [],
+    errors = [],
+    summaryLines = [];
   let hiddenCount = 0;
 
   for (const line of lines) {

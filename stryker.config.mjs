@@ -17,14 +17,14 @@
 export default {
   packageManager: 'npm',
   // Explicit plugin list — Stryker 9 needs this when packages are installed
-  // via npm (auto-discovery via keywords doesn't always trigger).
+  // Via npm (auto-discovery via keywords doesn't always trigger).
   plugins: ['@stryker-mutator/vitest-runner', '@stryker-mutator/typescript-checker'],
   reporters: ['html', 'clear-text', 'progress', 'json'],
   testRunner: 'vitest',
-  // perTest = only run tests that cover the mutated line (huge speedup).
+  // PerTest = only run tests that cover the mutated line (huge speedup).
   // Falls back to "all" automatically if the runner can't compute coverage
   // (LaPis doesn't ship @vitest/coverage-v8 by default — install it for
-  // perTest speed, otherwise all tests run per mutant).
+  // PerTest speed, otherwise all tests run per mutant).
   coverageAnalysis: 'perTest',
   // Incremental runs share results with previous runs (skip already-killed mutants).
   incremental: true,
@@ -35,11 +35,11 @@ export default {
   // Mutations here directly change what the Pi agent sees in context.
   // P1/P2 (compaction, observation storage, code-index) added after baseline.
   mutate: [
-    'src/memory-domain/search.js', // search + ranking (414 lines)
-    'src/memory-domain/dedupe.js', // memory deduplication (85 lines)
-    'src/memory-domain/recall.js', // recall orchestration (22 lines)
-    'src/memory-domain/context.js', // context building (320 lines)
-    'src/platform/storage/repositories/memory.js', // core memory CRUD (70 lines)
+    'src/memory-domain/search.js', // Search + ranking (414 lines)
+    'src/memory-domain/dedupe.js', // Memory deduplication (85 lines)
+    'src/memory-domain/recall.js', // Recall orchestration (22 lines)
+    'src/memory-domain/context.js', // Context building (320 lines)
+    'src/platform/storage/repositories/memory.js', // Core memory CRUD (70 lines)
   ],
   // Don't try to mutate generated files, type-declarations, or vendored deps.
   // DO NOT exclude test/ — vitest needs it in the sandbox.
@@ -52,15 +52,15 @@ export default {
     'dist/**',
     '**/coverage/**',
     'bench/**',
-    // grammars/** NOT excluded — tree-sitter WASM files are needed by
-    // index-repo tests. They're git-tracked so they copy into the sandbox.
+    // Grammars/** NOT excluded — tree-sitter WASM files are needed by
+    // Index-repo tests. They're git-tracked so they copy into the sandbox.
   ],
   vitest: {
     configFile: 'vitest.config.mjs',
     // Disable vitest's "related test" detection — it requires every source
-    // file to be importable from test files, which breaks for cross-module
-    // imports in LaPis. We'll pay the cost of running all tests per mutant
-    // in exchange for actually running tests.
+    // File to be importable from test files, which breaks for cross-module
+    // Imports in LaPis. We'll pay the cost of running all tests per mutant
+    // In exchange for actually running tests.
     related: false,
   },
   tsconfigFile: 'tsconfig.json',

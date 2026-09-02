@@ -4,8 +4,8 @@ const { DUPLICATE_DETECTION: CFG } = require('../../constants');
 
 // Deterministic hash function (cyrb53) — fast, no crypto dependency
 function _hash(str, seed = 0) {
-  let h1 = 0xdeadbeef ^ seed;
-  let h2 = 0x41c6ce57 ^ seed;
+  let h1 = 0xdeadbeef ^ seed,
+    h2 = 0x41c6ce57 ^ seed;
   for (let i = 0; i < str.length; i++) {
     const ch = str.charCodeAt(i);
     h1 = Math.imul(h1 ^ ch, 2654435761);
@@ -21,7 +21,9 @@ function _hash(str, seed = 0) {
  * Strips comments, normalizes strings/numbers, collapses whitespace.
  */
 function normalizeBody(body) {
-  if (!body || typeof body !== 'string') return '';
+  if (!body || typeof body !== 'string') {
+    return '';
+  }
   let s = body;
   // Remove block comments
   s = s.replace(/\/\*[\s\S]*?\*\//g, ' ');
@@ -42,7 +44,9 @@ function normalizeBody(body) {
  * Split normalized body into meaningful tokens.
  */
 function tokenize(normalized) {
-  if (!normalized) return [];
+  if (!normalized) {
+    return [];
+  }
   return normalized.split(/\s+/).filter((t) => t.length > 0);
 }
 
@@ -50,7 +54,9 @@ function tokenize(normalized) {
  * Create overlapping shingles from a token array.
  */
 function shingle(tokens, size = CFG.SHINGLE_SIZE) {
-  if (tokens.length < size) return [];
+  if (tokens.length < size) {
+    return [];
+  }
   const result = [];
   for (let i = 0; i <= tokens.length - size; i++) {
     result.push(tokens.slice(i, i + size).join(' '));
@@ -63,13 +69,17 @@ function shingle(tokens, size = CFG.SHINGLE_SIZE) {
  * Returns an array of `numPermutations` hash values.
  */
 function minhashSignature(shingles, numPermutations = CFG.MINHASH_PERMUTATIONS) {
-  if (shingles.length === 0) return new Array(numPermutations).fill(Infinity);
+  if (shingles.length === 0) {
+    return new Array(numPermutations).fill(Infinity);
+  }
   const signature = new Array(numPermutations);
   for (let i = 0; i < numPermutations; i++) {
     let minHash = Infinity;
     for (const sh of shingles) {
       const h = _hash(sh, i);
-      if (h < minHash) minHash = h;
+      if (h < minHash) {
+        minHash = h;
+      }
     }
     signature[i] = minHash;
   }
@@ -80,10 +90,14 @@ function minhashSignature(shingles, numPermutations = CFG.MINHASH_PERMUTATIONS) 
  * Estimate Jaccard similarity between two MinHash signatures.
  */
 function jaccardSimilarity(sig1, sig2) {
-  if (sig1.length !== sig2.length) return 0;
+  if (sig1.length !== sig2.length) {
+    return 0;
+  }
   let matches = 0;
   for (let i = 0; i < sig1.length; i++) {
-    if (sig1[i] === sig2[i]) matches++;
+    if (sig1[i] === sig2[i]) {
+      matches++;
+    }
   }
   return matches / sig1.length;
 }
@@ -106,15 +120,15 @@ function jaccardSimilarity(sig1, sig2) {
  * @returns {string[]} band keys (empty if signature too short)
  */
 function lshBands(signature, rowsPerBand = CFG.LSH_ROWS_PER_BAND) {
-  const len = signature.length;
-  const r = rowsPerBand > 0 ? rowsPerBand : CFG.LSH_ROWS_PER_BAND;
+  const len = signature.length,
+    r = rowsPerBand > 0 ? rowsPerBand : CFG.LSH_ROWS_PER_BAND;
   if (len < r) {
     return [];
   }
   // Math.ceil so a non-divisible signature length keeps its trailing band
-  // instead of silently discarding the remainder (which would reduce recall).
-  const numBands = Math.ceil(len / r);
-  const keys = new Array(numBands);
+  // Instead of silently discarding the remainder (which would reduce recall).
+  const numBands = Math.ceil(len / r),
+    keys = new Array(numBands);
   for (let b = 0; b < numBands; b++) {
     const start = b * r;
     keys[b] = `${b}:${signature.slice(start, start + r).join('|')}`;
@@ -127,13 +141,17 @@ function lshBands(signature, rowsPerBand = CFG.LSH_ROWS_PER_BAND) {
  * Returns null if the body is too short to be meaningful.
  */
 function fingerprintSymbol(symbol) {
-  const body = symbol.body_preview || '';
-  const normalized = normalizeBody(body);
-  const tokens = tokenize(normalized);
-  if (tokens.length < 5) return null;
+  const body = symbol.body_preview || '',
+    normalized = normalizeBody(body),
+    tokens = tokenize(normalized);
+  if (tokens.length < 5) {
+    return null;
+  }
 
   const shingles = shingle(tokens);
-  if (shingles.length === 0) return null;
+  if (shingles.length === 0) {
+    return null;
+  }
 
   const signature = minhashSignature(shingles);
 

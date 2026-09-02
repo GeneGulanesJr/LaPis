@@ -1,6 +1,6 @@
 function buildSectionHierarchy(sections) {
-  const stack = [];
-  const result = [];
+  const stack = [],
+    result = [];
   for (let idx = 0; idx < sections.length; idx++) {
     const sec = sections[idx];
     while (stack.length > 0 && stack[stack.length - 1].level >= sec.level) {

@@ -45,9 +45,9 @@ function parseTranscriptLine(line) {
  */
 function classifyEntry(entry, acc) {
   // Claude Code transcript entries are typically { type: 'user'|'assistant',
-  // message: { role, content } } but may also carry role at the top level.
-  const message = entry.message || null;
-  const role = message?.role || entry.role;
+  // Message: { role, content } } but may also carry role at the top level.
+  const message = entry.message || null,
+    role = message?.role || entry.role;
   if (!role) {
     return;
   }

@@ -16,39 +16,38 @@ function runTests(task, worktreePath) {
   }
 
   const results = testCommands.map((cmd) => {
-    try {
-      execSync(cmd, {
-        cwd: worktreePath,
-        encoding: 'utf-8',
-        timeout: 120_000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      return { command: cmd, passed: true, stderr: '' };
-    } catch (err) {
-      return {
-        command: cmd,
-        passed: false,
-        stdout: err.stdout?.toString() || '',
-        stderr: err.stderr?.toString() || '',
-        exitCode: err.status,
-      };
-    }
-  });
-
-  const passed = results.filter((r) => r.passed).length;
+      try {
+        execSync(cmd, {
+          cwd: worktreePath,
+          encoding: 'utf-8',
+          timeout: 120_000,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        return { command: cmd, passed: true, stderr: '' };
+      } catch (err) {
+        return {
+          command: cmd,
+          passed: false,
+          stdout: err.stdout?.toString() || '',
+          stderr: err.stderr?.toString() || '',
+          exitCode: err.status,
+        };
+      }
+    }),
+    passed = results.filter((r) => r.passed).length;
   return { passed, failed: results.length - passed, total: results.length, results, skipped: false };
 }
 
 // CLI entry point for standalone invocation
 if (require.main === module) {
-  const taskPath = process.argv[2];
-  const worktreePath = process.argv[3];
+  const taskPath = process.argv[2],
+    worktreePath = process.argv[3];
   if (!taskPath || !worktreePath) {
     console.error('Usage: node run-tests.js <task.json> <worktree-path>');
     process.exit(1);
   }
-  const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8'));
-  const result = runTests(task, worktreePath);
+  const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8')),
+    result = runTests(task, worktreePath);
   console.log(JSON.stringify(result, null, 2));
 }
 

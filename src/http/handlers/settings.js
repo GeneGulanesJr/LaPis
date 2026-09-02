@@ -1,4 +1,4 @@
-// src/http/handlers/settings.js — KV store for integration tokens and config
+// Src/http/handlers/settings.js — KV store for integration tokens and config
 
 function getSetting(sqlJson) {
   return async (req, res, { params }) => {
@@ -8,7 +8,7 @@ function getSetting(sqlJson) {
       return res.end(JSON.stringify({ error: 'not_found' }));
     }
     // Stored values may be non-JSON (legacy data, manual DB edits). Fall back
-    // to the raw string instead of throwing an uncaught SyntaxError → 500.
+    // To the raw string instead of throwing an uncaught SyntaxError → 500.
     let value;
     try {
       value = JSON.parse(rows[0].value);

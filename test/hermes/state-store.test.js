@@ -1,4 +1,4 @@
-// test/hermes/state-store.test.js
+// Test/hermes/state-store.test.js
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -27,7 +27,7 @@ describe('hermes state-store', () => {
   test('missing/placeholder session id → defaults, no file written', () => {
     for (const bad of [undefined, null, '', 'None', 'none']) {
       expect(loadState(dir, bad)).toEqual({});
-      saveState(dir, bad, { lapisSessionId: 1 }); // must not throw or write
+      saveState(dir, bad, { lapisSessionId: 1 }); // Must not throw or write
     }
     expect(fs.readdirSync(dir)).toHaveLength(0);
   });

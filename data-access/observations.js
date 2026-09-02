@@ -75,24 +75,24 @@ function getObservationRelations(deps, id) {
  * @returns {Array|null} the updated rows, or `null` if the id is missing.
  */
 function updateObservation(deps, { id, title, content, type, project, scope, topicKey, expiresAt, clearExpiry }) {
-  const { sqlJson, sqlRun } = deps;
-  const parsedId = parseInt(id, 10);
-  const current = sqlJson('SELECT title, content, type, scope, expires_at FROM observations WHERE id = ?', [parsedId]);
+  const { sqlJson, sqlRun } = deps,
+    parsedId = parseInt(id, 10),
+    current = sqlJson('SELECT title, content, type, scope, expires_at FROM observations WHERE id = ?', [parsedId]);
   if (!current || current.length === 0) {
     return null;
   }
 
-  const before = current[0];
-  const fields = { title, content, type, scope };
-  const versionEntries = [];
+  const before = current[0],
+    fields = { title, content, type, scope },
+    versionEntries = [];
   for (const [field, newVal] of Object.entries(fields)) {
     if (newVal !== undefined && newVal !== null && String(newVal) !== String(before[field] || '')) {
       versionEntries.push([parsedId, field, String(before[field] || ''), String(newVal)]);
     }
   }
   // Resolve the post-update expires_at value up-front so both the version
-  // history row and the actual UPDATE agree on what the new value is.
-  // observation_versions.new_value is NOT NULL, so we stringify null as ''
+  // History row and the actual UPDATE agree on what the new value is.
+  // Observation_versions.new_value is NOT NULL, so we stringify null as ''
   // (matching the convention used by other fields in this table).
   const nextExpiresAt = clearExpiry === true ? null : expiresAt !== undefined ? expiresAt || null : undefined;
   if (nextExpiresAt !== undefined && String(nextExpiresAt || '') !== String(before.expires_at || '')) {
@@ -105,15 +105,15 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
   }
 
   const setFields = [
-    { name: 'title', value: title },
-    { name: 'content', value: content },
-    { name: 'type', value: type },
-    { name: 'project', value: project },
-    { name: 'scope', value: scope },
-    { name: 'topic_key', value: topicKey },
-  ];
-  const sets = [];
-  const params = [];
+      { name: 'title', value: title },
+      { name: 'content', value: content },
+      { name: 'type', value: type },
+      { name: 'project', value: project },
+      { name: 'scope', value: scope },
+      { name: 'topic_key', value: topicKey },
+    ],
+    sets = [],
+    params = [];
   for (const f of setFields) {
     if (f.value !== undefined && f.value !== null) {
       sets.push(`${f.name} = ?`);
@@ -177,11 +177,11 @@ function insertCapturePassiveObservation(deps, { sessionId, summary, content }) 
 }
 
 function getObservationStats(deps) {
-  const { sqlJson } = deps;
-  const obs = sqlJson('SELECT COUNT(*) as cnt FROM observations WHERE deleted_at IS NULL')[0].cnt;
-  const prompts = sqlJson('SELECT COUNT(*) as cnt FROM user_prompts')[0].cnt;
-  const sessions = sqlJson('SELECT COUNT(*) as cnt FROM session_log')[0].cnt;
-  const links = sqlJson('SELECT COUNT(*) as cnt FROM symbol_links')[0].cnt;
+  const { sqlJson } = deps,
+    obs = sqlJson('SELECT COUNT(*) as cnt FROM observations WHERE deleted_at IS NULL')[0].cnt,
+    prompts = sqlJson('SELECT COUNT(*) as cnt FROM user_prompts')[0].cnt,
+    sessions = sqlJson('SELECT COUNT(*) as cnt FROM session_log')[0].cnt,
+    links = sqlJson('SELECT COUNT(*) as cnt FROM symbol_links')[0].cnt;
   return {
     total_observations: obs,
     total_prompts: prompts,
@@ -202,9 +202,9 @@ function countObservationsByProjectAndType(deps, project) {
 }
 
 function insertRecallLog(deps, entries) {
-  const { sqlRun } = deps;
-  const placeholders = entries.map(() => '(?, ?, ?, ?)').join(',');
-  const params = entries.flatMap((r) => [r.memoryId, r.sessionId, r.query, r.wasUseful === false ? 0 : 1]);
+  const { sqlRun } = deps,
+    placeholders = entries.map(() => '(?, ?, ?, ?)').join(','),
+    params = entries.flatMap((r) => [r.memoryId, r.sessionId, r.query, r.wasUseful === false ? 0 : 1]);
   sqlRun(`INSERT OR IGNORE INTO recall_log (memory_id, session_id, query, was_useful) VALUES ${placeholders}`, params);
 }
 

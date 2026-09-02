@@ -3,16 +3,15 @@
 const graph = require('./graph');
 const impact = require('./impact');
 const quality = require('./quality');
-const gitMetrics = require('./git-metrics');
-
-const DEFAULT_DEPTH = 2;
-const DEFAULT_TOP = 10;
+const gitMetrics = require('./git-metrics'),
+  DEFAULT_DEPTH = 2,
+  DEFAULT_TOP = 10;
 
 function getCodingContext(db, repoId, opts = {}) {
-  const symbolQuery = normalizeText(opts.symbol);
-  const fileQuery = normalizeFile(opts.file);
-  const depth = clampInt(opts.depth, DEFAULT_DEPTH, 1, 5);
-  const top = clampInt(opts.top, DEFAULT_TOP, 1, 50);
+  const symbolQuery = normalizeText(opts.symbol),
+    fileQuery = normalizeFile(opts.file),
+    depth = clampInt(opts.depth, DEFAULT_DEPTH, 1, 5),
+    top = clampInt(opts.top, DEFAULT_TOP, 1, 50);
 
   if (!symbolQuery && !fileQuery) {
     return { error: 'Missing --symbol or --file' };
@@ -31,27 +30,27 @@ function getCodingContext(db, repoId, opts = {}) {
     return target;
   }
 
-  const partialErrors = [];
-  const outline = runPartial(partialErrors, 'outline', () =>
-    target.file ? quality.getFileOutline(db, repoId, target.file) : null,
-  );
-  const imports = runPartial(partialErrors, 'deps', () =>
-    target.file ? graph.getImportGraph(db, repoId, { file: target.file, direction: 'both', depth }) : null,
-  );
-  const churn = runPartial(partialErrors, 'churn', () =>
-    target.file
-      ? gitMetrics.getChurn(db, repoId, target.file, opts.days ? clampInt(opts.days, 90, 1, 3650) : 90, false)
-      : null,
-  );
-  const coupling = runPartial(partialErrors, 'coupling', () =>
-    target.file ? impact.getCouplingMetrics(db, repoId, { file: target.file, sortBy: 'instability' }) : null,
-  );
+  const partialErrors = [],
+    outline = runPartial(partialErrors, 'outline', () =>
+      target.file ? quality.getFileOutline(db, repoId, target.file) : null,
+    ),
+    imports = runPartial(partialErrors, 'deps', () =>
+      target.file ? graph.getImportGraph(db, repoId, { file: target.file, direction: 'both', depth }) : null,
+    ),
+    churn = runPartial(partialErrors, 'churn', () =>
+      target.file
+        ? gitMetrics.getChurn(db, repoId, target.file, opts.days ? clampInt(opts.days, 90, 1, 3650) : 90, false)
+        : null,
+    ),
+    coupling = runPartial(partialErrors, 'coupling', () =>
+      target.file ? impact.getCouplingMetrics(db, repoId, { file: target.file, sortBy: 'instability' }) : null,
+    );
 
-  let callers = null;
-  let callees = null;
-  let blastRadius = null;
-  let complexity = null;
-  let provenance = null;
+  let callers = null,
+    callees = null,
+    blastRadius = null,
+    complexity = null,
+    provenance = null;
 
   if (target.symbol) {
     callers = runPartial(partialErrors, 'callers', () =>
@@ -73,19 +72,19 @@ function getCodingContext(db, repoId, opts = {}) {
     );
   }
 
-  const likelyTests = findLikelyTests(db, repoId, target, top);
-  const relatedFiles = collectRelatedFiles({ target, imports, callers, callees, blastRadius, likelyTests }, top);
-  const summary = summarizeContext({
-    target,
-    callers,
-    callees,
-    blastRadius,
-    complexity,
-    imports,
-    coupling,
-    churn,
-    likelyTests,
-  });
+  const likelyTests = findLikelyTests(db, repoId, target, top),
+    relatedFiles = collectRelatedFiles({ target, imports, callers, callees, blastRadius, likelyTests }, top),
+    summary = summarizeContext({
+      target,
+      callers,
+      callees,
+      blastRadius,
+      complexity,
+      imports,
+      coupling,
+      churn,
+      likelyTests,
+    });
 
   return {
     repo: repo.name,
@@ -137,41 +136,40 @@ function resolveSymbolTarget(db, repoId, symbolQuery, fileHint) {
 
   // Multiple matches — disambiguate by ranking candidates
   const preferredKinds = new Set([
-    'function',
-    'method',
-    'class',
-    'interface',
-    'enum',
-    'type_alias',
-    'arrow_function',
-    'function_expression',
-    'constructor',
-  ]);
-  const normalizedHint = fileHint ? fileHint.replace(/\\/g, '/').toLowerCase() : null;
-
-  const ranked = rows.map((row) => {
-    let score = 0;
-    // Strongly prefer if in the hinted file
-    if (normalizedHint && row.file_path) {
-      const normPath = row.file_path.replace(/\\/g, '/').toLowerCase();
-      if (
-        normPath === normalizedHint ||
-        normPath.endsWith('/' + normalizedHint) ||
-        normalizedHint.endsWith('/' + normPath)
-      ) {
-        score += 1000;
+      'function',
+      'method',
+      'class',
+      'interface',
+      'enum',
+      'type_alias',
+      'arrow_function',
+      'function_expression',
+      'constructor',
+    ]),
+    normalizedHint = fileHint ? fileHint.replace(/\\/g, '/').toLowerCase() : null,
+    ranked = rows.map((row) => {
+      let score = 0;
+      // Strongly prefer if in the hinted file
+      if (normalizedHint && row.file_path) {
+        const normPath = row.file_path.replace(/\\/g, '/').toLowerCase();
+        if (
+          normPath === normalizedHint ||
+          normPath.endsWith(`/${normalizedHint}`) ||
+          normalizedHint.endsWith(`/${normPath}`)
+        ) {
+          score += 1000;
+        }
       }
-    }
-    // Prefer function/method/class over variable/local
-    if (preferredKinds.has(row.kind)) {
-      score += 100;
-    }
-    // Prefer shorter qualified names (more specific, e.g. ClassName.method vs bare method)
-    score -= (row.qualified_name || '').length;
-    // Slightly prefer symbols earlier in the repo (lower file path)
-    score -= row.file_path.length * 0.01;
-    return { row, score };
-  });
+      // Prefer function/method/class over variable/local
+      if (preferredKinds.has(row.kind)) {
+        score += 100;
+      }
+      // Prefer shorter qualified names (more specific, e.g. ClassName.method vs bare method)
+      score -= (row.qualified_name || '').length;
+      // Slightly prefer symbols earlier in the repo (lower file path)
+      score -= row.file_path.length * 0.01;
+      return { row, score };
+    });
 
   ranked.sort((a, b) => b.score - a.score);
   const best = ranked[0].row;
@@ -234,22 +232,22 @@ function findFile(db, repoId, fileQuery) {
 }
 
 function findLikelyTests(db, repoId, target, top) {
-  const tests = new Map();
-  const add = (path, reason, line = null) => {
-    if (!path) {
-      return;
-    }
-    if (!tests.has(path)) {
-      tests.set(path, { file: path, reasons: [], line });
-    }
-    const item = tests.get(path);
-    if (!item.reasons.includes(reason)) {
-      item.reasons.push(reason);
-    }
-    if (!item.line && line) {
-      item.line = line;
-    }
-  };
+  const tests = new Map(),
+    add = (path, reason, line = null) => {
+      if (!path) {
+        return;
+      }
+      if (!tests.has(path)) {
+        tests.set(path, { file: path, reasons: [], line });
+      }
+      const item = tests.get(path);
+      if (!item.reasons.includes(reason)) {
+        item.reasons.push(reason);
+      }
+      if (!item.line && line) {
+        item.line = line;
+      }
+    };
 
   if (target.symbol_id) {
     const callers = db
@@ -313,16 +311,16 @@ function summarizeContext({
   churn,
   likelyTests,
 }) {
-  const callerCount = Array.isArray(callers?.callers) ? callers.callers.length : 0;
-  const calleeCount = Array.isArray(callees?.callees) ? callees.callees.length : 0;
-  const affectedFiles = countAffectedFiles(blastRadius);
-  const dependencyEdges = Array.isArray(imports?.edges)
-    ? imports.edges.length
-    : (imports?.upstream?.length || 0) + (imports?.downstream?.length || 0);
-  const complexityLevel = complexity?.assessment || null;
-  const churnPerWeek = typeof churn?.churn_per_week === 'number' ? churn.churn_per_week : null;
-  const couplingRows = Array.isArray(coupling?.files) ? coupling.files : coupling?.metrics || [];
-  const instability = couplingRows[0] ? couplingRows[0].instability : null;
+  const callerCount = Array.isArray(callers?.callers) ? callers.callers.length : 0,
+    calleeCount = Array.isArray(callees?.callees) ? callees.callees.length : 0,
+    affectedFiles = countAffectedFiles(blastRadius),
+    dependencyEdges = Array.isArray(imports?.edges)
+      ? imports.edges.length
+      : (imports?.upstream?.length || 0) + (imports?.downstream?.length || 0),
+    complexityLevel = complexity?.assessment || null,
+    churnPerWeek = typeof churn?.churn_per_week === 'number' ? churn.churn_per_week : null,
+    couplingRows = Array.isArray(coupling?.files) ? coupling.files : coupling?.metrics || [],
+    instability = couplingRows[0] ? couplingRows[0].instability : null;
 
   let risk = 'low';
   const reasons = [];

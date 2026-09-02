@@ -5,8 +5,8 @@ const { resolveIndexedFilePaths, parseGitDiffNameStatus } = require('../src/trus
 
 describe('resolveIndexedFilePaths', () => {
   it('maps git-relative paths to absolute indexed paths', () => {
-    const repo = path.join(os.tmpdir(), 'lapis-trust-paths');
-    const file = path.join(repo, 'src', 'app.js');
+    const repo = path.join(os.tmpdir(), 'lapis-trust-paths'),
+      file = path.join(repo, 'src', 'app.js');
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, 'export const app = 1;\n');
 
@@ -15,8 +15,8 @@ describe('resolveIndexedFilePaths', () => {
   });
 
   it('includes realpath variants for symlinked repo roots', () => {
-    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-trust-real-'));
-    const link = path.join(os.tmpdir(), `lapis-trust-link-${Date.now()}`);
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-trust-real-')),
+      link = path.join(os.tmpdir(), `lapis-trust-link-${Date.now()}`);
     try {
       fs.symlinkSync(repo, link);
       const file = path.join(repo, 'lib.js');
@@ -28,7 +28,7 @@ describe('resolveIndexedFilePaths', () => {
       try {
         fs.unlinkSync(link);
       } catch {
-        // ignore
+        // Ignore
       }
     }
   });

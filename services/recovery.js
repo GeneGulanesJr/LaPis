@@ -1,9 +1,8 @@
 const { TIME_WINDOWS } = require('../constants');
 
 function autoRecoverInternal(deps, sessionId) {
-  const { sqlJson, sqlRun } = deps;
-
-  const session = sqlJson('SELECT * FROM session_log WHERE id = ?', [parseInt(sessionId)]);
+  const { sqlJson, sqlRun } = deps,
+    session = sqlJson('SELECT * FROM session_log WHERE id = ?', [parseInt(sessionId)]);
   if (session.length === 0) {
     return null;
   }
@@ -64,8 +63,8 @@ function autoRecoverInternal(deps, sessionId) {
 }
 
 function autoRecover(deps, args) {
-  const { jsonErrNoExit } = deps;
-  const sessionId = args.session;
+  const { jsonErrNoExit } = deps,
+    sessionId = args.session;
   if (!sessionId) {
     return jsonErrNoExit('Missing --session');
   }
@@ -77,15 +76,14 @@ function autoRecover(deps, args) {
 }
 
 function recoverOrphans(deps) {
-  const { sqlJson, softDeleteObservation } = deps;
-
-  const orphans = sqlJson('SELECT id, project FROM session_log WHERE ended_at IS NULL ORDER BY started_at DESC');
+  const { sqlJson, softDeleteObservation } = deps,
+    orphans = sqlJson('SELECT id, project FROM session_log WHERE ended_at IS NULL ORDER BY started_at DESC');
   if (orphans.length === 0) {
     return { recovered: [], total: 0 };
   }
 
-  const recovered = [];
-  const allObservations = [];
+  const recovered = [],
+    allObservations = [];
   for (const o of orphans) {
     const r = autoRecoverInternal(deps, String(o.id));
     if (r) {

@@ -14,10 +14,10 @@ function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [
 
   const allAffected = new Set([...changedFileIds, ...deletedFileIds]);
   if (allAffected.size > 0) {
-    const ph = [...allAffected].map(() => '?').join(',');
-    const importers = db
-      .prepare(`SELECT DISTINCT source_file_id FROM code_imports WHERE repo_id = ? AND target_file_id IN (${ph})`)
-      .all(repoId, ...allAffected);
+    const ph = [...allAffected].map(() => '?').join(','),
+      importers = db
+        .prepare(`SELECT DISTINCT source_file_id FROM code_imports WHERE repo_id = ? AND target_file_id IN (${ph})`)
+        .all(repoId, ...allAffected);
     for (const row of importers) {
       allAffected.add(row.source_file_id);
     }
@@ -27,10 +27,10 @@ function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [
   db.prepare(`DELETE FROM code_imports WHERE repo_id = ? AND source_file_id IN (${delPh})`).run(repoId, ...allAffected);
 
   const insertStmt = db.prepare(
-    `INSERT OR IGNORE INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
-  );
-  const fileStmt = db.prepare('SELECT id, path, content FROM code_files WHERE id = ?');
-  const deletedSet = new Set(deletedFileIds);
+      `INSERT OR IGNORE INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
+    ),
+    fileStmt = db.prepare('SELECT id, path, content FROM code_files WHERE id = ?'),
+    deletedSet = new Set(deletedFileIds);
   let totalEdges = 0;
 
   const runInTx =
@@ -80,8 +80,8 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     return { success: true, calls: 0, incremental: true };
   }
 
-  const { onProgress } = opts;
-  const deletedSet = new Set(deletedFileIds);
+  const { onProgress } = opts,
+    deletedSet = new Set(deletedFileIds);
 
   if (changedFileIds.length > 0) {
     const ph = changedFileIds.map(() => '?').join(',');
@@ -120,23 +120,22 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
   // File paths are read from fileById.get(fileId).path. Including it wastes ~8 bytes per row
   // On V8 heap pointer slots that the hot loop never touches.
   const allSymbols = db
-    .prepare(
-      'SELECT id, name, file_id, parent_name, kind, qualified_name, start_byte, end_byte, start_line, end_line FROM code_symbols WHERE repo_id = ?',
-    )
-    .all(repoId);
-
-  // PERF(issue #137): Single-pass symbol index construction — all 7 Map indices are built
-  // In one iteration over allSymbols instead of 5 separate passes. For 50K symbols (~10MB),
-  // This keeps the array hot in L1/L2 cache instead of re-scanning cold memory 4 extra times.
-  // Derived maps (symbolsByFileAndName, methodsByParentAndName) are populated inline.
-  // Do NOT split this back into separate loops — the cache behavior matters at scale.
-  const symbolsByName = new Map();
-  const symbolsByQualified = new Map();
-  const symbolsByFile = new Map();
-  const symbolsByFileAndName = new Map();
-  const classParentMap = new Map();
-  const methodsByParent = new Map();
-  const methodsByParentAndName = new Map();
+      .prepare(
+        'SELECT id, name, file_id, parent_name, kind, qualified_name, start_byte, end_byte, start_line, end_line FROM code_symbols WHERE repo_id = ?',
+      )
+      .all(repoId),
+    // PERF(issue #137): Single-pass symbol index construction — all 7 Map indices are built
+    // In one iteration over allSymbols instead of 5 separate passes. For 50K symbols (~10MB),
+    // This keeps the array hot in L1/L2 cache instead of re-scanning cold memory 4 extra times.
+    // Derived maps (symbolsByFileAndName, methodsByParentAndName) are populated inline.
+    // Do NOT split this back into separate loops — the cache behavior matters at scale.
+    symbolsByName = new Map(),
+    symbolsByQualified = new Map(),
+    symbolsByFile = new Map(),
+    symbolsByFileAndName = new Map(),
+    classParentMap = new Map(),
+    methodsByParent = new Map(),
+    methodsByParentAndName = new Map();
 
   for (const sym of allSymbols) {
     if (!symbolsByName.has(sym.name)) {
@@ -183,19 +182,18 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     }
   }
 
-  const fileRows = db.prepare('SELECT id, path, size_bytes FROM code_files WHERE repo_id = ?').all(repoId);
-  const fileById = new Map();
+  const fileRows = db.prepare('SELECT id, path, size_bytes FROM code_files WHERE repo_id = ?').all(repoId),
+    fileById = new Map();
   for (const f of fileRows) {
     fileById.set(f.id, f);
   }
-  const contentStmt = db.prepare('SELECT content FROM code_files WHERE id = ?');
-
-  const insertStmt = db.prepare(
-    `INSERT OR IGNORE INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
-  );
+  const contentStmt = db.prepare('SELECT content FROM code_files WHERE id = ?'),
+    insertStmt = db.prepare(
+      `INSERT OR IGNORE INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
+    );
   let totalCalls = 0;
-  const fileImportsCache = {};
-  const fileBindingsCache = {};
+  const fileImportsCache = {},
+    fileBindingsCache = {};
 
   function getFileSymbol(fileId, name, kind) {
     const byName = symbolsByFileAndName.get(fileId);
@@ -229,9 +227,9 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     if (fileBindingsCache[fileId]) {
       return fileBindingsCache[fileId];
     }
-    const bindings = extractImportBindings(fileContent || '');
-    const imports = getFileImports(fileId);
-    const importMap = new Map();
+    const bindings = extractImportBindings(fileContent || ''),
+      imports = getFileImports(fileId),
+      importMap = new Map();
     for (const imp of imports) {
       importMap.set(imp.target_module, imp.target_file_id);
     }
@@ -250,8 +248,8 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     _rr.calleeSymbolId = null;
     _rr.confidence = 0.5;
 
-    const bindings = getFileBindings(callerSym.file_id, fileContent);
-    const bindingMatch = bindings.find((b) => b.localName === calleeName && !b.isReExport);
+    const bindings = getFileBindings(callerSym.file_id, fileContent),
+      bindingMatch = bindings.find((b) => b.localName === calleeName && !b.isReExport);
     if (bindingMatch) {
       const originalName = bindingMatch.originalName;
       if (bindingMatch.target_file_id) {
@@ -274,8 +272,8 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     }
 
     if (receiver === 'this' && callerSym.parent_name) {
-      const qualifiedName = `${callerSym.parent_name}.${calleeName}`;
-      const qualifiedMatches = symbolsByQualified.get(qualifiedName);
+      const qualifiedName = `${callerSym.parent_name}.${calleeName}`,
+        qualifiedMatches = symbolsByQualified.get(qualifiedName);
       if (qualifiedMatches && qualifiedMatches.length === 1) {
         _rr.calleeSymbolId = qualifiedMatches[0].id;
         _rr.confidence = 0.95;
@@ -294,8 +292,8 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     if (receiver === 'super' && callerSym.parent_name) {
       const parentName = classParentMap.get(callerSym.parent_name);
       if (parentName) {
-        const superQualified = `${parentName}.${calleeName}`;
-        const superMatches = symbolsByQualified.get(superQualified);
+        const superQualified = `${parentName}.${calleeName}`,
+          superMatches = symbolsByQualified.get(superQualified);
         if (superMatches && superMatches.length === 1) {
           _rr.calleeSymbolId = superMatches[0].id;
           _rr.confidence = 0.9;
@@ -315,11 +313,11 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
             return;
           }
         }
-        const resolvedName = binding.originalName === 'default' ? receiver : binding.originalName;
-        const classSym = getFileSymbol(binding.target_file_id, resolvedName, 'class');
+        const resolvedName = binding.originalName === 'default' ? receiver : binding.originalName,
+          classSym = getFileSymbol(binding.target_file_id, resolvedName, 'class');
         if (classSym) {
-          const parentMethods = methodsByParentAndName.get(resolvedName);
-          const methodSym = parentMethods ? parentMethods.get(calleeName)?.[0] || null : null;
+          const parentMethods = methodsByParentAndName.get(resolvedName),
+            methodSym = parentMethods ? parentMethods.get(calleeName)?.[0] || null : null;
           if (methodSym) {
             _rr.calleeSymbolId = methodSym.id;
             _rr.confidence = 0.9;
@@ -327,8 +325,8 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
           }
         }
       }
-      const qualifiedName = `${receiver}.${calleeName}`;
-      const qualifiedMatches = symbolsByQualified.get(qualifiedName);
+      const qualifiedName = `${receiver}.${calleeName}`,
+        qualifiedMatches = symbolsByQualified.get(qualifiedName);
       if (qualifiedMatches && qualifiedMatches.length === 1) {
         _rr.calleeSymbolId = qualifiedMatches[0].id;
         _rr.confidence = 0.85;
@@ -371,12 +369,12 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     if (!body || body.length < 2) {
       return;
     }
-    const seen = new Set();
-    const callPatterns = [
-      /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-      /\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-      /\bnew\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-    ];
+    const seen = new Set(),
+      callPatterns = [
+        /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+        /\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+        /\bnew\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+      ];
     for (const pattern of callPatterns) {
       let match;
       pattern.lastIndex = 0;
@@ -437,9 +435,9 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
         // oxlint-disable-next-line no-continue
         continue;
       }
-      const fileContent = contentRow.content;
-      const filePath = meta.path;
-      const fileSize = fileContent.length;
+      const fileContent = contentRow.content,
+        filePath = meta.path,
+        fileSize = fileContent.length;
 
       let fileCallees = [];
       if (fileSize <= CALL_GRAPH.MAX_FILE_CONTENT_BYTES) {
@@ -512,8 +510,8 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
     return { success: true, symbols: 0, incremental: true };
   }
 
-  const allAffected = [...changedFileIds, ...deletedFileIds];
-  const ph = allAffected.map(() => '?').join(',');
+  const allAffected = [...changedFileIds, ...deletedFileIds],
+    ph = allAffected.map(() => '?').join(',');
   db.prepare(
     `DELETE FROM symbol_complexity WHERE symbol_id IN (SELECT id FROM code_symbols WHERE file_id IN (${ph}))`,
   ).run(...allAffected);
@@ -522,18 +520,17 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
     return { success: true, symbols: 0, incremental: true };
   }
 
-  const changedPh = changedFileIds.map(() => '?').join(',');
-  const symbols = db
-    .prepare(
-      `SELECT cs.id, cs.name, cs.start_byte, cs.end_byte, cs.start_line, cs.end_line, cs.signature, cf.content as file_content
+  const changedPh = changedFileIds.map(() => '?').join(','),
+    symbols = db
+      .prepare(
+        `SELECT cs.id, cs.name, cs.start_byte, cs.end_byte, cs.start_line, cs.end_line, cs.signature, cf.content as file_content
        FROM code_symbols cs JOIN code_files cf ON cf.id = cs.file_id
        WHERE cs.repo_id = ? AND cs.kind IN ('function', 'method') AND cs.file_id IN (${changedPh})`,
-    )
-    .all(repoId, ...changedFileIds);
-
-  const insertStmt = db.prepare(
-    `INSERT OR REPLACE INTO symbol_complexity (symbol_id, cyclomatic, nesting_depth, param_count, lines_of_code, assessment) VALUES (?, ?, ?, ?, ?, ?)`,
-  );
+      )
+      .all(repoId, ...changedFileIds),
+    insertStmt = db.prepare(
+      `INSERT OR REPLACE INTO symbol_complexity (symbol_id, cyclomatic, nesting_depth, param_count, lines_of_code, assessment) VALUES (?, ?, ?, ?, ?, ?)`,
+    );
 
   let count = 0;
   for (const sym of symbols) {
@@ -579,8 +576,8 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
     // Do NOT replace charCode checks with string comparisons; the integer path is the
     // Performance-critical fast path. Template depth tracking logic is preserved as-is.
     let maxDepth = 0,
-      currentDepth = 0;
-    let inString = false,
+      currentDepth = 0,
+      inString = false,
       stringCharCode = 0,
       templateDepth = 0;
     for (let i = 0; i < body.length; i++) {
@@ -642,10 +639,10 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
       }
     }
 
-    const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null;
-    const paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0;
-    const lines = body.split('\n');
-    const codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
+    const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null,
+      paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0,
+      lines = body.split('\n'),
+      codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
     let assessment = 'high';
     if (cyclomatic <= COMPLEXITY.LOW_THRESHOLD) {
       assessment = 'low';

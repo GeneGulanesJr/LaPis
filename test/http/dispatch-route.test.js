@@ -4,9 +4,7 @@ const { createHttpServer } = require('../../src/http/server');
 const { mergeDispatchArgs } = require('../../src/http/handlers/dispatch');
 
 describe('POST /dispatch', () => {
-  let server;
-  let baseUrl;
-  let dispatchCalls;
+  let server, baseUrl, dispatchCalls;
 
   beforeAll(async () => {
     resetDb();
@@ -34,29 +32,29 @@ describe('POST /dispatch', () => {
 
   function request(body) {
     return new Promise((resolve, reject) => {
-      const url = new URL('/dispatch', baseUrl);
-      const req = http.request(
-        {
-          method: 'POST',
-          hostname: url.hostname,
-          port: url.port,
-          path: url.pathname,
-          headers: { 'Content-Type': 'application/json' },
-        },
-        (res) => {
-          let data = '';
-          res.on('data', (chunk) => {
-            data += chunk;
-          });
-          res.on('end', () => {
-            try {
-              resolve({ status: res.statusCode, body: JSON.parse(data) });
-            } catch {
-              resolve({ status: res.statusCode, body: data });
-            }
-          });
-        },
-      );
+      const url = new URL('/dispatch', baseUrl),
+        req = http.request(
+          {
+            method: 'POST',
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname,
+            headers: { 'Content-Type': 'application/json' },
+          },
+          (res) => {
+            let data = '';
+            res.on('data', (chunk) => {
+              data += chunk;
+            });
+            res.on('end', () => {
+              try {
+                resolve({ status: res.statusCode, body: JSON.parse(data) });
+              } catch {
+                resolve({ status: res.statusCode, body: data });
+              }
+            });
+          },
+        );
       req.on('error', reject);
       req.write(JSON.stringify(body));
       req.end();
@@ -94,22 +92,22 @@ describe('POST /dispatch', () => {
     const dispatchRes = await request({ cmd: 'search', args: { query: 'route-check' } });
     expect(dispatchRes.status).toBe(200);
 
-    const url = new URL('/memory/search', baseUrl);
-    const memoryRes = await new Promise((resolve, reject) => {
-      const req = http.request(
-        {
-          method: 'POST',
-          hostname: url.hostname,
-          port: url.port,
-          path: url.pathname,
-          headers: { 'Content-Type': 'application/json' },
-        },
-        (msg) => resolve({ status: msg.statusCode, path: url.pathname }),
-      );
-      req.on('error', reject);
-      req.write(JSON.stringify({ query: 'x' }));
-      req.end();
-    });
+    const url = new URL('/memory/search', baseUrl),
+      memoryRes = await new Promise((resolve, reject) => {
+        const req = http.request(
+          {
+            method: 'POST',
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname,
+            headers: { 'Content-Type': 'application/json' },
+          },
+          (msg) => resolve({ status: msg.statusCode, path: url.pathname }),
+        );
+        req.on('error', reject);
+        req.write(JSON.stringify({ query: 'x' }));
+        req.end();
+      });
     expect(memoryRes.path).toBe('/memory/search');
     expect(memoryRes.path).not.toBe('/dispatch');
   });

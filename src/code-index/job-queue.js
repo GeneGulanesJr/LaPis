@@ -1,17 +1,16 @@
 // In-process job registry. Owns the active `Worker` per jobId and serializes
-// status queries. Designed for long-running, one-worker-per-job model —
-// indexing is I/O/SQLite-bound, not CPU-bound, so pooling adds complexity for
-// no real throughput gain.
+// Status queries. Designed for long-running, one-worker-per-job model —
+// Indexing is I/O/SQLite-bound, not CPU-bound, so pooling adds complexity for
+// No real throughput gain.
 
 const path = require('path');
 const { Worker } = require('worker_threads');
-const { EventEmitter } = require('events');
-
-const WORKER_SCRIPT = path.resolve(__dirname, 'index-worker.js');
+const { EventEmitter } = require('events'),
+  WORKER_SCRIPT = path.resolve(__dirname, 'index-worker.js');
 
 function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
-  const workers = new Map(); // jobId -> { worker, status }
-  const emitter = new EventEmitter();
+  const workers = new Map(), // jobId -> { worker, status }
+    emitter = new EventEmitter();
 
   function startJob(jobId, payload) {
     const worker = new WorkerCtor(WORKER_SCRIPT, {
@@ -42,7 +41,7 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
             error: entry.status === 'error' ? `worker exited with code ${code}` : undefined,
           });
         } catch (_) {
-          /* best-effort */
+          /* Best-effort */
         }
       }
     });
@@ -61,7 +60,9 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
 
   function markDone(jobId, _msg) {
     const entry = workers.get(jobId);
-    if (entry) entry.status = 'completed';
+    if (entry) {
+      entry.status = 'completed';
+    }
   }
 
   function markError(jobId, msg) {
@@ -71,29 +72,33 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
       try {
         jobStore.completeJob(deps, jobId, { status: 'error', error: msg.error || 'unknown' });
       } catch (_) {
-        /* best-effort */
+        /* Best-effort */
       }
     }
   }
 
   function markCancelled(jobId, _msg) {
     const entry = workers.get(jobId);
-    if (entry) entry.status = 'cancelled';
+    if (entry) {
+      entry.status = 'cancelled';
+    }
   }
 
   async function cancel(jobId) {
     const entry = workers.get(jobId);
-    if (!entry) return false;
+    if (!entry) {
+      return false;
+    }
     try {
       await entry.worker.terminate();
     } catch (_) {
-      /* ignore */
+      /* Ignore */
     }
     entry.status = 'cancelled';
     try {
       jobStore.completeJob(deps, jobId, { status: 'cancelled' });
     } catch (_) {
-      /* best-effort */
+      /* Best-effort */
     }
     return true;
   }

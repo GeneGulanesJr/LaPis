@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * hooks-engine: prompt-classifiers
+ * Hooks-engine: prompt-classifiers
  *
  * Pure prompt/message classifiers extracted from
  * extensions/memory-layer/hooks/context-injection.ts (extractUserPrompt,
@@ -35,9 +35,9 @@ function contentToText(content) {
 }
 
 function extractUserPrompt(event) {
-  const eventAny = event;
-  const candidates = [eventAny?.prompt, eventAny?.input, eventAny?.query];
-  const messages = Array.isArray(eventAny?.messages) ? eventAny.messages : [];
+  const eventAny = event,
+    candidates = [eventAny?.prompt, eventAny?.input, eventAny?.query],
+    messages = Array.isArray(eventAny?.messages) ? eventAny.messages : [];
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];

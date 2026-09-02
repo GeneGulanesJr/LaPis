@@ -11,8 +11,8 @@ function makeStateStore(seed = {}) {
       map.set(id, s);
     },
     mutateState: async (id, mutator) => {
-      const s = map.get(id) || realStateStore.defaultState();
-      const r = await mutator(s);
+      const s = map.get(id) || realStateStore.defaultState(),
+        r = await mutator(s);
       map.set(id, s);
       return r;
     },
@@ -23,20 +23,20 @@ function makeStateStore(seed = {}) {
 }
 
 function makeFakeDispatch(overrides = {}) {
-  const calls = [];
-  const dispatch = async (cmd, args) => {
-    calls.push({ cmd, args });
-    return overrides[cmd] ? overrides[cmd](args) : { ok: true };
-  };
+  const calls = [],
+    dispatch = async (cmd, args) => {
+      calls.push({ cmd, args });
+      return overrides[cmd] ? overrides[cmd](args) : { ok: true };
+    };
   return { dispatch, calls };
 }
 
 function isDeny(out) {
-  return !!(out && out.hookSpecificOutput && out.hookSpecificOutput.permissionDecision === 'deny');
+  return Boolean(out && out.hookSpecificOutput && out.hookSpecificOutput.permissionDecision === 'deny');
 }
 
-const APP_REPO = { name: 'app', path: '/proj/app', indexed_at: new Date().toISOString() };
-const reposFn = () => [APP_REPO];
+const APP_REPO = { name: 'app', path: '/proj/app', indexed_at: new Date().toISOString() },
+  reposFn = () => [APP_REPO];
 
 // =====================================================================
 // PreToolUse — Read guardrail
@@ -96,12 +96,12 @@ describe('claude-code PreToolUse: Read guardrail', () => {
   });
 
   test('blocks whole-file read when repo path uses mixed separators', async () => {
-    const repos = () => [{ name: 'app', path: 'C:/proj/app', indexed_at: new Date().toISOString() }];
-    const out = await handlePreToolUse({
-      payload: { session_id: 's', tool_name: 'Read', tool_input: { file_path: 'src/db.js' }, cwd: 'C:\\proj\\app' },
-      getKnownRepos: repos,
-      stateStore: makeStateStore(),
-    });
+    const repos = () => [{ name: 'app', path: 'C:/proj/app', indexed_at: new Date().toISOString() }],
+      out = await handlePreToolUse({
+        payload: { session_id: 's', tool_name: 'Read', tool_input: { file_path: 'src/db.js' }, cwd: 'C:\\proj\\app' },
+        getKnownRepos: repos,
+        stateStore: makeStateStore(),
+      });
     expect(isDeny(out)).toBe(true);
   });
 });
@@ -182,18 +182,18 @@ describe('claude-code PreToolUse: Glob + Bash guardrails', () => {
 describe('claude-code PreToolUse: memory-tool bookkeeping', () => {
   test('memory-code seeds exploredFiles and resets the reminder cadence', async () => {
     const stateStore = makeStateStore({
-      s: { ...realStateStore.defaultState(), callsSinceLastMemory: 4 },
-    });
-    const out = await handlePreToolUse({
-      payload: {
-        session_id: 's',
-        tool_name: 'mcp__lapis__memory-code',
-        tool_input: { file: 'src/foo.ts' },
-        cwd: '/proj/app',
-      },
-      getKnownRepos: reposFn,
-      stateStore,
-    });
+        s: { ...realStateStore.defaultState(), callsSinceLastMemory: 4 },
+      }),
+      out = await handlePreToolUse({
+        payload: {
+          session_id: 's',
+          tool_name: 'mcp__lapis__memory-code',
+          tool_input: { file: 'src/foo.ts' },
+          cwd: '/proj/app',
+        },
+        getKnownRepos: reposFn,
+        stateStore,
+      });
     expect(out).toBeNull();
     const st = stateStore._peek('s');
     expect(st.exploredFiles).toContain('src/foo.ts');
@@ -221,28 +221,28 @@ describe('claude-code PreToolUse: memory-tool bookkeeping', () => {
 
 describe('claude-code PostToolUse: edit-track + git-trust', () => {
   test('Write records file_path in editedFiles', async () => {
-    const stateStore = makeStateStore();
-    const { dispatch } = makeFakeDispatch();
-    const out = await handlePostToolUse({
-      payload: {
-        session_id: 's',
-        tool_name: 'Write',
-        tool_input: { file_path: '/proj/app/src/x.js' },
-        cwd: '/proj/app',
-      },
-      dispatch,
-      getKnownRepos: reposFn,
-      stateStore,
-    });
+    const stateStore = makeStateStore(),
+      { dispatch } = makeFakeDispatch(),
+      out = await handlePostToolUse({
+        payload: {
+          session_id: 's',
+          tool_name: 'Write',
+          tool_input: { file_path: '/proj/app/src/x.js' },
+          cwd: '/proj/app',
+        },
+        dispatch,
+        getKnownRepos: reposFn,
+        stateStore,
+      });
     expect(out).toBeNull();
     expect(stateStore._peek('s').editedFiles).toContain('/proj/app/src/x.js');
   });
 
   test('git pull triggers sync-code-trust for the current repo', async () => {
     const stateStore = makeStateStore({
-      s: { ...realStateStore.defaultState(), currentProject: 'app' },
-    });
-    const { dispatch, calls } = makeFakeDispatch();
+        s: { ...realStateStore.defaultState(), currentProject: 'app' },
+      }),
+      { dispatch, calls } = makeFakeDispatch();
     await handlePostToolUse({
       payload: {
         session_id: 's',
@@ -259,9 +259,9 @@ describe('claude-code PostToolUse: edit-track + git-trust', () => {
 
   test('a compound git command (cd repo && git pull) still triggers sync-code-trust', async () => {
     // #225: the install `if: "Bash(git *)"` prefix rule used to skip this; now
-    // the Bash PostToolUse matcher is bare and GIT_TRUST_OP_RE classifies it.
-    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), currentProject: 'app' } });
-    const { dispatch, calls } = makeFakeDispatch();
+    // The Bash PostToolUse matcher is bare and GIT_TRUST_OP_RE classifies it.
+    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), currentProject: 'app' } }),
+      { dispatch, calls } = makeFakeDispatch();
     await handlePostToolUse({
       payload: {
         session_id: 's',
@@ -278,8 +278,8 @@ describe('claude-code PostToolUse: edit-track + git-trust', () => {
   });
 
   test('git -C <path> pull triggers sync-code-trust', async () => {
-    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), currentProject: 'app' } });
-    const { dispatch, calls } = makeFakeDispatch();
+    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), currentProject: 'app' } }),
+      { dispatch, calls } = makeFakeDispatch();
     await handlePostToolUse({
       payload: {
         session_id: 's',
@@ -296,11 +296,11 @@ describe('claude-code PostToolUse: edit-track + git-trust', () => {
   });
 
   test('git pull from a monorepo subdir resolves repo by path prefix (#205 review)', async () => {
-    const monorepoRepos = () => [{ name: 'my-monorepo', path: '/proj/my-monorepo' }];
-    const stateStore = makeStateStore({
-      s: { ...realStateStore.defaultState(), currentProject: 'foo' },
-    });
-    const { dispatch, calls } = makeFakeDispatch();
+    const monorepoRepos = () => [{ name: 'my-monorepo', path: '/proj/my-monorepo' }],
+      stateStore = makeStateStore({
+        s: { ...realStateStore.defaultState(), currentProject: 'foo' },
+      }),
+      { dispatch, calls } = makeFakeDispatch();
     await handlePostToolUse({
       payload: {
         session_id: 's',
@@ -317,8 +317,8 @@ describe('claude-code PostToolUse: edit-track + git-trust', () => {
   });
 
   test('MultiEdit records each edited file path', async () => {
-    const stateStore = makeStateStore();
-    const { dispatch } = makeFakeDispatch();
+    const stateStore = makeStateStore(),
+      { dispatch } = makeFakeDispatch();
     await handlePostToolUse({
       payload: {
         session_id: 's',
@@ -338,8 +338,8 @@ describe('claude-code PostToolUse: edit-track + git-trust', () => {
   });
 
   test('non-git bash does not trigger sync-code-trust', async () => {
-    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), currentProject: 'app' } });
-    const { dispatch, calls } = makeFakeDispatch();
+    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), currentProject: 'app' } }),
+      { dispatch, calls } = makeFakeDispatch();
     await handlePostToolUse({
       payload: { session_id: 's', tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: '/proj/app' },
       dispatch,
@@ -358,8 +358,8 @@ describe('claude-code PostToolUse: tool-state mirroring', () => {
   const dispatchOf = () => makeFakeDispatch();
 
   test('memory-save success increments the counter', async () => {
-    const stateStore = makeStateStore();
-    const { dispatch } = dispatchOf();
+    const stateStore = makeStateStore(),
+      { dispatch } = dispatchOf();
     await handlePostToolUse({
       payload: {
         session_id: 's',
@@ -376,8 +376,8 @@ describe('claude-code PostToolUse: tool-state mirroring', () => {
   });
 
   test('memory-save duplicate warning does NOT increment', async () => {
-    const stateStore = makeStateStore();
-    const { dispatch } = dispatchOf();
+    const stateStore = makeStateStore(),
+      { dispatch } = dispatchOf();
     await handlePostToolUse({
       payload: {
         session_id: 's',
@@ -394,8 +394,8 @@ describe('claude-code PostToolUse: tool-state mirroring', () => {
   });
 
   test('memory-search populates pendingRecallFeedback', async () => {
-    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), sessionId: 7 } });
-    const { dispatch } = dispatchOf();
+    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), sessionId: 7 } }),
+      { dispatch } = dispatchOf();
     await handlePostToolUse({
       payload: {
         session_id: 's',
@@ -414,14 +414,14 @@ describe('claude-code PostToolUse: tool-state mirroring', () => {
   });
 
   test('memory-search mirrors the real MCP JSON shape (content block, no markers)', async () => {
-    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), sessionId: 3 } });
-    const { dispatch } = dispatchOf();
+    const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), sessionId: 3 } }),
+      { dispatch } = dispatchOf();
     await handlePostToolUse({
       payload: {
         session_id: 's',
         tool_name: 'mcp__lapis__memory-search',
         tool_input: { query: 'q' },
-        // src/mcp/translate-result.js JSON-stringifies the dispatch result.
+        // Src/mcp/translate-result.js JSON-stringifies the dispatch result.
         tool_response: { content: [{ type: 'text', text: JSON.stringify({ results: [{ id: 8 }, { id: 9 }] }) }] },
         cwd: '/proj/app',
       },
@@ -434,15 +434,15 @@ describe('claude-code PostToolUse: tool-state mirroring', () => {
 
   test('memory-get removes the consumed id (marked useful)', async () => {
     const stateStore = makeStateStore({
-      s: {
-        ...realStateStore.defaultState(),
-        pendingRecallFeedback: [
-          [1, { sessionId: 7, query: 'q' }],
-          [2, { sessionId: 7, query: 'q' }],
-        ],
-      },
-    });
-    const { dispatch } = dispatchOf();
+        s: {
+          ...realStateStore.defaultState(),
+          pendingRecallFeedback: [
+            [1, { sessionId: 7, query: 'q' }],
+            [2, { sessionId: 7, query: 'q' }],
+          ],
+        },
+      }),
+      { dispatch } = dispatchOf();
     await handlePostToolUse({
       payload: {
         session_id: 's',
@@ -459,8 +459,8 @@ describe('claude-code PostToolUse: tool-state mirroring', () => {
   });
 
   test('memory-code harvests file paths into exploredFiles', async () => {
-    const stateStore = makeStateStore();
-    const { dispatch } = dispatchOf();
+    const stateStore = makeStateStore(),
+      { dispatch } = dispatchOf();
     await handlePostToolUse({
       payload: {
         session_id: 's',

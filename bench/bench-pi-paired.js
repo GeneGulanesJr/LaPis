@@ -13,12 +13,11 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
-
-const DEFAULT_TASKS = path.join(__dirname, 'fixtures', 'pi-memory-tasks.json');
-const PI_CONFIG_FILES = ['models.json', 'settings.json', 'auth.json'];
-const MEMORY_OFF_EMPTY_SETTINGS = new Set(['packages']);
-const CACHE_READ_TOKEN_WEIGHT = 0.1;
+const { spawn } = require('child_process'),
+  DEFAULT_TASKS = path.join(__dirname, 'fixtures', 'pi-memory-tasks.json'),
+  PI_CONFIG_FILES = ['models.json', 'settings.json', 'auth.json'],
+  MEMORY_OFF_EMPTY_SETTINGS = new Set(['packages']),
+  CACHE_READ_TOKEN_WEIGHT = 0.1;
 
 function parseArgs(argv) {
   const args = {
@@ -87,9 +86,9 @@ function defaultPiCommand(homeDir = null) {
 }
 
 function prepareNoMemoryHome(outDir) {
-  const sourceAgentDir = path.join(os.homedir(), '.pi', 'agent');
-  const homeDir = path.join(outDir, '.pi-memory-off-home');
-  const targetAgentDir = path.join(homeDir, '.pi', 'agent');
+  const sourceAgentDir = path.join(os.homedir(), '.pi', 'agent'),
+    homeDir = path.join(outDir, '.pi-memory-off-home'),
+    targetAgentDir = path.join(homeDir, '.pi', 'agent');
   fs.mkdirSync(targetAgentDir, { recursive: true });
 
   for (const file of PI_CONFIG_FILES) {
@@ -146,29 +145,27 @@ function finishProgress() {
 function runCommand(command, cwd, timeoutMs, outFile) {
   const started = Date.now();
   return new Promise((resolve) => {
-    let stdout = '';
-    let stderr = '';
-    let settled = false;
+    let stdout = '',
+      stderr = '',
+      settled = false;
     const child = spawn(command, {
-      cwd,
-      shell: true,
-      env: { ...process.env },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    const progress = setInterval(() => {
-      const size = fs.existsSync(outFile) ? fs.statSync(outFile).size : 0;
-      writeProgress(
-        `[bench] still running after ${Math.round((Date.now() - started) / 1000)}s, transcript ${size} bytes`,
-      );
-    }, 5000);
-
-    const timeout = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        child.kill('SIGTERM');
-      }
-    }, timeoutMs);
+        cwd,
+        shell: true,
+        env: { ...process.env },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+      progress = setInterval(() => {
+        const size = fs.existsSync(outFile) ? fs.statSync(outFile).size : 0;
+        writeProgress(
+          `[bench] still running after ${Math.round((Date.now() - started) / 1000)}s, transcript ${size} bytes`,
+        );
+      }, 5000),
+      timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          child.kill('SIGTERM');
+        }
+      }, timeoutMs);
 
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString();
@@ -213,33 +210,33 @@ function runCommand(command, cwd, timeoutMs, outFile) {
 
 function parsePiOutput(raw) {
   const usage = {
-    input_tokens: 0,
-    output_tokens: 0,
-    cache_read_tokens: 0,
-    cache_write_tokens: 0,
-    active_tokens: 0,
-    total_tokens: 0,
-    effective_tokens: 0,
-    cache_discounted_tokens: 0,
-    answer_active_tokens: 0,
-    setup_active_tokens: 0,
-    cost_usd: 0,
-  };
-  const assistantParts = [];
-  const assistantByResponse = new Map();
-  const seenUsage = new Set();
-  const usageClassifications = [];
-  const toolCounts = new Map();
-  const toolNames = [];
-  const behavior = {
-    assistant_turns: 0,
-    tool_calls: 0,
-    failed_tool_calls: 0,
-    memory_tool_calls: 0,
-    code_tool_calls: 0,
-    missing_answer_usage_responses: 0,
-    error_events: 0,
-  };
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_tokens: 0,
+      cache_write_tokens: 0,
+      active_tokens: 0,
+      total_tokens: 0,
+      effective_tokens: 0,
+      cache_discounted_tokens: 0,
+      answer_active_tokens: 0,
+      setup_active_tokens: 0,
+      cost_usd: 0,
+    },
+    assistantParts = [],
+    assistantByResponse = new Map(),
+    seenUsage = new Set(),
+    usageClassifications = [],
+    toolCounts = new Map(),
+    toolNames = [],
+    behavior = {
+      assistant_turns: 0,
+      tool_calls: 0,
+      failed_tool_calls: 0,
+      memory_tool_calls: 0,
+      code_tool_calls: 0,
+      missing_answer_usage_responses: 0,
+      error_events: 0,
+    };
   let parsedEvents = 0;
 
   function countTool(name) {
@@ -261,9 +258,9 @@ function parsePiOutput(raw) {
     }
     if (event) {
       parsedEvents++;
-      const type = event.type || '';
-      const message = event.message || event.delta || event;
-      const content = message.content || event.content;
+      const type = event.type || '',
+        message = event.message || event.delta || event,
+        content = message.content || event.content;
       let assistantText = '';
       if (message.role === 'assistant' && typeof content === 'string') {
         assistantText = content;
@@ -276,34 +273,34 @@ function parsePiOutput(raw) {
       } else if ((type.includes('text') || type.includes('message')) && typeof event.text === 'string') {
         assistantText = event.text;
       }
-      const hasAssistantAnswerText = message.role === 'assistant' && assistantText.trim().length > 0;
-      const eventUsage = message.usage || event.usage;
+      const hasAssistantAnswerText = message.role === 'assistant' && assistantText.trim().length > 0,
+        eventUsage = message.usage || event.usage;
       if (eventUsage) {
         const normalizedUsage = {
-          input_tokens: eventUsage.input || eventUsage.input_tokens || 0,
-          output_tokens: eventUsage.output || eventUsage.output_tokens || 0,
-          cache_read_tokens: eventUsage.cacheRead || eventUsage.cache_read_tokens || 0,
-          cache_write_tokens: eventUsage.cacheWrite || eventUsage.cache_write_tokens || 0,
-        };
-        const cost = eventUsage.cost || {};
-        const costUsd = cost.total || eventUsage.cost_usd || 0;
-        const hasUsage =
-          normalizedUsage.input_tokens ||
-          normalizedUsage.output_tokens ||
-          normalizedUsage.cache_read_tokens ||
-          normalizedUsage.cache_write_tokens ||
-          costUsd;
-        const usageKey =
-          message.responseId ||
-          event.responseId ||
-          [
-            normalizedUsage.input_tokens,
-            normalizedUsage.output_tokens,
-            normalizedUsage.cache_read_tokens,
-            normalizedUsage.cache_write_tokens,
-            eventUsage.totalTokens || eventUsage.total_tokens || 0,
+            input_tokens: eventUsage.input || eventUsage.input_tokens || 0,
+            output_tokens: eventUsage.output || eventUsage.output_tokens || 0,
+            cache_read_tokens: eventUsage.cacheRead || eventUsage.cache_read_tokens || 0,
+            cache_write_tokens: eventUsage.cacheWrite || eventUsage.cache_write_tokens || 0,
+          },
+          cost = eventUsage.cost || {},
+          costUsd = cost.total || eventUsage.cost_usd || 0,
+          hasUsage =
+            normalizedUsage.input_tokens ||
+            normalizedUsage.output_tokens ||
+            normalizedUsage.cache_read_tokens ||
+            normalizedUsage.cache_write_tokens ||
             costUsd,
-          ].join(':');
+          usageKey =
+            message.responseId ||
+            event.responseId ||
+            [
+              normalizedUsage.input_tokens,
+              normalizedUsage.output_tokens,
+              normalizedUsage.cache_read_tokens,
+              normalizedUsage.cache_write_tokens,
+              eventUsage.totalTokens || eventUsage.total_tokens || 0,
+              costUsd,
+            ].join(':');
         if (hasUsage && !seenUsage.has(usageKey)) {
           seenUsage.add(usageKey);
           usage.input_tokens += normalizedUsage.input_tokens;
@@ -366,13 +363,13 @@ function parsePiOutput(raw) {
   usage.cache_discounted_tokens = Math.round(usage.active_tokens + usage.cache_read_tokens * CACHE_READ_TOKEN_WEIGHT);
   usage.total_tokens = usage.effective_tokens;
   const answerParts =
-    assistantByResponse.size > 0 ? [...assistantByResponse.values(), ...assistantParts] : assistantParts;
-  const answerResponseIds = new Set(
-    [...assistantByResponse.entries()].filter(([, text]) => text.trim().length > 0).map(([responseId]) => responseId),
-  );
-  const usageResponseIds = new Set(
-    usageClassifications.map((usageClassification) => usageClassification.responseId).filter(Boolean),
-  );
+      assistantByResponse.size > 0 ? [...assistantByResponse.values(), ...assistantParts] : assistantParts,
+    answerResponseIds = new Set(
+      [...assistantByResponse.entries()].filter(([, text]) => text.trim().length > 0).map(([responseId]) => responseId),
+    ),
+    usageResponseIds = new Set(
+      usageClassifications.map((usageClassification) => usageClassification.responseId).filter(Boolean),
+    );
   behavior.missing_answer_usage_responses = [...answerResponseIds].filter(
     (responseId) => !usageResponseIds.has(responseId),
   ).length;
@@ -409,18 +406,18 @@ function parsePiOutput(raw) {
 }
 
 function gradeAnswer(answer, expectedFacts) {
-  const normalized = answer.toLowerCase();
-  const facts = expectedFacts.map((fact) => {
-    const aliases = fact.aliases || [fact.description];
-    const matched_aliases = aliases.filter((alias) => normalized.includes(String(alias).toLowerCase()));
-    return {
-      id: fact.id,
-      description: fact.description,
-      matched: matched_aliases.length > 0,
-      matched_aliases,
-    };
-  });
-  const matched = facts.filter((fact) => fact.matched).length;
+  const normalized = answer.toLowerCase(),
+    facts = expectedFacts.map((fact) => {
+      const aliases = fact.aliases || [fact.description],
+        matched_aliases = aliases.filter((alias) => normalized.includes(String(alias).toLowerCase()));
+      return {
+        id: fact.id,
+        description: fact.description,
+        matched: matched_aliases.length > 0,
+        matched_aliases,
+      };
+    }),
+    matched = facts.filter((fact) => fact.matched).length;
   return {
     matched,
     total: facts.length,
@@ -430,8 +427,8 @@ function gradeAnswer(answer, expectedFacts) {
 }
 
 async function runSide(side, commandTemplate, task, repo, outDir, cwd, timeoutMs) {
-  const outFile = path.join(outDir, `${task.id}.${side}.jsonl`);
-  const command = renderCommand(commandTemplate, task, repo, outFile);
+  const outFile = path.join(outDir, `${task.id}.${side}.jsonl`),
+    command = renderCommand(commandTemplate, task, repo, outFile);
   benchLog(`[bench] ${task.id}: starting ${side}`);
   const run = await runCommand(command, cwd, timeoutMs, outFile);
   benchLog(`[bench] ${task.id}: finished ${side} in ${run.elapsed_ms}ms`);
@@ -450,8 +447,8 @@ async function runSide(side, commandTemplate, task, repo, outDir, cwd, timeoutMs
     raw = `${run.stdout}\n${run.stderr}`;
   }
 
-  const parsed = parsePiOutput(raw);
-  const grade = gradeAnswer(parsed.answer, task.expected_facts || []);
+  const parsed = parsePiOutput(raw),
+    grade = gradeAnswer(parsed.answer, task.expected_facts || []);
 
   return {
     side,
@@ -470,50 +467,50 @@ async function runSide(side, commandTemplate, task, repo, outDir, cwd, timeoutMs
 
 function printTableHeader(taskColumnWidth) {
   const columns = [
-    'Task'.padEnd(taskColumnWidth),
-    'OffFacts'.padEnd(9),
-    'OnFacts'.padEnd(9),
-    'OffActive'.padStart(10),
-    'OnActive'.padStart(10),
-    'ActSave'.padStart(8),
-    'OffAdj'.padStart(10),
-    'OnAdj'.padStart(10),
-    'AdjSave'.padStart(8),
-    'OffEff'.padStart(10),
-    'OnEff'.padStart(10),
-    'EffSave'.padStart(8),
-    'OffAns'.padStart(8),
-    'OnAns'.padStart(8),
-    'AnsSave'.padStart(8),
-    'OnSetup'.padStart(8),
-    'OffMs'.padStart(9),
-    'OnMs'.padStart(9),
-  ];
-  const header = columns.join('  ');
+      'Task'.padEnd(taskColumnWidth),
+      'OffFacts'.padEnd(9),
+      'OnFacts'.padEnd(9),
+      'OffActive'.padStart(10),
+      'OnActive'.padStart(10),
+      'ActSave'.padStart(8),
+      'OffAdj'.padStart(10),
+      'OnAdj'.padStart(10),
+      'AdjSave'.padStart(8),
+      'OffEff'.padStart(10),
+      'OnEff'.padStart(10),
+      'EffSave'.padStart(8),
+      'OffAns'.padStart(8),
+      'OnAns'.padStart(8),
+      'AnsSave'.padStart(8),
+      'OnSetup'.padStart(8),
+      'OffMs'.padStart(9),
+      'OnMs'.padStart(9),
+    ],
+    header = columns.join('  ');
   benchLog(header);
   benchLog('-'.repeat(header.length));
 }
 
 function printRow(taskId, off, on, taskColumnWidth) {
-  const offTokens = off.usage.active_tokens || 0;
-  const onTokens = on.usage.active_tokens || 0;
-  const offAdjusted = off.usage.cache_discounted_tokens || 0;
-  const onAdjusted = on.usage.cache_discounted_tokens || 0;
-  const offEffective = off.usage.effective_tokens || off.usage.total_tokens || 0;
-  const onEffective = on.usage.effective_tokens || on.usage.total_tokens || 0;
-  const offAnswer = off.usage.answer_active_tokens || 0;
-  const onAnswer = on.usage.answer_active_tokens || 0;
-  const onSetup = on.usage.setup_active_tokens || 0;
-  const savings = offTokens > 0 ? `${Math.round((1 - onTokens / offTokens) * 100)}%` : 'n/a';
-  const adjustedSavings = offAdjusted > 0 ? `${Math.round((1 - onAdjusted / offAdjusted) * 100)}%` : 'n/a';
-  const effectiveSavings = offEffective > 0 ? `${Math.round((1 - onEffective / offEffective) * 100)}%` : 'n/a';
-  const answerSavings = offAnswer > 0 ? `${Math.round((1 - onAnswer / offAnswer) * 100)}%` : 'n/a';
-  const offScore = `${off.grade.matched}/${off.grade.total}`;
-  const onScore = `${on.grade.matched}/${on.grade.total}`;
-  const statusSuffix =
-    off.status !== 0 && off.status != null && on.status !== 0 && on.status != null
-      ? `  [off:${off.status} on:${on.status}]`
-      : '';
+  const offTokens = off.usage.active_tokens || 0,
+    onTokens = on.usage.active_tokens || 0,
+    offAdjusted = off.usage.cache_discounted_tokens || 0,
+    onAdjusted = on.usage.cache_discounted_tokens || 0,
+    offEffective = off.usage.effective_tokens || off.usage.total_tokens || 0,
+    onEffective = on.usage.effective_tokens || on.usage.total_tokens || 0,
+    offAnswer = off.usage.answer_active_tokens || 0,
+    onAnswer = on.usage.answer_active_tokens || 0,
+    onSetup = on.usage.setup_active_tokens || 0,
+    savings = offTokens > 0 ? `${Math.round((1 - onTokens / offTokens) * 100)}%` : 'n/a',
+    adjustedSavings = offAdjusted > 0 ? `${Math.round((1 - onAdjusted / offAdjusted) * 100)}%` : 'n/a',
+    effectiveSavings = offEffective > 0 ? `${Math.round((1 - onEffective / offEffective) * 100)}%` : 'n/a',
+    answerSavings = offAnswer > 0 ? `${Math.round((1 - onAnswer / offAnswer) * 100)}%` : 'n/a',
+    offScore = `${off.grade.matched}/${off.grade.total}`,
+    onScore = `${on.grade.matched}/${on.grade.total}`,
+    statusSuffix =
+      off.status !== 0 && off.status != null && on.status !== 0 && on.status != null
+        ? `  [off:${off.status} on:${on.status}]`
+        : '';
   benchLog(
     [
       taskId.padEnd(taskColumnWidth),
@@ -539,10 +536,10 @@ function printRow(taskId, off, on, taskColumnWidth) {
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const taskPack = JSON.parse(fs.readFileSync(args.tasks, 'utf-8'));
-  const repo = taskPack.repo || path.basename(process.cwd());
-  const tasks = (taskPack.tasks || []).filter((task) => !args.only || task.id === args.only);
+  const args = parseArgs(process.argv.slice(2)),
+    taskPack = JSON.parse(fs.readFileSync(args.tasks, 'utf-8')),
+    repo = taskPack.repo || path.basename(process.cwd()),
+    tasks = (taskPack.tasks || []).filter((task) => !args.only || task.id === args.only);
   if (tasks.length === 0) {
     console.error(`No tasks matched ${args.only || args.tasks}`);
     process.exit(2);
@@ -550,26 +547,26 @@ async function main() {
 
   const outDir = path.resolve(args.outDir);
   fs.mkdirSync(outDir, { recursive: true });
-  const noMemoryHome = prepareNoMemoryHome(outDir);
-  const offCommand = process.env.BENCH_PI_MEMORY_OFF_CMD || defaultPiCommand(noMemoryHome);
-  const onCommand = process.env.BENCH_PI_MEMORY_ON_CMD || defaultPiCommand();
+  const noMemoryHome = prepareNoMemoryHome(outDir),
+    offCommand = process.env.BENCH_PI_MEMORY_OFF_CMD || defaultPiCommand(noMemoryHome),
+    onCommand = process.env.BENCH_PI_MEMORY_ON_CMD || defaultPiCommand();
 
   benchLog(`[bench] memory-off HOME: ${noMemoryHome}`);
   if (!process.env.BENCH_PI_MEMORY_OFF_CMD || !process.env.BENCH_PI_MEMORY_ON_CMD) {
     benchLog('[bench] using default Pi commands; set BENCH_PI_MEMORY_OFF_CMD / BENCH_PI_MEMORY_ON_CMD to override');
   }
   benchLog('');
-  const results = [];
-  const taskColumnWidth = Math.max(24, ...tasks.map((task) => task.id.length));
+  const results = [],
+    taskColumnWidth = Math.max(24, ...tasks.map((task) => task.id.length));
   printTableHeader(taskColumnWidth);
   for (const task of tasks) {
     const taskOutDir = path.join(outDir, task.id);
     fs.mkdirSync(taskOutDir, { recursive: true });
     // Sequential runs keep memory-off and memory-on from sharing live Pi state.
     // eslint-disable-next-line no-await-in-loop
-    const off = await runSide('memory-off', offCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs);
-    // eslint-disable-next-line no-await-in-loop
-    const on = await runSide('memory-on', onCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs);
+    const off = await runSide('memory-off', offCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs),
+      // eslint-disable-next-line no-await-in-loop
+      on = await runSide('memory-on', onCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs);
     results.push({
       task_id: task.id,
       category: task.category || 'uncategorized',
@@ -595,15 +592,15 @@ async function main() {
     process.exit(1);
   }
 
-  const summary = buildSummary(results);
-  const report = {
-    generated_at: new Date().toISOString(),
-    host: os.hostname(),
-    task_pack: args.tasks,
-    summary,
-    results,
-  };
-  const reportPath = path.join(outDir, 'report.json');
+  const summary = buildSummary(results),
+    report = {
+      generated_at: new Date().toISOString(),
+      host: os.hostname(),
+      task_pack: args.tasks,
+      summary,
+      results,
+    },
+    reportPath = path.join(outDir, 'report.json');
   fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
   benchLog('\nSummary');

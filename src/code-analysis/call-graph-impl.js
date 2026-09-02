@@ -13,30 +13,28 @@ function buildCallGraph(db, repoId, opts = {}) {
   db.prepare('DELETE FROM code_calls WHERE repo_id = ?').run(repoId);
 
   const insertStmt = db.prepare(
-    `INSERT OR IGNORE INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
-  );
-
-  // PERF(issue #131): file_path intentionally excluded — never dereferenced from allSymbols.
-  // File paths are read from fileById.get(fileId).path. Including it wastes ~8 bytes per row
-  // On V8 heap pointer slots that the hot loop never touches.
-  const allSymbols = db
-    .prepare(
-      'SELECT id, name, file_id, parent_name, kind, qualified_name, start_byte, end_byte, start_line, end_line FROM code_symbols WHERE repo_id = ?',
-    )
-    .all(repoId);
-
-  // PERF(issue #137): Single-pass symbol index construction — all 7 Map indices are built
-  // In one iteration over allSymbols instead of 5 separate passes. For 50K symbols (~10MB),
-  // This keeps the array hot in L1/L2 cache instead of re-scanning cold memory 4 extra times.
-  // Derived maps (symbolsByFileAndName, methodsByParentAndName) are populated inline.
-  // Do NOT split this back into separate loops — the cache behavior matters at scale.
-  const symbolsByName = new Map();
-  const symbolsByQualified = new Map();
-  const symbolsByFile = new Map();
-  const symbolsByFileAndName = new Map();
-  const classParentMap = new Map();
-  const methodsByParent = new Map();
-  const methodsByParentAndName = new Map();
+      `INSERT OR IGNORE INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
+    ),
+    // PERF(issue #131): file_path intentionally excluded — never dereferenced from allSymbols.
+    // File paths are read from fileById.get(fileId).path. Including it wastes ~8 bytes per row
+    // On V8 heap pointer slots that the hot loop never touches.
+    allSymbols = db
+      .prepare(
+        'SELECT id, name, file_id, parent_name, kind, qualified_name, start_byte, end_byte, start_line, end_line FROM code_symbols WHERE repo_id = ?',
+      )
+      .all(repoId),
+    // PERF(issue #137): Single-pass symbol index construction — all 7 Map indices are built
+    // In one iteration over allSymbols instead of 5 separate passes. For 50K symbols (~10MB),
+    // This keeps the array hot in L1/L2 cache instead of re-scanning cold memory 4 extra times.
+    // Derived maps (symbolsByFileAndName, methodsByParentAndName) are populated inline.
+    // Do NOT split this back into separate loops — the cache behavior matters at scale.
+    symbolsByName = new Map(),
+    symbolsByQualified = new Map(),
+    symbolsByFile = new Map(),
+    symbolsByFileAndName = new Map(),
+    classParentMap = new Map(),
+    methodsByParent = new Map(),
+    methodsByParentAndName = new Map();
 
   for (const sym of allSymbols) {
     if (!symbolsByName.has(sym.name)) {
@@ -83,16 +81,16 @@ function buildCallGraph(db, repoId, opts = {}) {
     }
   }
 
-  const fileRows = db.prepare('SELECT id, path, size_bytes FROM code_files WHERE repo_id = ?').all(repoId);
-  const fileById = new Map();
+  const fileRows = db.prepare('SELECT id, path, size_bytes FROM code_files WHERE repo_id = ?').all(repoId),
+    fileById = new Map();
   for (const f of fileRows) {
     fileById.set(f.id, f);
   }
   const contentStmt = db.prepare('SELECT content FROM code_files WHERE id = ?');
 
   let totalCalls = 0;
-  const fileImportsCache = {};
-  const fileBindingsCache = {};
+  const fileImportsCache = {},
+    fileBindingsCache = {};
 
   function getFileSymbol(fileId, name, kind) {
     const byName = symbolsByFileAndName.get(fileId);
@@ -126,9 +124,9 @@ function buildCallGraph(db, repoId, opts = {}) {
     if (fileBindingsCache[fileId]) {
       return fileBindingsCache[fileId];
     }
-    const bindings = extractImportBindings(fileContent || '');
-    const imports = getFileImports(fileId);
-    const importMap = new Map();
+    const bindings = extractImportBindings(fileContent || ''),
+      imports = getFileImports(fileId),
+      importMap = new Map();
     for (const imp of imports) {
       importMap.set(imp.target_module, imp.target_file_id);
     }
@@ -144,10 +142,9 @@ function buildCallGraph(db, repoId, opts = {}) {
   // Per call in the hot path. resolveCallee writes directly into _rr; callers read from it
   // After the call. Do NOT change resolveCallee to return a new object; the per-call
   // Allocation overhead is significant at hundreds of thousands of invocations.
-  const _rr = { calleeSymbolId: null, confidence: 0 };
-
-  // ── Scope-aware resolution statement (v10) ────────────────
-  const scopeResolveStmt = db.prepare(`
+  const _rr = { calleeSymbolId: null, confidence: 0 },
+    // ── Scope-aware resolution statement (v10) ────────────────
+    scopeResolveStmt = db.prepare(`
     SELECT sr.resolved_symbol_id, sr.confidence, sr.status, fsb.scope_depth
     FROM file_scope_bindings fsb
     JOIN scope_resolution sr ON sr.binding_id = fsb.id
@@ -162,8 +159,8 @@ function buildCallGraph(db, repoId, opts = {}) {
     _rr.calleeSymbolId = null;
     _rr.confidence = 0.5;
 
-    const bindings = getFileBindings(callerSym.file_id, fileContent);
-    const bindingMatch = bindings.find((b) => b.localName === calleeName && !b.isReExport);
+    const bindings = getFileBindings(callerSym.file_id, fileContent),
+      bindingMatch = bindings.find((b) => b.localName === calleeName && !b.isReExport);
     if (bindingMatch) {
       const originalName = bindingMatch.originalName;
       if (bindingMatch.target_file_id) {
@@ -186,8 +183,8 @@ function buildCallGraph(db, repoId, opts = {}) {
     }
 
     if (receiver === 'this' && callerSym.parent_name) {
-      const qualifiedName = `${callerSym.parent_name}.${calleeName}`;
-      const qualifiedMatches = symbolsByQualified.get(qualifiedName);
+      const qualifiedName = `${callerSym.parent_name}.${calleeName}`,
+        qualifiedMatches = symbolsByQualified.get(qualifiedName);
       if (qualifiedMatches && qualifiedMatches.length === 1) {
         _rr.calleeSymbolId = qualifiedMatches[0].id;
         _rr.confidence = 0.95;
@@ -206,8 +203,8 @@ function buildCallGraph(db, repoId, opts = {}) {
     if (receiver === 'super' && callerSym.parent_name) {
       const parentName = classParentMap.get(callerSym.parent_name);
       if (parentName) {
-        const superQualified = `${parentName}.${calleeName}`;
-        const superMatches = symbolsByQualified.get(superQualified);
+        const superQualified = `${parentName}.${calleeName}`,
+          superMatches = symbolsByQualified.get(superQualified);
         if (superMatches && superMatches.length === 1) {
           _rr.calleeSymbolId = superMatches[0].id;
           _rr.confidence = 0.9;
@@ -227,11 +224,11 @@ function buildCallGraph(db, repoId, opts = {}) {
             return;
           }
         }
-        const resolvedName = binding.originalName === 'default' ? receiver : binding.originalName;
-        const classSym = getFileSymbol(binding.target_file_id, resolvedName, 'class');
+        const resolvedName = binding.originalName === 'default' ? receiver : binding.originalName,
+          classSym = getFileSymbol(binding.target_file_id, resolvedName, 'class');
         if (classSym) {
-          const parentMethods = methodsByParentAndName.get(resolvedName);
-          const methodSym = parentMethods ? parentMethods.get(calleeName)?.[0] || null : null;
+          const parentMethods = methodsByParentAndName.get(resolvedName),
+            methodSym = parentMethods ? parentMethods.get(calleeName)?.[0] || null : null;
           if (methodSym) {
             _rr.calleeSymbolId = methodSym.id;
             _rr.confidence = 0.9;
@@ -240,8 +237,8 @@ function buildCallGraph(db, repoId, opts = {}) {
         }
       }
 
-      const qualifiedName = `${receiver}.${calleeName}`;
-      const qualifiedMatches = symbolsByQualified.get(qualifiedName);
+      const qualifiedName = `${receiver}.${calleeName}`,
+        qualifiedMatches = symbolsByQualified.get(qualifiedName);
       if (qualifiedMatches && qualifiedMatches.length === 1) {
         _rr.calleeSymbolId = qualifiedMatches[0].id;
         _rr.confidence = 0.85;
@@ -316,8 +313,8 @@ function buildCallGraph(db, repoId, opts = {}) {
     return null;
   }
 
-  const pendingEdges = [];
-  const totalFiles = symbolsByFile.size;
+  const pendingEdges = [],
+    totalFiles = symbolsByFile.size;
   let processedFiles = 0;
 
   function processRegexFallback(sym, fileContent) {
@@ -329,12 +326,12 @@ function buildCallGraph(db, repoId, opts = {}) {
       return;
     }
 
-    const seen = new Set();
-    const callPatterns = [
-      /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-      /\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-      /\bnew\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-    ];
+    const seen = new Set(),
+      callPatterns = [
+        /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+        /\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+        /\bnew\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+      ];
 
     for (const pattern of callPatterns) {
       let match;
@@ -374,9 +371,9 @@ function buildCallGraph(db, repoId, opts = {}) {
       continue;
     }
 
-    const fileContent = contentRow.content;
-    const filePath = meta.path;
-    const fileSize = fileContent.length;
+    const fileContent = contentRow.content,
+      filePath = meta.path,
+      fileSize = fileContent.length;
 
     let fileCallees = [];
     if (fileSize <= CALL_GRAPH.MAX_FILE_CONTENT_BYTES) {
@@ -478,13 +475,13 @@ function getCallHierarchy(db, repoId, opts) {
   }
 
   // If multiple matches, prefer the first one (already ordered by file_path)
-  // rather than hard-failing — callers can use --file to disambiguate
-  const symbolId = symRow[0].id;
-  const ambiguous = symRow.length > 1;
+  // Rather than hard-failing — callers can use --file to disambiguate
+  const symbolId = symRow[0].id,
+    ambiguous = symRow.length > 1;
 
   if (direction === 'callers') {
     const rows = db
-      .prepare(`
+        .prepare(`
       WITH RECURSIVE upstream AS (
         SELECT cc.caller_symbol_id, cs.name, cs.file_path, 1 as depth
         FROM code_calls cc JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
@@ -495,8 +492,8 @@ function getCallHierarchy(db, repoId, opts) {
         WHERE u.depth < ? AND cc.confidence >= ?
       ) SELECT * FROM upstream
     `)
-      .all(symbolId, minConfidence, depth, minConfidence);
-    const result = { symbol: symRow[0].name, direction: 'callers', depth, callers: rows };
+        .all(symbolId, minConfidence, depth, minConfidence),
+      result = { symbol: symRow[0].name, direction: 'callers', depth, callers: rows };
     if (ambiguous) {
       result.disambiguated = true;
       result.alternative_count = symRow.length - 1;
@@ -506,7 +503,7 @@ function getCallHierarchy(db, repoId, opts) {
   }
 
   const rows = db
-    .prepare(`
+      .prepare(`
     WITH RECURSIVE downstream AS (
       SELECT cc.callee_name, cc.callee_symbol_id, cs.file_path, cc.confidence, 1 as depth
       FROM code_calls cc LEFT JOIN code_symbols cs ON cs.id = cc.callee_symbol_id
@@ -517,8 +514,8 @@ function getCallHierarchy(db, repoId, opts) {
       WHERE d.depth < ? AND cc.confidence >= ?
     ) SELECT * FROM downstream
   `)
-    .all(symbolId, minConfidence, depth, minConfidence);
-  const result = { symbol: symRow[0].name, direction: 'callees', depth, callees: rows };
+      .all(symbolId, minConfidence, depth, minConfidence),
+    result = { symbol: symRow[0].name, direction: 'callees', depth, callees: rows };
   if (ambiguous) {
     result.disambiguated = true;
     result.alternative_count = symRow.length - 1;

@@ -7,35 +7,35 @@ const daemon = require('../../src/claude-code/daemon');
 
 describe('dispatch-client', () => {
   test('direct mode returns gateway-shaped results when no daemon is configured', async () => {
-    const directSpy = vi.fn(async () => ({ via: 'direct', items: [] }));
-    const result = await dispatchClient.dispatch(
-      'search',
-      { query: 'daemon', limit: '3' },
-      { resolveDaemonUrl: () => null, directDispatch: directSpy },
-    );
+    const directSpy = vi.fn(async () => ({ via: 'direct', items: [] })),
+      result = await dispatchClient.dispatch(
+        'search',
+        { query: 'daemon', limit: '3' },
+        { resolveDaemonUrl: () => null, directDispatch: directSpy },
+      );
 
     expect(result).toEqual({ via: 'direct', items: [] });
     expect(directSpy).toHaveBeenCalledWith('search', { query: 'daemon', limit: '3' });
   });
 
   test('daemon mode POSTs to /dispatch and parses JSON', async () => {
-    const calls = [];
-    const fetch = async (url, init) => {
-      calls.push({ url, body: JSON.parse(init.body) });
-      return {
-        ok: true,
-        async json() {
-          return { route: 'daemon', echoed: this._payload };
-        },
-        _payload: JSON.parse(init.body),
-      };
-    };
-    const result = await dispatchClient.dispatchViaDaemon(
-      'http://127.0.0.1:9100',
-      'preflight',
-      { query: 'auth', project: '/repo' },
-      { fetch },
-    );
+    const calls = [],
+      fetch = async (url, init) => {
+        calls.push({ url, body: JSON.parse(init.body) });
+        return {
+          ok: true,
+          async json() {
+            return { route: 'daemon', echoed: this._payload };
+          },
+          _payload: JSON.parse(init.body),
+        };
+      },
+      result = await dispatchClient.dispatchViaDaemon(
+        'http://127.0.0.1:9100',
+        'preflight',
+        { query: 'auth', project: '/repo' },
+        { fetch },
+      );
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe('http://127.0.0.1:9100/dispatch');
     expect(calls[0].body).toEqual({
@@ -47,36 +47,36 @@ describe('dispatch-client', () => {
 
   test('dispatch uses daemon when resolveDaemonUrl returns a base URL', async () => {
     const fetch = async (_url, init) => ({
-      ok: true,
-      json: async () => ({ via: 'daemon', body: JSON.parse(init.body) }),
-    });
-    const result = await dispatchClient.dispatch(
-      'context',
-      { project: '/workspace' },
-      {
-        resolveDaemonUrl: () => 'http://127.0.0.1:9100',
-        fetch,
-      },
-    );
+        ok: true,
+        json: async () => ({ via: 'daemon', body: JSON.parse(init.body) }),
+      }),
+      result = await dispatchClient.dispatch(
+        'context',
+        { project: '/workspace' },
+        {
+          resolveDaemonUrl: () => 'http://127.0.0.1:9100',
+          fetch,
+        },
+      );
     expect(result.via).toBe('daemon');
     expect(result.body.cmd).toBe('context');
   });
 
   test('falls back to direct mode when daemon POST fails', async () => {
     const fetch = async () => {
-      throw new Error('connection refused');
-    };
-    const directSpy = vi.fn(async () => ({ via: 'direct' }));
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const result = await dispatchClient.dispatch(
-      'search',
-      { query: 'x' },
-      {
-        resolveDaemonUrl: () => 'http://127.0.0.1:9100',
-        fetch,
-        directDispatch: directSpy,
+        throw new Error('connection refused');
       },
-    );
+      directSpy = vi.fn(async () => ({ via: 'direct' })),
+      stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true),
+      result = await dispatchClient.dispatch(
+        'search',
+        { query: 'x' },
+        {
+          resolveDaemonUrl: () => 'http://127.0.0.1:9100',
+          fetch,
+          directDispatch: directSpy,
+        },
+      );
 
     expect(result).toEqual({ via: 'direct' });
     expect(directSpy).toHaveBeenCalledWith('search', { query: 'x' });
@@ -91,8 +91,7 @@ describe('dispatch-client', () => {
 });
 
 describe('daemon lockfile resolution', () => {
-  let tmpDir;
-  let lockfilePath;
+  let tmpDir, lockfilePath;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-'));
@@ -145,10 +144,10 @@ describe('daemon start/stop flags', () => {
   });
 
   test('runStart kills spawned child when health check fails', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-start-'));
-    const lockfilePath = path.join(tmpDir, 'daemon.json');
-    const stopSpy = vi.fn().mockResolvedValue(true);
-    const child = { pid: 4242 };
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-start-')),
+      lockfilePath = path.join(tmpDir, 'daemon.json'),
+      stopSpy = vi.fn().mockResolvedValue(true),
+      child = { pid: 4242 };
 
     await expect(
       daemon.runStart(['--detached'], {
@@ -169,15 +168,15 @@ describe('daemon start/stop flags', () => {
 
   test('runStart warns and keeps the existing daemon when a different port is requested', async () => {
     // #232: re-install with a different --daemon-port must not silently drop the
-    // flag nor relocate the running daemon; it warns loudly and keeps the old one.
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-port-'));
-    const lockfilePath = path.join(tmpDir, 'daemon.json');
+    // Flag nor relocate the running daemon; it warns loudly and keeps the old one.
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-port-')),
+      lockfilePath = path.join(tmpDir, 'daemon.json');
     daemon.writeLockfile({ pid: process.pid, port: 9100, host: '127.0.0.1' }, lockfilePath);
-    const lines = [];
-    const result = await daemon.runStart(['--detached', '--port', '9300'], {
-      lockfilePath,
-      log: (l) => lines.push(l),
-    });
+    const lines = [],
+      result = await daemon.runStart(['--detached', '--port', '9300'], {
+        lockfilePath,
+        log: (l) => lines.push(l),
+      });
     expect(result.alreadyRunning).toBe(true);
     expect(result.port).toBe(9100);
     expect(result.requestedPort).toBe(9300);
@@ -189,14 +188,14 @@ describe('daemon start/stop flags', () => {
   });
 
   test('runStart silently no-ops when the same port is requested', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-same-'));
-    const lockfilePath = path.join(tmpDir, 'daemon.json');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-same-')),
+      lockfilePath = path.join(tmpDir, 'daemon.json');
     daemon.writeLockfile({ pid: process.pid, port: 9100, host: '127.0.0.1' }, lockfilePath);
-    const lines = [];
-    const result = await daemon.runStart(['--port', '9100'], {
-      lockfilePath,
-      log: (l) => lines.push(l),
-    });
+    const lines = [],
+      result = await daemon.runStart(['--port', '9100'], {
+        lockfilePath,
+        log: (l) => lines.push(l),
+      });
     expect(result.alreadyRunning).toBe(true);
     expect(result.mismatch).toBeUndefined();
     expect(lines.join('\n')).not.toContain('was requested');

@@ -1,19 +1,18 @@
 // Integration tests for code-analysis (WASM)
 const { execSync } = require('child_process');
-const path = require('path');
-
-const STORE = path.resolve(__dirname, '..', 'memory-store.js');
-const REPO = 'PiMemoryExtension';
+const path = require('path'),
+  STORE = path.resolve(__dirname, '..', 'memory-store.js'),
+  REPO = 'PiMemoryExtension';
 
 function run(cmd, timeout = 15000) {
   try {
     const out = execSync(`node "${STORE}" ${cmd}`, {
-      encoding: 'utf8',
-      timeout,
-      maxBuffer: 50 * 1024 * 1024,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    const result = JSON.parse(out.trim());
+        encoding: 'utf8',
+        timeout,
+        maxBuffer: 50 * 1024 * 1024,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }),
+      result = JSON.parse(out.trim());
     // Unwrap _meta envelope (v6) for backward-compatible test assertions
     return result.data || result;
   } catch (e) {
@@ -27,8 +26,8 @@ function run(cmd, timeout = 15000) {
 
 // Ensure code is indexed before all test groups
 beforeAll(() => {
-  const indexingTimeoutMs = 45000;
-  const result = run(`reindex-repo --repo ${REPO} --mode full`, indexingTimeoutMs);
+  const indexingTimeoutMs = 45000,
+    result = run(`reindex-repo --repo ${REPO} --mode full`, indexingTimeoutMs);
   if (result.error) {
     run(`index-repo --path . --name ${REPO}`, indexingTimeoutMs);
   }
@@ -130,8 +129,8 @@ describe('code-analysis: complexity', () => {
   it('should report valid assessment levels (low/medium/high)', () => {
     const r = run(`complexity --repo ${REPO}`);
     expect(r.error).toBeUndefined();
-    const list = Array.isArray(r) ? r : [r];
-    const assessments = list.map((x) => x.assessment).filter(Boolean);
+    const list = Array.isArray(r) ? r : [r],
+      assessments = list.map((x) => x.assessment).filter(Boolean);
     expect(assessments.length).toBeGreaterThan(0);
     for (const a of assessments) {
       expect(['low', 'medium', 'high']).toContain(a);
@@ -368,15 +367,15 @@ describe('code-analysis: untested (v6)', () => {
   });
 
   it('should include private symbols when requested', () => {
-    const rWithout = run(`untested --repo ${REPO} --min-confidence 0.3`);
-    const rWith = run(`untested --repo ${REPO} --min-confidence 0.3 --include-private true`);
+    const rWithout = run(`untested --repo ${REPO} --min-confidence 0.3`),
+      rWith = run(`untested --repo ${REPO} --min-confidence 0.3 --include-private true`);
     expect(rWith.error).toBeUndefined();
     expect(rWith.untested.length).toBeGreaterThanOrEqual((rWithout.untested || []).length);
   });
 
   it('should guard against missing db', () => {
-    const { getUntestedSymbols } = require('../src/code-analysis');
-    const result = getUntestedSymbols(null, 1);
+    const { getUntestedSymbols } = require('../src/code-analysis'),
+      result = getUntestedSymbols(null, 1);
     expect(result.error).toBeDefined();
   });
 });
@@ -407,8 +406,8 @@ describe('code-analysis: pr-risk (v6)', () => {
   });
 
   it('should guard against missing db', () => {
-    const { getPrRiskProfile } = require('../src/code-analysis');
-    const result = getPrRiskProfile(null, 1);
+    const { getPrRiskProfile } = require('../src/code-analysis'),
+      result = getPrRiskProfile(null, 1);
     expect(result.error).toBeDefined();
   });
 

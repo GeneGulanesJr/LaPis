@@ -293,8 +293,7 @@ describe('Aurex HTTP Server', () => {
   const http = require('http');
 
   describe('HTTP server framework', () => {
-    let server;
-    let baseUrl;
+    let server, baseUrl;
 
     beforeAll(async () => {
       const { createHttpServer } = require('../src/http/server');
@@ -307,25 +306,25 @@ describe('Aurex HTTP Server', () => {
 
     function request(method, path, body) {
       return new Promise((resolve, reject) => {
-        const url = new URL(path, baseUrl);
-        const opts = {
-          method,
-          hostname: url.hostname,
-          port: url.port,
-          path: url.pathname + url.search,
-          headers: { 'Content-Type': 'application/json' },
-        };
-        const req = http.request(opts, (res) => {
-          let data = '';
-          res.on('data', (chunk) => (data += chunk));
-          res.on('end', () => {
-            try {
-              resolve({ status: res.statusCode, body: JSON.parse(data) });
-            } catch {
-              resolve({ status: res.statusCode, body: data });
-            }
+        const url = new URL(path, baseUrl),
+          opts = {
+            method,
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname + url.search,
+            headers: { 'Content-Type': 'application/json' },
+          },
+          req = http.request(opts, (res) => {
+            let data = '';
+            res.on('data', (chunk) => (data += chunk));
+            res.on('end', () => {
+              try {
+                resolve({ status: res.statusCode, body: JSON.parse(data) });
+              } catch {
+                resolve({ status: res.statusCode, body: data });
+              }
+            });
           });
-        });
         req.on('error', reject);
         if (body) {
           req.write(JSON.stringify(body));
@@ -348,25 +347,25 @@ describe('Aurex HTTP Server', () => {
 
     it('returns 400 for invalid JSON body', async () => {
       const res = await new Promise((resolve, reject) => {
-        const url = new URL('/missions', baseUrl);
-        const opts = {
-          method: 'POST',
-          hostname: url.hostname,
-          port: url.port,
-          path: url.pathname,
-          headers: { 'Content-Type': 'application/json' },
-        };
-        const req = http.request(opts, (msg) => {
-          let data = '';
-          msg.on('data', (chunk) => (data += chunk));
-          msg.on('end', () => {
-            try {
-              resolve({ status: msg.statusCode, body: JSON.parse(data) });
-            } catch {
-              resolve({ status: msg.statusCode, body: data });
-            }
+        const url = new URL('/missions', baseUrl),
+          opts = {
+            method: 'POST',
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname,
+            headers: { 'Content-Type': 'application/json' },
+          },
+          req = http.request(opts, (msg) => {
+            let data = '';
+            msg.on('data', (chunk) => (data += chunk));
+            msg.on('end', () => {
+              try {
+                resolve({ status: msg.statusCode, body: JSON.parse(data) });
+              } catch {
+                resolve({ status: msg.statusCode, body: data });
+              }
+            });
           });
-        });
         req.on('error', reject);
         req.write('{invalid json');
         req.end();
@@ -377,38 +376,36 @@ describe('Aurex HTTP Server', () => {
   });
 
   describe('HTTP server E2E — Aurex endpoints', () => {
-    let server;
-    let baseUrl;
-    let req;
+    let server, baseUrl, req;
 
     beforeAll(async () => {
-      const { createHttpServer } = require('../src/http/server');
-      const aurex = createAurexRepository({ sqlJson, sqlRun });
+      const { createHttpServer } = require('../src/http/server'),
+        aurex = createAurexRepository({ sqlJson, sqlRun });
       server = createHttpServer({ repositories: { aurex }, sqlJson, sqlRun });
       await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
       baseUrl = `http://127.0.0.1:${server.address().port}`;
 
       req = (method, path, body) =>
         new Promise((resolve, reject) => {
-          const url = new URL(path, baseUrl);
-          const opts = {
-            method,
-            hostname: url.hostname,
-            port: url.port,
-            path: url.pathname + url.search,
-            headers: { 'Content-Type': 'application/json' },
-          };
-          const httpReq = http.request(opts, (res) => {
-            let data = '';
-            res.on('data', (chunk) => (data += chunk));
-            res.on('end', () => {
-              try {
-                resolve({ status: res.statusCode, body: JSON.parse(data) });
-              } catch {
-                resolve({ status: res.statusCode, body: data });
-              }
+          const url = new URL(path, baseUrl),
+            opts = {
+              method,
+              hostname: url.hostname,
+              port: url.port,
+              path: url.pathname + url.search,
+              headers: { 'Content-Type': 'application/json' },
+            },
+            httpReq = http.request(opts, (res) => {
+              let data = '';
+              res.on('data', (chunk) => (data += chunk));
+              res.on('end', () => {
+                try {
+                  resolve({ status: res.statusCode, body: JSON.parse(data) });
+                } catch {
+                  resolve({ status: res.statusCode, body: data });
+                }
+              });
             });
-          });
           httpReq.on('error', reject);
           if (body) {
             httpReq.write(JSON.stringify(body));
@@ -419,11 +416,7 @@ describe('Aurex HTTP Server', () => {
 
     afterAll(() => new Promise((resolve) => server.close(resolve)));
 
-    let missionId;
-    let milestoneId;
-    let unitId;
-    let contractId;
-    let todoId;
+    let missionId, milestoneId, unitId, contractId, todoId;
 
     it('creates a mission', async () => {
       const res = await req('POST', '/missions', { description: 'E2E mission', config: { modelHints: {} } });
@@ -769,9 +762,9 @@ describe('Aurex HTTP Server', () => {
 
   describe('HTTP server safety defaults', () => {
     it('warns when host is 0.0.0.0', async () => {
-      const logs = [];
-      const origLog = console.log;
-      const origWarn = console.warn;
+      const logs = [],
+        origLog = console.log,
+        origWarn = console.warn;
       console.log = (...args) => logs.push(args.join(' '));
       console.warn = (...args) => logs.push(args.join(' '));
 
@@ -790,9 +783,9 @@ describe('Aurex HTTP Server', () => {
     });
 
     it('does not warn when host is 127.0.0.1', async () => {
-      const logs = [];
-      const origLog = console.log;
-      const origWarn = console.warn;
+      const logs = [],
+        origLog = console.log,
+        origWarn = console.warn;
       console.log = (...args) => logs.push(args.join(' '));
       console.warn = (...args) => logs.push(args.join(' '));
 
@@ -816,8 +809,7 @@ describe('Aurex HTTP Server', () => {
   });
 
   describe('Checkpoints', () => {
-    let repo;
-    let missionId;
+    let repo, missionId;
 
     beforeAll(() => {
       repo = createAurexRepository({ sqlJson, sqlRun });

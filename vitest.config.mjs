@@ -11,11 +11,11 @@ export default {
       '**/bench/realworld/results/**',
       // Stryker creates per-mutant sandbox copies at .stryker-tmp/sandbox-*/test/.
       // Without this exclude, vitest re-discovers the sandboxed tests and runs
-      // them twice, causing pollution + confusing results. See stryker.config.mjs.
+      // Them twice, causing pollution + confusing results. See stryker.config.mjs.
       '**/.stryker-tmp/**',
       // Pre-existing failing tests (tracked in GH issues #54, #55, #56, #58+).
       // Skipped at config level so they don't block Stryker's initial dry-run
-      // baseline. Re-enable individually as the underlying issues are fixed.
+      // Baseline. Re-enable individually as the underlying issues are fixed.
       'test/services-dream.test.js',
       'test/compaction-dream-stats.test.js',
       'test/accuracy.test.js',

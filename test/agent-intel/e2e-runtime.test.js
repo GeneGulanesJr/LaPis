@@ -1,8 +1,7 @@
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
+const { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
 
 function run(cmd, timeout = 45000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -28,9 +27,9 @@ function writeCoverage(coveragePath, data) {
 }
 
 describe('runtime reality e2e', () => {
-  const repoName = `test-e2e-runtime-${Date.now()}`;
-  const tmpRepo = path.join('/tmp', repoName);
-  const coveragePath = path.join(tmpRepo, 'coverage', 'coverage-final.json');
+  const repoName = `test-e2e-runtime-${Date.now()}`,
+    tmpRepo = path.join('/tmp', repoName),
+    coveragePath = path.join(tmpRepo, 'coverage', 'coverage-final.json');
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {
@@ -51,7 +50,7 @@ export function batchProcess(items) {
       [`${tmpRepo}/src/critical.js`]: {
         path: `${tmpRepo}/src/critical.js`,
         fnMap: { 0: { name: 'processPayment', line: 1 } },
-        f: { 0: 15000 }, // hot
+        f: { 0: 15000 }, // Hot
       },
     });
 

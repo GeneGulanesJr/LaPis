@@ -1,7 +1,6 @@
 const path = require('path');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', 'memory-store.js');
+const { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', 'memory-store.js');
 
 function run(cmd, extraArgs = '') {
   const out = execSync(`node "${STORE}" ${cmd} ${extraArgs}`, {
@@ -25,8 +24,7 @@ function runFail(cmd, extraArgs = '') {
   }
 }
 
-let testProject;
-let sessionId;
+let testProject, sessionId;
 
 beforeAll(() => {
   testProject = `test-mem-${Date.now()}`;
@@ -91,8 +89,8 @@ describe('memory-store: save', () => {
     // SQLite format: "YYYY-MM-DD HH:MM:SS"
     expect(result.expires_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     // Should be roughly 7 days from now (within ±2 hours to account for clock skew)
-    const expMs = Date.parse(result.expires_at.replace(' ', 'T') + 'Z');
-    const days = (expMs - Date.now()) / 86400000;
+    const expMs = Date.parse(`${result.expires_at.replace(' ', 'T')}Z`),
+      days = (expMs - Date.now()) / 86400000;
     expect(days).toBeGreaterThan(6.9);
     expect(days).toBeLessThan(7.1);
   });
@@ -106,8 +104,8 @@ describe('memory-store: save', () => {
   });
 
   it('should save with --force bypassing dedup', () => {
-    const r1 = run(`save --title "Force test" --content "v1" --project ${testProject}`);
-    const r2 = run(`save --title "Force test" --content "v1" --project ${testProject} --force`);
+    const r1 = run(`save --title "Force test" --content "v1" --project ${testProject}`),
+      r2 = run(`save --title "Force test" --content "v1" --project ${testProject} --force`);
     expect(r2.id).toBeDefined();
     expect(r2.id).not.toBe(r1.id);
   });
@@ -307,8 +305,8 @@ describe('memory-store: update', () => {
   });
 
   it('should set expiry with --expires-in', () => {
-    const saved = run(`save --title "Will get a TTL" --content "x" --project ${testProject} --force`);
-    const result = run(`update --id ${saved.id} --expires-in 3d`);
+    const saved = run(`save --title "Will get a TTL" --content "x" --project ${testProject} --force`),
+      result = run(`update --id ${saved.id} --expires-in 3d`);
     expect(result.expires_at).toBeTruthy();
     expect(result.expires_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
@@ -321,8 +319,8 @@ describe('memory-store: update', () => {
   });
 
   it('should reject invalid --expires-in on update', () => {
-    const saved = run(`save --title "TTL reject target" --content "x" --project ${testProject} --force`);
-    const result = runFail(`update --id ${saved.id} --expires-in "garbage"`);
+    const saved = run(`save --title "TTL reject target" --content "x" --project ${testProject} --force`),
+      result = runFail(`update --id ${saved.id} --expires-in "garbage"`);
     expect(result.error).toBeDefined();
     expect(result.error).toContain('Invalid --expires-in');
   });
@@ -331,18 +329,18 @@ describe('memory-store: update', () => {
 describe('memory-store: delete', () => {
   it('should soft-delete by default', () => {
     const saved = run(
-      `save --title "Soft delete test" --content "Will be soft-deleted" --project ${testProject} --force`,
-    );
-    const result = run(`delete --id ${saved.id}`);
+        `save --title "Soft delete test" --content "Will be soft-deleted" --project ${testProject} --force`,
+      ),
+      result = run(`delete --id ${saved.id}`);
     expect(result.ok).toBe(true);
     expect(result.hardDeleted).toBe(false);
   });
 
   it('should hard-delete when --hard true', () => {
     const saved = run(
-      `save --title "Hard delete test" --content "Will be hard-deleted" --project ${testProject} --force`,
-    );
-    const result = run(`delete --id ${saved.id} --hard true`);
+        `save --title "Hard delete test" --content "Will be hard-deleted" --project ${testProject} --force`,
+      ),
+      result = run(`delete --id ${saved.id} --hard true`);
     expect(result.ok).toBe(true);
     expect(result.hardDeleted).toBe(true);
   });
@@ -424,9 +422,9 @@ describe('memory-store: session lifecycle', () => {
   });
 
   it('should end a session', () => {
-    const proj = `test-session-end-${Date.now()}`;
-    const start = run(`session-start --project ${proj}`);
-    const result = run(`session-end --id ${start.sessionId} --memories 3 --auto true`);
+    const proj = `test-session-end-${Date.now()}`,
+      start = run(`session-start --project ${proj}`),
+      result = run(`session-end --id ${start.sessionId} --memories 3 --auto true`);
     expect(result).toBeDefined();
   });
 
@@ -481,8 +479,8 @@ describe('memory-store: search ranking quality', () => {
 
     const result = run(`search --query "Important" --project ${proj}`);
     if (result.results.length >= 2) {
-      const decisionIdx = result.results.findIndex((r) => r.type === 'decision');
-      const summaryIdx = result.results.findIndex((r) => r.type === 'session_summary');
+      const decisionIdx = result.results.findIndex((r) => r.type === 'decision'),
+        summaryIdx = result.results.findIndex((r) => r.type === 'session_summary');
       if (decisionIdx >= 0 && summaryIdx >= 0) {
         expect(result.results[decisionIdx]._score).toBeGreaterThan(result.results[summaryIdx]._score);
       }

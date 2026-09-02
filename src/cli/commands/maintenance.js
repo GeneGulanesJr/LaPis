@@ -1,23 +1,22 @@
 const sesCmd = require('../../../commands/session');
 const wsCmd = require('../../../commands/workspace');
-const cleanupCmd = require('../../../scripts/cleanup-sessions');
-
-const USAGE = {
-  init: '',
-  compact: '',
-  dream: '',
-  'session-start': '--project X',
-  'session-end': '--id ID --memories N --auto true',
-  'session-summary': '[--project X]',
-  'auto-recover': '--session ID',
-  'recover-orphans': '',
-  'list-projects': '',
-  'list-workspaces': '',
-  'create-workspace': '--name X',
-  'archive-workspace': '--name X',
-  'trust-recovery': '[--repo X]',
-  'cleanup-sessions': '[--project X] [--dry-run] [--yes] [--keep-last N] [--include-dream] [--bypass-age-gates]',
-};
+const cleanupCmd = require('../../../scripts/cleanup-sessions'),
+  USAGE = {
+    init: '',
+    compact: '',
+    dream: '',
+    'session-start': '--project X',
+    'session-end': '--id ID --memories N --auto true',
+    'session-summary': '[--project X]',
+    'auto-recover': '--session ID',
+    'recover-orphans': '',
+    'list-projects': '',
+    'list-workspaces': '',
+    'create-workspace': '--name X',
+    'archive-workspace': '--name X',
+    'trust-recovery': '[--repo X]',
+    'cleanup-sessions': '[--project X] [--dry-run] [--yes] [--keep-last N] [--include-dream] [--bypass-age-gates]',
+  };
 
 function register(commands, deps) {
   const {
@@ -50,8 +49,8 @@ function register(commands, deps) {
   commands['list-workspaces'] = () => wsCmd.listWorkspaces(deps);
   commands['create-workspace'] = (args) => wsCmd.createWorkspace(deps, args);
   commands['archive-workspace'] = (args) => wsCmd.archiveWorkspace(deps, args);
-  commands['cleanup-sessions'] = (args) => {
-    return cleanupCmd.cleanupSessions(
+  commands['cleanup-sessions'] = (args) =>
+    cleanupCmd.cleanupSessions(
       { sqlJson, sqlRun, withTransaction, softDeleteObservation },
       {
         keepLast: args['keep-last'] ? parseInt(args['keep-last'], 10) : 10,
@@ -61,7 +60,6 @@ function register(commands, deps) {
         bypassAgeGates: args['bypass-age-gates'] === true,
       },
     );
-  };
 }
 
 module.exports = { register, USAGE };

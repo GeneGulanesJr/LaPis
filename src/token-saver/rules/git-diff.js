@@ -18,12 +18,12 @@ function compressGitDiff({ stdout, stderr }) {
     };
   }
 
-  const lines = combined.split('\n');
-  const files = [];
+  const lines = combined.split('\n'),
+    files = [];
   let currentFile = null;
   const lockfileDiffs = [];
-  let contextLines = 0;
-  let inLockfile = false;
+  let contextLines = 0,
+    inLockfile = false;
 
   for (const line of lines) {
     if (line.startsWith('diff --git')) {
@@ -92,8 +92,8 @@ function compressGitDiff({ stdout, stderr }) {
     }
   }
 
-  const lockfileLines = lockfileDiffs.reduce((sum, f) => sum + f.lockfileLines, 0);
-  const omitted = contextLines + lockfileLines;
+  const lockfileLines = lockfileDiffs.reduce((sum, f) => sum + f.lockfileLines, 0),
+    omitted = contextLines + lockfileLines;
   let summary = `${files.length} file(s) changed.`;
   if (lockfileDiffs.length > 0) {
     summary += ` ${lockfileDiffs.length} lockfile diff(s) hidden.`;

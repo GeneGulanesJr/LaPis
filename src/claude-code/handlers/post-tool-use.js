@@ -34,12 +34,12 @@ const { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils');
 const { addNormalized } = require('../file-keys');
 const { postToolRole } = require('../tool-map');
 
-const { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust');
-// Harvest relative code paths from a memory-code response (parity with the Pi
-// tool_result handler in tool-guardrails.ts). The extension alternation is the
-// same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
-// classifier (#230).
-const CODE_PATH_RE = new RegExp(`[\\w/.-]+\\.(${CODE_EXTENSIONS.join('|')})`, 'g');
+const { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust'),
+  // Harvest relative code paths from a memory-code response (parity with the Pi
+  // tool_result handler in tool-guardrails.ts). The extension alternation is the
+  // same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
+  // classifier (#230).
+  CODE_PATH_RE = new RegExp(`[\\w/.-]+\\.(${CODE_EXTENSIONS.join('|')})`, 'g');
 
 function addEditedFile(state, filePath) {
   if (!filePath) {
@@ -78,8 +78,8 @@ function recordSearchRecall(state, ids, query) {
   if (!Array.isArray(state.pendingRecallFeedback)) {
     state.pendingRecallFeedback = [];
   }
-  const known = new Set(state.pendingRecallFeedback.map(([id]) => id));
-  const sessionId = state.sessionId || 0;
+  const known = new Set(state.pendingRecallFeedback.map(([id]) => id)),
+    sessionId = state.sessionId || 0;
   for (const id of ids) {
     if (!known.has(id)) {
       known.add(id);
@@ -118,26 +118,26 @@ async function gitTrustSync({ input, dispatch, repos, state, cwd }) {
 }
 
 async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, roleFilter }) {
-  const toolName = payload.tool_name;
-  const role = postToolRole(toolName);
+  const toolName = payload.tool_name,
+    role = postToolRole(toolName);
   if (!role) {
     return null;
   }
   // Role filter (`--only`/`--skip` from the install config): lets one Claude
   // Code event be split across two handlers — synchronous tracking/mirroring
-  // vs an async `--only git-trust` handler — without double-firing a role.
+  // Vs an async `--only git-trust` handler — without double-firing a role.
   if (roleFilter && ((roleFilter.only && role !== roleFilter.only) || roleFilter.skip === role)) {
     return null;
   }
 
-  const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {};
-  const toolResponse = payload.tool_response;
-  const claudeSessionId = payload.session_id;
-  const { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
+  const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
+    toolResponse = payload.tool_response,
+    claudeSessionId = payload.session_id,
+    { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
 
-  // git-trust only READS state (for currentProject), runs the heavy dispatch,
-  // and never writes back — writing a pre-dispatch snapshot after a slow
-  // sync-code-trust would clobber whatever the synchronous handler saved.
+  // Git-trust only READS state (for currentProject), runs the heavy dispatch,
+  // And never writes back — writing a pre-dispatch snapshot after a slow
+  // Sync-code-trust would clobber whatever the synchronous handler saved.
   // Falls back to loadState when the injected store lacks mutateState.
   if (role === 'git-trust') {
     const state = stateStore.loadState(claudeSessionId);
@@ -146,13 +146,13 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
   }
 
   // All other roles are read-modify-write: route through mutateState so two
-  // parallel PostToolUse hooks can't both read N and both write N+1 (lost
-  // increment / clobbered set) (#228).
+  // Parallel PostToolUse hooks can't both read N and both write N+1 (lost
+  // Increment / clobbered set) (#228).
   const mutate = stateStore.mutateState
     ? (mutator) => stateStore.mutateState(claudeSessionId, mutator)
     : (mutator) => {
-        const state = stateStore.loadState(claudeSessionId);
-        const r = mutator(state);
+        const state = stateStore.loadState(claudeSessionId),
+          r = mutator(state);
         stateStore.saveState(claudeSessionId, state);
         return r;
       };
@@ -181,10 +181,10 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
         recordSearchRecall(state, parseSearchResultIds(toolResponse), input.query);
         return;
       case 'memory-get-mirror': {
-        // memory-get / memory-delete both take a single `id`; prefer it, fall
-        // back to parsing the response for robustness.
-        const targetId = Number(input.id);
-        const ids = Number.isFinite(targetId) ? [targetId] : parseMemoryIds(toolResponse);
+        // Memory-get / memory-delete both take a single `id`; prefer it, fall
+        // Back to parsing the response for robustness.
+        const targetId = Number(input.id),
+          ids = Number.isFinite(targetId) ? [targetId] : parseMemoryIds(toolResponse);
         consumeRecall(state, ids);
         return;
       }
@@ -195,7 +195,7 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
         return;
     }
   });
-  return null; // silent — PostToolUse injects nothing
+  return null; // Silent — PostToolUse injects nothing
 }
 
 module.exports = {

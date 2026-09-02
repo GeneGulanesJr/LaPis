@@ -25,9 +25,9 @@ function makeWorkerFactory() {
 describe('job-queue', () => {
   it('startJob spawns a Worker and tracks it by jobId', () => {
     const WorkerFactory = makeWorkerFactory();
-    const { createJobQueue } = require('../src/code-index/job-queue');
-    const q = createJobQueue({ Worker: WorkerFactory, jobStore: {}, deps: {} });
-    const handle = q.startJob(42, { repoName: 'foo' });
+    const { createJobQueue } = require('../src/code-index/job-queue'),
+      q = createJobQueue({ Worker: WorkerFactory, jobStore: {}, deps: {} }),
+      handle = q.startJob(42, { repoName: 'foo' });
     expect(WorkerFactory.calls.length).toBe(1);
     expect(WorkerFactory.calls[0].script).toContain('index-worker');
     expect(WorkerFactory.calls[0].opts.workerData.jobId).toBe(42);
@@ -36,8 +36,8 @@ describe('job-queue', () => {
 
   it('getStatus returns running when worker is alive, completed when not', () => {
     const WorkerFactory = makeWorkerFactory();
-    const { createJobQueue } = require('../src/code-index/job-queue');
-    const q = createJobQueue({ Worker: WorkerFactory, jobStore: {}, deps: {} });
+    const { createJobQueue } = require('../src/code-index/job-queue'),
+      q = createJobQueue({ Worker: WorkerFactory, jobStore: {}, deps: {} });
     q.startJob(7, { repoName: 'foo' });
     expect(q.getStatus(7)).toBe('running');
     q.markDone(7);
@@ -49,8 +49,8 @@ describe('job-queue', () => {
     function WorkerFactory() {
       return w;
     }
-    const { createJobQueue } = require('../src/code-index/job-queue');
-    const q = createJobQueue({ Worker: WorkerFactory, jobStore: {}, deps: {} });
+    const { createJobQueue } = require('../src/code-index/job-queue'),
+      q = createJobQueue({ Worker: WorkerFactory, jobStore: {}, deps: {} });
     q.startJob(7, { repoName: 'foo' });
     await q.cancel(7);
     expect(w.terminateCalls).toBe(1);

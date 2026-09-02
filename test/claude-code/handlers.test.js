@@ -11,14 +11,14 @@ const { runHook } = require('../../src/claude-code/hooks');
 // ---- fakes ----
 
 function makeFakeDispatch(overrides = {}) {
-  const calls = [];
-  const dispatch = async (cmd, args) => {
-    calls.push({ cmd, args });
-    if (overrides[cmd]) {
-      return overrides[cmd](args, calls);
-    }
-    return { ok: true };
-  };
+  const calls = [],
+    dispatch = async (cmd, args) => {
+      calls.push({ cmd, args });
+      if (overrides[cmd]) {
+        return overrides[cmd](args, calls);
+      }
+      return { ok: true };
+    };
   return { dispatch, calls };
 }
 
@@ -31,8 +31,8 @@ function makeStateStore() {
       map.set(id, s);
     },
     mutateState: async (id, mutator) => {
-      const s = map.get(id) || realStateStore.defaultState();
-      const r = await mutator(s);
+      const s = map.get(id) || realStateStore.defaultState(),
+        r = await mutator(s);
       map.set(id, s);
       return r;
     },
@@ -40,7 +40,7 @@ function makeStateStore() {
       map.delete(id);
     },
     sweepStaleSessions: () => ({ swept: 0 }),
-    // test-only inspection
+    // Test-only inspection
     _peek: (id) => map.get(id),
   };
 }
@@ -52,19 +52,19 @@ function hasCall(calls, cmd, predicate) {
 }
 
 // Polls `fn` until it returns truthy, up to `timeoutMs`. Resolves with the last
-// result. Used for fire-and-forget capture work whose async I/O (transcript
-// stream read) settles across event-loop ticks rather than a single microtask.
+// Result. Used for fire-and-forget capture work whose async I/O (transcript
+// Stream read) settles across event-loop ticks rather than a single microtask.
 function waitFor(fn, timeoutMs = 1000) {
   return new Promise((resolve) => {
-    const deadline = Date.now() + timeoutMs;
-    const tick = () => {
-      const result = fn();
-      if (result || Date.now() >= deadline) {
-        resolve(result);
-        return;
-      }
-      setImmediate(tick);
-    };
+    const deadline = Date.now() + timeoutMs,
+      tick = () => {
+        const result = fn();
+        if (result || Date.now() >= deadline) {
+          resolve(result);
+          return;
+        }
+        setImmediate(tick);
+      };
     setImmediate(tick);
   });
 }
@@ -76,17 +76,16 @@ function waitFor(fn, timeoutMs = 1000) {
 describe('claude-code handlers: SessionStart', () => {
   test('startup calls session-start, stores the numeric sessionId, injects context', async () => {
     const { dispatch, calls } = makeFakeDispatch({
-      'session-start': () => ({ sessionId: 99, sessionCount: 4 }),
-      context: () => EMPTY_CONTEXT,
-    });
-    const stateStore = makeStateStore();
-
-    const out = await handleSessionStart({
-      payload: { session_id: 'claude-1', source: 'startup', cwd: '/proj/myapp' },
-      dispatch,
-      getKnownRepos: () => [],
-      stateStore,
-    });
+        'session-start': () => ({ sessionId: 99, sessionCount: 4 }),
+        context: () => EMPTY_CONTEXT,
+      }),
+      stateStore = makeStateStore(),
+      out = await handleSessionStart({
+        payload: { session_id: 'claude-1', source: 'startup', cwd: '/proj/myapp' },
+        dispatch,
+        getKnownRepos: () => [],
+        stateStore,
+      });
 
     expect(hasCall(calls, 'session-start')).toBe(true);
     expect(stateStore._peek('claude-1').sessionId).toBe(99);
@@ -97,13 +96,13 @@ describe('claude-code handlers: SessionStart', () => {
 
   test('startup does not store a null sessionId (stays symmetric with SessionEnd guard)', async () => {
     // If the server returns { sessionId: null } (or omits it), the stored value
-    // must remain the default null so SessionEnd's "no session ever started"
-    // guard doesn't skip a summary for a session that DID start.
+    // Must remain the default null so SessionEnd's "no session ever started"
+    // Guard doesn't skip a summary for a session that DID start.
     const { dispatch } = makeFakeDispatch({
-      'session-start': () => ({ sessionId: null, sessionCount: 0 }),
-      context: () => EMPTY_CONTEXT,
-    });
-    const stateStore = makeStateStore();
+        'session-start': () => ({ sessionId: null, sessionCount: 0 }),
+        context: () => EMPTY_CONTEXT,
+      }),
+      stateStore = makeStateStore();
 
     await handleSessionStart({
       payload: { session_id: 'claude-null', source: 'startup', cwd: '/proj/myapp' },
@@ -138,17 +137,16 @@ describe('claude-code handlers: SessionStart', () => {
     const stateStore = makeStateStore();
     stateStore.saveState('claude-2', { ...realStateStore.defaultState(), sessionId: 77 });
 
-    const { dispatch, calls } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
+    const { dispatch, calls } = makeFakeDispatch({ context: () => EMPTY_CONTEXT }),
+      out = await handleSessionStart({
+        payload: { session_id: 'claude-2', source: 'compact', cwd: '/p' },
+        dispatch,
+        getKnownRepos: () => [],
+        stateStore,
+      });
 
-    const out = await handleSessionStart({
-      payload: { session_id: 'claude-2', source: 'compact', cwd: '/p' },
-      dispatch,
-      getKnownRepos: () => [],
-      stateStore,
-    });
-
-    expect(hasCall(calls, 'session-start')).toBe(false); // the key assertion
-    // re-uses the stored sessionId for context
+    expect(hasCall(calls, 'session-start')).toBe(false); // The key assertion
+    // Re-uses the stored sessionId for context
     expect(hasCall(calls, 'context', (a) => a['session-id'] === '77')).toBe(true);
     expect(out.hookSpecificOutput.hookEventName).toBe('SessionStart');
   });
@@ -160,8 +158,8 @@ describe('claude-code handlers: SessionStart', () => {
       sessionId: 77,
       currentProject: 'foo',
     });
-    const monorepoRepos = () => [{ name: 'my-monorepo', path: '/repos/my-monorepo' }];
-    const { dispatch } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
+    const monorepoRepos = () => [{ name: 'my-monorepo', path: '/repos/my-monorepo' }],
+      { dispatch } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
 
     await handleSessionStart({
       payload: { session_id: 'claude-compact', source: 'compact', cwd: '/repos/my-monorepo/packages/foo' },
@@ -212,11 +210,11 @@ describe('claude-code handlers: UserPromptSubmit', () => {
     const stateStore = makeStateStore();
     stateStore.saveState('claude-5', { ...realStateStore.defaultState(), sessionId: 1 });
     const { dispatch, calls } = makeFakeDispatch({
-      context: () => EMPTY_CONTEXT,
-      preflight: () => ({ likely_existing_code: [{ symbol: 'foo', file: 'a.js', line: 3 }], risk: 'low' }),
-      'coding-context': () => ({ data: { target: { symbol: 'foo' } } }),
-    });
-    const repo = { name: 'myapp', path: '/p', indexed_at: new Date().toISOString() };
+        context: () => EMPTY_CONTEXT,
+        preflight: () => ({ likely_existing_code: [{ symbol: 'foo', file: 'a.js', line: 3 }], risk: 'low' }),
+        'coding-context': () => ({ data: { target: { symbol: 'foo' } } }),
+      }),
+      repo = { name: 'myapp', path: '/p', indexed_at: new Date().toISOString() };
 
     await handleUserPromptSubmit({
       payload: { session_id: 'claude-5', prompt: 'implement the login feature', cwd: '/p' },
@@ -266,18 +264,18 @@ describe('claude-code handlers: UserPromptSubmit', () => {
 
 describe('claude-code handlers: Stop', () => {
   test('handleStop returns null (no stdout, no continuation)', async () => {
-    const { dispatch } = makeFakeDispatch();
-    const out = await handleStop({
-      payload: { session_id: 'claude-8', cwd: '/p' },
-      dispatch,
-      stateStore: makeStateStore(),
-    });
+    const { dispatch } = makeFakeDispatch(),
+      out = await handleStop({
+        payload: { session_id: 'claude-8', cwd: '/p' },
+        dispatch,
+        stateStore: makeStateStore(),
+      });
     expect(out).toBeNull();
   });
 
   test('bails out when stop_hook_active is set', async () => {
-    const { dispatch, calls } = makeFakeDispatch();
-    const stateStore = makeStateStore();
+    const { dispatch, calls } = makeFakeDispatch(),
+      stateStore = makeStateStore();
     stateStore.saveState('claude-9', { ...realStateStore.defaultState(), sessionId: 1, turnCount: 4 });
     const before = stateStore._peek('claude-9').turnCount;
     await handleStop({ payload: { session_id: 'claude-9', stop_hook_active: true, cwd: '/p' }, dispatch, stateStore });
@@ -310,8 +308,8 @@ describe('claude-code handlers: Stop', () => {
   });
 
   test('dream triggers at turn 50 once', async () => {
-    const stateStore = makeStateStore();
-    const { dispatch, calls } = makeFakeDispatch();
+    const stateStore = makeStateStore(),
+      { dispatch, calls } = makeFakeDispatch();
     await runStopCapture({
       dispatch,
       stateStore,
@@ -326,8 +324,8 @@ describe('claude-code handlers: Stop', () => {
   });
 
   test('passive capture saves an auto-decision on a qualifying assistant message', async () => {
-    const { dispatch, calls } = makeFakeDispatch();
-    const stateStore = makeStateStore();
+    const { dispatch, calls } = makeFakeDispatch(),
+      stateStore = makeStateStore();
     stateStore.saveState('y', {
       ...realStateStore.defaultState(),
       sessionId: 1,
@@ -335,8 +333,8 @@ describe('claude-code handlers: Stop', () => {
       lastAutoDecisionSave: 0,
     });
     const reasoning =
-      'Analyzing the requirements and constraints of this subsystem in detail before proceeding. '.repeat(4);
-    const longText = `${reasoning} Based on the tradeoffs, going with a queue-based design because it avoids head-of-line blocking.`;
+        'Analyzing the requirements and constraints of this subsystem in detail before proceeding. '.repeat(4),
+      longText = `${reasoning} Based on the tradeoffs, going with a queue-based design because it avoids head-of-line blocking.`;
     await runStopCapture({
       dispatch,
       stateStore,
@@ -351,13 +349,13 @@ describe('claude-code handlers: Stop', () => {
 
   test('passive capture falls back to transcript_path when no inline message', async () => {
     // Claude Code's Stop payload ships transcript_path rather than
-    // last_assistant_message; handleStop must read the transcript so capture
-    // actually fires in practice.
+    // Last_assistant_message; handleStop must read the transcript so capture
+    // Actually fires in practice.
     const reasoning =
-      'Analyzing the requirements and constraints of this subsystem in detail before proceeding. '.repeat(4);
-    const assistantText = `${reasoning} Based on the tradeoffs, going with a queue-based design because it avoids head-of-line blocking.`;
-    const txDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-stop-tx-'));
-    const txPath = path.join(txDir, 't.jsonl');
+        'Analyzing the requirements and constraints of this subsystem in detail before proceeding. '.repeat(4),
+      assistantText = `${reasoning} Based on the tradeoffs, going with a queue-based design because it avoids head-of-line blocking.`,
+      txDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-stop-tx-')),
+      txPath = path.join(txDir, 't.jsonl');
     fs.writeFileSync(
       txPath,
       [
@@ -374,17 +372,16 @@ describe('claude-code handlers: Stop', () => {
       turnCount: 3,
       lastAutoDecisionSave: 0,
     });
-    const { dispatch, calls } = makeFakeDispatch();
-
-    // handleStop returns null immediately (fire-and-forget); the capture work
-    // — including the async transcript stream read — completes after we return.
-    // Poll the dispatch record until the transcript fallback fires, since the
-    // streaming read resolves across event-loop ticks, not just microtasks.
-    const out = await handleStop({
-      payload: { session_id: 'claude-tx', cwd: '/p', transcript_path: txPath },
-      dispatch,
-      stateStore,
-    });
+    const { dispatch, calls } = makeFakeDispatch(),
+      // handleStop returns null immediately (fire-and-forget); the capture work
+      // — including the async transcript stream read — completes after we return.
+      // Poll the dispatch record until the transcript fallback fires, since the
+      // streaming read resolves across event-loop ticks, not just microtasks.
+      out = await handleStop({
+        payload: { session_id: 'claude-tx', cwd: '/p', transcript_path: txPath },
+        dispatch,
+        stateStore,
+      });
     expect(out).toBeNull();
 
     const captured = await waitFor(
@@ -397,8 +394,8 @@ describe('claude-code handlers: Stop', () => {
   });
 
   test('negative-recall feedback is flushed', async () => {
-    const { dispatch, calls } = makeFakeDispatch();
-    const stateStore = makeStateStore();
+    const { dispatch, calls } = makeFakeDispatch(),
+      stateStore = makeStateStore();
     stateStore.saveState('z', {
       ...realStateStore.defaultState(),
       sessionId: 1,
@@ -462,17 +459,16 @@ describe('claude-code handlers: Stop', () => {
       turnCount: 3,
       editedFiles: [],
     });
-    const { dispatch } = makeFakeDispatch();
-
-    const capture = runStopCapture({
-      dispatch,
-      stateStore,
-      claudeSessionId: 'race',
-      turnCount: 4,
-      project: 'p',
-      now: Date.now(),
-      lastText: '',
-    });
+    const { dispatch } = makeFakeDispatch(),
+      capture = runStopCapture({
+        dispatch,
+        stateStore,
+        claudeSessionId: 'race',
+        turnCount: 4,
+        project: 'p',
+        now: Date.now(),
+        lastText: '',
+      });
 
     // Simulate a concurrent PostToolUse edit-track while capture is in flight.
     await stateStore.mutateState('race', (s) => {
@@ -498,30 +494,28 @@ describe('claude-code handlers: SessionEnd', () => {
   test('runs session-summary + session-end awaited, with DB-derived count, clears state', async () => {
     const stateStore = makeStateStore();
     stateStore.saveState('claude-11', { ...realStateStore.defaultState(), sessionId: 88, currentProject: 'p' });
-    const transcript = writeTranscript([JSON.stringify({ message: { role: 'user', content: 'do work' } })]);
-
-    const { dispatch, calls } = makeFakeDispatch();
+    const transcript = writeTranscript([JSON.stringify({ message: { role: 'user', content: 'do work' } })]),
+      { dispatch, calls } = makeFakeDispatch();
     let countedWith;
     const dispatchClient = {
-      countSessionMemories: (sid) => {
-        countedWith = sid;
-        return 13;
+        countSessionMemories: (sid) => {
+          countedWith = sid;
+          return 13;
+        },
       },
-    };
+      out = await handleSessionEnd({
+        payload: { session_id: 'claude-11', cwd: '/p', transcript_path: transcript },
+        dispatch,
+        dispatchClient,
+        stateStore,
+      });
 
-    const out = await handleSessionEnd({
-      payload: { session_id: 'claude-11', cwd: '/p', transcript_path: transcript },
-      dispatch,
-      dispatchClient,
-      stateStore,
-    });
-
-    expect(out).toBeNull(); // silent
+    expect(out).toBeNull(); // Silent
     expect(hasCall(calls, 'session-summary')).toBe(true);
     expect(hasCall(calls, 'session-end')).toBe(true);
     expect(countedWith).toBe(88);
     expect(hasCall(calls, 'session-end', (a) => a.memories === '13' && a.id === '88')).toBe(true);
-    // state file cleared
+    // State file cleared
     expect(stateStore._peek('claude-11')).toBeUndefined();
   });
 
@@ -534,8 +528,8 @@ describe('claude-code handlers: SessionEnd', () => {
       currentProject: 'p',
       memoriesSavedThisSession: 9999,
     });
-    const { dispatch, calls } = makeFakeDispatch();
-    const dispatchClient = { countSessionMemories: () => 2 };
+    const { dispatch, calls } = makeFakeDispatch(),
+      dispatchClient = { countSessionMemories: () => 2 };
 
     await handleSessionEnd({
       payload: { session_id: 'claude-12', cwd: '/p', transcript_path: '' },
@@ -559,8 +553,8 @@ describe('claude-code handlers: SessionEnd', () => {
         sessionId: 1,
         editedFiles: ['/resolved/project/src/a.js'],
       });
-      const { dispatch, calls } = makeFakeDispatch();
-      const dispatchClient = { countSessionMemories: () => 0 };
+      const { dispatch, calls } = makeFakeDispatch(),
+        dispatchClient = { countSessionMemories: () => 0 };
 
       await handleSessionEnd({
         payload: { session_id: 'claude-cwd', cwd: '/ignored', transcript_path: '' },
@@ -582,16 +576,15 @@ describe('claude-code handlers: SessionEnd', () => {
   });
 
   test('no-op when no session was started', async () => {
-    const stateStore = makeStateStore();
-    const { dispatch, calls } = makeFakeDispatch();
-    const dispatchClient = { countSessionMemories: () => 0 };
-
-    const out = await handleSessionEnd({
-      payload: { session_id: 'claude-13', cwd: '/p' },
-      dispatch,
-      dispatchClient,
-      stateStore,
-    });
+    const stateStore = makeStateStore(),
+      { dispatch, calls } = makeFakeDispatch(),
+      dispatchClient = { countSessionMemories: () => 0 },
+      out = await handleSessionEnd({
+        payload: { session_id: 'claude-13', cwd: '/p' },
+        dispatch,
+        dispatchClient,
+        stateStore,
+      });
 
     expect(out).toBeNull();
     expect(hasCall(calls, 'session-end')).toBe(false);
@@ -604,8 +597,8 @@ describe('claude-code handlers: SessionEnd', () => {
 
 describe('claude-code router (hooks.js)', () => {
   test('Stop writes nothing to stdout (silent)', async () => {
-    const writes = [];
-    const origWrite = process.stdout.write.bind(process.stdout);
+    const writes = [],
+      origWrite = process.stdout.write.bind(process.stdout);
     process.stdout.write = (chunk) => {
       writes.push(String(chunk));
       return true;
@@ -636,8 +629,8 @@ describe('claude-code router (hooks.js)', () => {
   });
 
   test('PreToolUse Read deny is written to stdout as a permission decision', async () => {
-    const writes = [];
-    const origWrite = process.stdout.write.bind(process.stdout);
+    const writes = [],
+      origWrite = process.stdout.write.bind(process.stdout);
     process.stdout.write = (chunk) => {
       writes.push(String(chunk));
       return true;
@@ -664,8 +657,8 @@ describe('claude-code router (hooks.js)', () => {
   });
 
   test('PostToolUse writes nothing to stdout (silent)', async () => {
-    const writes = [];
-    const origWrite = process.stdout.write.bind(process.stdout);
+    const writes = [],
+      origWrite = process.stdout.write.bind(process.stdout);
     process.stdout.write = (chunk) => {
       writes.push(String(chunk));
       return true;
@@ -692,11 +685,11 @@ describe('claude-code router (hooks.js)', () => {
 
   test('UserPromptSubmit clears its budget timer on the fast path', async () => {
     // Regression: a dangling setTimeout(30000) from the budget race used to
-    // keep Node's event loop alive after the hook resolved, stalling the
-    // process for the full budget on every prompt. Now the timer is cleared
-    // when run() settles, so the handler returns with no pending handles.
-    const { dispatch } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
-    const t0 = Date.now();
+    // Keep Node's event loop alive after the hook resolved, stalling the
+    // Process for the full budget on every prompt. Now the timer is cleared
+    // When run() settles, so the handler returns with no pending handles.
+    const { dispatch } = makeFakeDispatch({ context: () => EMPTY_CONTEXT }),
+      t0 = Date.now();
     await runHook(['hook', 'UserPromptSubmit'], {
       ensureDb: false,
       stdin: JSON.stringify({ session_id: 'r-3', prompt: 'hello', cwd: '/p' }),

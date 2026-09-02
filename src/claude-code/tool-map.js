@@ -35,12 +35,11 @@
  *     mcp__lapis__memory-code    → memory-code-harvest
  */
 
-const MCP_PREFIX = 'mcp__lapis__';
-
-// Any MCP server name (Claude Code prefixes tools with `mcp__<server>__`).
-// A hardcoded `mcp__lapis__` here would silently kill tool-state mirroring
-// and guardrail seeding for installs that renamed the server via --mcp-name.
-const MCP_TOOL_RE = /^mcp__[A-Za-z0-9_-]+__(.+)$/;
+const MCP_PREFIX = 'mcp__lapis__',
+  // Any MCP server name (Claude Code prefixes tools with `mcp__<server>__`).
+  // A hardcoded `mcp__lapis__` here would silently kill tool-state mirroring
+  // and guardrail seeding for installs that renamed the server via --mcp-name.
+  MCP_TOOL_RE = /^mcp__[A-Za-z0-9_-]+__(.+)$/;
 
 /**
  * Strip the `mcp__<server>__` prefix, returning the bare tool name (e.g.

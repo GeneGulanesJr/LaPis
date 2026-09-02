@@ -26,13 +26,12 @@ const {
 } = require('../../hooks-engine/preflight-assembly');
 const { capInjectedContext } = require('../../hooks-engine/context-builder');
 const { assembleContextLines } = require('../context-inject');
-const { makeMutate } = require('../state-mutate');
-
-const BUDGET_MS = 30000;
-const REMINDER_INTERVAL = 5; // MEMORY_REMINDER_INTERVAL (state.ts:107)
-const REMINDER_RECENT_MS = 180000; // 3min (context-injection.ts:235)
-const REMINDER_TEXT =
-  '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.';
+const { makeMutate } = require('../state-mutate'),
+  BUDGET_MS = 30000,
+  REMINDER_INTERVAL = 5, // MEMORY_REMINDER_INTERVAL (state.ts:107)
+  REMINDER_RECENT_MS = 180000, // 3min (context-injection.ts:235)
+  REMINDER_TEXT =
+    '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.';
 
 /**
  * Append preflight + coding-context blocks (best-effort). Mutates lines.
@@ -72,39 +71,37 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt }) {
 }
 
 async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, isCancelled }) {
-  const prompt = payload.prompt || '';
-  const { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
-  const claudeSessionId = payload.session_id;
-
-  const state = stateStore.loadState(claudeSessionId);
-  const sessionId = state.sessionId;
-
-  const assembled = await assembleContextLines({
-    dispatch,
-    getKnownRepos,
-    project,
-    cwd: payload.cwd,
-    query: prompt,
-    sessionId,
-  }).catch((err) => {
-    // Log but do not throw — prompt must still go through with whatever
-    // non-memory context we can compute locally. Without logging, dispatch
-    // failures (engine unreachable, schema mismatch) are invisible to the
-    // user and indistinguishable from "no relevant memories found".
-    console.error(
-      `[claude-code] assembleContextLines failed for session ${claudeSessionId || 'unknown'}: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
-    return null;
-  });
+  const prompt = payload.prompt || '',
+    { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
+    claudeSessionId = payload.session_id,
+    state = stateStore.loadState(claudeSessionId),
+    sessionId = state.sessionId,
+    assembled = await assembleContextLines({
+      dispatch,
+      getKnownRepos,
+      project,
+      cwd: payload.cwd,
+      query: prompt,
+      sessionId,
+    }).catch((err) => {
+      // Log but do not throw — prompt must still go through with whatever
+      // Non-memory context we can compute locally. Without logging, dispatch
+      // Failures (engine unreachable, schema mismatch) are invisible to the
+      // User and indistinguishable from "no relevant memories found".
+      console.error(
+        `[claude-code] assembleContextLines failed for session ${claudeSessionId || 'unknown'}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return null;
+    });
 
   if (isCancelled?.()) {
     return null;
   }
 
-  const lines = assembled ? assembled.lines : [];
-  const cwdRepo = assembled ? assembled.cwdRepo : findMatchingRepo(resolvedCwd, repos);
+  const lines = assembled ? assembled.lines : [],
+    cwdRepo = assembled ? assembled.cwdRepo : findMatchingRepo(resolvedCwd, repos);
 
   // Preflight / coding context (best-effort, timeout-safe).
   await appendPreflight({ lines, dispatch, cwdRepo, prompt });
@@ -115,7 +112,7 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
 
   // Cadence-gated reminder (parity of Pi's context-event reminder).
   // Routed through mutateState so parallel memory-tool hooks cannot be
-  // clobbered by an unlocked load/save (#228).
+  // Clobbered by an unlocked load/save (#228).
   let shouldRemind = false;
   const mutate = makeMutate(stateStore, claudeSessionId);
   await mutate((s) => {
@@ -155,12 +152,12 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
 
 async function handleUserPromptSubmit(ctx) {
   // Race against the 30s budget; on timeout return whatever was produced so
-  // the prompt is never blocked. The timer is cleared when run() settles so the
-  // hook process exits immediately on the fast path — otherwise the dangling
-  // timer keeps Node's event loop (and thus Claude Code) alive for the full budget.
+  // The prompt is never blocked. The timer is cleared when run() settles so the
+  // Hook process exits immediately on the fast path — otherwise the dangling
+  // Timer keeps Node's event loop (and thus Claude Code) alive for the full budget.
   // A cancelled flag prevents run() from persisting state after the budget fires.
-  let timer;
-  let cancelled = false;
+  let timer,
+    cancelled = false;
   try {
     return await Promise.race([
       run({ ...ctx, isCancelled: () => cancelled }).catch(() => null),

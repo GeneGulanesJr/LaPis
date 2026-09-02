@@ -39,24 +39,23 @@ function findLapisRoot() {
   process.exit(1);
 }
 
-const LAPIS_ROOT = findLapisRoot();
-const CLI_MAX_BUFFER = 64 * 1024 * 1024;
+const LAPIS_ROOT = findLapisRoot(),
+  CLI_MAX_BUFFER = 64 * 1024 * 1024,
+  // ══════════════════════════════════════════════════════════
+  // BENCHMARK MATRIX
+  // ══════════════════════════════════════════════════════════
 
-// ══════════════════════════════════════════════════════════
-// BENCHMARK MATRIX
-// ══════════════════════════════════════════════════════════
-
-const BENCHMARK_TOOLS = [
-  { name: 'importance', cli: 'importance', toolName: 'getSymbolImportance' },
-  { name: 'hotspots', cli: 'hotspots', toolName: 'getHotspots' },
-  { name: 'dead-code', cli: 'dead-code', toolName: 'getDeadCode' },
-  { name: 'coupling', cli: 'coupling', toolName: 'getCouplingMetrics' },
-  { name: 'extraction', cli: 'extractable', toolName: 'getExtractionCandidates' },
-  { name: 'call-hierarchy', cli: 'call-hierarchy', toolName: 'getCallHierarchy' },
-  { name: 'import-graph', cli: 'import-graph', toolName: 'getImportGraph' },
-  { name: 'cycles', cli: 'cycles', toolName: 'getDependencyCycles' },
-  { name: 'blast-radius', cli: 'blast-radius', toolName: 'getBlastRadius' },
-];
+  BENCHMARK_TOOLS = [
+    { name: 'importance', cli: 'importance', toolName: 'getSymbolImportance' },
+    { name: 'hotspots', cli: 'hotspots', toolName: 'getHotspots' },
+    { name: 'dead-code', cli: 'dead-code', toolName: 'getDeadCode' },
+    { name: 'coupling', cli: 'coupling', toolName: 'getCouplingMetrics' },
+    { name: 'extraction', cli: 'extractable', toolName: 'getExtractionCandidates' },
+    { name: 'call-hierarchy', cli: 'call-hierarchy', toolName: 'getCallHierarchy' },
+    { name: 'import-graph', cli: 'import-graph', toolName: 'getImportGraph' },
+    { name: 'cycles', cli: 'cycles', toolName: 'getDependencyCycles' },
+    { name: 'blast-radius', cli: 'blast-radius', toolName: 'getBlastRadius' },
+  ];
 
 // ══════════════════════════════════════════════════════════
 // UTILITIES
@@ -84,9 +83,9 @@ function pad(str, width) {
 }
 
 function runCli(repo, subcommand, extraFlags = '') {
-  const msPath = path.join(LAPIS_ROOT, 'memory-store.js');
-  const extraArgs = extraFlags ? extraFlags.split(/\s+/).filter(Boolean) : [];
-  const args = [msPath, subcommand, '--repo', repo, ...extraArgs];
+  const msPath = path.join(LAPIS_ROOT, 'memory-store.js'),
+    extraArgs = extraFlags ? extraFlags.split(/\s+/).filter(Boolean) : [],
+    args = [msPath, subcommand, '--repo', repo, ...extraArgs];
   try {
     const stdout = execFileSync('node', args, {
       cwd: LAPIS_ROOT,
@@ -102,13 +101,13 @@ function runCli(repo, subcommand, extraFlags = '') {
 
 function isRepoIndexed(repo) {
   try {
-    const msPath = path.join(LAPIS_ROOT, 'memory-store.js');
-    const stdout = execFileSync('node', [msPath, 'list-code-repos'], {
-      cwd: LAPIS_ROOT,
-      encoding: 'utf-8',
-      timeout: 5000,
-    }).trim();
-    const data = JSON.parse(stdout);
+    const msPath = path.join(LAPIS_ROOT, 'memory-store.js'),
+      stdout = execFileSync('node', [msPath, 'list-code-repos'], {
+        cwd: LAPIS_ROOT,
+        encoding: 'utf-8',
+        timeout: 5000,
+      }).trim(),
+      data = JSON.parse(stdout);
     return (data.repos || []).some((r) => r.name === repo);
   } catch {
     return false;
@@ -128,15 +127,15 @@ function findSymbolWithCallers(repo) {
 }
 
 function _pickHotFile(repo) {
-  const msPath = path.join(LAPIS_ROOT, 'memory-store.js');
-  const stdout = execFileSync('node', [msPath, 'hotspots', '--repo', repo, '--top', '1'], {
-    cwd: LAPIS_ROOT,
-    encoding: 'utf-8',
-    timeout: 10000,
-  }).trim();
-  const data = JSON.parse(stdout);
-  const payload = data.data || data;
-  const files = payload.hotspots || payload.files || [];
+  const msPath = path.join(LAPIS_ROOT, 'memory-store.js'),
+    stdout = execFileSync('node', [msPath, 'hotspots', '--repo', repo, '--top', '1'], {
+      cwd: LAPIS_ROOT,
+      encoding: 'utf-8',
+      timeout: 10000,
+    }).trim(),
+    data = JSON.parse(stdout),
+    payload = data.data || data,
+    files = payload.hotspots || payload.files || [];
   if (files.length === 0) {
     return null;
   }
@@ -144,19 +143,19 @@ function _pickHotFile(repo) {
 }
 
 function _pickCallSymbolFromOutline(repo, hotFile) {
-  const msPath = path.join(LAPIS_ROOT, 'memory-store.js');
-  const outlineOut = execFileSync('node', [msPath, 'outline', '--repo', repo, '--file', hotFile], {
-    cwd: LAPIS_ROOT,
-    encoding: 'utf-8',
-    timeout: 10000,
-  }).trim();
-  const outlineRaw = JSON.parse(outlineOut);
-  const outline = outlineRaw.data || outlineRaw;
-  const syms = [
-    ...(outline.standalone || []),
-    ...(outline.symbols || []),
-    ...(outline.classes || []).flatMap((c) => c.methods || []),
-  ];
+  const msPath = path.join(LAPIS_ROOT, 'memory-store.js'),
+    outlineOut = execFileSync('node', [msPath, 'outline', '--repo', repo, '--file', hotFile], {
+      cwd: LAPIS_ROOT,
+      encoding: 'utf-8',
+      timeout: 10000,
+    }).trim(),
+    outlineRaw = JSON.parse(outlineOut),
+    outline = outlineRaw.data || outlineRaw,
+    syms = [
+      ...(outline.standalone || []),
+      ...(outline.symbols || []),
+      ...(outline.classes || []).flatMap((c) => c.methods || []),
+    ];
   return syms.find((s) => s.kind === 'function' && s.name.length > 3)?.name || syms[0]?.name || null;
 }
 

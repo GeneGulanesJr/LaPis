@@ -2,9 +2,9 @@ const { jsonOk, jsonCreated, jsonError } = require('../errors');
 
 function createMission(repo) {
   return async (req, res, ctx) => {
-    const { description, config } = ctx.body;
-    const id = `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const rows = repo.createMission({ id, description, status: 'planning', configJson: config });
+    const { description, config } = ctx.body,
+      id = `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      rows = repo.createMission({ id, description, status: 'planning', configJson: config });
     jsonCreated(
       res,
       rows[0] || { id, description, status: 'planning', configJson: config, createdAt: new Date().toISOString() },
@@ -33,8 +33,8 @@ function updateMissionStatus(repo) {
 
 function listMissions(repo) {
   return async (req, res, ctx) => {
-    const status = ctx.query.get('status') || undefined;
-    const rows = repo.listMissions(status);
+    const status = ctx.query.get('status') || undefined,
+      rows = repo.listMissions(status);
     jsonOk(res, rows);
   };
 }

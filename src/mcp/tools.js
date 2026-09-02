@@ -8,53 +8,51 @@
 // Reused verbatim from extensions/memory-layer/tools/code-tools.ts:89-116.
 // Keeping these in sync is enforced by test/mcp-tools-catalog.test.js.
 const CODE_MODE_TO_COMMAND = {
-  search: 'search-code',
-  callers: 'call-hierarchy',
-  callees: 'call-hierarchy',
-  'blast-radius': 'blast-radius',
-  'dead-code': 'dead-code',
-  complexity: 'complexity',
-  deps: 'import-graph',
-  outline: 'outline',
-  churn: 'churn',
-  hotspots: 'hotspots',
-  cycles: 'cycles',
-  importance: 'importance',
-  coupling: 'coupling',
-  extractable: 'extractable',
-  hierarchy: 'hierarchy',
-  'signal-chains': 'signal-chains',
-  'layer-violations': 'layer-violations',
-  'coding-context': 'coding-context',
-  preflight: 'preflight',
-  'agent-pack': 'agent-pack',
-  health: 'health-code-repo',
-  'index-repo': 'index-repo',
-  'reindex-repo': 'reindex-repo',
-  dupes: 'dupes',
-  'audit-diff': 'audit-diff',
-  'enrich-symbols': 'enrich-symbols',
-};
-
-// Reused verbatim from extensions/memory-layer/tools/doc-tools.ts:64-78.
-const DOC_MODE_TO_COMMAND = {
-  search: 'doc-search',
-  outline: 'doc-outline',
-  backlinks: 'backlinks',
-  'broken-links': 'broken-links',
-  glossary: 'glossary',
-  'tutorial-path': 'tutorial-path',
-  'code-examples': 'code-examples',
-  orphans: 'doc-orphans',
-  coverage: 'doc-coverage',
-  'stale-pages': 'stale-pages',
-  duplicates: 'doc-duplicates',
-  'index-docs': 'index-docs',
-  'reindex-docs': 'reindex-docs',
-};
-
-const CODE_MODES = Object.keys(CODE_MODE_TO_COMMAND);
-const DOC_MODES = Object.keys(DOC_MODE_TO_COMMAND);
+    search: 'search-code',
+    callers: 'call-hierarchy',
+    callees: 'call-hierarchy',
+    'blast-radius': 'blast-radius',
+    'dead-code': 'dead-code',
+    complexity: 'complexity',
+    deps: 'import-graph',
+    outline: 'outline',
+    churn: 'churn',
+    hotspots: 'hotspots',
+    cycles: 'cycles',
+    importance: 'importance',
+    coupling: 'coupling',
+    extractable: 'extractable',
+    hierarchy: 'hierarchy',
+    'signal-chains': 'signal-chains',
+    'layer-violations': 'layer-violations',
+    'coding-context': 'coding-context',
+    preflight: 'preflight',
+    'agent-pack': 'agent-pack',
+    health: 'health-code-repo',
+    'index-repo': 'index-repo',
+    'reindex-repo': 'reindex-repo',
+    dupes: 'dupes',
+    'audit-diff': 'audit-diff',
+    'enrich-symbols': 'enrich-symbols',
+  },
+  // Reused verbatim from extensions/memory-layer/tools/doc-tools.ts:64-78.
+  DOC_MODE_TO_COMMAND = {
+    search: 'doc-search',
+    outline: 'doc-outline',
+    backlinks: 'backlinks',
+    'broken-links': 'broken-links',
+    glossary: 'glossary',
+    'tutorial-path': 'tutorial-path',
+    'code-examples': 'code-examples',
+    orphans: 'doc-orphans',
+    coverage: 'doc-coverage',
+    'stale-pages': 'stale-pages',
+    duplicates: 'doc-duplicates',
+    'index-docs': 'index-docs',
+    'reindex-docs': 'reindex-docs',
+  },
+  CODE_MODES = Object.keys(CODE_MODE_TO_COMMAND),
+  DOC_MODES = Object.keys(DOC_MODE_TO_COMMAND);
 
 // --- small JSON-schema helpers (plain objects — no Zod, per SDK low-level Server) ---
 
@@ -85,8 +83,8 @@ function bool(desc) {
  * @param {Record<string, {schema: object, optional?: boolean}>} fields
  */
 function obj(fields) {
-  const properties = {};
-  const required = [];
+  const properties = {},
+    required = [];
   for (const [name, def] of Object.entries(fields)) {
     properties[name] = def.schema;
     if (!def.optional) {
@@ -295,14 +293,14 @@ const tools = [
       token_budget: { schema: opt(num('Max tokens to use (default: 2000)')), optional: true },
     }),
     toCommand(p, ctx) {
-      const tokenBudget = p.token_budget || 2000;
-      const args = {
-        project: ctx.project || 'unknown',
-        query: p.query,
-        limit: '50',
-        [kebab('token_budget')]: String(tokenBudget),
-        deep: p.deep ? 'true' : 'false',
-      };
+      const tokenBudget = p.token_budget || 2000,
+        args = {
+          project: ctx.project || 'unknown',
+          query: p.query,
+          limit: '50',
+          [kebab('token_budget')]: String(tokenBudget),
+          deep: p.deep ? 'true' : 'false',
+        };
       return { cmd: 'context', args };
     },
   },
@@ -344,8 +342,8 @@ const tools = [
       if (!mode || !CODE_MODE_TO_COMMAND[mode]) {
         return { cmd: null, error: !mode ? 'memory-code requires a mode.' : `Unknown memory-code mode: ${mode}` };
       }
-      const cmd = CODE_MODE_TO_COMMAND[mode];
-      const args = {};
+      const cmd = CODE_MODE_TO_COMMAND[mode],
+        args = {};
       setIfPresent(args, 'repo', p.repo);
       setIfPresent(args, 'symbol', p.symbol);
       if (p.query || (mode === 'search' && p.symbol)) {
@@ -432,8 +430,8 @@ const tools = [
       if (!mode || !DOC_MODE_TO_COMMAND[mode]) {
         return { cmd: null, error: !mode ? 'memory-doc requires a mode.' : `Unknown memory-doc mode: ${mode}` };
       }
-      const cmd = DOC_MODE_TO_COMMAND[mode];
-      const args = {};
+      const cmd = DOC_MODE_TO_COMMAND[mode],
+        args = {};
       setIfPresent(args, 'repo', p.repo);
       setIfPresent(args, 'query', p.query);
       setIfPresent(args, 'file', p.file);

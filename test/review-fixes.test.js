@@ -32,18 +32,16 @@ describe('review fixes', () => {
       dbModule.resetDb();
       dbModule.createDb({ db_path: tmpDb });
 
-      const reopened = dbModule.getDb();
-      const version = reopened.prepare('PRAGMA user_version').get().user_version;
-      const table = reopened
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='repo_index_locks'")
-        .get();
-      const sourceModuleCol = reopened
-        .prepare('PRAGMA table_info(file_scope_bindings)')
-        .all()
-        .some((c) => c.name === 'source_module');
-      const churnCols = reopened.prepare('PRAGMA table_info(churn_metrics)').all();
-      const hasTotalFilesChanged = churnCols.some((c) => c.name === 'total_files_changed');
-      const hasTopFilesJson = churnCols.some((c) => c.name === 'top_files_json');
+      const reopened = dbModule.getDb(),
+        version = reopened.prepare('PRAGMA user_version').get().user_version,
+        table = reopened.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='repo_index_locks'").get(),
+        sourceModuleCol = reopened
+          .prepare('PRAGMA table_info(file_scope_bindings)')
+          .all()
+          .some((c) => c.name === 'source_module'),
+        churnCols = reopened.prepare('PRAGMA table_info(churn_metrics)').all(),
+        hasTotalFilesChanged = churnCols.some((c) => c.name === 'total_files_changed'),
+        hasTopFilesJson = churnCols.some((c) => c.name === 'top_files_json');
       expect(version).toBe(25);
       expect(table).toBeTruthy();
       expect(sourceModuleCol).toBe(true);
@@ -53,8 +51,7 @@ describe('review fixes', () => {
   });
 
   describe('trust recovery from recall_log', () => {
-    let sessionId;
-    let memoryId;
+    let sessionId, memoryId;
 
     beforeAll(() => {
       dbModule.ensureDb();
@@ -96,17 +93,17 @@ describe('review fixes', () => {
 
     it('trustRecovery ignores memories only recalled with was_useful = 0', () => {
       const session = dbModule.sqlJson(
-        "INSERT INTO session_log (project, started_at) VALUES (?, datetime('now')) RETURNING id",
-        ['review-fixes-trust-negative'],
-      );
-      const negativeSessionId = session[0].id;
-      const obs = dbModule.sqlJson(
-        `INSERT INTO observations (session_id, type, title, content, project, scope)
+          "INSERT INTO session_log (project, started_at) VALUES (?, datetime('now')) RETURNING id",
+          ['review-fixes-trust-negative'],
+        ),
+        negativeSessionId = session[0].id,
+        obs = dbModule.sqlJson(
+          `INSERT INTO observations (session_id, type, title, content, project, scope)
          VALUES (?, 'decision', 'Ignored recall', 'content', 'review-fixes-trust-negative', 'project')
          RETURNING id`,
-        [negativeSessionId],
-      );
-      const ignoredMemoryId = obs[0].id;
+          [negativeSessionId],
+        ),
+        ignoredMemoryId = obs[0].id;
       dbModule.sqlRun('INSERT INTO recall_log (memory_id, session_id, query, was_useful) VALUES (?, ?, ?, 0)', [
         ignoredMemoryId,
         negativeSessionId,
@@ -146,18 +143,17 @@ describe('review fixes', () => {
     });
 
     it('rejects shell metacharacters in branch/base without executing', () => {
-      const db = dbModule.getDb();
-      const result = getPrRiskProfile(db, repoId, {
-        branch: 'HEAD; echo pwned',
-        base: 'main',
-      });
+      const db = dbModule.getDb(),
+        result = getPrRiskProfile(db, repoId, {
+          branch: 'HEAD; echo pwned',
+          base: 'main',
+        });
       expect(result.note).toBe('No changed files detected.');
     });
   });
 
   describe('HTTP body size limit', () => {
-    let server;
-    let baseUrl;
+    let server, baseUrl;
 
     afterEach(async () => {
       if (server) {
@@ -177,12 +173,12 @@ describe('review fixes', () => {
       const { port } = server.address();
       baseUrl = `http://127.0.0.1:${port}`;
 
-      const oversized = 'x'.repeat(1024 * 1024 + 1);
-      const res = await fetch(`${baseUrl}/missions`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ data: oversized }),
-      });
+      const oversized = 'x'.repeat(1024 * 1024 + 1),
+        res = await fetch(`${baseUrl}/missions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ data: oversized }),
+        });
       expect(res.status).toBe(413);
     });
   });

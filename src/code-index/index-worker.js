@@ -1,9 +1,9 @@
 // Worker thread entry point. Runs an async code-indexing job and posts
-// progress/done/error messages back to the parent (the CLI process).
+// Progress/done/error messages back to the parent (the CLI process).
 //
 // Connects to the same SQLite database file as the parent — SQLite WAL mode
-// allows multiple readers + one writer concurrently, so the worker's writes
-// to the index_jobs ledger never block the parent's status queries.
+// Allows multiple readers + one writer concurrently, so the worker's writes
+// To the index_jobs ledger never block the parent's status queries.
 
 const { parentPort, workerData } = require('worker_threads');
 const dbModule = require('../../db');
@@ -13,7 +13,9 @@ const jobStore = require('./job-store');
 
 let cancelled = false;
 parentPort.on('message', (msg) => {
-  if (msg && msg.type === 'cancel') cancelled = true;
+  if (msg && msg.type === 'cancel') {
+    cancelled = true;
+  }
 });
 
 function safeGetLanguage(filePath) {
@@ -35,15 +37,16 @@ async function main() {
     // Open the database. ensureDb() is idempotent; it migrates the schema
     // (including the V18 index_jobs table) before we touch it.
     dbModule.ensureDb();
-    const rawDb = dbModule.getDb();
-    const deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
-
-    const languageCounters = new Map();
+    const rawDb = dbModule.getDb(),
+      deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun },
+      languageCounters = new Map();
     let lastWrite = 0;
     const writeThrottleMs = 1000;
 
     function onProgress({ phase, files_total, files_done, current_file, language }) {
-      if (cancelled) throw new Error('cancelled');
+      if (cancelled) {
+        throw new Error('cancelled');
+      }
       // Derive language from current_file if not provided by the indexer.
       const lang = language || (current_file ? safeGetLanguage(current_file) : null);
       if (lang) {
@@ -59,7 +62,7 @@ async function main() {
             languageBreakdown: Object.fromEntries(languageCounters),
           });
         } catch (_) {
-          /* best-effort */
+          /* Best-effort */
         }
         lastWrite = now;
       }
@@ -67,8 +70,8 @@ async function main() {
     }
 
     // We pass the raw better-sqlite3 handle as `db` because the indexer
-    // uses db.exec/db.prepare/db.transaction directly. `args.onProgress` is
-    // the new hook Task 4 wires through emitProgress.
+    // Uses db.exec/db.prepare/db.transaction directly. `args.onProgress` is
+    // The new hook Task 4 wires through emitProgress.
     const indexerDeps = { db: rawDb, args: { onProgress, filesTotal: 0 } };
     let result;
     if (mode === 'incremental') {
@@ -94,7 +97,7 @@ async function main() {
       });
       jobStore.completeJob(deps, jobId, { status: result?.error ? 'error' : 'completed', error: result?.error });
     } catch (_) {
-      /* best-effort */
+      /* Best-effort */
     }
 
     emit('done', { result, languageBreakdown: Object.fromEntries(languageCounters) });
@@ -104,8 +107,11 @@ async function main() {
       const deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
       jobStore.completeJob(deps, jobId, { status, error: e.message });
     } catch (_) {}
-    if (cancelled) emit('cancelled');
-    else emit('error', { error: e.message });
+    if (cancelled) {
+      emit('cancelled');
+    } else {
+      emit('error', { error: e.message });
+    }
   } finally {
     process.exit(0);
   }

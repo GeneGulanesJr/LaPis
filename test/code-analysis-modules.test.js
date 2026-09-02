@@ -39,8 +39,8 @@ describe('code-analysis analyzer modules', () => {
   });
 
   it('CodeIndexReadRepository reports native db guard errors for fallback handles', () => {
-    const repo = new CodeIndexReadRepository(null);
-    const result = repo.guard();
+    const repo = new CodeIndexReadRepository(null),
+      result = repo.guard();
     expect(result.error).toContain('native SQLite backend');
   });
 });

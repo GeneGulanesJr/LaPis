@@ -10,11 +10,11 @@ function stripOptionalMarker(schema: OptionalSchema): Schema {
 export const Type = {
   Object(properties: Record<string, OptionalSchema>, options: SchemaOptions = {}): Schema {
     const required = Object.entries(properties)
-      .filter(([, schema]) => !schema.__optional)
-      .map(([name]) => name);
-    const normalized = Object.fromEntries(
-      Object.entries(properties).map(([name, schema]) => [name, stripOptionalMarker(schema)]),
-    );
+        .filter(([, schema]) => !schema.__optional)
+        .map(([name]) => name),
+      normalized = Object.fromEntries(
+        Object.entries(properties).map(([name, schema]) => [name, stripOptionalMarker(schema)]),
+      );
     return {
       type: 'object',
       properties: normalized,

@@ -10,8 +10,8 @@ function parseExpiresIn(duration) {
   if (!match) {
     return null;
   }
-  const n = parseInt(match[1], 10);
-  const unit = match[2];
+  const n = parseInt(match[1], 10),
+    unit = match[2];
   if (!Number.isFinite(n) || n <= 0) {
     return null;
   }

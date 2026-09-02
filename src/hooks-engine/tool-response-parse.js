@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * hooks-engine: tool-response-parse
+ * Hooks-engine: tool-response-parse
  *
  * Parses the `tool_response` Claude Code hands a PostToolUse hook for
  * `mcp__lapis__*` tools so the bridge can reconstruct the in-process `state`
@@ -24,8 +24,8 @@
  */
 
 // `[#42]` (search/save render markers) and bare `#42` (get/delete headers).
-const BRACKETED_ID_RE = /\[#(\d+)\]/g;
-const BARE_ID_RE = /#(\d+)\b/g;
+const BRACKETED_ID_RE = /\[#(\d+)\]/g,
+  BARE_ID_RE = /#(\d+)\b/g;
 
 /**
  * Normalize whatever Claude Code put in `tool_response` into a single string.
@@ -64,8 +64,8 @@ function extractToolResponseText(toolResponse) {
 
 /** Collect a de-duplicated, order-preserving list of ids via a /g regex. */
 function collectIds(text, re) {
-  const ids = [];
-  const seen = new Set();
+  const ids = [],
+    seen = new Set();
   let m;
   re.lastIndex = 0;
   while ((m = re.exec(text)) !== null) {
@@ -91,11 +91,11 @@ function parseMemoryIds(toolResponse) {
   if (!text) {
     return [];
   }
-  const bracketed = collectIds(text, BRACKETED_ID_RE);
-  const bare = collectIds(text, BARE_ID_RE);
-  // Union, bracketed first (they are the canonical list markers).
-  const seen = new Set(bracketed);
-  const merged = [...bracketed];
+  const bracketed = collectIds(text, BRACKETED_ID_RE),
+    bare = collectIds(text, BARE_ID_RE),
+    // Union, bracketed first (they are the canonical list markers).
+    seen = new Set(bracketed),
+    merged = [...bracketed];
   for (const id of bare) {
     if (!seen.has(id)) {
       seen.add(id);

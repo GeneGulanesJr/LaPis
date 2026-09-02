@@ -34,9 +34,9 @@ function buildSqlScopeBindings(tree, _source, _filePath) {
       case 'table_reference':
       case 'object_reference': {
         // Extract table name from the reference
-        const text = node.text.replace(/[`"[\]]/g, '').trim();
-        const parts = text.split('.');
-        const tableName = parts[parts.length - 1];
+        const text = node.text.replace(/[`"[\]]/g, '').trim(),
+          parts = text.split('.'),
+          tableName = parts[parts.length - 1];
         if (tableName && !isSqlKeyword(tableName)) {
           addBinding(bindings, {
             name: tableName,

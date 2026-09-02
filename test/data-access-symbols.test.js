@@ -15,8 +15,8 @@ function mockDeps() {
 describe('data-access/symbols', () => {
   describe('linkSymbol', () => {
     it('should insert a symbol link', () => {
-      const deps = mockDeps();
-      const result = linkSymbol(deps, { memoryId: '1', symbolId: 'fn()', repo: 'myrepo', trust: 0.7 });
+      const deps = mockDeps(),
+        result = linkSymbol(deps, { memoryId: '1', symbolId: 'fn()', repo: 'myrepo', trust: 0.7 });
       expect(deps.sqlRun).toHaveBeenCalledWith(
         expect.stringContaining('INSERT OR REPLACE INTO symbol_links'),
         expect.any(Array),
@@ -25,8 +25,8 @@ describe('data-access/symbols', () => {
     });
 
     it('should default to __unlinked__ when symbolId is null', () => {
-      const deps = mockDeps();
-      const result = linkSymbol(deps, { memoryId: '1', symbolId: null, repo: 'myrepo', trust: 0.7 });
+      const deps = mockDeps(),
+        result = linkSymbol(deps, { memoryId: '1', symbolId: null, repo: 'myrepo', trust: 0.7 });
       expect(result.symbolId).toBe('__unlinked__');
     });
   });

@@ -87,9 +87,9 @@ function readGuardrail({ input, repos, cwd, state }) {
     return null;
   }
 
-  const absPath = path.resolve(cwd, filePath);
-  const absNorm = normalizeRepoPath(absPath);
-  const cwdNorm = normalizeRepoPath(cwd);
+  const absPath = path.resolve(cwd, filePath),
+    absNorm = normalizeRepoPath(absPath),
+    cwdNorm = normalizeRepoPath(cwd);
   // Cross-project reads (outside cwd) bypass the outline guard.
   if (absNorm !== cwdNorm && !absNorm.startsWith(`${cwdNorm}/`)) {
     return null;
@@ -100,15 +100,15 @@ function readGuardrail({ input, repos, cwd, state }) {
     return absNorm === rp || absNorm.startsWith(`${rp}/`);
   });
   // Deferred auto-index: an unindexed project is allowed through (no outline to
-  // point at, and indexing inline would blow the hook timeout).
+  // Point at, and indexing inline would blow the hook timeout).
   if (!matchedRepo) {
     return null;
   }
 
-  const relPath = normalizePathForCompare(path.relative(matchedRepo.path, absPath));
-  const explored = Array.isArray(state.exploredFiles) ? state.exploredFiles : [];
-  const exploredNorm = explored.map(normalizePathForCompare);
-  const basenameNorm = basename.toLowerCase();
+  const relPath = normalizePathForCompare(path.relative(matchedRepo.path, absPath)),
+    explored = Array.isArray(state.exploredFiles) ? state.exploredFiles : [],
+    exploredNorm = explored.map(normalizePathForCompare),
+    basenameNorm = basename.toLowerCase();
   if (exploredNorm.includes(basenameNorm) || exploredNorm.includes(relPath) || exploredNorm.includes(absNorm)) {
     return null;
   }
@@ -123,11 +123,11 @@ function readGuardrail({ input, repos, cwd, state }) {
 }
 
 function searchGuardrail({ input, repos, cwd, state }) {
-  const pattern = input.pattern;
-  const searchPath = input.path;
-  const repo = resolveRepo(cwd, repos, state.currentProject);
+  const pattern = input.pattern,
+    searchPath = input.path,
+    repo = resolveRepo(cwd, repos, state.currentProject);
   if (!repo) {
-    return null; // unindexed → deferred, allow
+    return null; // Unindexed → deferred, allow
   }
   if (isTargetedGrepLookup({ pattern, path: searchPath })) {
     return null;
@@ -142,8 +142,8 @@ function searchGuardrail({ input, repos, cwd, state }) {
 }
 
 function globGuardrail({ input, repos, cwd, state }) {
-  const pattern = input.pattern;
-  const repo = resolveRepo(cwd, repos, state.currentProject);
+  const pattern = input.pattern,
+    repo = resolveRepo(cwd, repos, state.currentProject);
   if (!repo) {
     return null;
   }
@@ -165,7 +165,7 @@ function bashGuardrail({ input, repos, cwd, state }) {
   }
   const repo = resolveRepo(cwd, repos, state.currentProject);
   if (!repo) {
-    return null; // deferred auto-index: allow in unindexed projects
+    return null; // Deferred auto-index: allow in unindexed projects
   }
   // Allow grep/rg used purely to filter another command's stdout.
   if (isPipedOutputFilter(cmd)) {
@@ -186,24 +186,24 @@ function bashGuardrail({ input, repos, cwd, state }) {
 }
 
 async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stateStore }) {
-  const toolName = payload.tool_name;
-  const role = preToolRole(toolName);
+  const toolName = payload.tool_name,
+    role = preToolRole(toolName);
   if (!role) {
     return null;
   }
 
-  const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {};
-  const claudeSessionId = payload.session_id;
+  const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
+    claudeSessionId = payload.session_id;
 
   // Memory-tool cadence bookkeeping (state mutations Pi's tool_call hook does).
   // Routed through mutateState so a parallel memory-* tool can't lose the
-  // update (#228). Falls back to load/save when the injected store lacks it.
+  // Update (#228). Falls back to load/save when the injected store lacks it.
   if (role === 'memory-code-seed' || role === 'memory-reminder-reset') {
     const mutate = stateStore.mutateState
       ? (mutator) => stateStore.mutateState(claudeSessionId, mutator)
       : (mutator) => {
-          const state = stateStore.loadState(claudeSessionId);
-          const r = mutator(state);
+          const state = stateStore.loadState(claudeSessionId),
+            r = mutator(state);
           stateStore.saveState(claudeSessionId, state);
           return r;
         };
@@ -217,8 +217,8 @@ async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stat
     return null;
   }
 
-  const { resolvedCwd: cwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
-  const state = stateStore.loadState(claudeSessionId);
+  const { resolvedCwd: cwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
+    state = stateStore.loadState(claudeSessionId);
   if (!state.currentProject) {
     state.currentProject = project;
   }

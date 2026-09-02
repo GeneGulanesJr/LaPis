@@ -1,25 +1,26 @@
 // Tests for the postinstall grammar copy + verification helper.
 //
 // The repo runs vitest with `globals: true` (see vitest.config.mjs), so
-// describe/it/expect are available without importing — matching every other
-// test file under test/. Do not `require('vitest')`; that throws under CJS.
+// Describe/it/expect are available without importing — matching every other
+// Test file under test/. Do not `require('vitest')`; that throws under CJS.
 const { copyGrammar, copyHtmlGrammar, MIN_GRAMMAR_BYTES } = require('../scripts/postinstall-helpers');
 const fs = require('fs');
 const os = require('os');
-const path = require('path');
-
-// Payload well above MIN_GRAMMAR_BYTES so size guards fire only on purpose.
-const VALID_WASM = Buffer.alloc(MIN_GRAMMAR_BYTES + 4096, 0x00);
+const path = require('path'),
+  // Payload well above MIN_GRAMMAR_BYTES so size guards fire only on purpose.
+  VALID_WASM = Buffer.alloc(MIN_GRAMMAR_BYTES + 4096, 0x00);
 
 function makeFixture({ srcBytes = VALID_WASM, destBytes = null } = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-postinstall-'));
-  const grammarDir = path.join(root, 'grammars');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-postinstall-')),
+    grammarDir = path.join(root, 'grammars');
   fs.mkdirSync(grammarDir, { recursive: true });
   const src = path.join(root, 'source', 'tree-sitter-html.wasm');
   fs.mkdirSync(path.dirname(src), { recursive: true });
   fs.writeFileSync(src, srcBytes);
   const dest = path.join(grammarDir, 'tree-sitter-html.wasm');
-  if (destBytes !== null) fs.writeFileSync(dest, destBytes);
+  if (destBytes !== null) {
+    fs.writeFileSync(dest, destBytes);
+  }
   return { root, grammarDir, src, destName: 'tree-sitter-html.wasm', dest };
 }
 
@@ -31,8 +32,8 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('copies the grammar and verifies the destination afterwards', () => {
-    const f = makeFixture();
-    const res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
+    const f = makeFixture(),
+      res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
     expect(res.copied).toBe(true);
     expect(res.skipped).toBe(false);
     expect(res.ok).toBe(true);
@@ -43,10 +44,10 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('is idempotent: preserves an existing non-empty destination (no overwrite)', () => {
-    const existing = Buffer.alloc(MIN_GRAMMAR_BYTES + 123, 0xab);
-    const f = makeFixture({ destBytes: existing });
-    const mtimeBefore = fs.statSync(f.dest).mtimeMs;
-    const res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
+    const existing = Buffer.alloc(MIN_GRAMMAR_BYTES + 123, 0xab),
+      f = makeFixture({ destBytes: existing }),
+      mtimeBefore = fs.statSync(f.dest).mtimeMs,
+      res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
     expect(res.copied).toBe(false);
     expect(res.skipped).toBe(true);
     expect(res.ok).toBe(true);
@@ -82,8 +83,8 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('warns on a truncated/empty source and does not copy', () => {
-    const f = makeFixture({ srcBytes: Buffer.alloc(16, 0x00) });
-    const res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
+    const f = makeFixture({ srcBytes: Buffer.alloc(16, 0x00) }),
+      res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
     expect(res.copied).toBe(false);
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('src_empty');
@@ -92,9 +93,9 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('warns about a stale/truncated destination and does NOT overwrite without force', () => {
-    const stale = Buffer.alloc(8, 0x00);
-    const f = makeFixture({ destBytes: stale });
-    const res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
+    const stale = Buffer.alloc(8, 0x00),
+      f = makeFixture({ destBytes: stale }),
+      res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
     expect(res.copied).toBe(false);
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('dest_stale');
@@ -105,9 +106,9 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('repairs a stale destination when force=true', () => {
-    const stale = Buffer.alloc(8, 0x00);
-    const f = makeFixture({ destBytes: stale });
-    const res = copyGrammar({ ...f, warn: (m) => warns.push(m), force: true });
+    const stale = Buffer.alloc(8, 0x00),
+      f = makeFixture({ destBytes: stale }),
+      res = copyGrammar({ ...f, warn: (m) => warns.push(m), force: true });
     expect(res.copied).toBe(true);
     expect(res.ok).toBe(true);
     expect(fs.readFileSync(f.dest)).toEqual(VALID_WASM);
@@ -115,17 +116,17 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('detects a copy that silently failed to produce the destination', () => {
-    const f = makeFixture();
-    // Fake fs: source + grammarDir exist; copyFileSync is a no-op; the
-    // destination never appears, so post-copy verification must catch it.
-    const fakeFs = {
-      existsSync: (p) => p === f.src || p === f.grammarDir,
-      statSync: () => ({ size: VALID_WASM.length }),
-      copyFileSync: () => {
-        /* swallow: simulate silent failure */
+    const f = makeFixture(),
+      // Fake fs: source + grammarDir exist; copyFileSync is a no-op; the
+      // destination never appears, so post-copy verification must catch it.
+      fakeFs = {
+        existsSync: (p) => p === f.src || p === f.grammarDir,
+        statSync: () => ({ size: VALID_WASM.length }),
+        copyFileSync: () => {
+          /* Swallow: simulate silent failure */
+        },
       },
-    };
-    const res = copyGrammar({ ...f, warn: (m) => warns.push(m), fs: fakeFs, force: true });
+      res = copyGrammar({ ...f, warn: (m) => warns.push(m), fs: fakeFs, force: true });
     expect(res.copied).toBe(true);
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('dest_missing_after_copy');
@@ -136,22 +137,24 @@ describe('postinstall grammar copy + verification', () => {
   it('detects a copy that produced a truncated destination', () => {
     const f = makeFixture();
     // Seed a real stale destination so the helper takes the copy path; then
-    // make post-copy stat report a truncated size to exercise verification.
+    // Make post-copy stat report a truncated size to exercise verification.
     fs.writeFileSync(f.dest, Buffer.alloc(8, 0x00));
     let copied = false;
     const fakeFs = {
-      existsSync: (p) => fs.existsSync(p),
-      statSync: (p) => {
-        // Source is valid; before copy the dest is stale; after copy it reads
-        // back as truncated (4 bytes).
-        if (p === f.src) return { size: VALID_WASM.length };
-        return { size: copied ? 4 : 8 };
+        existsSync: (p) => fs.existsSync(p),
+        statSync: (p) => {
+          // Source is valid; before copy the dest is stale; after copy it reads
+          // Back as truncated (4 bytes).
+          if (p === f.src) {
+            return { size: VALID_WASM.length };
+          }
+          return { size: copied ? 4 : 8 };
+        },
+        copyFileSync: () => {
+          copied = true;
+        },
       },
-      copyFileSync: () => {
-        copied = true;
-      },
-    };
-    const res = copyGrammar({ ...f, warn: (m) => warns.push(m), fs: fakeFs, force: true });
+      res = copyGrammar({ ...f, warn: (m) => warns.push(m), fs: fakeFs, force: true });
     expect(res.copied).toBe(true);
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('dest_truncated');
@@ -165,9 +168,8 @@ describe('postinstall grammar copy + verification', () => {
     const src = path.join(root, 'node_modules', 'tree-sitter-html', 'tree-sitter-html.wasm');
     fs.mkdirSync(path.dirname(src), { recursive: true });
     fs.writeFileSync(src, VALID_WASM);
-    const dest = path.join(root, 'grammars', 'tree-sitter-html.wasm');
-
-    const res = copyHtmlGrammar({ root, warn: (m) => warns.push(m) });
+    const dest = path.join(root, 'grammars', 'tree-sitter-html.wasm'),
+      res = copyHtmlGrammar({ root, warn: (m) => warns.push(m) });
     expect(res.ok).toBe(true);
     expect(res.copied).toBe(true);
     expect(fs.existsSync(dest)).toBe(true);

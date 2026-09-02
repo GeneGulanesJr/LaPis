@@ -19,12 +19,11 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
       return;
     }
 
-    const type = node.type;
-
-    // Track scope boundaries
-    const currentDepth = scopeDepth;
-    const currentLineStart = lineStart;
-    const currentLineEnd = lineEnd;
+    const type = node.type,
+      // Track scope boundaries
+      currentDepth = scopeDepth,
+      currentLineStart = lineStart,
+      currentLineEnd = lineEnd;
 
     switch (type) {
       // ── Import statements ──────────────────────────────────
@@ -46,8 +45,8 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
       case 'generator_function_declaration': {
         const nameNode = node.childForFieldName('name');
         if (nameNode) {
-          const startLine = node.startPosition.row + 1;
-          const endLine = node.endPosition.row + 1;
+          const startLine = node.startPosition.row + 1,
+            endLine = node.endPosition.row + 1;
           addBinding(bindings, {
             name: nameNode.text,
             kind: 'declaration',
@@ -232,24 +231,22 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
   // ── Import handling ─────────────────────────────────────
 
   function handleImportStatement(node) {
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
-
-    // Find the source module
-    const sourceStr = findStringNode(node);
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1,
+      // Find the source module
+      sourceStr = findStringNode(node);
     if (!sourceStr) {
       return;
     }
-    const modulePath = sourceStr;
-
-    // Determine if external package or file
-    const isPackage = !modulePath.startsWith('.') && !modulePath.startsWith('/');
+    const modulePath = sourceStr,
+      // Determine if external package or file
+      isPackage = !modulePath.startsWith('.') && !modulePath.startsWith('/');
 
     // Check for default import: import foo from '...'
     let child = node.firstChild;
-    const _hasDefaultImport = false;
-    const _hasNamespaceImport = false;
-    const _hasNamedImports = false;
+    const _hasDefaultImport = false,
+      _hasNamespaceImport = false,
+      _hasNamedImports = false;
 
     while (child) {
       const t = child.type;
@@ -317,9 +314,9 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
         let specChild = child.firstChild;
         while (specChild) {
           if (specChild.type === 'import_specifier') {
-            const nameNode = specChild.childForFieldName('name');
-            // The alias (as clause) uses 'alias' field in some grammars
-            const aliasNode = specChild.childForFieldName('alias');
+            const nameNode = specChild.childForFieldName('name'),
+              // The alias (as clause) uses 'alias' field in some grammars
+              aliasNode = specChild.childForFieldName('alias');
             let localName = null;
             if (aliasNode) {
               localName = aliasNode.text;
@@ -366,8 +363,8 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
   }
 
   function handleExportStatement(node) {
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1;
 
     // Check for re-export: export { foo } from './bar'
     let child = node.firstChild;
@@ -380,10 +377,10 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
           let specChild = child.firstChild;
           while (specChild) {
             if (specChild.type === 'export_specifier') {
-              const nameNode = specChild.childForFieldName('name');
-              const aliasNode = specChild.childForFieldName('alias');
-              const localName = nameNode ? nameNode.text : null;
-              const exportedName = aliasNode ? aliasNode.text : localName;
+              const nameNode = specChild.childForFieldName('name'),
+                aliasNode = specChild.childForFieldName('alias'),
+                localName = nameNode ? nameNode.text : null,
+                exportedName = aliasNode ? aliasNode.text : localName;
               if (exportedName) {
                 addBinding(bindings, {
                   name: exportedName,
@@ -428,12 +425,11 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
       return;
     }
 
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
-
-    // Check if the value is a require() call
-    const value = node.childForFieldName('value');
-    const requireInfo = value ? extractRequireInfo(value) : null;
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1,
+      // Check if the value is a require() call
+      value = node.childForFieldName('value'),
+      requireInfo = value ? extractRequireInfo(value) : null;
 
     if (nameNode.type === 'identifier') {
       if (requireInfo) {
@@ -484,8 +480,8 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
     let child = pattern.firstChild;
     while (child) {
       if (child.type === 'shorthand_property_identifier' || child.type === 'property_identifier') {
-        const kind = requireInfo ? 'destructure_import' : 'destructure_local';
-        const origin = destructureOrigin(requireInfo);
+        const kind = requireInfo ? 'destructure_import' : 'destructure_local',
+          origin = destructureOrigin(requireInfo);
         addBinding(bindings, {
           name: child.text,
           kind,
@@ -500,11 +496,11 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
         });
       } else if (child.type === 'pair_pattern') {
         // { foo: bar } — the value is the local name
-        const valueNode = child.childForFieldName('value');
-        const keyNode = child.childForFieldName('key');
+        const valueNode = child.childForFieldName('value'),
+          keyNode = child.childForFieldName('key');
         if (valueNode && valueNode.type === 'identifier') {
-          const kind = requireInfo ? 'destructure_import' : 'destructure_local';
-          const origin = destructureOrigin(requireInfo);
+          const kind = requireInfo ? 'destructure_import' : 'destructure_local',
+            origin = destructureOrigin(requireInfo);
           addBinding(bindings, {
             name: valueNode.text,
             kind,
@@ -522,8 +518,8 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
         // ...rest
         const nameNode = child.childForFieldName('name') || findIdentifierNode(child);
         if (nameNode) {
-          const kind = requireInfo ? 'destructure_import' : 'destructure_local';
-          const origin = destructureOrigin(requireInfo);
+          const kind = requireInfo ? 'destructure_import' : 'destructure_local',
+            origin = destructureOrigin(requireInfo);
           addBinding(bindings, {
             name: nameNode.text,
             kind,
@@ -546,8 +542,8 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
     let child = pattern.firstChild;
     while (child) {
       if (child.type === 'identifier') {
-        const kind = requireInfo ? 'destructure_import' : 'destructure_local';
-        const origin = destructureOrigin(requireInfo);
+        const kind = requireInfo ? 'destructure_import' : 'destructure_local',
+          origin = destructureOrigin(requireInfo);
         addBinding(bindings, {
           name: child.text,
           kind,
@@ -673,15 +669,15 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
             let child = args.firstChild;
             while (child) {
               if (child.type === 'string' || child.type === 'string_literal') {
-                const modulePath = child.text.slice(1, -1);
-                const isPackage = !modulePath.startsWith('.') && !modulePath.startsWith('/');
+                const modulePath = child.text.slice(1, -1),
+                  isPackage = !modulePath.startsWith('.') && !modulePath.startsWith('/');
                 return { modulePath, isPackage };
               }
               child = child.nextSibling;
             }
           } else if (firstArg.type === 'string' || firstArg.type === 'string_literal') {
-            const modulePath = firstArg.text.slice(1, -1);
-            const isPackage = !modulePath.startsWith('.') && !modulePath.startsWith('/');
+            const modulePath = firstArg.text.slice(1, -1),
+              isPackage = !modulePath.startsWith('.') && !modulePath.startsWith('/');
             return { modulePath, isPackage };
           }
         }

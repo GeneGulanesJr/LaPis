@@ -8,9 +8,9 @@ function writeVerdict(repo) {
       return;
     }
 
-    const { sessionId, ...verdict } = ctx.body;
-    const id = `vv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const rows = repo.createVerdict({ id, sessionId, ...verdict });
+    const { sessionId, ...verdict } = ctx.body,
+      id = `vv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      rows = repo.createVerdict({ id, sessionId, ...verdict });
     jsonCreated(res, rows[0] || { id, sessionId, ...verdict, timestamp: new Date().toISOString() });
   };
 }

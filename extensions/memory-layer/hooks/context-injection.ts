@@ -7,22 +7,22 @@ import { mem } from '../host/memory-client';
 
 // Engine delegation (pure transport-agnostic core).
 import {
+  appendExtensionHint,
   buildContextBlock,
   buildSourceLookupGuidance,
   capInjectedContext,
-  appendExtensionHint,
 } from '../../../src/hooks-engine/context-builder.js';
 import {
+  appendCodingContextBlock,
   appendPreflightBlock,
   chooseCodingContextTarget,
-  appendCodingContextBlock,
   unwrapAnalysisData,
 } from '../../../src/hooks-engine/preflight-assembly.js';
 import {
   extractUserPrompt,
-  isSourceAuthoritativePrompt,
   isHistoricalMemoryPrompt,
   isPreflightWorthyPrompt,
+  isSourceAuthoritativePrompt,
 } from '../../../src/hooks-engine/prompt-classifiers.js';
 import { resolveIndexedRepo } from '../../../src/hooks-engine/project.js';
 
@@ -35,8 +35,8 @@ export {
   isNavigationPrompt,
   isPreflightWorthyPrompt,
 } from '../../../src/hooks-engine/prompt-classifiers.js';
-// appendPreflightBlock/appendCodingContextBlock/chooseCodingContextTarget/
-// unwrapAnalysisData are used internally only; not re-exported today.
+// AppendPreflightBlock/appendCodingContextBlock/chooseCodingContextTarget/
+// UnwrapAnalysisData are used internally only; not re-exported today.
 
 interface ContextDeps {
   state: typeof state;
@@ -54,8 +54,8 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
 
     const promptQuery = extractUserPrompt(event);
     if (isSourceAuthoritativePrompt(promptQuery)) {
-      const repos = await deps.getKnownRepos();
-      const guidance = buildSourceLookupGuidance(repos, ctx.cwd, deps.state.currentProject);
+      const repos = await deps.getKnownRepos(),
+        guidance = buildSourceLookupGuidance(repos, ctx.cwd, deps.state.currentProject);
       if (guidance) {
         return {
           message: {
@@ -68,19 +68,19 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
       return;
     }
 
-    const defaultContextLimit = promptQuery ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT;
-    const configuredContextLimit = Number(deps.getSettings?.()?.contextLimit);
-    const contextLimit =
-      Number.isFinite(configuredContextLimit) && configuredContextLimit > 0
-        ? Math.floor(configuredContextLimit)
-        : defaultContextLimit;
-    const contextResult = await deps.mem('context', {
-      project: deps.state.currentProject,
-      limit: String(contextLimit),
-      'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
-      ...(promptQuery ? { query: promptQuery } : {}),
-      ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
-    });
+    const defaultContextLimit = promptQuery ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT,
+      configuredContextLimit = Number(deps.getSettings?.()?.contextLimit),
+      contextLimit =
+        Number.isFinite(configuredContextLimit) && configuredContextLimit > 0
+          ? Math.floor(configuredContextLimit)
+          : defaultContextLimit,
+      contextResult = await deps.mem('context', {
+        project: deps.state.currentProject,
+        limit: String(contextLimit),
+        'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
+        ...(promptQuery ? { query: promptQuery } : {}),
+        ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
+      });
 
     let crossProjectResult: MemResult | null = null;
     const projectContext = contextResult;
@@ -103,34 +103,30 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
       };
     }
 
-    const effectiveContext = projectContext || crossProjectResult;
-
-    const observations =
-      (effectiveContext.observations as Array<{
-        id: number;
-        title: string;
-        type: string;
-        scope: string;
-        topic_key: string;
-        trust_score: number;
-        type_priority: number;
-        content?: string;
-      }>) || [];
-
-    const personal =
-      (effectiveContext.personal as Array<{
-        id: number;
-        title: string;
-        type: string;
-      }>) || [];
-
-    const stats = effectiveContext.stats as { total_memories: number; total_personal: number };
-
-    // Resolve repo staleness (anchored, deepest path match — mirrors detectProject)
-    const repos = await deps.getKnownRepos();
-    const resolvedCwd = path.resolve(ctx.cwd);
-    const cwdRepo = resolveIndexedRepo(resolvedCwd, repos, deps.state.currentProject);
-    const isStale = cwdRepo ? deps.isRepoStale(cwdRepo) : false;
+    const effectiveContext = projectContext || crossProjectResult,
+      observations =
+        (effectiveContext.observations as Array<{
+          id: number;
+          title: string;
+          type: string;
+          scope: string;
+          topic_key: string;
+          trust_score: number;
+          type_priority: number;
+          content?: string;
+        }>) || [],
+      personal =
+        (effectiveContext.personal as Array<{
+          id: number;
+          title: string;
+          type: string;
+        }>) || [],
+      stats = effectiveContext.stats as { total_memories: number; total_personal: number },
+      // Resolve repo staleness (anchored, deepest path match — mirrors detectProject)
+      repos = await deps.getKnownRepos(),
+      resolvedCwd = path.resolve(ctx.cwd),
+      cwdRepo = resolveIndexedRepo(resolvedCwd, repos, deps.state.currentProject),
+      isStale = cwdRepo ? deps.isRepoStale(cwdRepo) : false;
 
     // Self-heal stale session-start project key when path-resolved repo name differs.
     // Context for this turn was fetched with the stale key; counts catch up next turn.
@@ -147,24 +143,23 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
 
     deps.state.hasInjectedContext = true;
 
-    const topic = effectiveContext.topic as string | null;
-    const projectDir = cwdRepo?.path || ctx.cwd;
-
-    const lines = buildContextBlock({
-      promptQuery,
-      currentProject: deps.state.currentProject,
-      projectDir,
-      cwdRepo,
-      isStale,
-      isNewProject,
-      observations,
-      effectiveObservations,
-      personal,
-      stats,
-      effectiveStats,
-      topic,
-      crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
-    });
+    const topic = effectiveContext.topic as string | null,
+      projectDir = cwdRepo?.path || ctx.cwd,
+      lines = buildContextBlock({
+        promptQuery,
+        currentProject: deps.state.currentProject,
+        projectDir,
+        cwdRepo,
+        isStale,
+        isNewProject,
+        observations,
+        effectiveObservations,
+        personal,
+        stats,
+        effectiveStats,
+        topic,
+        crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
+      });
 
     if (!cwdRepo) {
       lines.push('');

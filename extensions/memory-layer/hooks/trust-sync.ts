@@ -14,11 +14,11 @@ interface TrustSyncDeps {
 export function registerTrustSync(pi: ExtensionAPI, deps: TrustSyncDeps) {
   pi.on('tool_result', async (event, ctx) => {
     if (event.toolName === 'bash') {
-      const input = event.input as { command?: string };
-      const cmd = input?.command || '';
+      const input = event.input as { command?: string },
+        cmd = input?.command || '';
       if (matchesGitTrustOperation(cmd) && deps.state.currentProject) {
-        const repos = await deps.getKnownRepos();
-        const repo = repos.find((r) => r.name.toLowerCase() === deps.state.currentProject!.toLowerCase());
+        const repos = await deps.getKnownRepos(),
+          repo = repos.find((r) => r.name.toLowerCase() === deps.state.currentProject!.toLowerCase());
         if (repo) {
           const syncGitOperation = createGitTrustSyncAdapter(deps.mem, (message: string, level: 'info') =>
             ctx.ui.notify(message, level),

@@ -4,8 +4,8 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-const dbModule = require('../db');
-const { MemoryError } = dbModule;
+const dbModule = require('../db'),
+  { MemoryError } = dbModule;
 const { resetConfigCache } = require('../config');
 
 describe('Error patterns and DB isolation', () => {
@@ -78,8 +78,8 @@ describe('Error patterns and DB isolation', () => {
     });
 
     it('createDb should create isolated DB with custom path', () => {
-      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-createdb-${Date.now()}.db`);
-      const result = dbModule.createDb({ db_path: tmpPath });
+      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-createdb-${Date.now()}.db`),
+        result = dbModule.createDb({ db_path: tmpPath });
       expect(result.ok).toBe(true);
       expect(result.engine).toMatch(/better-sqlite3/);
 
@@ -101,10 +101,9 @@ describe('Error patterns and DB isolation', () => {
     });
 
     it('createDb should not corrupt the global singleton', () => {
-      const globalPath = dbModule.DB_PATH;
-      const globalEngine = dbModule.getEngine();
-
-      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-isolation-${Date.now()}.db`);
+      const globalPath = dbModule.DB_PATH,
+        globalEngine = dbModule.getEngine(),
+        tmpPath = path.join(os.tmpdir(), `pi-mem-test-isolation-${Date.now()}.db`);
       dbModule.createDb({ db_path: tmpPath });
 
       // After createDb, _db points to the temp DB and config is overridden
@@ -172,8 +171,8 @@ describe('Error patterns and DB isolation', () => {
   describe('Consistent error return pattern (Issue #34)', () => {
     it('jsonErrNoExit returns { error } objects consistently', () => {
       // All library functions that return errors should use this pattern
-      const err1 = dbModule.jsonErrNoExit('Missing --id');
-      const err2 = dbModule.jsonErrNoExit('Something went wrong');
+      const err1 = dbModule.jsonErrNoExit('Missing --id'),
+        err2 = dbModule.jsonErrNoExit('Something went wrong');
       expect(err1).toEqual({ error: 'Missing --id' });
       expect(err2).toEqual({ error: 'Something went wrong' });
       // Both have the same shape: { error: string }

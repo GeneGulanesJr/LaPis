@@ -13,10 +13,10 @@ function mapSearchRows(rows) {
 
 function searchMemory(deps) {
   return async (req, res, ctx) => {
-    const { query, limit } = ctx.body;
-    const searchDeps = { sqlJson: deps.sqlJson, sqlRun: deps.sqlRun, jsonErrNoExit: (msg) => ({ error: msg }) };
-    const search = require('../../memory-domain/search').search;
-    const result = search(searchDeps, { query, limit: String(limit || 10) });
+    const { query, limit } = ctx.body,
+      searchDeps = { sqlJson: deps.sqlJson, sqlRun: deps.sqlRun, jsonErrNoExit: (msg) => ({ error: msg }) },
+      search = require('../../memory-domain/search').search,
+      result = search(searchDeps, { query, limit: String(limit || 10) });
     if (result?.error) {
       return jsonError(res, 400, 'invalid_search', result.error);
     }

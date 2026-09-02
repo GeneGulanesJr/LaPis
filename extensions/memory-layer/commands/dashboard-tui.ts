@@ -1,4 +1,4 @@
-import { matchesKey, Key, truncateToWidth } from '@earendil-works/pi-tui';
+import { Key, matchesKey, truncateToWidth } from '@earendil-works/pi-tui';
 
 interface DashboardData {
   overview: {
@@ -43,18 +43,28 @@ interface Theme {
 }
 
 function formatRelativeTime(isoString: string | null): string {
-  if (!isoString) return 'Never';
-  const diff = Date.now() - new Date(isoString).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 30) return `${days} days ago`;
+  if (!isoString) {
+    return 'Never';
+  }
+  const diff = Date.now() - new Date(isoString).getTime(),
+    days = Math.floor(diff / 86400000);
+  if (days === 0) {
+    return 'Today';
+  }
+  if (days === 1) {
+    return 'Yesterday';
+  }
+  if (days < 30) {
+    return `${days} days ago`;
+  }
   const months = Math.floor(days / 30);
   return `${months} month${months > 1 ? 's' : ''} ago`;
 }
 
 function bar(count: number, maxCount: number, maxWidth: number): string {
-  if (maxCount === 0 || maxWidth <= 0) return '';
+  if (maxCount === 0 || maxWidth <= 0) {
+    return '';
+  }
   const len = Math.max(1, Math.round((count / maxCount) * maxWidth));
   return '█'.repeat(len);
 }
@@ -65,45 +75,43 @@ export function createDashboardComponent(
   tui: { requestRender: () => void },
   done: (value: void) => void,
 ) {
-  let cachedWidth: number | undefined;
-  let cachedLines: string[] = [];
+  let cachedWidth: number | undefined,
+    cachedLines: string[] = [];
 
   function buildLines(width: number): string[] {
-    const lines: string[] = [];
-    const inner = Math.max(20, width - 4);
-    const maxBarWidth = Math.max(10, inner - 24);
-    const maxTypeCount = data.byType.reduce((mx, t) => Math.max(mx, t.count), 0);
-
-    const hr = (char: string) => char.repeat(inner);
-    const section = (title: string) => theme.fg('accent', theme.bold(title));
-    const dim = (s: string) => theme.fg('dim', s);
-
-    // ── Header ────────────────────────────────────────────
-    const titleText = 'LaPis Memory Dashboard';
-    const titlePad = Math.max(0, inner - titleText.length - 2);
+    const lines: string[] = [],
+      inner = Math.max(20, width - 4),
+      maxBarWidth = Math.max(10, inner - 24),
+      maxTypeCount = data.byType.reduce((mx, t) => Math.max(mx, t.count), 0),
+      hr = (char: string) => char.repeat(inner),
+      section = (title: string) => theme.fg('accent', theme.bold(title)),
+      dim = (s: string) => theme.fg('dim', s),
+      // ── Header ────────────────────────────────────────────
+      titleText = 'LaPis Memory Dashboard',
+      titlePad = Math.max(0, inner - titleText.length - 2);
     lines.push(
-      dim('╭─ ') + theme.fg('accent', theme.bold(titleText)) + ' ' + dim(hr('─').slice(0, titlePad)) + dim('╮'),
+      `${dim('╭─ ') + theme.fg('accent', theme.bold(titleText))} ${dim(hr('─').slice(0, titlePad))}${dim('╮')}`,
     );
 
     // ── Overview ──────────────────────────────────────────
     const o = data.overview;
-    lines.push(dim('│ ') + `Total: ${o.totalMemories} memories across ${o.totalProjects} projects` + dim('│'));
-    lines.push(dim('│ ') + `This Week: +${o.thisWeekSaved} saved, -${o.thisWeekCleaned} cleaned` + dim('│'));
-    const trustLabel = o.avgTrust !== null ? o.avgTrust.toFixed(2) : '—';
-    const recallRate =
-      data.recall.totalRecalls > 0
-        ? `${Math.round((data.recall.uniqueMemoriesHit / data.recall.totalRecalls) * 100)}%`
-        : '—';
-    lines.push(dim('│ ') + `Avg Trust: ${trustLabel}  │  Recall Hit Rate: ${recallRate}` + dim('│'));
+    lines.push(`${dim('│ ')}Total: ${o.totalMemories} memories across ${o.totalProjects} projects${dim('│')}`);
+    lines.push(`${dim('│ ')}This Week: +${o.thisWeekSaved} saved, -${o.thisWeekCleaned} cleaned${dim('│')}`);
+    const trustLabel = o.avgTrust !== null ? o.avgTrust.toFixed(2) : '—',
+      recallRate =
+        data.recall.totalRecalls > 0
+          ? `${Math.round((data.recall.uniqueMemoriesHit / data.recall.totalRecalls) * 100)}%`
+          : '—';
+    lines.push(`${dim('│ ')}Avg Trust: ${trustLabel}  │  Recall Hit Rate: ${recallRate}${dim('│')}`);
 
     // ── By Type ───────────────────────────────────────────
     lines.push(dim('├') + hr('─') + dim('┤'));
     lines.push(dim('│ ') + section('By Type'));
     for (const t of data.byType) {
-      const label = t.type.padEnd(12);
-      const b = bar(t.count, maxTypeCount, maxBarWidth);
-      const countStr = String(t.count);
-      lines.push(dim('│ ') + `  ${label} ${b}  ${countStr}`);
+      const label = t.type.padEnd(12),
+        b = bar(t.count, maxTypeCount, maxBarWidth),
+        countStr = String(t.count);
+      lines.push(`${dim('│ ')}  ${label} ${b}  ${countStr}`);
     }
 
     // ── Health Alerts ─────────────────────────────────────
@@ -114,27 +122,27 @@ export function createDashboardComponent(
       data.trust.lowTrustCount > 0
         ? theme.fg('warning', `⚠ Low Trust (<0.5):    ${data.trust.lowTrustCount} memories`)
         : theme.fg('success', `✓ Low Trust (<0.5):     0 memories`);
-    lines.push(dim('│ ') + `  ${trustAlert}`);
+    lines.push(`${dim('│ ')}  ${trustAlert}`);
 
     const recallAlert =
       o.neverRecalled > 0
         ? theme.fg('warning', `⚠ Never Recalled:      ${o.neverRecalled} memories`)
         : theme.fg('success', `✓ Never Recalled:       0 memories`);
-    lines.push(dim('│ ') + `  ${recallAlert}`);
+    lines.push(`${dim('│ ')}  ${recallAlert}`);
 
     const expiringAlert =
       o.expiringSoon > 0
         ? theme.fg('warning', `⏳ Expiring Soon:        ${o.expiringSoon} memories`)
         : theme.fg('success', `✓ Expiring Soon:        0 memories`);
-    lines.push(dim('│ ') + `  ${expiringAlert}`);
+    lines.push(`${dim('│ ')}  ${expiringAlert}`);
 
     // ── Dream Cycle ───────────────────────────────────────
     lines.push(dim('├') + hr('─') + dim('┤'));
     lines.push(dim('│ ') + section('Dream Cycle'));
-    const lastRun = formatRelativeTime(data.dream.lastRun);
-    const totalCleaned = data.dream.totalCleaned ?? '—';
-    const runCount = data.dream.runCount ?? '—';
-    lines.push(dim('│ ') + `  Last Run: ${lastRun}  │  Runs: ${runCount}  │  Cleaned: ${totalCleaned}`);
+    const lastRun = formatRelativeTime(data.dream.lastRun),
+      totalCleaned = data.dream.totalCleaned ?? '—',
+      runCount = data.dream.runCount ?? '—';
+    lines.push(`${dim('│ ')}  Last Run: ${lastRun}  │  Runs: ${runCount}  │  Cleaned: ${totalCleaned}`);
 
     // ── Code Index ────────────────────────────────────────
     lines.push(dim('├') + hr('─') + dim('┤'));
@@ -142,12 +150,13 @@ export function createDashboardComponent(
     for (const repo of data.codeIndex) {
       const stale = repo.isStale ? theme.fg('warning', '⚠ STALE') : theme.fg('success', '✅');
       lines.push(
-        dim('│ ') +
-          `  ${repo.name.padEnd(22)} ${String(repo.fileCount).padStart(4)} files, ${String(repo.symbolCount).padStart(5)} symbols  ${stale}`,
+        `${dim(
+          '│ ',
+        )}  ${repo.name.padEnd(22)} ${String(repo.fileCount).padStart(4)} files, ${String(repo.symbolCount).padStart(5)} symbols  ${stale}`,
       );
     }
     if (data.codeIndex.length === 0) {
-      lines.push(dim('│ ') + '  No repos indexed');
+      lines.push(`${dim('│ ')}  No repos indexed`);
     }
 
     // ── Footer ────────────────────────────────────────────

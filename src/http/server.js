@@ -1,55 +1,52 @@
 const http = require('http');
 const { matchRoute } = require('./routes');
 const { jsonError } = require('./errors');
-const { resolveHttpApiKey, requireHttpAuth, assertServeHostPolicy } = require('./auth');
-
-const MAX_BODY_BYTES = 1024 * 1024;
+const { resolveHttpApiKey, requireHttpAuth, assertServeHostPolicy } = require('./auth'),
+  MAX_BODY_BYTES = 1024 * 1024;
 
 function createHttpServer(deps) {
-  const routes = buildRoutes(deps);
-  const authorize = requireHttpAuth(deps.apiKey || null);
-
-  const server = http.createServer(async (req, res) => {
-    if (!authorize(req, res)) {
-      return;
-    }
-
-    let parsed;
-    let match;
-    try {
-      parsed = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-      match = matchRoute(req.method, parsed.pathname, routes);
-    } catch (e) {
-      return jsonError(res, 400, 'bad_request', `Malformed request URL: ${e.message}`);
-    }
-
-    if (!match) {
-      return jsonError(res, 404, 'not_found', `No route for ${req.method} ${parsed.pathname}`);
-    }
-
-    let body = null;
-    if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {
-      body = await parseBody(req, res);
-      if (body === undefined) {
+  const routes = buildRoutes(deps),
+    authorize = requireHttpAuth(deps.apiKey || null),
+    server = http.createServer(async (req, res) => {
+      if (!authorize(req, res)) {
         return;
       }
-    }
 
-    try {
-      await match.handler(req, res, { params: match.params, query: parsed.searchParams, body });
-    } catch (e) {
-      jsonError(res, 500, 'internal_error', e.message);
-    }
-  });
+      let parsed, match;
+      try {
+        parsed = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+        match = matchRoute(req.method, parsed.pathname, routes);
+      } catch (e) {
+        return jsonError(res, 400, 'bad_request', `Malformed request URL: ${e.message}`);
+      }
+
+      if (!match) {
+        return jsonError(res, 404, 'not_found', `No route for ${req.method} ${parsed.pathname}`);
+      }
+
+      let body = null;
+      if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {
+        body = await parseBody(req, res);
+        if (body === undefined) {
+          return;
+        }
+      }
+
+      try {
+        await match.handler(req, res, { params: match.params, query: parsed.searchParams, body });
+      } catch (e) {
+        jsonError(res, 500, 'internal_error', e.message);
+      }
+    });
 
   return server;
 }
 
 function parseBody(req, res) {
   return new Promise((resolve) => {
-    let raw = '';
-    let totalBytes = 0;
-    let settled = false;
+    let raw = '',
+      totalBytes = 0,
+      settled = false;
     const finish = (value) => {
       if (settled) {
         return;
@@ -87,8 +84,8 @@ function parseBody(req, res) {
 }
 
 function buildRoutes(deps) {
-  const { repositories } = deps;
-  const aurex = repositories.aurex;
+  const { repositories } = deps,
+    aurex = repositories.aurex;
 
   const health = require('./handlers/health');
   const missions = require('./handlers/missions');
@@ -230,24 +227,23 @@ function buildRoutes(deps) {
 }
 
 async function startHttpServer(opts) {
-  const host = opts.host ?? '127.0.0.1';
-  const port = Number(opts.port ?? 9100);
-  const apiKey = resolveHttpApiKey(opts);
+  const host = opts.host ?? '127.0.0.1',
+    port = Number(opts.port ?? 9100),
+    apiKey = resolveHttpApiKey(opts);
   assertServeHostPolicy(host, apiKey);
 
   const db = require('../../db');
   db.ensureDb();
 
   const { sqlJson, sqlRun } = db;
-  const { createAurexRepository } = require('../platform/storage/repositories/aurex');
-  const aurex = createAurexRepository({ sqlJson, sqlRun });
-
-  const server = createHttpServer({
-    repositories: { aurex },
-    sqlJson,
-    sqlRun,
-    apiKey,
-  });
+  const { createAurexRepository } = require('../platform/storage/repositories/aurex'),
+    aurex = createAurexRepository({ sqlJson, sqlRun }),
+    server = createHttpServer({
+      repositories: { aurex },
+      sqlJson,
+      sqlRun,
+      apiKey,
+    });
 
   if (host === '0.0.0.0') {
     console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');

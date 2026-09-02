@@ -1,4 +1,4 @@
-// extensions/memory-layer/hooks/output-compression.ts
+// Extensions/memory-layer/hooks/output-compression.ts
 // oxlint-disable sort-imports
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { isBashToolResult } from '@earendil-works/pi-coding-agent';
@@ -8,7 +8,7 @@ import { compressOutput } from '../../../src/token-saver/compress-output';
 import { estimateTokens } from '../../../src/token-saver/estimate-tokens';
 import { recordRun } from '../../../src/token-saver/savings-store';
 
-// isBashToolResult is undefined outside Pi runtime — null-guard + fallback
+// IsBashToolResult is undefined outside Pi runtime — null-guard + fallback
 function safeIsBashToolResult(event: any): boolean {
   if (typeof isBashToolResult === 'function') {
     return isBashToolResult(event);
@@ -21,8 +21,8 @@ interface CompressionDeps {
   getConfig: () => { output_compression?: { enabled?: boolean; min_chars?: number; min_savings_percent?: number } };
 }
 
-const DEFAULT_MIN_CHARS = 2000;
-const DEFAULT_MIN_SAVINGS_PERCENT = 30;
+const DEFAULT_MIN_CHARS = 2000,
+  DEFAULT_MIN_SAVINGS_PERCENT = 30;
 
 export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDeps) {
   pi.on('tool_result', async (event, _ctx) => {
@@ -32,18 +32,17 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
     }
 
     // Check config toggle
-    const config = deps.getConfig();
-    const ocConfig = config.output_compression || {};
+    const config = deps.getConfig(),
+      ocConfig = config.output_compression || {};
     if (ocConfig.enabled === false) {
       return;
     }
 
-    const minChars = ocConfig.min_chars ?? DEFAULT_MIN_CHARS;
-    const minSavingsPercent = ocConfig.min_savings_percent ?? DEFAULT_MIN_SAVINGS_PERCENT;
-
-    // Extract command and output text
-    const command = event.input.command as string;
-    const textContent = event.content.find((c): c is { type: 'text'; text: string } => c.type === 'text');
+    const minChars = ocConfig.min_chars ?? DEFAULT_MIN_CHARS,
+      minSavingsPercent = ocConfig.min_savings_percent ?? DEFAULT_MIN_SAVINGS_PERCENT,
+      // Extract command and output text
+      command = event.input.command as string,
+      textContent = event.content.find((c): c is { type: 'text'; text: string } => c.type === 'text');
     if (!textContent) {
       return;
     }
@@ -56,28 +55,25 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
     }
 
     // Parse command into args for the classifier
-    const commandArgs = command.trim().split(/\s+/);
-
-    // Classify and compress
-    const commandType = classifyCommand(commandArgs);
-    const exitCode = event.isError ? 1 : 0;
-
-    // Pi's bash tool uses child_process.exec which merges stdout/stderr into
-    // a single stream. We pass the combined output as stdout with empty stderr.
-    // If Pi ever separates streams, this would need updating.
-    const compressed = compressOutput({
-      commandType,
-      commandArgs,
-      stdout: output,
-      stderr: '',
-      exitCode,
-    });
-
-    // Calculate savings
-    const originalTokens = estimateTokens(output);
-    const compressedTokens = estimateTokens(compressed.importantOutput);
-    const savedTokens = Math.max(0, originalTokens - compressedTokens);
-    const savingsPercent = originalTokens > 0 ? Math.round((savedTokens / originalTokens) * 1000) / 10 : 0;
+    const commandArgs = command.trim().split(/\s+/),
+      // Classify and compress
+      commandType = classifyCommand(commandArgs),
+      exitCode = event.isError ? 1 : 0,
+      // Pi's bash tool uses child_process.exec which merges stdout/stderr into
+      // a single stream. We pass the combined output as stdout with empty stderr.
+      // If Pi ever separates streams, this would need updating.
+      compressed = compressOutput({
+        commandType,
+        commandArgs,
+        stdout: output,
+        stderr: '',
+        exitCode,
+      }),
+      // Calculate savings
+      originalTokens = estimateTokens(output),
+      compressedTokens = estimateTokens(compressed.importantOutput),
+      savedTokens = Math.max(0, originalTokens - compressedTokens),
+      savingsPercent = originalTokens > 0 ? Math.round((savedTokens / originalTokens) * 1000) / 10 : 0;
 
     // Only replace if savings are meaningful
     if (savingsPercent < minSavingsPercent) {
@@ -109,8 +105,8 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
     }
 
     // Prepend a savings note so the LLM knows output was compressed
-    const prefix = `[Output compressed: ${savingsPercent}% token savings (${savedTokens} tokens saved). Summary: ${compressed.summary}]\n\n`;
-    const newContent = prefix + compressed.importantOutput;
+    const prefix = `[Output compressed: ${savingsPercent}% token savings (${savedTokens} tokens saved). Summary: ${compressed.summary}]\n\n`,
+      newContent = prefix + compressed.importantOutput;
 
     // Return modified content
     return {

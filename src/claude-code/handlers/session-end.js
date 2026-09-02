@@ -18,11 +18,10 @@ const { buildSessionSummary } = require('../../hooks-engine/session-summary');
 const { readTranscript } = require('../hooks-engine/transcript-reader');
 
 async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore, getKnownRepos, getKnownProjects }) {
-  const cwd = resolveCwd(payload.cwd);
-  const { project } = resolveProjectForCwd(cwd, getKnownRepos, getKnownProjects);
-  const claudeSessionId = payload.session_id;
-
-  const state = stateStore.loadState(claudeSessionId);
+  const cwd = resolveCwd(payload.cwd),
+    { project } = resolveProjectForCwd(cwd, getKnownRepos, getKnownProjects),
+    claudeSessionId = payload.session_id,
+    state = stateStore.loadState(claudeSessionId);
 
   // No session ever started (e.g. SessionStart failed) — nothing to close.
   if (state.sessionId === null || state.sessionId === undefined) {
@@ -30,19 +29,17 @@ async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore,
     return null;
   }
 
-  const transcript = readTranscript(payload.transcript_path);
-
-  // DB-derived count is authoritative for both summary text and session-end.
-  const memories = dispatchClient.countSessionMemories(state.sessionId);
-
-  const summaryContent = buildSessionSummary({
-    userMessages: transcript.userMessages,
-    assistantCount: transcript.assistantMessageCount,
-    turnCount: state.turnCount,
-    memoriesSaved: memories,
-    editedFiles: state.editedFiles,
-    cwd,
-  });
+  const transcript = readTranscript(payload.transcript_path),
+    // DB-derived count is authoritative for both summary text and session-end.
+    memories = dispatchClient.countSessionMemories(state.sessionId),
+    summaryContent = buildSessionSummary({
+      userMessages: transcript.userMessages,
+      assistantCount: transcript.assistantMessageCount,
+      turnCount: state.turnCount,
+      memoriesSaved: memories,
+      editedFiles: state.editedFiles,
+      cwd,
+    });
 
   try {
     await dispatch('session-summary', { content: summaryContent, project });
@@ -57,7 +54,7 @@ async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore,
   }
 
   stateStore.clearState(claudeSessionId);
-  return null; // silent — no stdout for SessionEnd
+  return null; // Silent — no stdout for SessionEnd
 }
 
 module.exports = { handleSessionEnd };

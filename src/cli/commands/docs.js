@@ -1,22 +1,21 @@
 const path = require('path');
-const docIndexer = require('../../doc-index');
-
-const USAGE = {
-  'doc-orphans': '--repo X [--include-same-doc]',
-  'stale-pages': '--repo X',
-  'doc-duplicates': '--repo X',
-  'reindex-docs': '--repo X [--mode full|incremental] [--ignore GLOB]',
-  'doc-search': '--query Q --repo X [--level N] [--role TYPE]',
-  'doc-outline': '--repo X [--file F]',
-  backlinks: '--repo X --path F',
-  'broken-links': '--repo X',
-  glossary: '--repo X [--term T]',
-  'tutorial-path': '--section S --repo X',
-  'code-examples': '--query Q --repo X [--lang X]',
-  'index-docs': '--path P --name X [--ignore GLOB]',
-  'doc-coverage': '--repo X [--doc-repo X]',
-  'list-doc-repos': '',
-};
+const docIndexer = require('../../doc-index'),
+  USAGE = {
+    'doc-orphans': '--repo X [--include-same-doc]',
+    'stale-pages': '--repo X',
+    'doc-duplicates': '--repo X',
+    'reindex-docs': '--repo X [--mode full|incremental] [--ignore GLOB]',
+    'doc-search': '--query Q --repo X [--level N] [--role TYPE]',
+    'doc-outline': '--repo X [--file F]',
+    backlinks: '--repo X --path F',
+    'broken-links': '--repo X',
+    glossary: '--repo X [--term T]',
+    'tutorial-path': '--section S --repo X',
+    'code-examples': '--query Q --repo X [--lang X]',
+    'index-docs': '--path P --name X [--ignore GLOB]',
+    'doc-coverage': '--repo X [--doc-repo X]',
+    'list-doc-repos': '',
+  };
 
 function _dispatchDoc(cmd, repoName, fn, deps) {
   if (!repoName) {
@@ -30,8 +29,8 @@ function _dispatchDoc(cmd, repoName, fn, deps) {
 }
 
 function register(commands, deps) {
-  const { sqlJson, jsonErrNoExit, getDb } = deps;
-  const dispatchDeps = { sqlJson, jsonErrNoExit };
+  const { sqlJson, jsonErrNoExit, getDb } = deps,
+    dispatchDeps = { sqlJson, jsonErrNoExit };
 
   commands['doc-orphans'] = (args) =>
     _dispatchDoc(
@@ -41,8 +40,8 @@ function register(commands, deps) {
       dispatchDeps,
     );
   commands['doc-coverage'] = (args) => {
-    const codeRepo = args.repo;
-    const docRepo = args['doc-repo'] || codeRepo;
+    const codeRepo = args.repo,
+      docRepo = args['doc-repo'] || codeRepo;
     if (!codeRepo) {
       return jsonErrNoExit('Missing --repo');
     }
@@ -61,8 +60,8 @@ function register(commands, deps) {
   commands['doc-duplicates'] = (args) =>
     _dispatchDoc('doc-duplicates', args.repo, (r) => docIndexer.getDuplicateSections(getDb(), r.id), dispatchDeps);
   commands['index-docs'] = async (args) => {
-    const docPath = args.path;
-    const name = args.name;
+    const docPath = args.path,
+      name = args.name;
     if (!docPath || !name) {
       return jsonErrNoExit('Usage: index-docs --path P --name X [--ignore GLOB]');
     }

@@ -221,10 +221,10 @@ function getContextForTodo(repo, deps) {
       jsonError(res, 400, 'missing_context_query', 'Todo has no lapisContextQuery');
       return;
     }
-    const searchDeps = { sqlJson: deps.sqlJson, sqlRun: deps.sqlRun, jsonErrNoExit: (msg) => ({ error: msg }) };
-    const search = require('../../memory-domain/search').search;
-    const limit = ctx.query.get('limit') || '10';
-    const result = search(searchDeps, { query: todo.lapisContextQuery, limit });
+    const searchDeps = { sqlJson: deps.sqlJson, sqlRun: deps.sqlRun, jsonErrNoExit: (msg) => ({ error: msg }) },
+      search = require('../../memory-domain/search').search,
+      limit = ctx.query.get('limit') || '10',
+      result = search(searchDeps, { query: todo.lapisContextQuery, limit });
     if (result?.error) {
       jsonError(res, 400, 'search_failed', result.error);
       return;

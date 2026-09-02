@@ -2,7 +2,7 @@
 
 // Thin re-export of the pure engine module.
 // Consumers: extensions/memory-layer/hooks/tool-guardrails.ts (functions +
-// constants) and test/tool-guardrails.test.js (functions only).
+// Constants) and test/tool-guardrails.test.js (functions only).
 const engine = require('../../../src/hooks-engine/guardrail-utils.js');
 
 module.exports = {

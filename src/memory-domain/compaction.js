@@ -5,9 +5,9 @@ const trustSync = require('../trust-sync');
 // Cheap, lock-light cleanup: all the DELETEs + trust decay. No VACUUM, no FTS optimize.
 // Safe to run on every session-end without blocking exit.
 function runCompactCheap(deps) {
-  const { sqlRun } = deps;
-  const startedAt = new Date().toISOString();
-  const report = { startedAt, steps: {} };
+  const { sqlRun } = deps,
+    startedAt = new Date().toISOString(),
+    report = { startedAt, steps: {} };
 
   try {
     sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
@@ -74,12 +74,12 @@ function runCompactCheap(deps) {
 }
 
 // Expensive: VACUUM rewrites the whole DB under an exclusive lock; FTS 'optimize'
-// rebuilds the index b-trees. Only run on a gated cadence (every N sessions),
-// never on every exit — otherwise quitting Pi blocks for seconds on large DBs.
+// Rebuilds the index b-trees. Only run on a gated cadence (every N sessions),
+// Never on every exit — otherwise quitting Pi blocks for seconds on large DBs.
 function runVacuum(deps) {
-  const { sqlRaw } = deps;
-  const startedAt = new Date().toISOString();
-  const report = { startedAt, steps: {} };
+  const { sqlRaw } = deps,
+    startedAt = new Date().toISOString(),
+    report = { startedAt, steps: {} };
   try {
     sqlRaw('VACUUM;');
     report.steps.vacuumed = true;
@@ -100,8 +100,8 @@ function runVacuum(deps) {
 // Full compact = cheap deletes + expensive VACUUM/FTS optimize.
 // Kept for backward compat (CLI `compact`, `dream`, tests).
 function runCompact(deps) {
-  const cheap = runCompactCheap(deps);
-  const vacuum = runVacuum(deps);
+  const cheap = runCompactCheap(deps),
+    vacuum = runVacuum(deps);
   return {
     startedAt: cheap.startedAt,
     ok: cheap.ok && vacuum.ok,
@@ -116,16 +116,15 @@ function compact(deps) {
 }
 
 function dream(deps, args = {}) {
-  const startedAt = new Date().toISOString();
-  const report = { startedAt, phases: {} };
+  const startedAt = new Date().toISOString(),
+    report = { startedAt, phases: {} };
   let totalCleaned = 0;
-  const cleanedIds = [];
-
-  // Pre-phase: hard-delete expired observations before any dream phases
-  // so expired rows don't get soft-deleted or consolidated unnecessarily
-  const expiredCount = deps.sqlJson(
-    "SELECT COUNT(*) as cnt FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')",
-  );
+  const cleanedIds = [],
+    // Pre-phase: hard-delete expired observations before any dream phases
+    // so expired rows don't get soft-deleted or consolidated unnecessarily
+    expiredCount = deps.sqlJson(
+      "SELECT COUNT(*) as cnt FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')",
+    );
   if (expiredCount[0]?.cnt > 0) {
     deps.sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
     report.phases.preExpiredPurge = { count: expiredCount[0].cnt };
@@ -200,7 +199,7 @@ function dream(deps, args = {}) {
         AND (rl.recall_count IS NULL OR rl.recall_count = 0)
         AND o.content LIKE '%Auto-detected%'
         AND (sl.trust_score IS NULL OR sl.trust_score < ${DEDUP.DREAM_LOW_TRUST_THRESHOLD})
-        ${args.bypassAgeGates ? '' : "AND o.created_at < datetime('now', '-" + TIME_WINDOWS.DREAM_AUTO_DETECTED_MIN_AGE_DAYS + " days')"}
+        ${args.bypassAgeGates ? '' : `AND o.created_at < datetime('now', '-${TIME_WINDOWS.DREAM_AUTO_DETECTED_MIN_AGE_DAYS} days')`}
     `,
       [type],
     );
@@ -220,8 +219,8 @@ function dream(deps, args = {}) {
       AND deleted_at IS NULL
   `);
   for (const row of corrections) {
-    const refMatch = row.content.match(/#(\d+)/);
-    const refNote = refMatch ? ` (referenced #${refMatch[1]} — ensure it was updated)` : '';
+    const refMatch = row.content.match(/#(\d+)/),
+      refNote = refMatch ? ` (referenced #${refMatch[1]} — ensure it was updated)` : '';
     deps.softDeleteObservation(row.id);
     cleanedIds.push({
       id: row.id,
@@ -278,10 +277,10 @@ function dream(deps, args = {}) {
 
   // Phase 6: Low-value titled decisions (noise cleanup)
   const noiseTitlePatterns = [
-    /^Architecture choice:\s*(Done!|OK|Now I|Here's what|All \d+ |The complex|The symlink|Good concern|You're right|Approved)/i,
-    /^Constraint identified:\s*(Here's my review|Two issues|All errors)/i,
-  ];
-  const allDecisions = deps.sqlJson(`
+      /^Architecture choice:\s*(Done!|OK|Now I|Here's what|All \d+ |The complex|The symlink|Good concern|You're right|Approved)/i,
+      /^Constraint identified:\s*(Here's my review|Two issues|All errors)/i,
+    ],
+    allDecisions = deps.sqlJson(`
     SELECT id, title, type, project, content, created_at
     FROM observations
     WHERE type = 'decision' AND deleted_at IS NULL
@@ -315,18 +314,17 @@ function dream(deps, args = {}) {
   `);
   let consolidated = 0;
   for (const group of topicGroups) {
-    const ids = group.ids.split(',').map(Number);
-    const keepId = Math.min(...ids);
-    const otherIds = ids.filter((id) => id !== keepId);
-
-    const entries = deps.sqlJson(
-      `SELECT id, title, content, type, created_at FROM observations WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY created_at ASC`,
-      ids,
-    );
+    const ids = group.ids.split(',').map(Number),
+      keepId = Math.min(...ids),
+      otherIds = ids.filter((id) => id !== keepId),
+      entries = deps.sqlJson(
+        `SELECT id, title, content, type, created_at FROM observations WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY created_at ASC`,
+        ids,
+      );
 
     if (entries.length >= 3) {
-      const mergedContent = entries.map((e) => `**${e.title}** (${e.created_at}):\n${e.content}`).join('\n\n---\n\n');
-      const mergedTitle = `${group.topic_key} — consolidated (${entries.length} entries)`;
+      const mergedContent = entries.map((e) => `**${e.title}** (${e.created_at}):\n${e.content}`).join('\n\n---\n\n'),
+        mergedTitle = `${group.topic_key} — consolidated (${entries.length} entries)`;
 
       deps.sqlRun('UPDATE observations SET content = ?, title = ?, type = ? WHERE id = ?', [
         mergedContent,
@@ -384,7 +382,9 @@ function dream(deps, args = {}) {
   let sessionsCompacted = 0;
   for (const stat of sessionStats) {
     const total = stat.total_sessions;
-    if (total <= 5) continue; // Hard floor
+    if (total <= 5) {
+      continue;
+    } // Hard floor
 
     const oldEmptySessions = deps.sqlJson(
       `SELECT id FROM session_log
@@ -420,13 +420,13 @@ function dream(deps, args = {}) {
   if (report.ok) {
     try {
       const currentTotal = parseInt(
-        deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_total_cleaned'")[0]?.value || '0',
-        10,
-      );
-      const currentCount = parseInt(
-        deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_run_count'")[0]?.value || '0',
-        10,
-      );
+          deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_total_cleaned'")[0]?.value || '0',
+          10,
+        ),
+        currentCount = parseInt(
+          deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_run_count'")[0]?.value || '0',
+          10,
+        );
       deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_last_run', ?)", [report.completedAt]);
       deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_total_cleaned', ?)", [
         String(currentTotal + totalCleaned),
@@ -436,9 +436,9 @@ function dream(deps, args = {}) {
       ]);
     } catch (e) {
       // Log instead of swallowing silently — the report still advertises
-      // totalCleaned > 0 to the caller, so users would see inconsistent
-      // dashboard stats (in-memory says cleaned, settings says no data) with
-      // no way to reconcile without a log line.
+      // TotalCleaned > 0 to the caller, so users would see inconsistent
+      // Dashboard stats (in-memory says cleaned, settings says no data) with
+      // No way to reconcile without a log line.
       console.error(`[dream] failed to persist dream-cycle stats: ${e instanceof Error ? e.message : String(e)}`);
     }
   }

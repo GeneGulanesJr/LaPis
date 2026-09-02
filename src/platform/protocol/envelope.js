@@ -14,13 +14,12 @@
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const { FRESHNESS_CACHE_TTL_MS, CONFIDENCE_DEFAULTS } = require('../../../constants');
+const { FRESHNESS_CACHE_TTL_MS, CONFIDENCE_DEFAULTS } = require('../../../constants'),
+  // ══════════════════════════════════════════════════════════
+  // FRESHNESS CACHE  (module-level, 60s TTL)
+  // ══════════════════════════════════════════════════════════
 
-// ══════════════════════════════════════════════════════════
-// FRESHNESS CACHE  (module-level, 60s TTL)
-// ══════════════════════════════════════════════════════════
-
-const _freshnessCache = new Map(); // RepoId → { value, ts }
+  _freshnessCache = new Map(); // RepoId → { value, ts }
 
 function _cacheGet(key) {
   const entry = _freshnessCache.get(key);
@@ -107,8 +106,8 @@ function _filesystemFreshness(_repoPath) {
  * Cached freshness check — avoids spawning git on every query.
  */
 function getFreshness(db, repoId, repoPath, storedHeadCommit) {
-  const key = `freshness:${repoId}`;
-  const cached = _cacheGet(key);
+  const key = `freshness:${repoId}`,
+    cached = _cacheGet(key);
   if (cached) {
     return cached;
   }
@@ -218,8 +217,8 @@ const _confidenceCalculators = {
     return totalAxes === 0 ? 1.0 : parseFloat((axesWithData / totalAxes).toFixed(2));
   },
   astPatterns(data) {
-    const matches = data?.matches || [];
-    const allSymbols = data?.symbols_scanned || 0;
+    const matches = data?.matches || [],
+      allSymbols = data?.symbols_scanned || 0;
     if (allSymbols === 0) {
       return 1.0;
     }
@@ -235,13 +234,13 @@ const _confidenceCalculators = {
     return parseFloat((classified / commits.length).toFixed(2));
   },
   getUntestedSymbols(data) {
-    const testFiles = data?.test_files_found || 0;
-    const totalFiles = data?.total_files || 1;
+    const testFiles = data?.test_files_found || 0,
+      totalFiles = data?.total_files || 1;
     return testFiles === 0 ? 0.0 : parseFloat((testFiles / totalFiles).toFixed(2));
   },
   getPrRiskProfile(data) {
-    const signals = data?.signals || {};
-    const signalKeys = Object.keys(signals).filter((k) => k !== 'composite');
+    const signals = data?.signals || {},
+      signalKeys = Object.keys(signals).filter((k) => k !== 'composite');
     if (signalKeys.length === 0) {
       return 0.0;
     }
@@ -249,8 +248,8 @@ const _confidenceCalculators = {
     return parseFloat((hasData / signalKeys.length).toFixed(2));
   },
   'coding-context'(data) {
-    const errors = data?.partial_errors || [];
-    const analyzerCount = 7;
+    const errors = data?.partial_errors || [],
+      analyzerCount = 7;
     return parseFloat(((analyzerCount - Math.min(errors.length, analyzerCount)) / analyzerCount).toFixed(2));
   },
 };
@@ -332,12 +331,11 @@ function extractResultCount(toolName, data) {
  * @returns {{ _meta: object, data: object }}
  */
 function buildEnvelope({ toolName, data, db, repoId, repoPath, storedHeadCommit, startTime }) {
-  const now = new Date().toISOString();
-  const timingMs = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime);
-
-  const freshness = getFreshness(db, repoId, repoPath, storedHeadCommit);
-  const confidence = computeConfidence(toolName, data);
-  const resultCount = extractResultCount(toolName, data);
+  const now = new Date().toISOString(),
+    timingMs = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime),
+    freshness = getFreshness(db, repoId, repoPath, storedHeadCommit),
+    confidence = computeConfidence(toolName, data),
+    resultCount = extractResultCount(toolName, data);
 
   // Resolve repo_rev: current HEAD if available, stored otherwise
   let repoRev = storedHeadCommit || null;

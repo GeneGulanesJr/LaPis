@@ -1,6 +1,5 @@
-const { getDb } = require('../../db');
-
-const CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS token_saver_runs (
+const { getDb } = require('../../db'),
+  CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS token_saver_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   command TEXT NOT NULL,
   command_type TEXT NOT NULL,
@@ -13,10 +12,9 @@ const CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS token_saver_runs (
   savings_percent REAL NOT NULL,
   summary TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
-)`;
-
-const CREATE_INDEX_SQL = 'CREATE INDEX IF NOT EXISTS idx_ts_runs_type ON token_saver_runs(command_type)';
-const CREATE_INDEX_DATE_SQL = 'CREATE INDEX IF NOT EXISTS idx_ts_runs_date ON token_saver_runs(created_at DESC)';
+)`,
+  CREATE_INDEX_SQL = 'CREATE INDEX IF NOT EXISTS idx_ts_runs_type ON token_saver_runs(command_type)',
+  CREATE_INDEX_DATE_SQL = 'CREATE INDEX IF NOT EXISTS idx_ts_runs_date ON token_saver_runs(created_at DESC)';
 
 let _tableEnsured = false;
 
@@ -86,27 +84,26 @@ function getStats() {
   }
   try {
     const rows = db
-      .prepare(
-        `SELECT
+        .prepare(
+          `SELECT
          COUNT(*) as totalRuns,
          COALESCE(SUM(estimated_original_tokens), 0) as estimatedOriginalTokens,
          COALESCE(SUM(estimated_compressed_tokens), 0) as estimatedCompressedTokens,
          COALESCE(SUM(estimated_saved_tokens), 0) as estimatedSavedTokens,
          COALESCE(AVG(savings_percent), 0) as averageSavingsPercent
        FROM token_saver_runs`,
-      )
-      .all();
-    const stats = rows[0] || {};
-
-    const topRows = db
-      .prepare(
-        `SELECT command_type as type, SUM(estimated_saved_tokens) as savedTokens
+        )
+        .all(),
+      stats = rows[0] || {},
+      topRows = db
+        .prepare(
+          `SELECT command_type as type, SUM(estimated_saved_tokens) as savedTokens
        FROM token_saver_runs
        GROUP BY command_type
        ORDER BY savedTokens DESC
        LIMIT 10`,
-      )
-      .all();
+        )
+        .all();
 
     return {
       totalRuns: stats.totalRuns || 0,

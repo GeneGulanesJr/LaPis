@@ -19,8 +19,8 @@ describe('repo-index lock', () => {
   });
 
   it('blocks a second holder until release', () => {
-    const first = makeHolderId();
-    const second = makeHolderId();
+    const first = makeHolderId(),
+      second = makeHolderId();
     expect(tryAcquireSqliteLock('shared-repo', first)).toBe(true);
     expect(tryAcquireSqliteLock('shared-repo', second)).toBe(false);
     releaseSqliteLock('shared-repo', first);

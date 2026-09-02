@@ -1,8 +1,8 @@
 const { resolveProjectForCwd } = require('../../src/claude-code/project-resolve');
 
 describe('claude-code project-resolve', () => {
-  const repos = [{ name: 'my-monorepo', path: '/repos/my-monorepo' }];
-  const knownProjects = ['legacy-app'];
+  const repos = [{ name: 'my-monorepo', path: '/repos/my-monorepo' }],
+    knownProjects = ['legacy-app'];
 
   test('resolveProjectForCwd prefers indexed repo path over basename', () => {
     const { project, resolvedCwd } = resolveProjectForCwd(

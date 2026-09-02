@@ -22,8 +22,8 @@ function createCodeIndexRepository(deps) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   function _insertSymbolsPrepared(symbols) {
-    const db = require('../../db').getDb();
-    const stmt = db.prepare(_symbolInsertSql);
+    const db = require('../../db').getDb(),
+      stmt = db.prepare(_symbolInsertSql);
     for (const sym of symbols) {
       stmt.run(
         sym.repoId,
@@ -86,14 +86,13 @@ function createCodeIndexRepository(deps) {
       return this.createRepo({ name, path });
     },
     clearRepoIndexCore(repoId, options = {}) {
-      const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
-      const emit = (message, extra = {}) => {
-        if (onProgress) {
-          onProgress({ message, ...extra });
-        }
-      };
-
-      const totals = {};
+      const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null,
+        emit = (message, extra = {}) => {
+          if (onProgress) {
+            onProgress({ message, ...extra });
+          }
+        },
+        totals = {};
       emit('Clearing complexity rows...');
       const complexityResult = sqlRun(
         'DELETE FROM symbol_complexity WHERE symbol_id IN (SELECT id FROM code_symbols WHERE repo_id = ?)',
@@ -169,8 +168,8 @@ function createCodeIndexRepository(deps) {
         }
       } catch (e) {
         // Only fall through for engines that don't support RETURNING. Any other
-        // error (constraint, busy/locked, disk full) is a real failure that must
-        // surface — swallowing it turns a recoverable error into a null-deref.
+        // Error (constraint, busy/locked, disk full) is a real failure that must
+        // Surface — swallowing it turns a recoverable error into a null-deref.
         if (!/RETURNING/i.test(e && e.message)) {
           throw e;
         }
@@ -189,8 +188,8 @@ function createCodeIndexRepository(deps) {
       return fallback[0].id;
     },
     insertFileBatch(records) {
-      const ids = [];
-      const self = this;
+      const ids = [],
+        self = this;
       _withTransaction(() => {
         for (const params of records) {
           const id = self.insertFile(params);
@@ -318,9 +317,9 @@ function createCodeIndexRepository(deps) {
     },
     updateRepoStats({ repoId, headCommit, currentBranch, baseHead }) {
       // Defense-in-depth: warn if symbol_count drops to zero from a non-zero previous state
-      const prev = sqlJson('SELECT file_count, symbol_count FROM code_repos WHERE id = ?', [repoId])[0];
-      const newFileCount = sqlJson('SELECT count(*) AS c FROM code_files WHERE repo_id = ?', [repoId])[0].c;
-      const newSymbolCount = sqlJson('SELECT count(*) AS c FROM code_symbols WHERE repo_id = ?', [repoId])[0].c;
+      const prev = sqlJson('SELECT file_count, symbol_count FROM code_repos WHERE id = ?', [repoId])[0],
+        newFileCount = sqlJson('SELECT count(*) AS c FROM code_files WHERE repo_id = ?', [repoId])[0].c,
+        newSymbolCount = sqlJson('SELECT count(*) AS c FROM code_symbols WHERE repo_id = ?', [repoId])[0].c;
       if (prev && prev.symbol_count > 0 && newSymbolCount === 0) {
         console.warn(
           `[repos] WARNING: updateRepoStats for repo ${repoId}: symbol_count dropped from ${prev.symbol_count} to 0. This likely means parsePhase failed after clearRepoIndex.`,

@@ -1,11 +1,11 @@
-const COLLAPSED_LINES = 2;
-const EXPANDED_LINES = 40;
-const MAX_LINE_CHARS = 240;
+const COLLAPSED_LINES = 2,
+  EXPANDED_LINES = 40,
+  MAX_LINE_CHARS = 240;
 
 export function renderCompactToolResult(result: any, options: any, theme: any) {
-  const lines = extractTextLines(result);
-  const isPartial = Boolean(options?.isPartial);
-  const isError = Boolean(result?.isError || options?.isError);
+  const lines = extractTextLines(result),
+    isPartial = Boolean(options?.isPartial),
+    isError = Boolean(result?.isError || options?.isError);
 
   if (isPartial) {
     return compactText(theme.fg('warning', compactLine(lines[0] || 'Working...')));
@@ -15,9 +15,9 @@ export function renderCompactToolResult(result: any, options: any, theme: any) {
     return compactText(theme.fg('dim', 'No output'));
   }
 
-  const limit = options?.expanded ? EXPANDED_LINES : COLLAPSED_LINES;
-  const shown = lines.slice(0, limit).map(compactLine);
-  const hidden = lines.length - shown.length;
+  const limit = options?.expanded ? EXPANDED_LINES : COLLAPSED_LINES,
+    shown = lines.slice(0, limit).map(compactLine),
+    hidden = lines.length - shown.length;
   let text = shown.join('\n');
 
   if (hidden > 0) {

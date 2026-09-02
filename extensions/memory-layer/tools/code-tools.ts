@@ -87,34 +87,34 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
       params = params ?? {};
       try {
         const cmdMap: Record<string, string> = {
-          search: 'search-code',
-          callers: 'call-hierarchy',
-          callees: 'call-hierarchy',
-          'blast-radius': 'blast-radius',
-          'dead-code': 'dead-code',
-          complexity: 'complexity',
-          deps: 'import-graph',
-          outline: 'outline',
-          churn: 'churn',
-          hotspots: 'hotspots',
-          cycles: 'cycles',
-          importance: 'importance',
-          coupling: 'coupling',
-          extractable: 'extractable',
-          hierarchy: 'hierarchy',
-          'signal-chains': 'signal-chains',
-          'layer-violations': 'layer-violations',
-          'coding-context': 'coding-context',
-          preflight: 'preflight',
-          'agent-pack': 'agent-pack',
-          health: 'health-code-repo',
-          'index-repo': 'index-repo',
-          'reindex-repo': 'reindex-repo',
-          dupes: 'dupes',
-          'audit-diff': 'audit-diff',
-          'enrich-symbols': 'enrich-symbols',
-        };
-        const mode = typeof params.mode === 'string' ? params.mode : '';
+            search: 'search-code',
+            callers: 'call-hierarchy',
+            callees: 'call-hierarchy',
+            'blast-radius': 'blast-radius',
+            'dead-code': 'dead-code',
+            complexity: 'complexity',
+            deps: 'import-graph',
+            outline: 'outline',
+            churn: 'churn',
+            hotspots: 'hotspots',
+            cycles: 'cycles',
+            importance: 'importance',
+            coupling: 'coupling',
+            extractable: 'extractable',
+            hierarchy: 'hierarchy',
+            'signal-chains': 'signal-chains',
+            'layer-violations': 'layer-violations',
+            'coding-context': 'coding-context',
+            preflight: 'preflight',
+            'agent-pack': 'agent-pack',
+            health: 'health-code-repo',
+            'index-repo': 'index-repo',
+            'reindex-repo': 'reindex-repo',
+            dupes: 'dupes',
+            'audit-diff': 'audit-diff',
+            'enrich-symbols': 'enrich-symbols',
+          },
+          mode = typeof params.mode === 'string' ? params.mode : '';
         if (!mode) {
           return toolTextResult(codeHelpText());
         }
@@ -125,8 +125,8 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
         }
 
         const codeRepos =
-          mode === 'index-repo' || mode === 'reindex-repo' || mode === 'health' ? [] : await deps.getKnownRepos();
-        const inferredRepo = inferCurrentRepo(params, codeRepos, process.cwd());
+            mode === 'index-repo' || mode === 'reindex-repo' || mode === 'health' ? [] : await deps.getKnownRepos(),
+          inferredRepo = inferCurrentRepo(params, codeRepos, process.cwd());
         if (inferredRepo) {
           params = { ...params, repo: inferredRepo };
         }
@@ -213,17 +213,17 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
         }
 
         if (mode === 'index-repo' || mode === 'reindex-repo') {
-          const ui = (ctx as any)?.ui;
-          const result = await deps.memStreaming(cmd, args, (msg: string) => {
-            try {
-              onUpdate(toolProgressResult(msg, { progress: true }));
-            } catch {}
-            if (ui?.setStatus) {
+          const ui = (ctx as any)?.ui,
+            result = await deps.memStreaming(cmd, args, (msg: string) => {
               try {
-                ui.setStatus('memory-index', `📦 ${msg}`);
+                onUpdate(toolProgressResult(msg, { progress: true }));
               } catch {}
-            }
-          });
+              if (ui?.setStatus) {
+                try {
+                  ui.setStatus('memory-index', `📦 ${msg}`);
+                } catch {}
+              }
+            });
           if (ui?.setStatus) {
             try {
               if (ui.clearStatus) {
@@ -264,8 +264,8 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
 
         const repoMatch = codeRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
         if (!repoMatch) {
-          const available = codeRepos.map((r) => r.name).join(', ') || 'none';
-          const cwd = process.cwd();
+          const available = codeRepos.map((r) => r.name).join(', ') || 'none',
+            cwd = process.cwd();
           return normalizeToolResult({
             content: [
               {
@@ -325,14 +325,14 @@ function inferCurrentRepo(params: Record<string, any>, repos: Array<{ name: stri
     return null;
   }
 
-  const resolvedCwd = path.resolve(cwd).toLowerCase();
-  const cwdMatch = repos.find((repo) => {
-    if (!repo.path) {
-      return false;
-    }
-    const repoPath = path.resolve(repo.path).toLowerCase();
-    return resolvedCwd === repoPath || resolvedCwd.startsWith(`${repoPath}/`);
-  });
+  const resolvedCwd = path.resolve(cwd).toLowerCase(),
+    cwdMatch = repos.find((repo) => {
+      if (!repo.path) {
+        return false;
+      }
+      const repoPath = path.resolve(repo.path).toLowerCase();
+      return resolvedCwd === repoPath || resolvedCwd.startsWith(`${repoPath}/`);
+    });
   if (cwdMatch) {
     return cwdMatch.name;
   }
@@ -341,10 +341,10 @@ function inferCurrentRepo(params: Record<string, any>, repos: Array<{ name: stri
 }
 
 function buildCodeToolResponse(mode: string, result: any): { formatPayload: any; details: Record<string, unknown> } {
-  const payload = unwrapCodeResultData(result);
-  const compactPayload = compactCodeToolPayload(mode, payload);
-  const meta =
-    result && typeof result === 'object' && result._meta && typeof result._meta === 'object' ? result._meta : null;
+  const payload = unwrapCodeResultData(result),
+    compactPayload = compactCodeToolPayload(mode, payload),
+    meta =
+      result && typeof result === 'object' && result._meta && typeof result._meta === 'object' ? result._meta : null;
   return {
     formatPayload: compactPayload,
     details: meta ? { _meta: meta, data: compactPayload } : compactPayload,
@@ -381,12 +381,12 @@ function compactOutlinePayload(result: any): Record<string, unknown> {
   }
 
   const classes = Array.isArray(result.classes)
-    ? result.classes.slice(0, 20).map((cls: any) => ({
-        ...cls,
-        methods: Array.isArray(cls.methods) ? cls.methods.slice(0, 25) : [],
-      }))
-    : [];
-  const standalone = Array.isArray(result.standalone) ? result.standalone.slice(0, 80) : [];
+      ? result.classes.slice(0, 20).map((cls: any) => ({
+          ...cls,
+          methods: Array.isArray(cls.methods) ? cls.methods.slice(0, 25) : [],
+        }))
+      : [],
+    standalone = Array.isArray(result.standalone) ? result.standalone.slice(0, 80) : [];
 
   return {
     ...result,
@@ -420,14 +420,14 @@ function codeHelpText(): string {
 }
 
 function formatHealthResult(result: any): string {
-  const diagnostics = result.diagnostics || {};
-  const lines = [
-    `# Index Health: ${result.repo}`,
-    '',
-    `Score: ${result.health_score}`,
-    `Indexed: ${result.indexed_files} files, ${result.indexed_symbols} symbols`,
-    `Fresh: ${result.stale ? 'no' : 'yes'}`,
-  ];
+  const diagnostics = result.diagnostics || {},
+    lines = [
+      `# Index Health: ${result.repo}`,
+      '',
+      `Score: ${result.health_score}`,
+      `Indexed: ${result.indexed_files} files, ${result.indexed_symbols} symbols`,
+      `Fresh: ${result.stale ? 'no' : 'yes'}`,
+    ];
   if (result.scan) {
     const delta = result.scan.indexed_file_delta;
     lines.push(

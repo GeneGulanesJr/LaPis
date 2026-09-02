@@ -7,18 +7,17 @@ const {
   buildCallGraphForFiles: _buildCallGraphForFiles,
   buildComplexityForFiles,
 } = require('../src/code-analysis/legacy-core');
-const { rebuildDerivedIndexes } = require('../src/code-index/incremental-indexer');
-
-const STORE = path.resolve(__dirname, '..', 'memory-store.js');
+const { rebuildDerivedIndexes } = require('../src/code-index/incremental-indexer'),
+  STORE = path.resolve(__dirname, '..', 'memory-store.js');
 
 let cliAvailable = false;
 try {
   const result = execSync(`node "${STORE}" list-code-repos`, {
-    encoding: 'utf8',
-    timeout: 5000,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  const parsed = JSON.parse(result.trim());
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }),
+    parsed = JSON.parse(result.trim());
   cliAvailable = parsed && typeof parsed.total === 'number';
 } catch {}
 
@@ -74,8 +73,8 @@ function cleanupRepo(name) {
 }
 
 function makeMockDb(tables) {
-  const data = JSON.parse(JSON.stringify(tables));
-  const stmts = [];
+  const data = JSON.parse(JSON.stringify(tables)),
+    stmts = [];
 
   function prepare(sql) {
     const normalized = sql.replace(/\s+/g, ' ').trim();
@@ -162,10 +161,10 @@ function makeMockDb(tables) {
           normalized.includes('callee_symbol_id IS NULL')
         ) {
           const nullCallees = (data.code_calls || []).filter(
-            (cc) => cc.repo_id === params[0] && cc.callee_symbol_id == null,
-          );
-          const callerIds = nullCallees.map((cc) => cc.caller_symbol_id);
-          const symbols = data.code_symbols || [];
+              (cc) => cc.repo_id === params[0] && cc.callee_symbol_id == null,
+            ),
+            callerIds = nullCallees.map((cc) => cc.caller_symbol_id),
+            symbols = data.code_symbols || [];
           return [...new Set(symbols.filter((s) => callerIds.includes(s.id)).map((s) => s.file_id))].map((fid) => ({
             file_id: fid,
           }));
@@ -200,8 +199,8 @@ const describeIntegration = cliAvailable ? describe : describe.skip;
 describe('incremental derived graph builders', () => {
   describe('buildImportGraphForFiles', () => {
     it('returns early with zero edges when no files changed', () => {
-      const db = makeMockDb({});
-      const result = buildImportGraphForFiles(db, 1, [], []);
+      const db = makeMockDb({}),
+        result = buildImportGraphForFiles(db, 1, [], []);
       expect(result.success).toBe(true);
       expect(result.edges).toBe(0);
       expect(result.incremental).toBe(true);
@@ -209,64 +208,62 @@ describe('incremental derived graph builders', () => {
 
     it('rebuilds imports only for changed files and their importers', () => {
       const db = makeMockDb({
-        code_files: [
-          {
-            id: 1,
-            repo_id: 1,
-            path: '/repo/a.js',
-            content: 'const { b } = require("./b");\nfunction main() {\n  b();\n}',
-          },
-          {
-            id: 2,
-            repo_id: 1,
-            path: '/repo/b.js',
-            content: 'function b() { return 42; }\nmodule.exports = { b };',
-          },
-          {
-            id: 3,
-            repo_id: 1,
-            path: '/repo/c.js',
-            content: 'function c() { return 99; }',
-          },
-        ],
-        code_imports: [
-          {
-            repo_id: 1,
-            source_file_id: 1,
-            target_module: './b',
-            target_file_id: 2,
-            import_type: 'static',
-            line_number: 1,
-          },
-        ],
-      });
-
-      const result = buildImportGraphForFiles(db, 1, [2], []);
+          code_files: [
+            {
+              id: 1,
+              repo_id: 1,
+              path: '/repo/a.js',
+              content: 'const { b } = require("./b");\nfunction main() {\n  b();\n}',
+            },
+            {
+              id: 2,
+              repo_id: 1,
+              path: '/repo/b.js',
+              content: 'function b() { return 42; }\nmodule.exports = { b };',
+            },
+            {
+              id: 3,
+              repo_id: 1,
+              path: '/repo/c.js',
+              content: 'function c() { return 99; }',
+            },
+          ],
+          code_imports: [
+            {
+              repo_id: 1,
+              source_file_id: 1,
+              target_module: './b',
+              target_file_id: 2,
+              import_type: 'static',
+              line_number: 1,
+            },
+          ],
+        }),
+        result = buildImportGraphForFiles(db, 1, [2], []);
       expect(result.success).toBe(true);
       expect(result.incremental).toBe(true);
       expect(result.filesAffected).toBeGreaterThanOrEqual(1);
 
-      const imports = db._data.code_imports;
-      const sourceIds = imports.map((imp) => imp.source_file_id);
+      const imports = db._data.code_imports,
+        sourceIds = imports.map((imp) => imp.source_file_id);
       expect(sourceIds).not.toContain(3);
     });
 
     it('handles deleted files by removing their import edges', () => {
       const db = makeMockDb({
-        code_files: [{ id: 1, repo_id: 1, path: '/repo/a.js', content: 'function a() {}' }],
-        code_imports: [
-          {
-            repo_id: 1,
-            source_file_id: 2,
-            target_module: './deleted',
-            target_file_id: 2,
-            import_type: 'static',
-            line_number: 1,
-          },
-        ],
-      });
-
-      const result = buildImportGraphForFiles(db, 1, [], [2]);
+          code_files: [{ id: 1, repo_id: 1, path: '/repo/a.js', content: 'function a() {}' }],
+          code_imports: [
+            {
+              repo_id: 1,
+              source_file_id: 2,
+              target_module: './deleted',
+              target_file_id: 2,
+              import_type: 'static',
+              line_number: 1,
+            },
+          ],
+        }),
+        result = buildImportGraphForFiles(db, 1, [], [2]);
       expect(result.success).toBe(true);
       expect(result.incremental).toBe(true);
     });
@@ -274,8 +271,8 @@ describe('incremental derived graph builders', () => {
 
   describe('buildComplexityForFiles', () => {
     it('returns early with zero symbols when no files changed', () => {
-      const db = makeMockDb({});
-      const result = buildComplexityForFiles(db, 1, [], []);
+      const db = makeMockDb({}),
+        result = buildComplexityForFiles(db, 1, [], []);
       expect(result.success).toBe(true);
       expect(result.symbols).toBe(0);
       expect(result.incremental).toBe(true);
@@ -283,73 +280,70 @@ describe('incremental derived graph builders', () => {
 
     it('computes complexity only for symbols in changed files', () => {
       const symbols = [
-        {
-          id: 10,
-          repo_id: 1,
-          file_id: 1,
-          name: 'complex',
-          kind: 'function',
-          signature: 'function complex()',
-          start_byte: 0,
-          end_byte: 100,
-          start_line: 1,
-          end_line: 7,
-        },
-      ];
-      const files = [
-        {
-          id: 1,
-          repo_id: 1,
-          path: '/repo/a.js',
-          content:
-            'function complex() {\n  if (x) {\n    for (let i = 0; i < 10; i++) {\n      if (y) { a(); }\n    }\n  }\n}',
-        },
-      ];
-
-      const queries = [];
-      const insertedRows = [];
-      const deletedForFileIds = [];
-
-      const db = {
-        prepare(sql) {
-          const n = sql.replace(/\s+/g, ' ').trim();
-          queries.push(n);
-          return {
-            run(...params) {
-              if (n.startsWith('DELETE FROM symbol_complexity')) {
-                if (n.includes('file_id IN')) {
-                  deletedForFileIds.push(...params);
+          {
+            id: 10,
+            repo_id: 1,
+            file_id: 1,
+            name: 'complex',
+            kind: 'function',
+            signature: 'function complex()',
+            start_byte: 0,
+            end_byte: 100,
+            start_line: 1,
+            end_line: 7,
+          },
+        ],
+        files = [
+          {
+            id: 1,
+            repo_id: 1,
+            path: '/repo/a.js',
+            content:
+              'function complex() {\n  if (x) {\n    for (let i = 0; i < 10; i++) {\n      if (y) { a(); }\n    }\n  }\n}',
+          },
+        ],
+        queries = [],
+        insertedRows = [],
+        deletedForFileIds = [],
+        db = {
+          prepare(sql) {
+            const n = sql.replace(/\s+/g, ' ').trim();
+            queries.push(n);
+            return {
+              run(...params) {
+                if (n.startsWith('DELETE FROM symbol_complexity')) {
+                  if (n.includes('file_id IN')) {
+                    deletedForFileIds.push(...params);
+                  }
                 }
-              }
-              if (n.startsWith('INSERT OR REPLACE INTO symbol_complexity')) {
-                insertedRows.push(params);
-              }
-            },
-            get() {
-              return undefined;
-            },
-            all(...params) {
-              if (n.includes('FROM code_symbols cs JOIN code_files cf')) {
-                const repoId = params[0];
-                const fileIds = params.slice(1);
-                return symbols
-                  .filter((s) => s.repo_id === repoId && fileIds.includes(s.file_id))
-                  .map((s) => {
-                    const f = files.find((fi) => fi.id === s.file_id);
-                    return { ...s, file_content: f ? f.content : null };
-                  });
-              }
-              return [];
-            },
-          };
+                if (n.startsWith('INSERT OR REPLACE INTO symbol_complexity')) {
+                  insertedRows.push(params);
+                }
+              },
+              get() {
+                return undefined;
+              },
+              all(...params) {
+                if (n.includes('FROM code_symbols cs JOIN code_files cf')) {
+                  const repoId = params[0],
+                    fileIds = params.slice(1);
+                  return symbols
+                    .filter((s) => s.repo_id === repoId && fileIds.includes(s.file_id))
+                    .map((s) => {
+                      const f = files.find((fi) => fi.id === s.file_id);
+                      return { ...s, file_content: f ? f.content : null };
+                    });
+                }
+                return [];
+              },
+            };
+          },
+          exec() {},
+          transaction(fn) {
+            return fn;
+          },
         },
-        exec() {},
-        transaction(fn) {
-          return fn;
-        },
-      };
-
-      const result = buildComplexityForFiles(db, 1, [1], []);
+        result = buildComplexityForFiles(db, 1, [1], []);
       expect(result.success).toBe(true);
       expect(result.incremental).toBe(true);
       expect(result.symbols).toBe(1);
@@ -360,14 +354,13 @@ describe('incremental derived graph builders', () => {
 
     it('deletes complexity for deleted file symbols without recomputing', () => {
       const db = makeMockDb({
-        code_files: [],
-        code_symbols: [],
-        symbol_complexity: [
-          { symbol_id: 10, cyclomatic: 5, nesting_depth: 2, param_count: 1, lines_of_code: 10, assessment: 'medium' },
-        ],
-      });
-
-      const result = buildComplexityForFiles(db, 1, [], [1]);
+          code_files: [],
+          code_symbols: [],
+          symbol_complexity: [
+            { symbol_id: 10, cyclomatic: 5, nesting_depth: 2, param_count: 1, lines_of_code: 10, assessment: 'medium' },
+          ],
+        }),
+        result = buildComplexityForFiles(db, 1, [], [1]);
       expect(result.success).toBe(true);
       expect(result.symbols).toBe(0);
     });
@@ -376,45 +369,43 @@ describe('incremental derived graph builders', () => {
   describe('rebuildDerivedIndexes', () => {
     it('uses incremental path when changedFileIds and deletedFileIds are provided', () => {
       const db = makeMockDb({
-        code_files: [{ id: 1, repo_id: 1, path: '/repo/a.js', content: 'function a() { return 1; }' }],
-        code_symbols: [
-          {
-            id: 10,
-            repo_id: 1,
-            file_id: 1,
-            name: 'a',
-            kind: 'function',
-            start_byte: 0,
-            end_byte: 28,
-            start_line: 1,
-            end_line: 1,
-          },
-        ],
-      });
-
-      const result = rebuildDerivedIndexes(db, 1, {}, 1, 1, 1, [1], []);
+          code_files: [{ id: 1, repo_id: 1, path: '/repo/a.js', content: 'function a() { return 1; }' }],
+          code_symbols: [
+            {
+              id: 10,
+              repo_id: 1,
+              file_id: 1,
+              name: 'a',
+              kind: 'function',
+              start_byte: 0,
+              end_byte: 28,
+              start_line: 1,
+              end_line: 1,
+            },
+          ],
+        }),
+        result = rebuildDerivedIndexes(db, 1, {}, 1, 1, 1, [1], []);
       expect(result.derived_scope).toBe('file');
     });
 
     it('uses repo-wide path when file IDs are not provided', () => {
       const db = makeMockDb({
-        code_files: [{ id: 1, repo_id: 1, path: '/repo/a.js', content: 'function a() { return 1; }' }],
-        code_symbols: [
-          {
-            id: 10,
-            repo_id: 1,
-            file_id: 1,
-            name: 'a',
-            kind: 'function',
-            start_byte: 0,
-            end_byte: 28,
-            start_line: 1,
-            end_line: 1,
-          },
-        ],
-      });
-
-      const result = rebuildDerivedIndexes(db, 1, {}, 1, 1, 1);
+          code_files: [{ id: 1, repo_id: 1, path: '/repo/a.js', content: 'function a() { return 1; }' }],
+          code_symbols: [
+            {
+              id: 10,
+              repo_id: 1,
+              file_id: 1,
+              name: 'a',
+              kind: 'function',
+              start_byte: 0,
+              end_byte: 28,
+              start_line: 1,
+              end_line: 1,
+            },
+          ],
+        }),
+        result = rebuildDerivedIndexes(db, 1, {}, 1, 1, 1);
       expect(result.derived_scope).toBe('repo');
     });
   });
@@ -451,8 +442,8 @@ describeIntegration('incremental derived rebuild integration', () => {
     });
 
     it('still resolves imports correctly after incremental derived rebuild', () => {
-      const graph = run(`import-graph --repo ${name}`);
-      const edges = graph.edges || graph.data?.edges;
+      const graph = run(`import-graph --repo ${name}`),
+        edges = graph.edges || graph.data?.edges;
       expect(Array.isArray(edges)).toBe(true);
     });
   });

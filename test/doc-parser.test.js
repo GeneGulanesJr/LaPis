@@ -1,8 +1,7 @@
 // Unit tests for doc-parser
-const docIndexer = require('../src/doc-index');
-
-const parseSections = docIndexer._parseMarkdownSections;
-const slugify = docIndexer._slugify;
+const docIndexer = require('../src/doc-index'),
+  parseSections = docIndexer._parseMarkdownSections,
+  slugify = docIndexer._slugify;
 
 describe('doc-parser (markdown internals)', () => {
   describe('_slugify', () => {
@@ -31,8 +30,8 @@ describe('doc-parser (markdown internals)', () => {
     });
 
     it('should parse multiple headings', () => {
-      const md = '# Top\n\nTop content.\n\n## Middle\n\nMiddle content.\n\n### Bottom\n\nBottom content.';
-      const sections = parseSections(md, '/test/b.md');
+      const md = '# Top\n\nTop content.\n\n## Middle\n\nMiddle content.\n\n### Bottom\n\nBottom content.',
+        sections = parseSections(md, '/test/b.md');
       expect(sections.length).toBe(3);
       expect(sections[0].title).toBe('Top');
       expect(sections[1].title).toBe('Middle');
@@ -48,15 +47,15 @@ describe('doc-parser (markdown internals)', () => {
     });
 
     it('should skip YAML frontmatter', () => {
-      const md = '---\ntitle: Test\n---\n# Real Heading\n\nReal content.';
-      const sections = parseSections(md, '/test/d.md');
+      const md = '---\ntitle: Test\n---\n# Real Heading\n\nReal content.',
+        sections = parseSections(md, '/test/d.md');
       expect(sections.length).toBe(1);
       expect(sections[0].title).toBe('Real Heading');
     });
 
     it('should handle setext headings (underlined)', () => {
-      const md = 'Section One\n==========\n\nContent one.\n\nSection Two\n----------\n\nContent two.';
-      const sections = parseSections(md, '/test/e.md');
+      const md = 'Section One\n==========\n\nContent one.\n\nSection Two\n----------\n\nContent two.',
+        sections = parseSections(md, '/test/e.md');
       expect(sections.length).toBe(2);
       expect(sections[0].title).toBe('Section One');
       expect(sections[0].level).toBe(1);
@@ -104,8 +103,8 @@ describe('doc-parser (markdown internals)', () => {
     });
 
     it('should include byte offsets', () => {
-      const md = '# Title\n\nContent body text.';
-      const sections = parseSections(md, '/test/bytes.md');
+      const md = '# Title\n\nContent body text.',
+        sections = parseSections(md, '/test/bytes.md');
       expect(sections[0].byte_start).toBeGreaterThanOrEqual(0);
       expect(sections[0].byte_end).toBeGreaterThan(sections[0].byte_start);
     });
@@ -113,14 +112,14 @@ describe('doc-parser (markdown internals)', () => {
 
   describe('content hashing', () => {
     it('should produce consistent content hashes for identical content', () => {
-      const s1 = parseSections('# A\n\nsame', '/test/same1.md');
-      const s2 = parseSections('# A\n\nsame', '/test/same2.md');
+      const s1 = parseSections('# A\n\nsame', '/test/same1.md'),
+        s2 = parseSections('# A\n\nsame', '/test/same2.md');
       expect(s1[0].content_hash).toBe(s2[0].content_hash);
     });
 
     it('should produce different hashes for different content', () => {
-      const s1 = parseSections('# A\n\nsame', '/test/diff1.md');
-      const s2 = parseSections('# A\n\ndifferent', '/test/diff2.md');
+      const s1 = parseSections('# A\n\nsame', '/test/diff1.md'),
+        s2 = parseSections('# A\n\ndifferent', '/test/diff2.md');
       expect(s1[0].content_hash).not.toBe(s2[0].content_hash);
     });
   });

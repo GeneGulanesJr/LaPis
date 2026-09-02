@@ -11,9 +11,9 @@ function compressGeneric({ stdout, stderr }) {
     };
   }
 
-  const lines = combined.split('\n');
-  const headLimit = 120;
-  const tailLimit = 120;
+  const lines = combined.split('\n'),
+    headLimit = 120,
+    tailLimit = 120;
 
   if (lines.length <= headLimit + tailLimit) {
     return {
@@ -23,9 +23,9 @@ function compressGeneric({ stdout, stderr }) {
     };
   }
 
-  const head = lines.slice(0, headLimit);
-  const tail = lines.slice(-tailLimit);
-  const important = [];
+  const head = lines.slice(0, headLimit),
+    tail = lines.slice(-tailLimit),
+    important = [];
 
   for (let i = 0; i < lines.length; i++) {
     if (IMPORTANT_KEYWORDS.test(lines[i])) {

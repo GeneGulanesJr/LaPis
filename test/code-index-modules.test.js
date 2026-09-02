@@ -28,11 +28,11 @@ describe('code-index parser registry', () => {
 
 describe('code-index parse progress', () => {
   it('reports what parsing sub-step is currently running', async () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-parse-progress-'));
-    const filePath = path.join(tmp, 'app.js');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-parse-progress-')),
+      filePath = path.join(tmp, 'app.js');
     fs.writeFileSync(filePath, 'function app() { return 1; }');
-    const progress = [];
-    const originalWrite = process.stderr.write;
+    const progress = [],
+      originalWrite = process.stderr.write;
     process.stderr.write = (chunk, encoding, cb) => {
       progress.push(JSON.parse(String(chunk)));
       if (typeof cb === 'function') {
@@ -110,26 +110,25 @@ describe('code-index symbol extractor', () => {
   });
 
   it('enriches symbols with stable metadata and call references', () => {
-    const source = 'function helper() { return 1; }\nfunction main() { return helper(); }\n';
-    const registry = {
-      canParseFile: () => true,
-      parseContent: () => [
-        {
-          name: 'main',
-          kind: 'function',
-          signature: 'function main()',
-          qualified_name: 'main',
-          start_line: 2,
-          end_line: 2,
-          start_byte: Buffer.byteLength('function helper() { return 1; }\n'),
-          end_byte: Buffer.byteLength(source),
-          language: 'javascript',
-        },
-      ],
-      extractCalleesFromContent: () => [{ callee: 'helper', full_path: 'helper', line: 2 }],
-    };
-
-    const [symbol] = extractSymbolsFromFile('/repo/app.js', registry, source);
+    const source = 'function helper() { return 1; }\nfunction main() { return helper(); }\n',
+      registry = {
+        canParseFile: () => true,
+        parseContent: () => [
+          {
+            name: 'main',
+            kind: 'function',
+            signature: 'function main()',
+            qualified_name: 'main',
+            start_line: 2,
+            end_line: 2,
+            start_byte: Buffer.byteLength('function helper() { return 1; }\n'),
+            end_byte: Buffer.byteLength(source),
+            language: 'javascript',
+          },
+        ],
+        extractCalleesFromContent: () => [{ callee: 'helper', full_path: 'helper', line: 2 }],
+      },
+      [symbol] = extractSymbolsFromFile('/repo/app.js', registry, source);
 
     expect(symbol.stable_symbol_id).toBe('/repo/app.js::main#function');
     expect(symbol.content_hash).toMatch(/^[a-f0-9]{64}$/);
@@ -163,38 +162,36 @@ describe('code-index symbol extractor', () => {
 
 describe('code-index repository clearing', () => {
   it('clears derived index rows with direct DELETE statements and emits progress', () => {
-    const calls = [];
-    const progress = [];
-
-    const repository = createCodeIndexRepository({
-      sqlJson() {
-        throw new Error('clearRepoIndex should not use sqlJson');
-      },
-      sqlRun(sql, params) {
-        calls.push([sql, params]);
-        const changes = {
-          'DELETE FROM symbol_complexity WHERE symbol_id IN (SELECT id FROM code_symbols WHERE repo_id = ?)': 2,
-          'DELETE FROM code_calls WHERE repo_id = ?': 1,
-          'DELETE FROM code_imports WHERE repo_id = ?': 0,
-          'DELETE FROM churn_metrics WHERE repo_id = ?': 0,
-          'DELETE FROM code_file_diagnostics WHERE repo_id = ?': 1,
-          'DELETE FROM scope_resolution WHERE binding_id IN (SELECT id FROM file_scope_bindings WHERE repo_id = ?)': 1,
-          'DELETE FROM file_scope_bindings WHERE repo_id = ?': 1,
-          'DELETE FROM code_symbols WHERE repo_id = ?': 1,
-          'DELETE FROM code_files WHERE repo_id = ?': 1,
-        };
-        const key = sql.replace(/\s+/g, ' ').trim();
-        return { changes: changes[key] || 0 };
-      },
-      withTransaction(fn) {
-        calls.push(['BEGIN']);
-        const result = fn();
-        calls.push(['COMMIT']);
-        return result;
-      },
-    });
-
-    const totals = repository.clearRepoIndex(42, { onProgress: (p) => progress.push(p.message) });
+    const calls = [],
+      progress = [],
+      repository = createCodeIndexRepository({
+        sqlJson() {
+          throw new Error('clearRepoIndex should not use sqlJson');
+        },
+        sqlRun(sql, params) {
+          calls.push([sql, params]);
+          const changes = {
+              'DELETE FROM symbol_complexity WHERE symbol_id IN (SELECT id FROM code_symbols WHERE repo_id = ?)': 2,
+              'DELETE FROM code_calls WHERE repo_id = ?': 1,
+              'DELETE FROM code_imports WHERE repo_id = ?': 0,
+              'DELETE FROM churn_metrics WHERE repo_id = ?': 0,
+              'DELETE FROM code_file_diagnostics WHERE repo_id = ?': 1,
+              'DELETE FROM scope_resolution WHERE binding_id IN (SELECT id FROM file_scope_bindings WHERE repo_id = ?)': 1,
+              'DELETE FROM file_scope_bindings WHERE repo_id = ?': 1,
+              'DELETE FROM code_symbols WHERE repo_id = ?': 1,
+              'DELETE FROM code_files WHERE repo_id = ?': 1,
+            },
+            key = sql.replace(/\s+/g, ' ').trim();
+          return { changes: changes[key] || 0 };
+        },
+        withTransaction(fn) {
+          calls.push(['BEGIN']);
+          const result = fn();
+          calls.push(['COMMIT']);
+          return result;
+        },
+      }),
+      totals = repository.clearRepoIndex(42, { onProgress: (p) => progress.push(p.message) });
 
     expect(totals).toMatchObject({
       symbolComplexity: 2,
@@ -225,10 +222,10 @@ describe('code-index repository clearing', () => {
 
 describe('code-index source retrieval', () => {
   it('slices source by UTF-8 byte offsets instead of JavaScript character offsets', () => {
-    const content = 'const emoji = "💎";\nfunction target() { return emoji; }\n';
-    const expected = 'function target() { return emoji; }';
-    const startByte = Buffer.byteLength('const emoji = "💎";\n', 'utf-8');
-    const endByte = startByte + Buffer.byteLength(expected, 'utf-8');
+    const content = 'const emoji = "💎";\nfunction target() { return emoji; }\n',
+      expected = 'function target() { return emoji; }',
+      startByte = Buffer.byteLength('const emoji = "💎";\n', 'utf-8'),
+      endByte = startByte + Buffer.byteLength(expected, 'utf-8');
 
     expect(sourceSliceFromRow({ content, start_byte: startByte, end_byte: endByte })).toBe(expected);
   });
@@ -275,45 +272,44 @@ describe('code-index scanner hardening', () => {
 
 describe('code-index incremental reindexer', () => {
   it('uses content hashes instead of mtime alone when deciding changed files', async () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hash-reindex-'));
-    const filePath = path.join(tmp, 'app.js');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hash-reindex-')),
+      filePath = path.join(tmp, 'app.js');
     fs.writeFileSync(filePath, 'function app() { return 2; }');
-    const stat = fs.statSync(filePath);
-    const calls = [];
-    const repository = {
-      findRepoByName: () => ({ id: 7, name: 'repo', path: tmp }),
-      listFiles: () => [{ id: 10, path: filePath, mtime: stat.mtimeMs, content_hash: 'stale-hash' }],
-      clearFileSymbols: (fileId) => calls.push(['clearFileSymbols', fileId]),
-      updateFile: (fileId, params) => calls.push(['updateFile', fileId, params.contentHash]),
-      insertSymbol: (params) => calls.push(['insertSymbol', params.name]),
-      insertSymbolBulk: (symbols) => {
-        for (const s of symbols) {
-          calls.push(['insertSymbol', s.name]);
-        }
-      },
-      deleteFile: (fileId) => calls.push(['deleteFile', fileId]),
-      updateRepoStats: (params) => calls.push(['updateRepoStats', params.repoId]),
-      withTransaction: (fn) => fn(),
-    };
-    const parserRegistry = {
-      ensureReady: async () => true,
-      canParseFile: () => true,
-      parseContent: () => [
-        {
-          name: 'app',
-          kind: 'function',
-          signature: 'function app()',
-          qualified_name: 'app',
-          start_line: 1,
-          end_line: 1,
-          start_byte: 0,
-          end_byte: 28,
-          language: 'javascript',
+    const stat = fs.statSync(filePath),
+      calls = [],
+      repository = {
+        findRepoByName: () => ({ id: 7, name: 'repo', path: tmp }),
+        listFiles: () => [{ id: 10, path: filePath, mtime: stat.mtimeMs, content_hash: 'stale-hash' }],
+        clearFileSymbols: (fileId) => calls.push(['clearFileSymbols', fileId]),
+        updateFile: (fileId, params) => calls.push(['updateFile', fileId, params.contentHash]),
+        insertSymbol: (params) => calls.push(['insertSymbol', params.name]),
+        insertSymbolBulk: (symbols) => {
+          for (const s of symbols) {
+            calls.push(['insertSymbol', s.name]);
+          }
         },
-      ],
-    };
-
-    const result = await reindexRepository({ db: {}, repository, parserRegistry, args: {} }, 'repo', 'incremental');
+        deleteFile: (fileId) => calls.push(['deleteFile', fileId]),
+        updateRepoStats: (params) => calls.push(['updateRepoStats', params.repoId]),
+        withTransaction: (fn) => fn(),
+      },
+      parserRegistry = {
+        ensureReady: async () => true,
+        canParseFile: () => true,
+        parseContent: () => [
+          {
+            name: 'app',
+            kind: 'function',
+            signature: 'function app()',
+            qualified_name: 'app',
+            start_line: 1,
+            end_line: 1,
+            start_byte: 0,
+            end_byte: 28,
+            language: 'javascript',
+          },
+        ],
+      },
+      result = await reindexRepository({ db: {}, repository, parserRegistry, args: {} }, 'repo', 'incremental');
 
     expect(result.success).toBe(true);
     expect(result.files_checked).toBe(1);
@@ -326,35 +322,34 @@ describe('code-index incremental reindexer', () => {
   });
 
   it('skips parsing when mtime changes but content hash is unchanged', async () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hash-unchanged-'));
-    const filePath = path.join(tmp, 'app.js');
-    const content = 'function app() { return 1; }';
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hash-unchanged-')),
+      filePath = path.join(tmp, 'app.js'),
+      content = 'function app() { return 1; }';
     fs.writeFileSync(filePath, content);
-    const calls = [];
-    const repository = {
-      findRepoByName: () => ({ id: 7, name: 'repo', path: tmp }),
-      listFiles: () => [{ id: 10, path: filePath, mtime: 1, content_hash: hashContent(content) }],
-      clearFileSymbols: (fileId) => calls.push(['clearFileSymbols', fileId]),
-      updateFile: (fileId) => calls.push(['updateFile', fileId]),
-      insertSymbol: (params) => calls.push(['insertSymbol', params.name]),
-      insertSymbolBulk: (symbols) => {
-        for (const s of symbols) {
-          calls.push(['insertSymbol', s.name]);
-        }
+    const calls = [],
+      repository = {
+        findRepoByName: () => ({ id: 7, name: 'repo', path: tmp }),
+        listFiles: () => [{ id: 10, path: filePath, mtime: 1, content_hash: hashContent(content) }],
+        clearFileSymbols: (fileId) => calls.push(['clearFileSymbols', fileId]),
+        updateFile: (fileId) => calls.push(['updateFile', fileId]),
+        insertSymbol: (params) => calls.push(['insertSymbol', params.name]),
+        insertSymbolBulk: (symbols) => {
+          for (const s of symbols) {
+            calls.push(['insertSymbol', s.name]);
+          }
+        },
+        deleteFile: (fileId) => calls.push(['deleteFile', fileId]),
+        updateRepoStats: (params) => calls.push(['updateRepoStats', params.repoId]),
+        withTransaction: (fn) => fn(),
       },
-      deleteFile: (fileId) => calls.push(['deleteFile', fileId]),
-      updateRepoStats: (params) => calls.push(['updateRepoStats', params.repoId]),
-      withTransaction: (fn) => fn(),
-    };
-    const parserRegistry = {
-      ensureReady: async () => true,
-      canParseFile: () => true,
-      parseContent: () => {
-        throw new Error('unchanged files should not be parsed');
+      parserRegistry = {
+        ensureReady: async () => true,
+        canParseFile: () => true,
+        parseContent: () => {
+          throw new Error('unchanged files should not be parsed');
+        },
       },
-    };
-
-    const result = await reindexRepository({ db: {}, repository, parserRegistry, args: {} }, 'repo', 'incremental');
+      result = await reindexRepository({ db: {}, repository, parserRegistry, args: {} }, 'repo', 'incremental');
 
     expect(result.success).toBe(true);
     expect(result.files_reindexed).toBe(0);
@@ -364,16 +359,15 @@ describe('code-index incremental reindexer', () => {
   });
 
   it('removes deleted files through the CodeIndexRepository interface', async () => {
-    const calls = [];
-    const repository = {
-      findRepoByName: () => ({ id: 7, name: 'repo', path: '/definitely/missing/repo' }),
-      listFiles: () => [{ id: 10, path: '/definitely/missing/repo/deleted.js', mtime: 1 }],
-      deleteFile: (fileId) => calls.push(['deleteFile', fileId]),
-      updateRepoStats: (params) => calls.push(['updateRepoStats', params.repoId]),
-    };
-    const parserRegistry = { ensureReady: async () => true };
-
-    const result = await reindexRepository({ db: {}, repository, parserRegistry, args: {} }, 'repo', 'incremental');
+    const calls = [],
+      repository = {
+        findRepoByName: () => ({ id: 7, name: 'repo', path: '/definitely/missing/repo' }),
+        listFiles: () => [{ id: 10, path: '/definitely/missing/repo/deleted.js', mtime: 1 }],
+        deleteFile: (fileId) => calls.push(['deleteFile', fileId]),
+        updateRepoStats: (params) => calls.push(['updateRepoStats', params.repoId]),
+      },
+      parserRegistry = { ensureReady: async () => true },
+      result = await reindexRepository({ db: {}, repository, parserRegistry, args: {} }, 'repo', 'incremental');
 
     expect(result.success).toBe(true);
     expect(result.files_removed).toBe(1);
@@ -388,9 +382,8 @@ describe('code-index scanner', () => {
     fs.writeFileSync(path.join(tmp, 'README.md'), '# docs');
     fs.writeFileSync(path.join(tmp, 'app.js'), 'function app() { return 1; }');
     fs.writeFileSync(path.join(tmp, 'Component.jsx'), 'export function Component() { return <div />; }');
-    const progress = [];
-
-    const result = scanRepository(tmp, { onScanProgress: (stats) => progress.push(stats) });
+    const progress = [],
+      result = scanRepository(tmp, { onScanProgress: (stats) => progress.push(stats) });
 
     expect(result.files.sort()).toEqual([path.join(tmp, 'Component.jsx'), path.join(tmp, 'app.js')].sort());
     expect(result.skipReport.unsupportedExt).toBe(1);

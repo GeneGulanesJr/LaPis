@@ -25,9 +25,9 @@ function compressListOutput({ stdout, stderr }) {
     };
   }
 
-  const lines = combined.split('\n');
-  const sourceDirs = {};
-  const collapsed = {};
+  const lines = combined.split('\n'),
+    sourceDirs = {},
+    collapsed = {};
   let collapsedCount = 0;
 
   for (const line of lines) {
@@ -47,8 +47,8 @@ function compressListOutput({ stdout, stderr }) {
       }
 
       if (!isCollapsed) {
-        const parts = trimmed.split(/[/\\]/);
-        const topDir = parts[0];
+        const parts = trimmed.split(/[/\\]/),
+          topDir = parts[0];
         if (!sourceDirs[topDir]) {
           sourceDirs[topDir] = 0;
         }

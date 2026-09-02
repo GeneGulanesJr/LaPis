@@ -1,14 +1,13 @@
 // Src/code-analysis/coupling-impl.js
 // PageRank computation, coupling metrics, symbol importance, extraction candidates.
 
-const { _requireNativeDb, PAGERANK, COUPLING } = require('./shared-deps');
+const { _requireNativeDb, PAGERANK, COUPLING } = require('./shared-deps'),
+  // ══════════════════════════════════════════════════════════
+  // PAGERANK CACHE
+  // ══════════════════════════════════════════════════════════
 
-// ══════════════════════════════════════════════════════════
-// PAGERANK CACHE
-// ══════════════════════════════════════════════════════════
-
-const MAX_PAGE_RANK_CACHE_SIZE = PAGERANK.MAX_CACHE_SIZE;
-const _pageRankCache = new Map(); // RepoId → { ranks: Map, symbolMap: Map, n: number }
+  MAX_PAGE_RANK_CACHE_SIZE = PAGERANK.MAX_CACHE_SIZE,
+  _pageRankCache = new Map(); // RepoId → { ranks: Map, symbolMap: Map, n: number }
 
 function _prCacheGet(repoId) {
   if (!_pageRankCache.has(repoId)) {
@@ -47,20 +46,18 @@ function buildPageRank(db, repoId) {
 
   // Build call graph: caller → [callees]
   const calls = db
-    .prepare(`
+      .prepare(`
     SELECT cc.caller_symbol_id, cc.callee_symbol_id
     FROM code_calls cc
     JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
     WHERE cc.repo_id = ? AND cc.callee_symbol_id IS NOT NULL AND cs.repo_id = ?
   `)
-    .all(repoId, repoId);
-
-  const symbols = db.prepare('SELECT id, name, kind, file_path FROM code_symbols WHERE repo_id = ?').all(repoId);
-  const symbolSet = new Set(symbols.map((s) => s.id));
-  const symbolMap = new Map(symbols.map((s) => [s.id, s]));
-
-  // Build outgoing edges map
-  const outEdges = new Map();
+      .all(repoId, repoId),
+    symbols = db.prepare('SELECT id, name, kind, file_path FROM code_symbols WHERE repo_id = ?').all(repoId),
+    symbolSet = new Set(symbols.map((s) => s.id)),
+    symbolMap = new Map(symbols.map((s) => [s.id, s])),
+    // Build outgoing edges map
+    outEdges = new Map();
   for (const call of calls) {
     if (symbolSet.has(call.caller_symbol_id) && symbolSet.has(call.callee_symbol_id)) {
       if (!outEdges.has(call.caller_symbol_id)) {
@@ -76,11 +73,11 @@ function buildPageRank(db, repoId) {
   // In-place value resets on an already-sized hash table.
   // Do NOT replace with single-map in-place update; PageRank requires reading prior-iteration
   // Values (ranks) while writing new values (newRanks) simultaneously.
-  const d = PAGERANK.DAMPING_FACTOR;
-  const n = symbolSet.size;
-  const baseRank = (1 - d) / n;
-  let ranks = new Map();
-  let newRanks = new Map();
+  const d = PAGERANK.DAMPING_FACTOR,
+    n = symbolSet.size,
+    baseRank = (1 - d) / n;
+  let ranks = new Map(),
+    newRanks = new Map();
   for (const id of symbolSet) {
     ranks.set(id, 1 / n);
     newRanks.set(id, baseRank);
@@ -129,10 +126,9 @@ function getSymbolImportance(db, repoId, opts = {}) {
   if (guard) {
     return guard;
   }
-  const topN = opts.top || 20;
-  const scope = opts.scope || null;
-
-  const pr = buildPageRank(db, repoId);
+  const topN = opts.top || 20,
+    scope = opts.scope || null,
+    pr = buildPageRank(db, repoId);
   if (pr.error) {
     return pr;
   }
@@ -169,47 +165,43 @@ function getCouplingMetrics(db, repoId, opts = {}) {
   if (guard) {
     return guard;
   }
-  const filePath = opts.file || null;
-  const minCa = opts.minCa || 0;
-  const sortBy = opts.sortBy || 'instability'; // 'instability', 'afferent', 'efferent'
-
-  // Afferent coupling (Ca): files that import this file
-  const afferentRows = db
-    .prepare(`
+  const filePath = opts.file || null,
+    minCa = opts.minCa || 0,
+    sortBy = opts.sortBy || 'instability', // 'instability', 'afferent', 'efferent'
+    // Afferent coupling (Ca): files that import this file
+    afferentRows = db
+      .prepare(`
     SELECT tf.path as file_path, COUNT(DISTINCT ci.source_file_id) as ca
     FROM code_imports ci
     JOIN code_files tf ON tf.id = ci.target_file_id
     WHERE ci.repo_id = ? AND ci.target_file_id IS NOT NULL
     GROUP BY tf.path
   `)
-    .all(repoId);
-
-  // Efferent coupling (Ce): files this file imports
-  const efferentRows = db
-    .prepare(`
+      .all(repoId),
+    // Efferent coupling (Ce): files this file imports
+    efferentRows = db
+      .prepare(`
     SELECT sf.path as file_path, COUNT(DISTINCT ci.target_file_id) as ce
     FROM code_imports ci
     JOIN code_files sf ON sf.id = ci.source_file_id
     WHERE ci.repo_id = ? AND ci.target_file_id IS NOT NULL AND ci.import_type != 're-export'
     GROUP BY sf.path
   `)
-    .all(repoId);
-
-  const afferentMap = new Map(afferentRows.map((r) => [r.file_path, r.ca]));
-  const efferentMap = new Map(efferentRows.map((r) => [r.file_path, r.ce]));
-
-  // Get all files in repo
-  const allFiles = db.prepare('SELECT path FROM code_files WHERE repo_id = ?').all(repoId);
-  const results = [];
+      .all(repoId),
+    afferentMap = new Map(afferentRows.map((r) => [r.file_path, r.ca])),
+    efferentMap = new Map(efferentRows.map((r) => [r.file_path, r.ce])),
+    // Get all files in repo
+    allFiles = db.prepare('SELECT path FROM code_files WHERE repo_id = ?').all(repoId),
+    results = [];
 
   for (const f of allFiles) {
     if (filePath && f.path !== filePath && !f.path.endsWith(filePath)) {
       // Skip non-matching files
     } else {
-      const ca = afferentMap.get(f.path) || 0;
-      const ce = efferentMap.get(f.path) || 0;
-      const total = ca + ce;
-      const instability = total === 0 ? 0 : Math.round((ce / total) * 100) / 100;
+      const ca = afferentMap.get(f.path) || 0,
+        ce = efferentMap.get(f.path) || 0,
+        total = ca + ce,
+        instability = total === 0 ? 0 : Math.round((ce / total) * 100) / 100;
       let category = 'balanced';
       if (instability <= COUPLING.STABLE_THRESHOLD) {
         category = 'stable';
@@ -243,13 +235,12 @@ function getExtractionCandidates(db, repoId, opts = {}) {
   if (guard) {
     return guard;
   }
-  const minComplexity = opts.minComplexity || 5;
-  const minCallers = opts.minCallers || 2;
-  const topN = opts.top || 20;
-
-  // Find symbols with high complexity that are called from multiple files
-  const rows = db
-    .prepare(`
+  const minComplexity = opts.minComplexity || 5,
+    minCallers = opts.minCallers || 2,
+    topN = opts.top || 20,
+    // Find symbols with high complexity that are called from multiple files
+    rows = db
+      .prepare(`
     SELECT
       cs.name,
       cs.kind,
@@ -270,13 +261,12 @@ function getExtractionCandidates(db, repoId, opts = {}) {
     ORDER BY extraction_score DESC
     LIMIT ?
   `)
-    .all(repoId, minComplexity, minCallers, topN);
-
-  // Parse caller_files from GROUP_CONCAT
-  const results = rows.map((r) => ({
-    ...r,
-    caller_files: r.caller_files ? r.caller_files.split(',') : [],
-  }));
+      .all(repoId, minComplexity, minCallers, topN),
+    // Parse caller_files from GROUP_CONCAT
+    results = rows.map((r) => ({
+      ...r,
+      caller_files: r.caller_files ? r.caller_files.split(',') : [],
+    }));
 
   return { candidates: results };
 }

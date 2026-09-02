@@ -16,8 +16,8 @@ function getAttrs(tagNode) {
   const attrs = [];
   for (const ch of tagNode.children) {
     if (ch.type === 'attribute') {
-      let name = '';
-      let value = '';
+      let name = '',
+        value = '';
       for (const ac of ch.children) {
         if (ac.type === 'attribute_name') {
           name = ac.text;
@@ -37,8 +37,8 @@ function getAttrs(tagNode) {
 }
 
 function buildHtmlScopeBindingsAst(tree, _source) {
-  const bindings = [];
-  const root = tree.rootNode;
+  const bindings = [],
+    root = tree.rootNode;
 
   function walk(node, depth) {
     if (!node) {
@@ -55,12 +55,12 @@ function buildHtmlScopeBindingsAst(tree, _source) {
       }
 
       if (startTag) {
-        const tagName = getTagName(startTag).toLowerCase();
-        const attrs = getAttrs(startTag);
-        const sl = startTag.startPosition.row + 1;
-        const el = node.endPosition ? node.endPosition.row + 1 : sl;
-        const sb = startTag.startIndex;
-        const eb = node.endIndex;
+        const tagName = getTagName(startTag).toLowerCase(),
+          attrs = getAttrs(startTag),
+          sl = startTag.startPosition.row + 1,
+          el = node.endPosition ? node.endPosition.row + 1 : sl,
+          sb = startTag.startIndex,
+          eb = node.endIndex;
 
         for (const attr of attrs) {
           if (attr.name === 'id' && attr.value) {
@@ -171,13 +171,12 @@ function buildHtmlScopeBindingsAst(tree, _source) {
 }
 
 function buildHtmlScopeBindingsRegex(source) {
-  const bindings = [];
-  const lines = source.split('\n');
+  const bindings = [],
+    lines = source.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lineNum = i + 1;
-
-    const scriptSrcMatch = line.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
+    const line = lines[i],
+      lineNum = i + 1,
+      scriptSrcMatch = line.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
     if (scriptSrcMatch && /<script/i.test(line)) {
       addBinding(bindings, {
         name: scriptSrcMatch[1],

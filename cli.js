@@ -19,76 +19,72 @@ const obsDA = require('./data-access/observations');
 const fs = require('fs');
 
 const { buildCommandMap, getAllUsage, ANALYSIS_TOOLS, _wrapAnalysis } = require('./src/cli/gateway');
-const { createRepositories } = require('./src/platform/storage/repositories');
-
-const TOOL_TIERS = {
-  core: new Set([
-    'search',
-    'save',
-    'context',
-    'search-code',
-    'get-code-source',
-    'preflight',
-    'agent-pack',
-    'importance',
-    'outline',
-    'winnow',
-    'dream',
-  ]),
-  standard: new Set([
-    'search',
-    'save',
-    'context',
-    'search-code',
-    'get-code-source',
-    'preflight',
-    'agent-pack',
-    'importance',
-    'outline',
-    'winnow',
-    'dream',
-    'complexity',
-    'dead-code',
-    'hotspots',
-    'blast-radius',
-    'call-hierarchy',
-    'cycles',
-    'coupling',
-  ]),
-  full: null,
-};
+const { createRepositories } = require('./src/platform/storage/repositories'),
+  TOOL_TIERS = {
+    core: new Set([
+      'search',
+      'save',
+      'context',
+      'search-code',
+      'get-code-source',
+      'preflight',
+      'agent-pack',
+      'importance',
+      'outline',
+      'winnow',
+      'dream',
+    ]),
+    standard: new Set([
+      'search',
+      'save',
+      'context',
+      'search-code',
+      'get-code-source',
+      'preflight',
+      'agent-pack',
+      'importance',
+      'outline',
+      'winnow',
+      'dream',
+      'complexity',
+      'dead-code',
+      'hotspots',
+      'blast-radius',
+      'call-hierarchy',
+      'cycles',
+      'coupling',
+    ]),
+    full: null,
+  };
 
 function _readTierConfig() {
   const configPath = getConfig().tier_config_path;
   try {
-    const raw = fs.readFileSync(configPath, 'utf-8');
-    const cleaned = raw.replace(/\/\/.*$/gm, '');
+    const raw = fs.readFileSync(configPath, 'utf-8'),
+      cleaned = raw.replace(/\/\/.*$/gm, '');
     return JSON.parse(cleaned);
   } catch {
     return { tier: 'full' };
   }
 }
 
-const softDeleteObservation = (id) => obsDA.softDeleteObservation({ sqlJson, sqlRun, sqlRaw }, id);
-
-const baseStorageDeps = { sqlJson, sqlRun, sqlRaw, jsonErrNoExit };
-const repositories = createRepositories(baseStorageDeps);
-
-const commands = buildCommandMap({
-  ...baseStorageDeps,
-  getDb,
-  repositories,
-  softDeleteObservation,
-  _readTierConfig,
-  TOOL_TIERS,
-  ensureDb,
-  DB_PATH,
-  getEngine,
-  withTransaction,
-});
-
-const args = parseArgs(process.argv);
-const cmd = process.argv[2];
+const softDeleteObservation = (id) => obsDA.softDeleteObservation({ sqlJson, sqlRun, sqlRaw }, id),
+  baseStorageDeps = { sqlJson, sqlRun, sqlRaw, jsonErrNoExit },
+  repositories = createRepositories(baseStorageDeps),
+  commands = buildCommandMap({
+    ...baseStorageDeps,
+    getDb,
+    repositories,
+    softDeleteObservation,
+    _readTierConfig,
+    TOOL_TIERS,
+    ensureDb,
+    DB_PATH,
+    getEngine,
+    withTransaction,
+  }),
+  args = parseArgs(process.argv),
+  cmd = process.argv[2];
 
 function printHelp(targetCmd) {
   const usage = getAllUsage();
@@ -135,8 +131,8 @@ if (isHelpRequest) {
   }
 
   if (cmd === 'claude-code') {
-    const sub = process.argv[3];
-    const subArgv = process.argv.slice(4);
+    const sub = process.argv[3],
+      subArgv = process.argv.slice(4);
     try {
       if (sub === 'install') {
         const { runInstall } = require('./src/claude-code/install');
@@ -149,8 +145,8 @@ if (isHelpRequest) {
         return;
       }
       if (sub === 'doctor') {
-        const { runDoctor } = require('./src/claude-code/doctor');
-        const { ok } = runDoctor(subArgv);
+        const { runDoctor } = require('./src/claude-code/doctor'),
+          { ok } = runDoctor(subArgv);
         process.exitCode = ok ? 0 : 1;
         return;
       }
@@ -175,8 +171,8 @@ if (isHelpRequest) {
       return;
     }
     // Claude Code hooks bridge. Only `hook` routes here — a missing or unknown
-    // subcommand should not fall through into the hook router (which would
-    // print a confusing hook-specific usage). runHook owns ensureDb() internally.
+    // Subcommand should not fall through into the hook router (which would
+    // Print a confusing hook-specific usage). runHook owns ensureDb() internally.
     if (sub === 'hook') {
       const { runHook } = require('./src/claude-code/hooks');
       await runHook(process.argv.slice(3)); // ['hook', '<event>', ...flags]
@@ -191,8 +187,8 @@ if (isHelpRequest) {
   }
 
   if (cmd === 'hermes') {
-    const sub = process.argv[3];
-    const subArgv = process.argv.slice(4);
+    const sub = process.argv[3],
+      subArgv = process.argv.slice(4);
     try {
       if (sub === 'install') {
         const { runInstall } = require('./src/hermes/install');
@@ -205,8 +201,8 @@ if (isHelpRequest) {
         return;
       }
       if (sub === 'doctor') {
-        const { runDoctor } = require('./src/hermes/doctor');
-        const { ok } = runDoctor(subArgv);
+        const { runDoctor } = require('./src/hermes/doctor'),
+          { ok } = runDoctor(subArgv);
         process.exitCode = ok ? 0 : 1;
         return;
       }
@@ -216,8 +212,8 @@ if (isHelpRequest) {
       return;
     }
     // Hermes shell-hook bridge. Only `hook` routes here — a missing or unknown
-    // subcommand should not fall through into the hook router. runHook reads
-    // the payload from stdin (Hermes sends hook_event_name in the payload).
+    // Subcommand should not fall through into the hook router. runHook reads
+    // The payload from stdin (Hermes sends hook_event_name in the payload).
     if (sub === 'hook') {
       const { runHook } = require('./src/hermes/hook');
       await runHook();
@@ -233,13 +229,13 @@ if (isHelpRequest) {
 
   if (cmd === 'run') {
     ensureDb();
-    const { executeAndCompress, formatTextOutput } = require('./src/cli/commands/token-saver');
-    const runArgv = process.argv.slice(3);
-    const runArgs = [];
-    let raw = false;
-    let text = false;
-    let remember = false;
-    let cwd = undefined;
+    const { executeAndCompress, formatTextOutput } = require('./src/cli/commands/token-saver'),
+      runArgv = process.argv.slice(3),
+      runArgs = [];
+    let raw = false,
+      text = false,
+      remember = false,
+      cwd = undefined;
 
     for (let i = 0; i < runArgv.length; i++) {
       if (runArgv[i] === '--raw' && runArgs.length === 0) {

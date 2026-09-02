@@ -17,26 +17,26 @@ describe('utils.js', () => {
     });
 
     it('should return null for valid db handle', () => {
-      const db = { prepare: vi.fn() };
-      const result = utils.requireNativeDb(db, 'feature-x');
+      const db = { prepare: vi.fn() },
+        result = utils.requireNativeDb(db, 'feature-x');
       expect(result).toBeNull();
     });
   });
 
   describe('withDb', () => {
     it('should return error when db is null', () => {
-      const fn = vi.fn();
-      const guarded = utils.withDb(fn, 'my-feature');
-      const result = guarded(null, 'arg1');
+      const fn = vi.fn(),
+        guarded = utils.withDb(fn, 'my-feature'),
+        result = guarded(null, 'arg1');
       expect(result).toEqual({ error: expect.stringContaining('my-feature') });
       expect(fn).not.toHaveBeenCalled();
     });
 
     it('should call the wrapped function with valid db', () => {
-      const fn = vi.fn(() => 'result');
-      const guarded = utils.withDb(fn, 'my-feature');
-      const db = { prepare: vi.fn() };
-      const result = guarded(db, 'arg1', 'arg2');
+      const fn = vi.fn(() => 'result'),
+        guarded = utils.withDb(fn, 'my-feature'),
+        db = { prepare: vi.fn() },
+        result = guarded(db, 'arg1', 'arg2');
       expect(result).toBe('result');
       expect(fn).toHaveBeenCalledWith(db, 'arg1', 'arg2');
     });
@@ -49,14 +49,14 @@ describe('utils.js', () => {
     });
 
     it('should produce consistent hashes for identical content', () => {
-      const hash1 = utils.hashContent('test content');
-      const hash2 = utils.hashContent('test content');
+      const hash1 = utils.hashContent('test content'),
+        hash2 = utils.hashContent('test content');
       expect(hash1).toBe(hash2);
     });
 
     it('should produce different hashes for different content', () => {
-      const hash1 = utils.hashContent('content A');
-      const hash2 = utils.hashContent('content B');
+      const hash1 = utils.hashContent('content A'),
+        hash2 = utils.hashContent('content B');
       expect(hash1).not.toBe(hash2);
     });
 
@@ -149,8 +149,8 @@ describe('utils.js', () => {
     });
 
     it('should respect ignore glob', () => {
-      const files = utils.walkDirForDocs(tmpDir, 'docs/guide*');
-      const basenames = files.map((f) => path.basename(f));
+      const files = utils.walkDirForDocs(tmpDir, 'docs/guide*'),
+        basenames = files.map((f) => path.basename(f));
       expect(basenames).not.toContain('guide.md');
     });
   });

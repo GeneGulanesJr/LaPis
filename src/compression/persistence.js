@@ -12,8 +12,8 @@ const { getDb } = require('../../db');
 function recordCompressionRun({ missionId, trigger, result }) {
   const stmt = `INSERT INTO mission_compression_log
     (mission_id, trigger, summary, tokens_saved, error)
-    VALUES (?, ?, ?, ?, ?)`;
-  const db = getDb();
+    VALUES (?, ?, ?, ?, ?)`,
+    db = getDb();
   db.prepare(stmt).run(missionId, trigger, result.summary ?? '', result.tokensSaved ?? 0, result.error ?? null);
 }
 

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * hooks-engine — barrel
+ * Hooks-engine — barrel
  *
  * Transport-agnostic, pure-JS extraction of the Pi extension's hook logic.
  * Consumed by the TS Pi extension (thin re-exports / delegating adapters) and,

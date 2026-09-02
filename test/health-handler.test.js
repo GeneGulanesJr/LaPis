@@ -17,19 +17,19 @@ function fakeRes() {
 }
 
 function invoke(deps) {
-  const res = fakeRes();
-  const handler = healthCheck(deps);
+  const res = fakeRes(),
+    handler = healthCheck(deps);
   return handler({}, res, {}).then(() => res.body);
 }
 
 describe('healthCheck', () => {
   it('reports ok + db:true when SELECT 1 succeeds', async () => {
     const db = {
-      prepare() {
-        return { get: () => ({ '?': 1, 1: 1 }) };
+        prepare() {
+          return { get: () => ({ '?': 1, 1: 1 }) };
+        },
       },
-    };
-    const body = await invoke({ getDb: () => db });
+      body = await invoke({ getDb: () => db });
     expect(body.status).toBe('ok');
     expect(body.db).toBe(true);
   });
@@ -46,11 +46,11 @@ describe('healthCheck', () => {
 
   it('reports degraded + db:false when the query throws', async () => {
     const db = {
-      prepare() {
-        throw new Error('database disk image is malformed');
+        prepare() {
+          throw new Error('database disk image is malformed');
+        },
       },
-    };
-    const body = await invoke({ getDb: () => db });
+      body = await invoke({ getDb: () => db });
     expect(body.status).toBe('degraded');
     expect(body.db).toBe(false);
   });

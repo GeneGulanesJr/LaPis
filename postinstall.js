@@ -1,18 +1,17 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-const { copyHtmlGrammar } = require('./scripts/postinstall-helpers');
-
-const root = __dirname;
-const nm = (...p) => path.join(root, 'node_modules', ...p);
+const { copyHtmlGrammar } = require('./scripts/postinstall-helpers'),
+  root = __dirname,
+  nm = (...p) => path.join(root, 'node_modules', ...p);
 
 // Copy the bundled tree-sitter-html.wasm grammar into ./grammars.
 //
 // The copy is idempotent (an existing, non-trivial destination is preserved)
-// but never silent: a missing source, a missing grammars/ directory, a failed
-// copy, or a missing/truncated destination after copy each emit a clear
-// warning to stderr and are reflected in the returned result. See
-// scripts/postinstall-helpers.js for the testable implementation.
+// But never silent: a missing source, a missing grammars/ directory, a failed
+// Copy, or a missing/truncated destination after copy each emit a clear
+// Warning to stderr and are reflected in the returned result. See
+// Scripts/postinstall-helpers.js for the testable implementation.
 //
 // Grammar ownership split (see docs/MODULE_MAP.md):
 //   - HTML   -> copied here from the tree-sitter-html npm package at install.
@@ -25,17 +24,17 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
 // Patch transitive vulnerabilities that `overrides` cannot reach.
 //
 // @earendil-works/pi-coding-agent (a devDependency) ships an
-// npm-shrinkwrap.json that pins vulnerable versions of two packages:
+// Npm-shrinkwrap.json that pins vulnerable versions of two packages:
 //   - brace-expansion@5.0.6  (high, DoS — GHSA-3jxr-9vmj-r5cp)
 // A published shrinkwrap takes precedence over the root project's `overrides`,
-// so the root override gives us the correct
-// top-level copies, and we copy those over the nested vulnerable copies and
-// rewrite the matching package-lock.json entries so `npm audit` reports the fix.
+// So the root override gives us the correct
+// Top-level copies, and we copy those over the nested vulnerable copies and
+// Rewrite the matching package-lock.json entries so `npm audit` reports the fix.
 //
 // This runs after `npm install` finishes writing package-lock.json (and on
-// every `npm ci`), so the subsequent `npm audit` reflects safe versions. It
-// no-ops when the nested paths are absent — e.g. for end users installing this
-// package, since pi-coding-agent is a devDependency they never receive.
+// Every `npm ci`), so the subsequent `npm audit` reflects safe versions. It
+// No-ops when the nested paths are absent — e.g. for end users installing this
+// Package, since pi-coding-agent is a devDependency they never receive.
 (function patchTransitiveVulns() {
   const SAFE = {
     'brace-expansion': {
@@ -46,8 +45,8 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
   };
 
   // Locate every nested copy of a target package under node_modules and return
-  // the directory paths. Skips the top-level node_modules/<pkg> copy (which is
-  // already the safe, override-controlled version and our patch source).
+  // The directory paths. Skips the top-level node_modules/<pkg> copy (which is
+  // Already the safe, override-controlled version and our patch source).
   function findNestedCopies(pkg) {
     const results = [];
     function visitNodeModules(nmDir) {
@@ -58,11 +57,15 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
         return;
       }
       for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
+        if (!entry.isDirectory()) {
+          continue;
+        }
         const child = path.join(nmDir, entry.name);
         if (entry.name === pkg) {
           const rel = path.relative(nm(), child);
-          if (rel !== pkg && rel.includes(path.sep)) results.push(child);
+          if (rel !== pkg && rel.includes(path.sep)) {
+            results.push(child);
+          }
         }
         // Descend into nested node_modules (regular and scoped packages).
         if (entry.name.startsWith('@')) {
@@ -71,13 +74,19 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
             scopeEntries = fs.readdirSync(child, { withFileTypes: true });
           } catch {}
           for (const se of scopeEntries) {
-            if (!se.isDirectory()) continue;
+            if (!se.isDirectory()) {
+              continue;
+            }
             const scopedNm = path.join(child, se.name, 'node_modules');
-            if (fs.existsSync(scopedNm)) visitNodeModules(scopedNm);
+            if (fs.existsSync(scopedNm)) {
+              visitNodeModules(scopedNm);
+            }
           }
         } else {
           const childNm = path.join(child, 'node_modules');
-          if (fs.existsSync(childNm)) visitNodeModules(childNm);
+          if (fs.existsSync(childNm)) {
+            visitNodeModules(childNm);
+          }
         }
       }
     }
@@ -85,11 +94,13 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
     return results;
   }
 
-  let lockPath;
-  let lock = null;
+  let lockPath,
+    lock = null;
   try {
     lockPath = path.join(root, 'package-lock.json');
-    if (fs.existsSync(lockPath)) lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    if (fs.existsSync(lockPath)) {
+      lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    }
   } catch {
     lock = null;
   }
@@ -97,9 +108,11 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
   let lockChanged = false;
 
   for (const [pkg, safe] of Object.entries(SAFE)) {
-    const safeSrc = nm(pkg);
-    const nestedDirs = findNestedCopies(pkg);
-    if (!nestedDirs.length) continue;
+    const safeSrc = nm(pkg),
+      nestedDirs = findNestedCopies(pkg);
+    if (!nestedDirs.length) {
+      continue;
+    }
 
     let filesPatched = false;
     if (fs.existsSync(safeSrc)) {
@@ -113,11 +126,15 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
     }
 
     // Keep package-lock.json in sync with the patched files so `npm audit`
-    // reports the safe versions. Only rewrite entries we actually fixed.
+    // Reports the safe versions. Only rewrite entries we actually fixed.
     if (lock && lock.packages) {
       for (const key of Object.keys(lock.packages)) {
-        if (!key.endsWith(`node_modules/${pkg}`)) continue;
-        if (key === `node_modules/${pkg}`) continue; // top-level, already safe
+        if (!key.endsWith(`node_modules/${pkg}`)) {
+          continue;
+        }
+        if (key === `node_modules/${pkg}`) {
+          continue;
+        } // Top-level, already safe
         const entry = lock.packages[key];
         if (entry && filesPatched && entry.version !== safe.version) {
           entry.version = safe.version;
@@ -131,7 +148,7 @@ const nm = (...p) => path.join(root, 'node_modules', ...p);
 
   if (lockChanged && lockPath) {
     try {
-      fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
+      fs.writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
     } catch {}
   }
 })();

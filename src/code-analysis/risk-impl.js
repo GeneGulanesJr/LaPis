@@ -9,9 +9,8 @@ const {
   COMPLEXITY /* oxlint-disable-line no-unused-vars */,
   HOTSPOT_THRESHOLDS /* oxlint-disable-line no-unused-vars */,
 } = require('./shared-deps');
-const { getBlastRadius } = require('./import-graph-impl');
-
-const GIT_REF_RE = /^[A-Za-z0-9._^~/-]+$/;
+const { getBlastRadius } = require('./import-graph-impl'),
+  GIT_REF_RE = /^[A-Za-z0-9._^~/-]+$/;
 
 function isValidGitRef(ref) {
   return typeof ref === 'string' && ref.length > 0 && GIT_REF_RE.test(ref);
@@ -21,8 +20,8 @@ function gitDiffOutput(repoPath, base, branch, stat = false) {
   if (!isValidGitRef(base) || !isValidGitRef(branch)) {
     return '';
   }
-  const range = `${base}...${branch}`;
-  const args = stat ? ['-C', repoPath, 'diff', '--stat', range] : ['-C', repoPath, 'diff', '--name-only', range];
+  const range = `${base}...${branch}`,
+    args = stat ? ['-C', repoPath, 'diff', '--stat', range] : ['-C', repoPath, 'diff', '--name-only', range];
   return execFileSync('git', args, {
     encoding: 'utf-8',
     timeout: 10000,
@@ -35,11 +34,10 @@ function getUntestedSymbols(db, repoId, opts = {}) {
   if (guard) {
     return guard;
   }
-  const { minConfidence = 0.5, includePrivate = false } = opts;
-
-  // 1. Identify test files
-  const allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId);
-  const testFileIds = new Set();
+  const { minConfidence = 0.5, includePrivate = false } = opts,
+    // 1. Identify test files
+    allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
+    testFileIds = new Set();
   for (const f of allFiles) {
     if (
       f.path.includes('.test.') ||
@@ -54,20 +52,20 @@ function getUntestedSymbols(db, repoId, opts = {}) {
   // 2. Trace import graph from test files → production files (batch)
   const testImportedFiles = new Set();
   if (testFileIds.size > 0) {
-    const testIdList = [...testFileIds];
-    const batchImports = db
-      .prepare(
-        `SELECT target_file_id FROM code_imports WHERE source_file_id IN (${testIdList.map(() => '?').join(',')}) AND target_file_id IS NOT NULL`,
-      )
-      .all(...testIdList);
+    const testIdList = [...testFileIds],
+      batchImports = db
+        .prepare(
+          `SELECT target_file_id FROM code_imports WHERE source_file_id IN (${testIdList.map(() => '?').join(',')}) AND target_file_id IS NOT NULL`,
+        )
+        .all(...testIdList);
     for (const imp of batchImports) {
       testImportedFiles.add(imp.target_file_id);
     }
   }
 
   // 3. Trace call graph from test functions → production symbols (batch)
-  const testedSymbols = new Set();
-  const indirectlyTested = new Set();
+  const testedSymbols = new Set(),
+    indirectlyTested = new Set();
 
   if (testFileIds.size > 0) {
     const testSymbols = db
@@ -77,14 +75,13 @@ function getUntestedSymbols(db, repoId, opts = {}) {
       .all(...[...testFileIds, repoId]);
 
     if (testSymbols.length > 0) {
-      const testSymIds = testSymbols.map((ts) => ts.id);
-
-      // Batch: direct callees for all test symbols at once
-      const directCallees = db
-        .prepare(
-          `SELECT caller_symbol_id, callee_symbol_id FROM code_calls WHERE caller_symbol_id IN (${testSymIds.map(() => '?').join(',')}) AND callee_symbol_id IS NOT NULL`,
-        )
-        .all(...testSymIds);
+      const testSymIds = testSymbols.map((ts) => ts.id),
+        // Batch: direct callees for all test symbols at once
+        directCallees = db
+          .prepare(
+            `SELECT caller_symbol_id, callee_symbol_id FROM code_calls WHERE caller_symbol_id IN (${testSymIds.map(() => '?').join(',')}) AND callee_symbol_id IS NOT NULL`,
+          )
+          .all(...testSymIds);
 
       for (const dc of directCallees) {
         testedSymbols.add(dc.callee_symbol_id);
@@ -109,12 +106,11 @@ function getUntestedSymbols(db, repoId, opts = {}) {
 
   // 4. Get all production symbols
   const allSymbols = db
-    .prepare('SELECT id, name, kind, file_path, start_line, file_id FROM code_symbols WHERE repo_id = ?')
-    .all(repoId);
-
-  // Exclusions
-  const entryPointPatterns = ['main.js', 'index.js', 'cli.js', 'app.js', 'server.js'];
-  const excludedFileIds = new Set();
+      .prepare('SELECT id, name, kind, file_path, start_line, file_id FROM code_symbols WHERE repo_id = ?')
+      .all(repoId),
+    // Exclusions
+    entryPointPatterns = ['main.js', 'index.js', 'cli.js', 'app.js', 'server.js'],
+    excludedFileIds = new Set();
   for (const f of allFiles) {
     const basename = path.basename(f.path);
     if (entryPointPatterns.includes(basename)) {
@@ -175,10 +171,9 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   if (guard) {
     return guard;
   }
-  const { branch = 'HEAD', base = 'main' } = opts;
-
-  // Get changed files between base and branch
-  const repo = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId);
+  const { branch = 'HEAD', base = 'main' } = opts,
+    // Get changed files between base and branch
+    repo = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId);
   if (!repo) {
     return { error: 'Repo not found' };
   }
@@ -196,8 +191,8 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   }
 
   // Get changed symbols
-  const changedSymbolIds = new Set();
-  const changedSymbols = [];
+  const changedSymbolIds = new Set(),
+    changedSymbols = [];
   for (const filePath of changedFiles) {
     const syms = db
       .prepare('SELECT id, name, kind, file_path FROM code_symbols WHERE repo_id = ? AND file_path = ?')
@@ -218,10 +213,10 @@ function getPrRiskProfile(db, repoId, opts = {}) {
     if (changedSymbolIds.size > 20) {
       // Batch: recursive CTE for all changed symbols at once
       // Use parameterized query to prevent SQL injection
-      const changedIdsArr = [...changedSymbolIds];
-      const placeholders = changedIdsArr.map(() => '?').join(',');
-      const rows = db
-        .prepare(`
+      const changedIdsArr = [...changedSymbolIds],
+        placeholders = changedIdsArr.map(() => '?').join(','),
+        rows = db
+          .prepare(`
         WITH RECURSIVE call_tree AS (
           SELECT callee_symbol_id, caller_symbol_id, 1 as depth
           FROM code_calls WHERE repo_id = ? AND callee_symbol_id IN (${placeholders})
@@ -233,24 +228,23 @@ function getPrRiskProfile(db, repoId, opts = {}) {
         SELECT callee_symbol_id, COUNT(DISTINCT caller_symbol_id) as affected_callers
         FROM call_tree GROUP BY callee_symbol_id
       `)
-        .all(repoId, ...changedIdsArr);
-
-      const maxCallers = Math.max(...rows.map((r) => r.affected_callers), 1);
+          .all(repoId, ...changedIdsArr),
+        maxCallers = Math.max(...rows.map((r) => r.affected_callers), 1);
       blastRadiusScore = Math.min(1.0, maxCallers / PR_RISK.BLAST_RADIUS_NORMALIZER);
     } else {
       // Per-symbol blast radius for small PRs. Pass depth=5 to match the
-      // batch CTE's `ct.depth < 5` boundary above; otherwise the per-symbol
-      // path would use getBlastRadius's default depth=3 and produce a
-      // systematically smaller affected-callers count than the batch branch,
-      // causing risk scores to jump discontinuously when the changed-symbol
-      // count crosses the >20 threshold.
+      // Batch CTE's `ct.depth < 5` boundary above; otherwise the per-symbol
+      // Path would use getBlastRadius's default depth=3 and produce a
+      // Systematically smaller affected-callers count than the batch branch,
+      // Causing risk scores to jump discontinuously when the changed-symbol
+      // Count crosses the >20 threshold.
       let maxCallers = 0;
       for (const sid of changedSymbolIds) {
         const br = getBlastRadius(db, repoId, {
-          symbol: db.prepare('SELECT name FROM code_symbols WHERE id = ?').get(sid)?.name,
-          depth: 5,
-        });
-        const edgeCount = (br.callers || []).length;
+            symbol: db.prepare('SELECT name FROM code_symbols WHERE id = ?').get(sid)?.name,
+            depth: 5,
+          }),
+          edgeCount = (br.callers || []).length;
         if (edgeCount > maxCallers) {
           maxCallers = edgeCount;
         }
@@ -262,15 +256,15 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   // Signal 2: Complexity (20%)
   let complexityScore = 0;
   try {
-    const changedIdsArr = [...changedSymbolIds];
-    const placeholders = changedIdsArr.map(() => '?').join(',');
-    const rows = db
-      .prepare(
-        `SELECT MAX(sc.cyclomatic) as max_cc FROM symbol_complexity sc
+    const changedIdsArr = [...changedSymbolIds],
+      placeholders = changedIdsArr.map(() => '?').join(','),
+      rows = db
+        .prepare(
+          `SELECT MAX(sc.cyclomatic) as max_cc FROM symbol_complexity sc
        WHERE sc.symbol_id IN (${placeholders})`,
-      )
-      .all(...changedIdsArr);
-    const maxCc = rows[0]?.max_cc || 0;
+        )
+        .all(...changedIdsArr),
+      maxCc = rows[0]?.max_cc || 0;
     complexityScore = Math.min(1.0, maxCc / PR_RISK.COMPLEXITY_NORMALIZER);
   } catch {}
 
@@ -302,9 +296,9 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   // Signal 5: Change volume (10%)
   let changeVolumeScore = 0;
   try {
-    const diffStat = gitDiffOutput(repo.path, base, branch, true);
-    // Parse the last line which has the total: "X files changed, Y insertions(+), Z deletions(-)"
-    const totalMatch = diffStat.match(/(\d+) insertions?.*?(\d+) deletions?/);
+    const diffStat = gitDiffOutput(repo.path, base, branch, true),
+      // Parse the last line which has the total: "X files changed, Y insertions(+), Z deletions(-)"
+      totalMatch = diffStat.match(/(\d+) insertions?.*?(\d+) deletions?/);
     if (totalMatch) {
       const totalLines = parseInt(totalMatch[1]) + (parseInt(totalMatch[2]) || 0);
       changeVolumeScore = Math.min(1.0, totalLines / PR_RISK.CHANGE_VOLUME_NORMALIZER);
@@ -315,11 +309,11 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   const weights = PR_RISK.WEIGHTS;
 
   // If test coverage unavailable, redistribute weight
-  let wBlastRadius = weights.blast_radius;
-  let wComplexity = weights.complexity;
-  let wChurn = weights.churn;
-  const wTestCoverage = testCoverageScore > 0 ? weights.test_coverage : 0;
-  const wChangeVolume = weights.change_volume;
+  let wBlastRadius = weights.blast_radius,
+    wComplexity = weights.complexity,
+    wChurn = weights.churn;
+  const wTestCoverage = testCoverageScore > 0 ? weights.test_coverage : 0,
+    wChangeVolume = weights.change_volume;
 
   if (wTestCoverage === 0) {
     const adjustment = weights.test_coverage;

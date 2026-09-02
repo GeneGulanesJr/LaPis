@@ -1,19 +1,18 @@
-const symCmd = require('../../../commands/symbols');
-
-const USAGE = {
-  'link-symbol': '--memory-id ID --repo X [--trust N]',
-  'auto-link': '--project X',
-  'adjust-trust': '--memory-id ID [--delta N] [--reason R]',
-  'record-recall': '--session-id ID --memory-id ID',
-  'stale-links': '--repo X',
-  'sync-code-trust': '--repo X',
-  'symbol-cluster': '--repo X [--query Q]',
-  related: '--memory-id ID [--repo X]',
-};
+const symCmd = require('../../../commands/symbols'),
+  USAGE = {
+    'link-symbol': '--memory-id ID --repo X [--trust N]',
+    'auto-link': '--project X',
+    'adjust-trust': '--memory-id ID [--delta N] [--reason R]',
+    'record-recall': '--session-id ID --memory-id ID',
+    'stale-links': '--repo X',
+    'sync-code-trust': '--repo X',
+    'symbol-cluster': '--repo X [--query Q]',
+    related: '--memory-id ID [--repo X]',
+  };
 
 function register(commands, deps) {
-  const { jsonErrNoExit, repositories, sqlJson, sqlRun } = deps;
-  const trustSyncRepository = repositories && repositories.trustSync;
+  const { jsonErrNoExit, repositories, sqlJson, sqlRun } = deps,
+    trustSyncRepository = repositories && repositories.trustSync;
 
   commands['link-symbol'] = (args) => symCmd.linkSymbol({ jsonErrNoExit, trustSyncRepository }, args);
   commands['auto-link'] = (args) => symCmd.autoLink({ jsonErrNoExit, trustSyncRepository }, args);

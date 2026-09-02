@@ -24,14 +24,13 @@ const { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
  */
 async function fetchContext({ dispatch, project, limit, query, sessionId }) {
   const baseArgs = {
-    project,
-    limit: String(limit),
-    'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
-    ...(sessionId ? { 'session-id': String(sessionId) } : {}),
-    ...(query ? { query } : {}),
-  };
-
-  const contextResult = await dispatch('context', baseArgs);
+      project,
+      limit: String(limit),
+      'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
+      ...(sessionId ? { 'session-id': String(sessionId) } : {}),
+      ...(query ? { query } : {}),
+    },
+    contextResult = await dispatch('context', baseArgs);
   if (contextResult && !contextResult.error) {
     return { contextResult, crossProjectResult: null };
   }
@@ -50,54 +49,51 @@ async function fetchContext({ dispatch, project, limit, query, sessionId }) {
  * @returns {Promise<{lines: string[], cwdRepo: object|null} | null>}
  */
 async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, query = null, sessionId = null }) {
-  const limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT;
-  const { contextResult, crossProjectResult } = await fetchContext({
-    dispatch,
-    project,
-    limit,
-    query,
-    sessionId,
-  });
+  const limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT,
+    { contextResult, crossProjectResult } = await fetchContext({
+      dispatch,
+      project,
+      limit,
+      query,
+      sessionId,
+    });
 
   if (!contextResult && !crossProjectResult) {
     return null;
   }
 
-  const effectiveContext = contextResult || crossProjectResult;
-  const isNewProject = crossProjectResult !== null && !contextResult;
-
-  const observations = (effectiveContext.observations || []).filter(Boolean);
-  const personal = (effectiveContext.personal || []).filter(Boolean);
-  const stats = effectiveContext.stats || {};
-  const topic = effectiveContext.topic || null;
-
-  // Staleness check is deferred to Phase 2's best-effort posture.
-  const repos = getKnownRepos();
-  const resolvedCwd = path.resolve(resolveCwd(cwd));
-  const cwdRepo = findMatchingRepo(resolvedCwd, repos);
-  const isStale = false;
+  const effectiveContext = contextResult || crossProjectResult,
+    isNewProject = crossProjectResult !== null && !contextResult,
+    observations = (effectiveContext.observations || []).filter(Boolean),
+    personal = (effectiveContext.personal || []).filter(Boolean),
+    stats = effectiveContext.stats || {},
+    topic = effectiveContext.topic || null,
+    // Staleness check is deferred to Phase 2's best-effort posture.
+    repos = getKnownRepos(),
+    resolvedCwd = path.resolve(resolveCwd(cwd)),
+    cwdRepo = findMatchingRepo(resolvedCwd, repos),
+    isStale = false;
 
   let effectiveObservations = [];
   if (query) {
     effectiveObservations = isNewProject ? crossProjectResult.observations || [] : observations;
   }
-  const effectiveStats = isNewProject ? crossProjectResult.stats || {} : stats;
-
-  const lines = buildContextBlock({
-    promptQuery: query,
-    currentProject: project,
-    projectDir: cwdRepo?.path || resolvedCwd,
-    cwdRepo,
-    isStale,
-    isNewProject,
-    observations,
-    effectiveObservations,
-    personal,
-    stats,
-    effectiveStats,
-    topic,
-    crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
-  });
+  const effectiveStats = isNewProject ? crossProjectResult.stats || {} : stats,
+    lines = buildContextBlock({
+      promptQuery: query,
+      currentProject: project,
+      projectDir: cwdRepo?.path || resolvedCwd,
+      cwdRepo,
+      isStale,
+      isNewProject,
+      observations,
+      effectiveObservations,
+      personal,
+      stats,
+      effectiveStats,
+      topic,
+      crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
+    });
 
   if (!cwdRepo) {
     lines.push('');
@@ -114,7 +110,7 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
 async function buildInjectedContext(opts) {
   const assembled = await assembleContextLines(opts).catch((err) => {
     // Log instead of silently swallowing — a null return value is
-    // indistinguishable from "no relevant memories" without a log line.
+    // Indistinguishable from "no relevant memories" without a log line.
     console.error(`[claude-code] assembleContextLines failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   });

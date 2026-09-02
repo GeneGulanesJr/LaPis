@@ -27,8 +27,8 @@ describe('parse-code (WASM tree-sitter)', () => {
 
   describe('parse-code: JavaScript', () => {
     it('should extract JS function declarations', () => {
-      const tmpFile = path.join('/tmp', 'test-parse-fn.js');
-      const symbols = writeTmpTest(tmpFile, 'function hello(name) {\n  return name;\n}');
+      const tmpFile = path.join('/tmp', 'test-parse-fn.js'),
+        symbols = writeTmpTest(tmpFile, 'function hello(name) {\n  return name;\n}');
       fs.unlinkSync(tmpFile);
 
       const fn = symbols.find((s) => s.name === 'hello');
@@ -165,11 +165,11 @@ describe('parse-code (WASM tree-sitter)', () => {
 
   describe('parse-code: multi-language support', () => {
     it('should parse Python files (.py) and extract functions', () => {
-      const tmpFile = path.join('/tmp', 'test_py.py');
-      const symbols = writeTmpTest(
-        tmpFile,
-        'def greet(name):\n    """Say hello."""\n    return f"Hello {name}"\n\nclass Animal:\n    def speak(self):\n        return "roar"',
-      );
+      const tmpFile = path.join('/tmp', 'test_py.py'),
+        symbols = writeTmpTest(
+          tmpFile,
+          'def greet(name):\n    """Say hello."""\n    return f"Hello {name}"\n\nclass Animal:\n    def speak(self):\n        return "roar"',
+        );
       fs.unlinkSync(tmpFile);
       expect(symbols.length).toBeGreaterThanOrEqual(2);
       const greet = symbols.find((s) => s.name === 'greet' && s.kind === 'function');
@@ -222,8 +222,8 @@ describe('parse-code (WASM tree-sitter)', () => {
       const tmpFile = path.join('/tmp', 'test-callees.js');
       fs.writeFileSync(tmpFile, 'function foo() {\n  bar();\n  baz(x, y);\n  obj.method();\n  new ClassName();\n}');
       try {
-        const callees = codeParser.extractCallees(tmpFile);
-        const names = callees.map((c) => c.callee);
+        const callees = codeParser.extractCallees(tmpFile),
+          names = callees.map((c) => c.callee);
         expect(names).toContain('bar');
         expect(names).toContain('baz');
         expect(names).toContain('method');
@@ -240,8 +240,8 @@ describe('parse-code (WASM tree-sitter)', () => {
         'function foo() {\n  if (x) return;\n  for (let i = 0; i < 10; i++) {}\n  while (true) {}\n  switch (v) { case 1: break; }\n  try {} catch (e) {}\n}',
       );
       try {
-        const callees = codeParser.extractCallees(tmpFile);
-        const names = callees.map((c) => c.callee);
+        const callees = codeParser.extractCallees(tmpFile),
+          names = callees.map((c) => c.callee);
         expect(names).not.toContain('if');
         expect(names).not.toContain('for');
         expect(names).not.toContain('while');
@@ -255,8 +255,8 @@ describe('parse-code (WASM tree-sitter)', () => {
       const tmpFile = path.join('/tmp', 'test-dup-callees.js');
       fs.writeFileSync(tmpFile, 'function foo() {\n  bar();\n}');
       try {
-        const callees = codeParser.extractCallees(tmpFile);
-        const bars = callees.filter((c) => c.callee === 'bar');
+        const callees = codeParser.extractCallees(tmpFile),
+          bars = callees.filter((c) => c.callee === 'bar');
         expect(bars.length).toBe(1);
       } finally {
         fs.unlinkSync(tmpFile);

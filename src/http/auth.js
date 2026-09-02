@@ -9,8 +9,8 @@ function resolveHttpApiKey(opts = {}) {
     return process.env.LAPIS_HTTP_API_KEY;
   }
   try {
-    const { getConfig } = require('../../config');
-    const config = getConfig();
+    const { getConfig } = require('../../config'),
+      config = getConfig();
     return config.http_api_key || null;
   } catch {
     return null;
@@ -21,8 +21,8 @@ function keysMatch(provided, expected) {
   if (typeof provided !== 'string' || typeof expected !== 'string') {
     return false;
   }
-  const providedBuf = Buffer.from(provided);
-  const expectedBuf = Buffer.from(expected);
+  const providedBuf = Buffer.from(provided),
+    expectedBuf = Buffer.from(expected);
   if (providedBuf.length !== expectedBuf.length) {
     return false;
   }

@@ -125,8 +125,8 @@ function buildGoScopeBindings(tree, _source, _filePath) {
   }
 
   function handleImportDeclaration(node) {
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1;
 
     let child = node.firstChild;
     while (child) {
@@ -150,10 +150,9 @@ function buildGoScopeBindings(tree, _source, _filePath) {
     if (!pathNode) {
       return;
     }
-    const importPath = pathNode.text.replace(/^"|"$/g, '');
-    const isInternal = importPath.startsWith('./') || importPath.startsWith('../') || importPath.startsWith('/');
-
-    const nameNode = spec.childForFieldName('name');
+    const importPath = pathNode.text.replace(/^"|"$/g, ''),
+      isInternal = importPath.startsWith('./') || importPath.startsWith('../') || importPath.startsWith('/'),
+      nameNode = spec.childForFieldName('name');
     if (nameNode) {
       const nameText = nameNode.text;
       if (nameText === '.') {

@@ -11,8 +11,8 @@ const {
 } = require('../config');
 
 describe('config.js', () => {
-  const ORIGINAL_READ = fs.readFileSync;
-  const ORIGINAL_EXISTS = fs.existsSync;
+  const ORIGINAL_READ = fs.readFileSync,
+    ORIGINAL_EXISTS = fs.existsSync;
 
   afterEach(() => {
     fs.readFileSync = ORIGINAL_READ;
@@ -32,23 +32,23 @@ describe('config.js', () => {
     });
 
     it('preserves // inside string values', () => {
-      const input = '{"url": "https://example.com/path", "key": "value"}';
-      const result = stripJsoncComments(input);
+      const input = '{"url": "https://example.com/path", "key": "value"}',
+        result = stripJsoncComments(input);
       expect(() => JSON.parse(result)).not.toThrow();
       expect(JSON.parse(result).url).toBe('https://example.com/path');
     });
 
     it('preserves /* inside string values', () => {
-      const input = '{"regex": "/** find *\\/ me */", "key": "value"}';
-      const result = stripJsoncComments(input);
+      const input = '{"regex": "/** find *\\/ me */", "key": "value"}',
+        result = stripJsoncComments(input);
       expect(() => JSON.parse(result)).not.toThrow();
       expect(JSON.parse(result).regex).toBe('/** find */ me */');
     });
 
     it('handles escaped quotes in strings before //', () => {
-      const input = '{"msg": "say \\"hello\\"", // comment\n"other": true}';
-      const result = stripJsoncComments(input);
-      const parsed = JSON.parse(result);
+      const input = '{"msg": "say \\"hello\\"", // comment\n"other": true}',
+        result = stripJsoncComments(input),
+        parsed = JSON.parse(result);
       expect(parsed.msg).toBe('say "hello"');
       expect(parsed.other).toBe(true);
     });
@@ -67,8 +67,8 @@ describe('config.js', () => {
       vi.resetModules();
       vi.stubEnv('LAPIS_HOME', '/tmp/lapis-tilde-test');
       try {
-        const { expandTilde: expand } = await import('../config');
-        const result = expand('~/foo/bar');
+        const { expandTilde: expand } = await import('../config'),
+          result = expand('~/foo/bar');
         expect(result).toBe(path.join('/tmp/lapis-tilde-test', 'foo', 'bar'));
       } finally {
         vi.unstubAllEnvs();
@@ -80,8 +80,8 @@ describe('config.js', () => {
       vi.resetModules();
       vi.stubEnv('LAPIS_HOME', '/tmp/lapis-tilde-test');
       try {
-        const { expandTilde: expand } = await import('../config');
-        const result = expand('~');
+        const { expandTilde: expand } = await import('../config'),
+          result = expand('~');
         expect(result).toBe('/tmp/lapis-tilde-test');
       } finally {
         vi.unstubAllEnvs();
@@ -116,8 +116,8 @@ describe('config.js', () => {
     });
 
     it('merges nested objects recursively', () => {
-      const target = { a: { x: 1, y: 2 }, b: 3 };
-      const source = { a: { y: 10, z: 20 } };
+      const target = { a: { x: 1, y: 2 }, b: 3 },
+        source = { a: { y: 10, z: 20 } };
       expect(deepMerge(target, source)).toEqual({ a: { x: 1, y: 10, z: 20 }, b: 3 });
     });
 
@@ -136,8 +136,8 @@ describe('config.js', () => {
     });
 
     it('returns new object', () => {
-      const target = {};
-      const result = deepMerge(target, { a: 1 });
+      const target = {},
+        result = deepMerge(target, { a: 1 });
       expect(result).not.toBe(target);
     });
   });
@@ -169,7 +169,7 @@ describe('config.js', () => {
     });
 
     it('expands tilde in db_path and tier_config_path', async () => {
-      // config.js captures HOME from process.env at import time, so these
+      // Config.js captures HOME from process.env at import time, so these
       // Tests must reload the module under a controlled LAPIS_HOME (hermetic
       // Against an ambient LAPIS_HOME export in the shell running the suite).
       vi.resetModules();
@@ -189,8 +189,8 @@ describe('config.js', () => {
 
     it('returns defaults on invalid JSON (with console.error)', () => {
       fs.readFileSync = () => '{invalid json!!!}';
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const cfg = loadConfig();
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {}),
+        cfg = loadConfig();
       expect(cfg).toEqual(DEFAULTS);
       expect(spy).toHaveBeenCalledWith(expect.stringContaining('Invalid JSON'));
       spy.mockRestore();
@@ -202,8 +202,8 @@ describe('config.js', () => {
       fs.readFileSync = () => {
         throw err;
       };
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const cfg = loadConfig();
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {}),
+        cfg = loadConfig();
       expect(cfg).toEqual(DEFAULTS);
       expect(spy).toHaveBeenCalledWith(expect.stringContaining('Error reading'));
       spy.mockRestore();
@@ -215,8 +215,8 @@ describe('config.js', () => {
       fs.readFileSync = () => {
         throw err;
       };
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const cfg = loadConfig();
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {}),
+        cfg = loadConfig();
       expect(cfg).toEqual(DEFAULTS);
       expect(spy).not.toHaveBeenCalled();
       spy.mockRestore();
@@ -233,15 +233,21 @@ describe('config.js', () => {
   });
 
   describe('LAPIS_HOME env override', () => {
-    const CONFIG_REAL = require.resolve('../config');
-    const ORIGINAL_LAPIS = process.env.LAPIS_HOME;
-    const ORIGINAL_HOME = process.env.HOME;
+    const CONFIG_REAL = require.resolve('../config'),
+      ORIGINAL_LAPIS = process.env.LAPIS_HOME,
+      ORIGINAL_HOME = process.env.HOME;
 
     afterEach(() => {
-      if (ORIGINAL_LAPIS === undefined) delete process.env.LAPIS_HOME;
-      else process.env.LAPIS_HOME = ORIGINAL_LAPIS;
-      if (ORIGINAL_HOME === undefined) delete process.env.HOME;
-      else process.env.HOME = ORIGINAL_HOME;
+      if (ORIGINAL_LAPIS === undefined) {
+        delete process.env.LAPIS_HOME;
+      } else {
+        process.env.LAPIS_HOME = ORIGINAL_LAPIS;
+      }
+      if (ORIGINAL_HOME === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = ORIGINAL_HOME;
+      }
       delete require.cache[CONFIG_REAL];
       resetConfigCache();
     });

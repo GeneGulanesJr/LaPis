@@ -2,16 +2,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 
-const install = require('../../src/hermes/install');
-const { runInstall, hookCommand } = install;
+const install = require('../../src/hermes/install'),
+  { runInstall, hookCommand } = install;
 const { runUninstall } = require('../../src/hermes/uninstall');
 const doctor = require('../../src/hermes/doctor');
 
 // ---- helpers ----
 
 function makeIo() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hermes-install-'));
-  const home = path.join(root, 'hermes-home');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hermes-install-')),
+    home = path.join(root, 'hermes-home');
   fs.mkdirSync(home, { recursive: true });
   const lines = [];
   return { home, log: (l) => lines.push(l), lines, root };
@@ -26,7 +26,7 @@ function readAllowlist(home) {
 }
 
 // =====================================================================
-// runInstall
+// RunInstall
 // =====================================================================
 
 describe('hermes install: default install', () => {
@@ -46,8 +46,8 @@ describe('hermes install: default install', () => {
   });
 
   test('wires all three hook events with the LaPis hook command', () => {
-    const text = readConfig(io.home);
-    const cmd = hookCommand();
+    const text = readConfig(io.home),
+      cmd = hookCommand();
     expect(text).toContain('hooks:');
     expect(text).toContain('  pre_tool_call:');
     expect(text).toContain('  post_tool_call:');
@@ -159,7 +159,7 @@ describe('hermes install: flags', () => {
 });
 
 // =====================================================================
-// runUninstall
+// RunUninstall
 // =====================================================================
 
 describe('hermes uninstall', () => {
@@ -200,8 +200,8 @@ describe('hermes uninstall', () => {
       }),
     );
 
-    const { removed } = await runUninstall([], io);
-    const text = readConfig(io.home);
+    const { removed } = await runUninstall([], io),
+      text = readConfig(io.home);
 
     expect(removed).toContain('mcp_servers.lapis');
     expect(removed).toContain('hooks.pre_tool_call');
@@ -209,7 +209,7 @@ describe('hermes uninstall', () => {
     expect(text).not.toContain('lapis:');
     expect(text).not.toContain(hookCommand());
     // A user hook remains, so the shared hooks_auto_accept scalar survives —
-    // it may be used by other hooks for headless consent.
+    // It may be used by other hooks for headless consent.
     expect(text).toContain('hooks_auto_accept: true');
     expect(removed).not.toContain('hooks_auto_accept');
 
@@ -251,12 +251,12 @@ describe('hermes uninstall', () => {
     const io = makeIo();
     await runInstall([], io);
     // Simulate a user-added key in the allowlist (Hermes may store more than
-    // approvals): the file must survive with LaPis approvals filtered out.
-    const allowPath = path.join(io.home, 'shell-hooks-allowlist.json');
-    const allow = JSON.parse(fs.readFileSync(allowPath, 'utf8'));
+    // Approvals): the file must survive with LaPis approvals filtered out.
+    const allowPath = path.join(io.home, 'shell-hooks-allowlist.json'),
+      allow = JSON.parse(fs.readFileSync(allowPath, 'utf8'));
     allow.version = 1;
     allow.approvals.push({ event: 'pre_tool_call', command: '/user/script.sh' });
-    fs.writeFileSync(allowPath, JSON.stringify(allow, null, 2) + '\n');
+    fs.writeFileSync(allowPath, `${JSON.stringify(allow, null, 2)}\n`);
 
     const { removed } = await runUninstall([], io);
     expect(removed.some((r) => r.startsWith('allowlist'))).toBe(true);
@@ -268,13 +268,13 @@ describe('hermes uninstall', () => {
 });
 
 // =====================================================================
-// doctor
+// Doctor
 // =====================================================================
 
 describe('hermes doctor', () => {
   test('fails when nothing is installed', () => {
-    const io = makeIo();
-    const { ok, checks } = doctor.runDoctor([], io);
+    const io = makeIo(),
+      { ok, checks } = doctor.runDoctor([], io);
     expect(ok).toBe(false);
     expect(checks.find((c) => c.name.includes('Hermes config file')).ok).toBe(false);
   });
@@ -282,8 +282,8 @@ describe('hermes doctor', () => {
   test('passes config, hooks, consent, and skill checks after install', async () => {
     const io = makeIo();
     await runInstall([], io);
-    const { ok, checks } = doctor.runDoctor([], io);
-    const nameOf = (n) => checks.find((c) => c.name.includes(n));
+    const { ok, checks } = doctor.runDoctor([], io),
+      nameOf = (n) => checks.find((c) => c.name.includes(n));
     expect(nameOf('Hermes config file').ok).toBe(true);
     expect(nameOf('MCP server').ok).toBe(true);
     expect(nameOf('Hooks config').ok).toBe(true);

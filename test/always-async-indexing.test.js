@@ -1,13 +1,12 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { execFile, spawn } = require('child_process');
-
-const MEMORY_SCRIPT = path.resolve(__dirname, '..', 'memory-store.js');
+const { execFile, spawn } = require('child_process'),
+  MEMORY_SCRIPT = path.resolve(__dirname, '..', 'memory-store.js');
 
 // Verify that indexing via the child-process path (spawn) works correctly
-// and returns full results — not just a jobId. This is the path that
-// memStreaming now uses for indexing commands to avoid UI freezes.
+// And returns full results — not just a jobId. This is the path that
+// MemStreaming now uses for indexing commands to avoid UI freezes.
 describe('indexing via child-process path', () => {
   it('index-repo returns full result via child process', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-cp-'));
@@ -21,7 +20,9 @@ describe('indexing via child-process path', () => {
           [MEMORY_SCRIPT, 'index-repo', '--path', tmpDir, '--name', 'cp-result-test'],
           { encoding: 'utf8', timeout: 30000, maxBuffer: 10 * 1024 * 1024 },
           (err, stdout) => {
-            if (err) return reject(err);
+            if (err) {
+              return reject(err);
+            }
             try {
               resolve(JSON.parse(stdout.trim()));
             } catch (e) {
@@ -55,8 +56,8 @@ describe('indexing via child-process path', () => {
           { stdio: ['pipe', 'pipe', 'pipe'] },
         );
 
-        let stdout = '';
-        let stderr = '';
+        let stdout = '',
+          stderr = '';
         child.stdout.on('data', (chunk) => {
           stdout += chunk.toString();
         });
@@ -65,9 +66,11 @@ describe('indexing via child-process path', () => {
           for (const line of chunk.toString().split('\n')) {
             try {
               const parsed = JSON.parse(line);
-              if (parsed.progress) progressSeen = true;
+              if (parsed.progress) {
+                progressSeen = true;
+              }
             } catch {
-              /* not JSON */
+              /* Not JSON */
             }
           }
         });

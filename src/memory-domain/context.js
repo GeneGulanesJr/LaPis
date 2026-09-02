@@ -1,29 +1,28 @@
 const { getConfig } = require('../../config');
 const { RESULT_LIMITS, RANKING, CONTEXT } = require('../../constants');
 const { estimateTokens } = require('../../utils');
-const { TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE } = require('./search');
-
-const TOPIC_QUERY_STOP_WORDS = new Set([
-  'the',
-  'and',
-  'for',
-  'with',
-  'that',
-  'this',
-  'from',
-  'what',
-  'where',
-  'when',
-  'why',
-  'how',
-  'did',
-  'does',
-  'into',
-  'instead',
-  'keep',
-  'answer',
-  'concise',
-]);
+const { TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE } = require('./search'),
+  TOPIC_QUERY_STOP_WORDS = new Set([
+    'the',
+    'and',
+    'for',
+    'with',
+    'that',
+    'this',
+    'from',
+    'what',
+    'where',
+    'when',
+    'why',
+    'how',
+    'did',
+    'does',
+    'into',
+    'instead',
+    'keep',
+    'answer',
+    'concise',
+  ]);
 
 function topicQueryNeedles(query) {
   const normalized = String(query || '')
@@ -33,22 +32,21 @@ function topicQueryNeedles(query) {
     return [];
   }
 
-  const phrase = normalized.length <= 120 ? [normalized] : [];
-  const terms = normalized
-    .match(/[a-z0-9_.\/-]+/g)
-    ?.filter((term) => term.length >= 3 && !TOPIC_QUERY_STOP_WORDS.has(term))
-    .slice(0, 16);
-
-  const needles = [...new Set([...phrase, ...(terms || [])])];
+  const phrase = normalized.length <= 120 ? [normalized] : [],
+    terms = normalized
+      .match(/[a-z0-9_.\/-]+/g)
+      ?.filter((term) => term.length >= 3 && !TOPIC_QUERY_STOP_WORDS.has(term))
+      .slice(0, 16),
+    needles = [...new Set([...phrase, ...(terms || [])])];
   return needles.length > 0 ? needles : [normalized.slice(0, 120)];
 }
 
 function buildTopicQueryMatch(needles) {
-  const fields = ["lower(coalesce(o.topic_key, ''))", "lower(coalesce(o.title, ''))", "lower(coalesce(o.content, ''))"];
-  const whereParts = [];
-  const whereParams = [];
-  const scoreParts = [];
-  const scoreParams = [];
+  const fields = ["lower(coalesce(o.topic_key, ''))", "lower(coalesce(o.title, ''))", "lower(coalesce(o.content, ''))"],
+    whereParts = [],
+    whereParams = [],
+    scoreParts = [],
+    scoreParams = [];
 
   for (const needle of needles) {
     const like = `%${needle.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
@@ -69,36 +67,34 @@ function buildTopicQueryMatch(needles) {
 }
 
 function context(deps, args) {
-  const { sqlJson, jsonErrNoExit } = deps;
-  const countObservationsByProjectAndType = deps.countObservationsByProjectAndType || (() => 0);
-
-  const project = args.project || null;
-  const limit = parseInt(args.limit || String(getConfig().context_limit), 10);
-  const rawBudget = parseInt(args['token-budget'], 10);
-  const tokenBudget = Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : 0;
-  const fetchCeiling = tokenBudget > 0 ? Math.max(limit, limit * 3) : limit;
-  const topicKey = args['topic-key'] || null;
-  const topicQuery = args.query || null;
-  const deep = args.deep === 'true' || args.deep === true;
-  const crossProject = !project || args['all-projects'] === 'true' || args['all-projects'] === true;
+  const { sqlJson, jsonErrNoExit } = deps,
+    countObservationsByProjectAndType = deps.countObservationsByProjectAndType || (() => 0),
+    project = args.project || null,
+    limit = parseInt(args.limit || String(getConfig().context_limit), 10),
+    rawBudget = parseInt(args['token-budget'], 10),
+    tokenBudget = Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : 0,
+    fetchCeiling = tokenBudget > 0 ? Math.max(limit, limit * 3) : limit,
+    topicKey = args['topic-key'] || null,
+    topicQuery = args.query || null,
+    deep = args.deep === 'true' || args.deep === true,
+    crossProject = !project || args['all-projects'] === 'true' || args['all-projects'] === true;
   if (!project && !crossProject) {
     return jsonErrNoExit('Missing --project');
   }
 
   const sessions = project
-    ? sqlJson(
-        `
+      ? sqlJson(
+          `
     SELECT id, project, started_at, ended_at, memories_saved
     FROM session_log
     WHERE project = ?
     ORDER BY started_at DESC
     LIMIT ${RESULT_LIMITS.RECENT_SESSIONS}
   `,
-        [project],
-      )
-    : [];
-
-  const personal = sqlJson(`
+          [project],
+        )
+      : [],
+    personal = sqlJson(`
     SELECT id, title, type, scope, topic_key, expires_at, created_at
     FROM observations
     WHERE scope = 'personal' AND deleted_at IS NULL
@@ -188,23 +184,21 @@ function context(deps, args) {
     `;
     obsParams = [project, fetchCeiling];
   }
-  const observations = sqlJson(obsQuery, obsParams);
-
-  const excludedSet = new Set(CONTEXT.EXCLUDED_TYPES);
-  const filtered = observations.filter((o) => !excludedSet.has(o.type));
-
-  const budgeted = tokenBudget > 0 ? applyTokenBudget(filtered, tokenBudget) : filtered;
-  const truncatedCount = budgeted.filter((o) => o._truncated).length;
+  const observations = sqlJson(obsQuery, obsParams),
+    excludedSet = new Set(CONTEXT.EXCLUDED_TYPES),
+    filtered = observations.filter((o) => !excludedSet.has(o.type)),
+    budgeted = tokenBudget > 0 ? applyTokenBudget(filtered, tokenBudget) : filtered,
+    truncatedCount = budgeted.filter((o) => o._truncated).length;
 
   // Passive context injection does not write to recall_log — it is not a search
-  // recall and logging here (even as was_useful=0) poisons ranking useful_ratio.
+  // Recall and logging here (even as was_useful=0) poisons ranking useful_ratio.
 
   // Supplemental cross-project suggestions: when project-scoped, also find
-  // relevant memories from other projects so insights transfer across projects.
+  // Relevant memories from other projects so insights transfer across projects.
   let crossProjectSuggestions = [];
   if (!crossProject && project && filtered.length > 0 && topicQuery) {
-    const supplementLimit = CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3;
-    const match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
+    const supplementLimit = CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3,
+      match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
     crossProjectSuggestions = sqlJson(
       `
         SELECT o.id, o.title, o.type, o.project, o.created_at,
@@ -250,15 +244,15 @@ function context(deps, args) {
 }
 
 function applyTokenBudget(observations, budget) {
-  const neverTruncate = new Set(CONTEXT.NEVER_TRUNCATE_TYPES || []);
-  const result = [];
+  const neverTruncate = new Set(CONTEXT.NEVER_TRUNCATE_TYPES || []),
+    result = [];
   let used = 0;
 
   if (budget < (CONTEXT.TOKEN_BUDGET_MIN || 500)) {
     const limit = CONTEXT.HEADERS_ONLY_LIMIT || 3;
     for (const obs of observations.slice(0, limit)) {
-      const header = `[#${obs.id}] [${obs.type}] ${obs.title} trust=${obs.trust_score}`;
-      const tokens = estimateTokens(header);
+      const header = `[#${obs.id}] [${obs.type}] ${obs.title} trust=${obs.trust_score}`,
+        tokens = estimateTokens(header);
       if (used + tokens > budget) {
         break;
       }
@@ -269,8 +263,8 @@ function applyTokenBudget(observations, budget) {
   }
 
   for (const obs of observations) {
-    const fullText = `${obs.title}\n${obs.content || ''}`;
-    const fullTokens = estimateTokens(fullText);
+    const fullText = `${obs.title}\n${obs.content || ''}`,
+      fullTokens = estimateTokens(fullText);
 
     if (used + fullTokens <= budget || neverTruncate.has(obs.type)) {
       result.push(
@@ -283,10 +277,10 @@ function applyTokenBudget(observations, budget) {
       continue;
     }
 
-    const truncChars = CONTEXT.TRUNCATE_CONTENT_CHARS || 100;
-    const truncContent = (obs.content || '').slice(0, truncChars);
-    const truncText = `${obs.title}\n${truncContent}…`;
-    const truncTokens = estimateTokens(truncText);
+    const truncChars = CONTEXT.TRUNCATE_CONTENT_CHARS || 100,
+      truncContent = (obs.content || '').slice(0, truncChars),
+      truncText = `${obs.title}\n${truncContent}…`,
+      truncTokens = estimateTokens(truncText);
 
     if (used + truncTokens <= budget) {
       result.push({ ...obs, content: `${truncContent}…`, _truncated: true, _tokens: truncTokens });
@@ -295,8 +289,8 @@ function applyTokenBudget(observations, budget) {
       continue;
     }
 
-    const header = `[#${obs.id}] [${obs.type}] ${obs.title} trust=${obs.trust_score}`;
-    const headerTokens = estimateTokens(header);
+    const header = `[#${obs.id}] [${obs.type}] ${obs.title} trust=${obs.trust_score}`,
+      headerTokens = estimateTokens(header);
     if (used + headerTokens <= budget) {
       result.push({ ...obs, content: '', _truncated: true, _tokens: headerTokens });
       used += headerTokens;

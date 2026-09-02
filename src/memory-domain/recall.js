@@ -10,8 +10,8 @@ function insertRecallLog(deps, entries) {
 }
 
 function getRecallCount(deps, memoryId) {
-  const { sqlJson } = deps;
-  const rows = sqlJson('SELECT COUNT(*) as cnt FROM recall_log WHERE memory_id = ?', [parseInt(memoryId, 10)]);
+  const { sqlJson } = deps,
+    rows = sqlJson('SELECT COUNT(*) as cnt FROM recall_log WHERE memory_id = ?', [parseInt(memoryId, 10)]);
   return rows.length > 0 ? rows[0].cnt : 0;
 }
 

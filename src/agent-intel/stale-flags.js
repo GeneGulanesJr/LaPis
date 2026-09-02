@@ -3,47 +3,46 @@
 // A one-sided branch is an if/ternary where one side is always executed.
 
 const fs = require('fs');
-const path = require('path');
+const path = require('path'),
+  // Patterns that indicate stale flags:
+  // 1. if (true) / if (false)
+  // 2. if (process.env.NODE_ENV === 'development') inside non-dev code
+  // 3. Feature flags checked but never toggled
+  // 4. Constant conditions in if statements
 
-// Patterns that indicate stale flags:
-// 1. if (true) / if (false)
-// 2. if (process.env.NODE_ENV === 'development') inside non-dev code
-// 3. Feature flags checked but never toggled
-// 4. Constant conditions in if statements
-
-const STALE_FLAG_PATTERNS = [
-  /\bif\s*\(\s*true\s*\)/gi,
-  /\bif\s*\(\s*false\s*\)/gi,
-  /FEATURE_[A-Z_]+\s*===\s*['"](?:enabled?|on|true)['"]/gi,
-  /FEATURE_[A-Z_]+\s*!==\s*['"](?:disabled?|off|false)['"]/gi,
-];
-
-// Pattern to detect one-sided branches where if block is empty or just a comment,
-// meaning the else block always runs
-const ONE_SIDED_IF_PATTERNS = [
-  // if (!x) { /* empty or only comments */ } else { ... }
-  /\bif\s*\(\s*![^)]+\)\s*\{\s*\/(?:\/|\*)[^\}]*\}\s*else/g,
-  // if (constant_expression) { never_runs(); } else { always_runs(); }
-  // Detect when if body clearly never executes (throw, return, etc.)
-  /\bif\s*\(\s*(?:true|false|1\s*==\s*1|0\s*==\s*1)\s*\)\s*\{(?:\s| |\n)*(?:return|throw|break|continue)[^}]*\}\s*else/g,
-];
-
-const ALWAYS_TRUE_CONTEXT = ['process.env.NODE_ENV', 'process.env.DEBUG', 'process.env.TESTING'];
+  STALE_FLAG_PATTERNS = [
+    /\bif\s*\(\s*true\s*\)/gi,
+    /\bif\s*\(\s*false\s*\)/gi,
+    /FEATURE_[A-Z_]+\s*===\s*['"](?:enabled?|on|true)['"]/gi,
+    /FEATURE_[A-Z_]+\s*!==\s*['"](?:disabled?|off|false)['"]/gi,
+  ],
+  // Pattern to detect one-sided branches where if block is empty or just a comment,
+  // meaning the else block always runs
+  ONE_SIDED_IF_PATTERNS = [
+    // If (!x) { /* empty or only comments */ } else { ... }
+    /\bif\s*\(\s*![^)]+\)\s*\{\s*\/(?:\/|\*)[^\}]*\}\s*else/g,
+    // If (constant_expression) { never_runs(); } else { always_runs(); }
+    // Detect when if body clearly never executes (throw, return, etc.)
+    /\bif\s*\(\s*(?:true|false|1\s*==\s*1|0\s*==\s*1)\s*\)\s*\{(?:\s| |\n)*(?:return|throw|break|continue)[^}]*\}\s*else/g,
+  ],
+  ALWAYS_TRUE_CONTEXT = ['process.env.NODE_ENV', 'process.env.DEBUG', 'process.env.TESTING'];
 
 function scanFileForStaleFlags(filePath) {
-  if (!fs.existsSync(filePath)) return [];
+  if (!fs.existsSync(filePath)) {
+    return [];
+  }
 
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const lines = content.split('\n');
-  const findings = [];
+  const content = fs.readFileSync(filePath, 'utf-8'),
+    lines = content.split('\n'),
+    findings = [];
 
   // Pattern-based detection for constant conditions
   for (const pattern of STALE_FLAG_PATTERNS) {
     let match;
     const regex = new RegExp(pattern.source, pattern.flags);
     while ((match = regex.exec(content)) !== null) {
-      const lineNum = content.substring(0, match.index).split('\n').length;
-      const line = lines[lineNum - 1]?.trim() || '';
+      const lineNum = content.substring(0, match.index).split('\n').length,
+        line = lines[lineNum - 1]?.trim() || '';
 
       findings.push({
         filePath,
@@ -59,8 +58,8 @@ function scanFileForStaleFlags(filePath) {
     let match;
     const regex = new RegExp(pattern.source, pattern.flags || 'g');
     while ((match = regex.exec(content)) !== null) {
-      const lineNum = content.substring(0, match.index).split('\n').length;
-      const line = lines[lineNum - 1]?.trim() || '';
+      const lineNum = content.substring(0, match.index).split('\n').length,
+        line = lines[lineNum - 1]?.trim() || '';
 
       findings.push({
         filePath,
@@ -78,8 +77,8 @@ function scanFileForStaleFlags(filePath) {
     const [, condition] = match;
     // Check if the condition looks like a flag constant
     if (ALWAYS_TRUE_CONTEXT.some((c) => condition.includes(c))) {
-      const lineNum = content.substring(0, match.index).split('\n').length;
-      const line = lines[lineNum - 1]?.trim() || '';
+      const lineNum = content.substring(0, match.index).split('\n').length,
+        line = lines[lineNum - 1]?.trim() || '';
 
       findings.push({
         filePath,
@@ -96,13 +95,12 @@ function scanFileForStaleFlags(filePath) {
 function detectStaleFlagsInRepo(db, repoId, repoPath) {
   // Get all JS/TS files
   const files = db
-    .prepare(`
+      .prepare(`
     SELECT path FROM code_files
     WHERE repo_id = ? AND (path LIKE '%.js' OR path LIKE '%.ts')
   `)
-    .all(repoId);
-
-  const allFindings = [];
+      .all(repoId),
+    allFindings = [];
 
   for (const { path: filePath } of files) {
     // Resolve relative to repo path (code_files.path may be absolute or relative to repo root)
@@ -148,12 +146,16 @@ function extractCondition(context) {
 }
 
 function persistStaleFlags(db, findings) {
-  if (findings.length === 0) return { inserted: 0, errors: [] };
+  if (findings.length === 0) {
+    return { inserted: 0, errors: [] };
+  }
 
   // Check if table exists before inserting
   try {
     const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='stale_flags'").get();
-    if (!tableCheck) return { inserted: 0, errors: ['stale_flags table does not exist'] };
+    if (!tableCheck) {
+      return { inserted: 0, errors: ['stale_flags table does not exist'] };
+    }
   } catch (e) {
     return { inserted: 0, errors: [e.message] };
   }
@@ -161,24 +163,23 @@ function persistStaleFlags(db, findings) {
   const insert = db.prepare(`
     INSERT INTO stale_flags (repo_id, file_path, line_number, flag_name, branch_type, context)
     VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
-  const errors = [];
-  const tx = db.transaction((items) => {
-    let count = 0;
-    for (const f of items) {
-      try {
-        insert.run(f.repo_id, f.file_path, f.line_number, f.flag_name, f.branch_type, f.context);
-        count++;
-      } catch (e) {
-        // Only skip duplicates, collect other errors
-        if (!e.message.includes('UNIQUE constraint failed')) {
-          errors.push(`Insert error for ${f.file_path}:${f.line_number}: ${e.message}`);
+  `),
+    errors = [],
+    tx = db.transaction((items) => {
+      let count = 0;
+      for (const f of items) {
+        try {
+          insert.run(f.repo_id, f.file_path, f.line_number, f.flag_name, f.branch_type, f.context);
+          count++;
+        } catch (e) {
+          // Only skip duplicates, collect other errors
+          if (!e.message.includes('UNIQUE constraint failed')) {
+            errors.push(`Insert error for ${f.file_path}:${f.line_number}: ${e.message}`);
+          }
         }
       }
-    }
-    return count;
-  });
+      return count;
+    });
 
   return { inserted: tx(findings), errors };
 }

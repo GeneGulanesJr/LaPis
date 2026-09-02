@@ -1,8 +1,7 @@
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
+const { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -23,8 +22,8 @@ function writeTmpRepo(repoPath, files) {
 }
 
 describe('stale flags command', () => {
-  const repoName = `test-stale-${Date.now()}`;
-  const tmpRepo = path.join('/tmp', repoName);
+  const repoName = `test-stale-${Date.now()}`,
+    tmpRepo = path.join('/tmp', repoName);
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {
@@ -66,8 +65,8 @@ function normalFunc() { return true; }
 
   it('returns empty for clean repo', () => {
     // Create a clean repo
-    const cleanRepoName = `test-clean-${Date.now()}`;
-    const cleanTmp = path.join('/tmp', cleanRepoName);
+    const cleanRepoName = `test-clean-${Date.now()}`,
+      cleanTmp = path.join('/tmp', cleanRepoName);
     writeTmpRepo(cleanTmp, { 'src/util.js': 'export function add(a, b) { return a + b; }' });
     run(`index-repo --path "${cleanTmp}" --name ${cleanRepoName}`);
 

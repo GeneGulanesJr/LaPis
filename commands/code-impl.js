@@ -7,22 +7,22 @@ async function indexRepo(args) {
     const { jsonErrNoExit } = require('../db');
     return jsonErrNoExit('Usage: index-repo --path <path> [--name NAME]');
   }
-  const path = require('path');
-  const repoName = args.name || path.basename(repoPath);
+  const path = require('path'),
+    repoName = args.name || path.basename(repoPath);
   // Auto-switch to async when --async, when file count exceeds the configured
-  // threshold, or for explicit full reindex (already slow on large repos).
+  // Threshold, or for explicit full reindex (already slow on large repos).
   if (args.async === 'true' || args.mode === 'full') {
     return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
   }
-  const { getConfig } = require('../config');
-  const threshold = getConfig().async_index_file_threshold || 500;
+  const { getConfig } = require('../config'),
+    threshold = getConfig().async_index_file_threshold || 500;
   let fileCount = 0;
   try {
-    const { scanRepository } = require('../src/code-index/scanner');
-    const scan = scanRepository(repoPath, { ignore: [], respectGitignore: true });
+    const { scanRepository } = require('../src/code-index/scanner'),
+      scan = scanRepository(repoPath, { ignore: [], respectGitignore: true });
     fileCount = scan && scan.files ? scan.files.length : 0;
   } catch (_) {
-    /* scan errors are not fatal — fall through to sync */
+    /* Scan errors are not fatal — fall through to sync */
   }
   if (fileCount >= threshold) {
     process.stderr.write(
@@ -39,8 +39,8 @@ async function indexRepoAsync(args) {
     const { jsonErrNoExit } = require('../db');
     return jsonErrNoExit('Usage: index-repo-async --path <path> [--name NAME] [--mode full|incremental]');
   }
-  const path = require('path');
-  const repoName = args.name || path.basename(repoPath);
+  const path = require('path'),
+    repoName = args.name || path.basename(repoPath);
   return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: args.mode || 'full' });
 }
 
@@ -110,9 +110,9 @@ function rankedContext(args) {
 }
 
 function getCodeSource(args) {
-  const repo = args.repo;
-  const file = args.file;
-  const name = args.name;
+  const repo = args.repo,
+    file = args.file,
+    name = args.name;
   if (!repo || !file || !name) {
     const { jsonErrNoExit } = require('../db');
     return jsonErrNoExit('Usage: get-code-source --repo NAME --file PATH --name SYMBOL');

@@ -3,26 +3,26 @@
 // Each sub-describe covers one verified bug fix with a focused test.
 //
 // F14: src/code-analysis/dead-code-impl.js — re-export detection used the
-//      wrong namespace (module paths vs symbol names) so re-exported
-//      symbols were always treated as dead.
+//      Wrong namespace (module paths vs symbol names) so re-exported
+//      Symbols were always treated as dead.
 // F15: src/agent-intel/runtime-ingest.js — traffic_breakdown only counted
-//      the just-ingested file, not the persisted runtime_symbols state.
+//      The just-ingested file, not the persisted runtime_symbols state.
 // F16: src/memory-domain/workspaces.js — used SQLite-only `NULLS FIRST`
-//      which fails on older SQLite engines.
+//      Which fails on older SQLite engines.
 // F17: src/agent-intel/blast.js — tests_likely_affected filtered by symbol
-//      name in file path instead of by call-graph evidence.
+//      Name in file path instead of by call-graph evidence.
 // F18: src/code-analysis/risk-impl.js — per-symbol blast-radius used depth=3
-//      while the batch branch used depth=5, so risk scores jumped at the
+//      While the batch branch used depth=5, so risk scores jumped at the
 //      >20 changed-symbol threshold.
 // F19: src/agent-intel/preflight.js — duplicateWarnings had a dead
-//      secondary check (`normalizedSymbol.includes(normalizedTask)`) that
-//      could never trigger independently of the primary overlap check.
+//      Secondary check (`normalizedSymbol.includes(normalizedTask)`) that
+//      Could never trigger independently of the primary overlap check.
 // F20: src/claude-code/handlers/user-prompt-submit.js — silent
 //      .catch(() => null) on assembleContextLines.
 // F21: src/claude-code/context-inject.js — silent
 //      .catch(() => null) on assembleContextLines in buildInjectedContext.
 // F22: src/memory-domain/compaction.js — dream stats persist failure was
-//      silently swallowed.
+//      Silently swallowed.
 
 const dbModule = require('../db');
 const { getDeadCode } = require('../src/code-analysis/dead-code-impl');
@@ -51,14 +51,14 @@ function sqliteReady() {
 describe('correctness review fixes (round 2) — source-level', () => {
   // These checks are pure source inspection — they do not require the
   // SQLite native binding and serve as guardrails against future
-  // regressions even when integration tests cannot run.
+  // Regressions even when integration tests cannot run.
 
   // ── F14: re-export detection uses correct namespace (file_scope_bindings) ──
   it('F14: dead-code-impl reads file_scope_bindings.kind=re_export for names', () => {
     const src = fs.readFileSync(require.resolve('../src/code-analysis/dead-code-impl'), 'utf8');
     expect(src).toContain("kind = 're_export'");
     // The pre-fix bug populated a set from code_imports.target_module and
-    // compared it against symbol names — the fix must use file_scope_bindings.
+    // Compared it against symbol names — the fix must use file_scope_bindings.
     expect(src).not.toMatch(/reExportedNames\.add\(re\.target_module\)/);
   });
 
@@ -68,20 +68,20 @@ describe('correctness review fixes (round 2) — source-level', () => {
     expect(src).toContain('FROM runtime_symbols');
     expect(src).toContain('GROUP BY traffic');
     // The primary return value must derive from the persisted table,
-    // not from `functions.filter(...)` over the just-ingested file.
+    // Not from `functions.filter(...)` over the just-ingested file.
     // Implementation uses dot-assignment to populate the breakdown object
-    // from the query result rows.
+    // From the query result rows.
     expect(src).toMatch(/breakdown\.(hot|warm|cold)\s*=\s*row\.cnt/);
   });
 
   // ── F16: listWorkspaces uses portable SQL (no NULLS FIRST) ──
   it('F16: workspaces.js does not use SQLite-only NULLS FIRST in SQL', () => {
-    const src = fs.readFileSync(require.resolve('../src/memory-domain/workspaces'), 'utf8');
-    // Strip comments and check the remaining SQL strings.
-    const stripped = src
-      .split('\n')
-      .filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*'))
-      .join('\n');
+    const src = fs.readFileSync(require.resolve('../src/memory-domain/workspaces'), 'utf8'),
+      // Strip comments and check the remaining SQL strings.
+      stripped = src
+        .split('\n')
+        .filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*'))
+        .join('\n');
     expect(stripped).not.toMatch(/NULLS\s+FIRST/i);
   });
 
@@ -114,7 +114,7 @@ describe('correctness review fixes (round 2) — source-level', () => {
     expect(src).toContain('console.error');
     expect(src).toContain('assembleContextLines failed');
     // The specific catch on the assembleContextLines(...) call must NOT be a
-    // silent `() => null` swallow — it must take the error and log it.
+    // Silent `() => null` swallow — it must take the error and log it.
     const assembleIdx = src.indexOf('assembleContextLines({');
     if (assembleIdx === -1) {
       throw new Error('could not locate assembleContextLines({ call');
@@ -143,7 +143,7 @@ describe('correctness review fixes (round 2) — source-level', () => {
 });
 
 // Integration tests below require better-sqlite3 native binding. They are
-// skipped (not failed) when the binding is unavailable in the runtime.
+// Skipped (not failed) when the binding is unavailable in the runtime.
 const describeIfSqlite = sqliteReady() ? describe : describe.skip;
 
 describeIfSqlite('correctness review fixes (round 2) — integration', () => {
@@ -154,8 +154,8 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
   // ── F14 integration: re-export detection ──
 
   describe('F14: dead-code re-export detection', () => {
-    const repoName = uniqueRepoName('f14-reexport');
-    const repoId = 990001;
+    const repoName = uniqueRepoName('f14-reexport'),
+      repoId = 990001;
 
     afterAll(() => {
       try {
@@ -205,7 +205,7 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
       const sym = result.dead_symbols.find((s) => s.name === 'validateUser');
       if (sym) {
         // When the symbol IS re-exported, the dead-code detector must
-        // either omit it entirely (confidence < threshold) or include the
+        // Either omit it entirely (confidence < threshold) or include the
         // 're_exported' signal with reduced confidence.
         expect(
           sym.signals.includes('re_exported') || sym.confidence < 0.5,
@@ -219,7 +219,9 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
         'SELECT id FROM code_files WHERE repo_id = ? ORDER BY id ASC LIMIT 1',
         [990001],
       )[0]?.id;
-      if (!fileId) return;
+      if (!fileId) {
+        return;
+      }
       dbModule.sqlRun(
         `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
           start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
@@ -228,8 +230,8 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
           2, 2, 51, 100, '', '', 'javascript', '', '', 'h1', '', '[]', '[]', '[]', '')`,
         [990001, fileId, `/tmp/${uniqueRepoName('f14')}/internal.js`],
       );
-      const result = getDeadCode(dbModule.getDb(), 990001, { includeTests: true });
-      const orphan = result.dead_symbols.find((s) => s.name === 'orphanSymbol');
+      const result = getDeadCode(dbModule.getDb(), 990001, { includeTests: true }),
+        orphan = result.dead_symbols.find((s) => s.name === 'orphanSymbol');
       expect(orphan).toBeDefined();
       expect(orphan.signals).toContain('no_callers');
     });
@@ -251,41 +253,39 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
 
     it('counts persisted hot/warm/cold across multiple ingest calls', () => {
       const repoId = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
-        repoName,
-        `/tmp/${repoName}`,
-      ])[0].id;
-
-      const coverage = {
-        '/src/first.js': {
-          fnMap: {
-            0: { name: 'hotFn', line: 1, loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } } },
-            1: { name: 'coldFn', line: 2, loc: { start: { line: 2, column: 0 }, end: { line: 2, column: 1 } } },
+          repoName,
+          `/tmp/${repoName}`,
+        ])[0].id,
+        coverage = {
+          '/src/first.js': {
+            fnMap: {
+              0: { name: 'hotFn', line: 1, loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } } },
+              1: { name: 'coldFn', line: 2, loc: { start: { line: 2, column: 0 }, end: { line: 2, column: 1 } } },
+            },
+            f: { 0: 5000, 1: 0 },
           },
-          f: { 0: 5000, 1: 0 },
-        },
-        '/src/second.js': {
-          fnMap: {
-            0: { name: 'warmFn', line: 1, loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } } },
+          '/src/second.js': {
+            fnMap: {
+              0: { name: 'warmFn', line: 1, loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } } },
+            },
+            f: { 0: 500 },
           },
-          f: { 0: 500 },
         },
-      };
-
-      const tmpPath = path.join(os.tmpdir(), `${repoName}.json`);
+        tmpPath = path.join(os.tmpdir(), `${repoName}.json`);
       fs.writeFileSync(tmpPath, JSON.stringify(coverage), 'utf8');
       try {
         ingestCoverage(dbModule.getDb(), repoId, tmpPath);
         ingestCoverage(dbModule.getDb(), repoId, tmpPath);
 
-        const result = ingestCoverage(dbModule.getDb(), repoId, tmpPath);
-        const expected = { hot: 1, warm: 1, cold: 1 };
+        const result = ingestCoverage(dbModule.getDb(), repoId, tmpPath),
+          expected = { hot: 1, warm: 1, cold: 1 };
         expect(result.traffic_breakdown).toEqual(expected);
 
         const dbRows = dbModule.sqlJson(
-          'SELECT traffic, COUNT(*) as cnt FROM runtime_symbols WHERE repo_id = ? GROUP BY traffic',
-          [repoId],
-        );
-        const persisted = { hot: 0, warm: 0, cold: 0 };
+            'SELECT traffic, COUNT(*) as cnt FROM runtime_symbols WHERE repo_id = ? GROUP BY traffic',
+            [repoId],
+          ),
+          persisted = { hot: 0, warm: 0, cold: 0 };
         for (const row of dbRows) {
           persisted[row.traffic] = row.cnt;
         }
@@ -300,7 +300,7 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
     it('classifyTraffic boundary values are stable', () => {
       // Thresholds: hot >= 1000, warm >= 100, cold < 100.
       // Just below hot → warm; just at hot → hot; just at warm → warm;
-      // well below warm → cold.
+      // Well below warm → cold.
       expect(classifyTraffic(999)).toBe('warm');
       expect(classifyTraffic(1000)).toBe('hot');
       expect(classifyTraffic(100)).toBe('warm');
@@ -312,22 +312,22 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
 
   describe('F16: listWorkspaces SQL portability', () => {
     it('listWorkspaces sorts un-archived workspaces before archived ones', () => {
-      const w1 = uniqueRepoName('f16-active');
-      const w2 = uniqueRepoName('f16-archived');
+      const w1 = uniqueRepoName('f16-active'),
+        w2 = uniqueRepoName('f16-archived');
       createWorkspace(dbModule, w1);
       createWorkspace(dbModule, w2);
       archiveWorkspace(dbModule, w2);
 
-      const result = listWorkspaces(dbModule);
-      const active = result.workspaces.find((w) => w.name === w1);
-      const archived = result.workspaces.find((w) => w.name === w2);
+      const result = listWorkspaces(dbModule),
+        active = result.workspaces.find((w) => w.name === w1),
+        archived = result.workspaces.find((w) => w.name === w2);
       expect(active).toBeDefined();
       expect(archived).toBeDefined();
       expect(active.archived_at).toBeNull();
       expect(archived.archived_at).not.toBeNull();
 
-      const activeIdx = result.workspaces.findIndex((w) => w.name === w1);
-      const archivedIdx = result.workspaces.findIndex((w) => w.name === w2);
+      const activeIdx = result.workspaces.findIndex((w) => w.name === w1),
+        archivedIdx = result.workspaces.findIndex((w) => w.name === w2);
       expect(activeIdx).toBeLessThan(archivedIdx);
     });
   });

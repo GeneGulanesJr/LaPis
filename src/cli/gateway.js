@@ -49,8 +49,8 @@ module.exports = {
   _wrapAnalysis: codeAnalysisRouter._wrapAnalysis,
 };
 
-let _commands = null;
-let _initPromise = null;
+let _commands = null,
+  _initPromise = null;
 
 async function dispatch(cmd, args) {
   if (!_commands) {
@@ -64,20 +64,20 @@ async function dispatch(cmd, args) {
         db.ensureDb();
 
         const baseStorageDeps = {
-          sqlJson: db.sqlJson,
-          sqlRun: db.sqlRun,
-          sqlRaw: db.sqlRaw,
-          jsonErrNoExit: db.jsonErrNoExit,
-        };
-        const repositories = createRepositories(baseStorageDeps);
-        const softDeleteObservation = (id) => obsDA.softDeleteObservation(baseStorageDeps, id);
+            sqlJson: db.sqlJson,
+            sqlRun: db.sqlRun,
+            sqlRaw: db.sqlRaw,
+            jsonErrNoExit: db.jsonErrNoExit,
+          },
+          repositories = createRepositories(baseStorageDeps),
+          softDeleteObservation = (id) => obsDA.softDeleteObservation(baseStorageDeps, id);
 
         function _readTierConfig() {
-          const { getConfig } = require('../../config');
-          const configPath = getConfig().tier_config_path;
+          const { getConfig } = require('../../config'),
+            configPath = getConfig().tier_config_path;
           try {
-            const raw = fs.readFileSync(configPath, 'utf-8');
-            const cleaned = raw.replace(/\/\/.*$/gm, '');
+            const raw = fs.readFileSync(configPath, 'utf-8'),
+              cleaned = raw.replace(/\/\/.*$/gm, '');
             return JSON.parse(cleaned);
           } catch {
             return { tier: 'full' };

@@ -6,15 +6,15 @@ const { TRUST_DELTA } = require('../constants');
 
 describe('src/trust-sync trust policy', () => {
   it('evaluates changed and survived links without repository side effects', () => {
-    const changedSet = new Set(['changedFunc']);
-    const result = evaluateTrustSync(
-      [
-        { memory_id: '1', symbol_id: 'ns::changedFunc', trust_score: 0.8 },
-        { memory_id: '2', symbol_id: 'stableFunc', trust_score: 0.5 },
-        { memory_id: '3', symbol_id: 'maxedFunc', trust_score: TRUST_DELTA.MAX_SURVIVED },
-      ],
-      changedSet,
-    );
+    const changedSet = new Set(['changedFunc']),
+      result = evaluateTrustSync(
+        [
+          { memory_id: '1', symbol_id: 'ns::changedFunc', trust_score: 0.8 },
+          { memory_id: '2', symbol_id: 'stableFunc', trust_score: 0.5 },
+          { memory_id: '3', symbol_id: 'maxedFunc', trust_score: TRUST_DELTA.MAX_SURVIVED },
+        ],
+        changedSet,
+      );
 
     expect(result.adjusted).toEqual([
       {

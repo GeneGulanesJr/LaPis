@@ -3,30 +3,33 @@
 // Must not mutate code indexes or memory.
 
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs'),
+  /**
+   * Istanbul coverage JSON shape:
+   * {
+   *   "/path/to/file.js": {
+   *     "path": "/path/to/file.js",
+   *     "statementMap": { "0": { "start": {...}, "end": {...} } },
+   *     "fnMap": { "0": { "name": "fnName", "line": 5, "loc": {...} } },
+   *     "s": { "0": 10, "1": 5 },  // statement hits
+   *     "f": { "0": 3 }            // function hits
+   *   }
+   * }
+   */
 
-/**
- * Istanbul coverage JSON shape:
- * {
- *   "/path/to/file.js": {
- *     "path": "/path/to/file.js",
- *     "statementMap": { "0": { "start": {...}, "end": {...} } },
- *     "fnMap": { "0": { "name": "fnName", "line": 5, "loc": {...} } },
- *     "s": { "0": 10, "1": 5 },  // statement hits
- *     "f": { "0": 3 }            // function hits
- *   }
- * }
- */
-
-const TRAFFIC_THRESHOLDS = {
-  hot: 1000, // >= 1000 hits in coverage period
-  warm: 100, // >= 100 hits
-  cold: 0, // < 100 hits
-};
+  TRAFFIC_THRESHOLDS = {
+    hot: 1000, // >= 1000 hits in coverage period
+    warm: 100, // >= 100 hits
+    cold: 0, // < 100 hits
+  };
 
 function classifyTraffic(hitCount) {
-  if (hitCount >= TRAFFIC_THRESHOLDS.hot) return 'hot';
-  if (hitCount >= TRAFFIC_THRESHOLDS.warm) return 'warm';
+  if (hitCount >= TRAFFIC_THRESHOLDS.hot) {
+    return 'hot';
+  }
+  if (hitCount >= TRAFFIC_THRESHOLDS.warm) {
+    return 'warm';
+  }
   return 'cold';
 }
 
@@ -38,10 +41,12 @@ function parseCoverageFile(coveragePath) {
 function extractFunctionHits(coverageData) {
   const results = [];
   for (const [filePath, data] of Object.entries(coverageData)) {
-    if (!data || !data.fnMap || !data.f) continue;
+    if (!data || !data.fnMap || !data.f) {
+      continue;
+    }
 
-    const fnMap = data.fnMap;
-    const hitCounts = data.f;
+    const fnMap = data.fnMap,
+      hitCounts = data.f;
 
     for (const [idx, fn] of Object.entries(fnMap)) {
       const hitCount = hitCounts[idx] || 0;
@@ -62,11 +67,10 @@ function ingestCoverage(db, repoId, coveragePath, sourceFile = '') {
     return { error: `Coverage file not found: ${coveragePath}` };
   }
 
-  const coverageData = parseCoverageFile(coveragePath);
-  const functions = extractFunctionHits(coverageData);
-
-  // Pre-fetch symbol_id mapping for this repo to link runtime data to code symbols
-  const symbolLookup = new Map();
+  const coverageData = parseCoverageFile(coveragePath),
+    functions = extractFunctionHits(coverageData),
+    // Pre-fetch symbol_id mapping for this repo to link runtime data to code symbols
+    symbolLookup = new Map();
   try {
     const symbols = db
       .prepare(`
@@ -84,7 +88,7 @@ function ingestCoverage(db, repoId, coveragePath, sourceFile = '') {
       }
     }
   } catch {
-    // code_symbols table may not exist yet - continue without linking
+    // Code_symbols table may not exist yet - continue without linking
   }
 
   const insertStmt = db.prepare(`
@@ -92,47 +96,58 @@ function ingestCoverage(db, repoId, coveragePath, sourceFile = '') {
       (repo_id, symbol_id, file_path, function_name, line_start, hit_count, traffic, last_seen, source_file)
     VALUES
       (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
-  `);
+  `),
+    upsert = db.transaction((fnList) => {
+      let inserted = 0,
+        linked = 0;
+      for (const fn of fnList) {
+        // Look up symbol_id from code_symbols
+        let symbolId = null;
+        const key = `${fn.filePath}:${fn.functionName}`;
+        if (symbolLookup.has(key)) {
+          symbolId = symbolLookup.get(key);
+          linked++;
+        }
 
-  const upsert = db.transaction((fnList) => {
-    let inserted = 0;
-    let linked = 0;
-    for (const fn of fnList) {
-      // Look up symbol_id from code_symbols
-      let symbolId = null;
-      const key = `${fn.filePath}:${fn.functionName}`;
-      if (symbolLookup.has(key)) {
-        symbolId = symbolLookup.get(key);
-        linked++;
+        insertStmt.run(
+          repoId,
+          symbolId,
+          fn.filePath,
+          fn.functionName,
+          fn.lineStart,
+          fn.hitCount,
+          fn.traffic,
+          sourceFile,
+        );
+        inserted++;
       }
-
-      insertStmt.run(repoId, symbolId, fn.filePath, fn.functionName, fn.lineStart, fn.hitCount, fn.traffic, sourceFile);
-      inserted++;
-    }
-    return { inserted, linked };
-  });
-
-  const result = upsert(functions);
+      return { inserted, linked };
+    }),
+    result = upsert(functions);
 
   // Aggregate traffic_breakdown from the PERSISTED state, not the just-ingested
-  // file. `INSERT OR REPLACE` overwrites the rows for functions in this file
-  // on every call but does not delete orphans from previously ingested files
+  // File. `INSERT OR REPLACE` overwrites the rows for functions in this file
+  // On every call but does not delete orphans from previously ingested files
   // (or earlier versions of the same coverage report). Counting only
   // `functions` would under-count hot/warm symbols after the second ingest
-  // and produce misleading dashboards that show a single-file snapshot.
+  // And produce misleading dashboards that show a single-file snapshot.
   let breakdown = { hot: 0, warm: 0, cold: 0 };
   try {
     const breakdownRows = db
       .prepare('SELECT traffic, COUNT(*) as cnt FROM runtime_symbols WHERE repo_id = ? GROUP BY traffic')
       .all(repoId);
     for (const row of breakdownRows) {
-      if (row.traffic === 'hot') breakdown.hot = row.cnt;
-      else if (row.traffic === 'warm') breakdown.warm = row.cnt;
-      else if (row.traffic === 'cold') breakdown.cold = row.cnt;
+      if (row.traffic === 'hot') {
+        breakdown.hot = row.cnt;
+      } else if (row.traffic === 'warm') {
+        breakdown.warm = row.cnt;
+      } else if (row.traffic === 'cold') {
+        breakdown.cold = row.cnt;
+      }
     }
   } catch {
-    // runtime_symbols table may not exist yet — keep the function-level counts
-    // as a best-effort fallback so the return value is still defined.
+    // Runtime_symbols table may not exist yet — keep the function-level counts
+    // As a best-effort fallback so the return value is still defined.
     breakdown = {
       hot: functions.filter((f) => f.traffic === 'hot').length,
       warm: functions.filter((f) => f.traffic === 'warm').length,

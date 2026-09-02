@@ -8,18 +8,17 @@ describe('compress-search-output', () => {
 
   it('groups matches by file with line numbers', () => {
     const output = [
-      'src/index.js:82:TODO: handle deleted files',
-      'src/index.js:194:TODO: add debounce',
-      'src/http/server.js:120:TODO: auth',
-      'src/http/server.js:200:FIXME: broken',
-    ].join('\n');
-
-    const result = compressSearchOutput({
-      stdout: output,
-      stderr: '',
-      exitCode: 0,
-      commandArgs: ['grep', 'TODO', '-R', '.'],
-    });
+        'src/index.js:82:TODO: handle deleted files',
+        'src/index.js:194:TODO: add debounce',
+        'src/http/server.js:120:TODO: auth',
+        'src/http/server.js:200:FIXME: broken',
+      ].join('\n'),
+      result = compressSearchOutput({
+        stdout: output,
+        stderr: '',
+        exitCode: 0,
+        commandArgs: ['grep', 'TODO', '-R', '.'],
+      });
     expect(result.summary).toContain('4 match');
     expect(result.summary).toContain('2 file');
     expect(result.importantOutput).toContain('src/index.js');

@@ -12,8 +12,8 @@ function matchRoute(method, pathname, routes) {
 }
 
 function matchPath(pattern, pathname) {
-  const patternParts = pattern.split('/');
-  const pathParts = pathname.split('/');
+  const patternParts = pattern.split('/'),
+    pathParts = pathname.split('/');
   if (patternParts.length !== pathParts.length) {
     return null;
   }
@@ -24,7 +24,7 @@ function matchPath(pattern, pathname) {
         params[patternParts[i].slice(1)] = decodeURIComponent(pathParts[i]);
       } catch {
         // Malformed percent-encoding (e.g. %ZZ) — treat as no match so the
-        // caller surfaces a clean 404 instead of an unhandled URIError.
+        // Caller surfaces a clean 404 instead of an unhandled URIError.
         return null;
       }
     } else if (patternParts[i] !== pathParts[i]) {

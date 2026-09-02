@@ -112,11 +112,11 @@ function getChurn(db, repoId, target, days, refresh) {
 function getFirstSeen(repoPath, filePath) {
   try {
     const fullLog = execFileSync('git', ['-C', repoPath, 'log', '--follow', '--format=%aI', '--', filePath], {
-      encoding: 'utf8',
-      timeout: 10000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-    const allDates = fullLog.split('\n').filter(Boolean).sort();
+        encoding: 'utf8',
+        timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim(),
+      allDates = fullLog.split('\n').filter(Boolean).sort();
     return allDates.length ? allDates[0] : null;
   } catch {
     return null;
@@ -124,12 +124,12 @@ function getFirstSeen(repoPath, filePath) {
 }
 
 function parseCommitLog(log) {
-  const lines = log.split('\n');
-  const authors = new Set(lines.map((l) => l.split('|')[1]).filter(Boolean));
-  const dates = lines
-    .map((l) => l.split('|')[2])
-    .filter(Boolean)
-    .sort();
+  const lines = log.split('\n'),
+    authors = new Set(lines.map((l) => l.split('|')[1]).filter(Boolean)),
+    dates = lines
+      .map((l) => l.split('|')[2])
+      .filter(Boolean)
+      .sort();
   return { lines, authors, dates };
 }
 
@@ -159,9 +159,9 @@ function computeFileChurn(db, repo, filePath, days, since) {
       return result;
     }
 
-    const { lines, authors, dates } = parseCommitLog(log);
-    const firstSeen = getFirstSeen(repo.path, filePath) || dates[0];
-    const result = buildFileChurnResult(lines, authors, dates, firstSeen, days);
+    const { lines, authors, dates } = parseCommitLog(log),
+      firstSeen = getFirstSeen(repo.path, filePath) || dates[0],
+      result = buildFileChurnResult(lines, authors, dates, firstSeen, days);
     upsertChurn(db, repo.id, absPath, days, result);
     return result;
   } catch (e) {
@@ -173,12 +173,11 @@ function computeFileChurn(db, repo, filePath, days, since) {
 function computeRepoChurn(db, repo, days, since) {
   try {
     const log = execFileSync('git', ['-C', repo.path, 'log', `--since=${since}`, '--format=', '--name-only'], {
-      encoding: 'utf8',
-      timeout: 30000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-
-    const fileCounts = new Map();
+        encoding: 'utf8',
+        timeout: 30000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim(),
+      fileCounts = new Map();
     for (const line of log.split('\n')) {
       const f = line.trim();
       if (f) {
@@ -187,38 +186,36 @@ function computeRepoChurn(db, repo, days, since) {
     }
 
     const topFiles = [...fileCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 50)
-      .map(([file, commits]) => ({
-        file,
-        commits,
-        churn_per_week: Math.round((commits / (days / 7)) * 100) / 100,
-      }));
-
-    const totalCommits = [...fileCounts.values()].reduce((a, b) => a + b, 0);
-    const uniqueAuthorsRaw = execFileSync('git', ['-C', repo.path, 'log', `--since=${since}`, '--format=%an'], {
-      encoding: 'utf8',
-      timeout: 10000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-    const uniqueAuthors = new Set(uniqueAuthorsRaw.split('\n').filter(Boolean)).size;
-
-    const cacheMetrics = {
-      commits: totalCommits,
-      unique_authors: uniqueAuthors,
-      first_seen: null,
-      last_modified: null,
-      churn_per_week: Math.round((totalCommits / (days / 7)) * 100) / 100,
-      total_files_changed: fileCounts.size,
-      top_files_json: JSON.stringify(topFiles),
-    };
-    const result = {
-      repo: repo.name,
-      window_days: days,
-      total_files_changed: fileCounts.size,
-      top_files: topFiles,
-      ...cacheMetrics,
-    };
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 50)
+        .map(([file, commits]) => ({
+          file,
+          commits,
+          churn_per_week: Math.round((commits / (days / 7)) * 100) / 100,
+        })),
+      totalCommits = [...fileCounts.values()].reduce((a, b) => a + b, 0),
+      uniqueAuthorsRaw = execFileSync('git', ['-C', repo.path, 'log', `--since=${since}`, '--format=%an'], {
+        encoding: 'utf8',
+        timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim(),
+      uniqueAuthors = new Set(uniqueAuthorsRaw.split('\n').filter(Boolean)).size,
+      cacheMetrics = {
+        commits: totalCommits,
+        unique_authors: uniqueAuthors,
+        first_seen: null,
+        last_modified: null,
+        churn_per_week: Math.round((totalCommits / (days / 7)) * 100) / 100,
+        total_files_changed: fileCounts.size,
+        top_files_json: JSON.stringify(topFiles),
+      },
+      result = {
+        repo: repo.name,
+        window_days: days,
+        total_files_changed: fileCounts.size,
+        top_files: topFiles,
+        ...cacheMetrics,
+      };
     upsertChurn(db, repo.id, '__all__', days, cacheMetrics);
     return result;
   } catch (e) {
@@ -227,8 +224,8 @@ function computeRepoChurn(db, repo, days, since) {
 }
 
 function upsertChurn(db, repoId, filePath, windowDays, metrics) {
-  const totalFilesChanged = metrics.total_files_changed ?? 0;
-  const topFilesJson = metrics.top_files_json ?? '[]';
+  const totalFilesChanged = metrics.total_files_changed ?? 0,
+    topFilesJson = metrics.top_files_json ?? '[]';
   db.prepare(`
     INSERT OR REPLACE INTO churn_metrics (repo_id, file_path, commits, unique_authors, first_seen, last_modified, churn_per_week, window_days, total_files_changed, top_files_json)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -326,12 +323,12 @@ function getProvenance(db, repoId, symbolName) {
 
   try {
     const blameOutput = execFileSync(
-      'git',
-      ['-C', repo.path, 'blame', `-L${symbol.start_line},${symbol.end_line}`, '--', symbol.file_path],
-      { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] },
-    ).trim();
-    const blameHashes = new Set();
-    const blameRe = /^([a-f0-9]{8,})/gm;
+        'git',
+        ['-C', repo.path, 'blame', `-L${symbol.start_line},${symbol.end_line}`, '--', symbol.file_path],
+        { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] },
+      ).trim(),
+      blameHashes = new Set(),
+      blameRe = /^([a-f0-9]{8,})/gm;
     let match;
     while ((match = blameRe.exec(blameOutput)) !== null) {
       blameHashes.add(match[1]);
@@ -346,11 +343,10 @@ function getProvenance(db, repoId, symbolName) {
   }
 
   const relevantCommits =
-    logEntries.length > 50 && logEntries.some((e) => e.touches_symbol)
-      ? logEntries.filter((e) => e.touches_symbol).slice(0, 50)
-      : logEntries.slice(0, 50);
-
-  const classifications = {};
+      logEntries.length > 50 && logEntries.some((e) => e.touches_symbol)
+        ? logEntries.filter((e) => e.touches_symbol).slice(0, 50)
+        : logEntries.slice(0, 50),
+    classifications = {};
   let creationDate = null,
     lastModifiedDate = null;
   const authors = new Set();

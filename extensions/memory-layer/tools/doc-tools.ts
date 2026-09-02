@@ -62,21 +62,21 @@ export function registerDocTools(pi: ExtensionAPI, deps: DocDeps) {
       params = params ?? {};
       try {
         const cmdMap: Record<string, string> = {
-          search: 'doc-search',
-          outline: 'doc-outline',
-          backlinks: 'backlinks',
-          'broken-links': 'broken-links',
-          glossary: 'glossary',
-          'tutorial-path': 'tutorial-path',
-          'code-examples': 'code-examples',
-          orphans: 'doc-orphans',
-          coverage: 'doc-coverage',
-          'stale-pages': 'stale-pages',
-          duplicates: 'doc-duplicates',
-          'index-docs': 'index-docs',
-          'reindex-docs': 'reindex-docs',
-        };
-        const mode = typeof params.mode === 'string' ? params.mode : '';
+            search: 'doc-search',
+            outline: 'doc-outline',
+            backlinks: 'backlinks',
+            'broken-links': 'broken-links',
+            glossary: 'glossary',
+            'tutorial-path': 'tutorial-path',
+            'code-examples': 'code-examples',
+            orphans: 'doc-orphans',
+            coverage: 'doc-coverage',
+            'stale-pages': 'stale-pages',
+            duplicates: 'doc-duplicates',
+            'index-docs': 'index-docs',
+            'reindex-docs': 'reindex-docs',
+          },
+          mode = typeof params.mode === 'string' ? params.mode : '';
         if (!mode) {
           return toolTextResult(docHelpText());
         }
@@ -152,11 +152,11 @@ export function registerDocTools(pi: ExtensionAPI, deps: DocDeps) {
           return toolTextResult(fmt || 'Doc indexing completed.', result ?? {});
         }
 
-        const docRepos = await deps.getKnownDocRepos();
-        const docRepoMatch = docRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
+        const docRepos = await deps.getKnownDocRepos(),
+          docRepoMatch = docRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
         if (!docRepoMatch) {
-          const available = docRepos.map((r) => r.name).join(', ') || 'none';
-          const cwd = process.cwd();
+          const available = docRepos.map((r) => r.name).join(', ') || 'none',
+            cwd = process.cwd();
           return normalizeToolResult({
             content: [
               {

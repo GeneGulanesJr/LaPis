@@ -4,24 +4,22 @@ const { parseExpiresIn } = require('./ttl');
 
 function save(deps, args) {
   const {
-    jsonErrNoExit,
-    insertObservation,
-    insertObservationRelation,
-    softDeleteObservation,
-    checkDuplicate,
-    findLatestSession,
-  } = deps;
-
-  const title = args.title;
-  const type = args.type || 'manual';
-  const content = args.content;
-  const project = args.project || null;
-  const scope = args.scope || 'project';
-  const topicKey = args['topic-key'] || null;
-  const sessionId = args['session-id'] || findLatestSession(project);
-  const force = args.force === 'true' || args.force === true;
-
-  const expiresIn = args['expires-in'] || args.expiresIn || null;
+      jsonErrNoExit,
+      insertObservation,
+      insertObservationRelation,
+      softDeleteObservation,
+      checkDuplicate,
+      findLatestSession,
+    } = deps,
+    title = args.title,
+    type = args.type || 'manual',
+    content = args.content,
+    project = args.project || null,
+    scope = args.scope || 'project',
+    topicKey = args['topic-key'] || null,
+    sessionId = args['session-id'] || findLatestSession(project),
+    force = args.force === 'true' || args.force === true,
+    expiresIn = args['expires-in'] || args.expiresIn || null;
   let expiresAt = null;
   if (expiresIn !== null && expiresIn !== undefined && expiresIn !== '') {
     expiresAt = parseExpiresIn(expiresIn);
@@ -31,8 +29,12 @@ function save(deps, args) {
   }
 
   const missing = [];
-  if (!title) missing.push('--title');
-  if (!content) missing.push('--content');
+  if (!title) {
+    missing.push('--title');
+  }
+  if (!content) {
+    missing.push('--content');
+  }
   if (missing.length > 0) {
     return jsonErrNoExit(`Missing ${missing.join(' and ')}`);
   }
@@ -40,11 +42,11 @@ function save(deps, args) {
   if (!force) {
     const dupes = checkDuplicate(title, type, project, topicKey);
     if (dupes.potential_duplicates.length > 0) {
-      const bestMatch = dupes.potential_duplicates[0];
-      const dedupCfg = getConfig().dedup;
+      const bestMatch = dupes.potential_duplicates[0],
+        dedupCfg = getConfig().dedup;
       if (bestMatch.similarity >= dedupCfg.auto_merge_threshold) {
-        const rows = insertObservation({ sessionId, type, title, content, project, scope, topicKey, expiresAt });
-        const newId = rows[0].id;
+        const rows = insertObservation({ sessionId, type, title, content, project, scope, topicKey, expiresAt }),
+          newId = rows[0].id;
         insertObservationRelation({
           sourceId: newId,
           targetId: bestMatch.id,
@@ -77,8 +79,8 @@ function save(deps, args) {
 }
 
 function capturePassive(deps, args) {
-  const { jsonErrNoExit, insertCapturePassiveObservation, findLatestSession } = deps;
-  const content = args.content;
+  const { jsonErrNoExit, insertCapturePassiveObservation, findLatestSession } = deps,
+    content = args.content;
   if (!content) {
     return jsonErrNoExit('Missing --content');
   }
@@ -88,9 +90,9 @@ function capturePassive(deps, args) {
     return { extracted: 0, items: [] };
   }
 
-  const section = match[1];
-  const itemRe = /(?:^|\n)\s*(?:[-*]|\d+[.)])\s*([^\n]*(?:\n(?!\s*(?:[-*]|\d+[.)])\s*)[^\n]*)*)/g;
-  const items = [];
+  const section = match[1],
+    itemRe = /(?:^|\n)\s*(?:[-*]|\d+[.)])\s*([^\n]*(?:\n(?!\s*(?:[-*]|\d+[.)])\s*)[^\n]*)*)/g,
+    items = [];
   let m;
   while ((m = itemRe.exec(section)) !== null) {
     const cleaned = m[1].replace(/\n\s+/g, ' ').trim();
@@ -113,14 +115,14 @@ function capturePassive(deps, args) {
 }
 
 function suggestTopicKey(args) {
-  const title = args.title;
-  const content = args.content;
-  const source = title || content || '';
-  const key = source
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-+/g, '-');
+  const title = args.title,
+    content = args.content,
+    source = title || content || '',
+    key = source
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-+/g, '-');
   return { topic_key: key || 'untitled' };
 }
 

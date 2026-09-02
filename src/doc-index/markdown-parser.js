@@ -32,8 +32,8 @@ function classifyRole(title, content) {
 }
 
 function extractTags(content) {
-  const tags = new Set();
-  const re = /(?<!#)#(\w{2,})/g;
+  const tags = new Set(),
+    re = /(?<!#)#(\w{2,})/g;
   let match;
   while ((match = re.exec(content)) !== null) {
     tags.add(match[1].toLowerCase());
@@ -52,9 +52,9 @@ function finalizeSection(section, lines, endLine, lineByteOffsets) {
 }
 
 function parseMarkdownSections(content, filePath) {
-  const sections = [];
-  const lines = content.split('\n');
-  const lineByteOffsets = [0];
+  const sections = [],
+    lines = content.split('\n'),
+    lineByteOffsets = [0];
   for (let l = 0; l < lines.length; l++) {
     lineByteOffsets.push(lineByteOffsets[l] + lines[l].length + 1);
   }
@@ -68,13 +68,13 @@ function parseMarkdownSections(content, filePath) {
     i++;
   }
 
-  let currentSection = null;
-  let hasHeadings = false;
+  let currentSection = null,
+    hasHeadings = false;
 
   while (i < lines.length) {
-    const line = lines[i];
-    const atxMatch = line.match(/^(#{1,6})\s+(.+)$/);
-    const setextMatch = i + 1 < lines.length && (lines[i + 1].match(/^={3,}\s*$/) || lines[i + 1].match(/^-{3,}\s*$/));
+    const line = lines[i],
+      atxMatch = line.match(/^(#{1,6})\s+(.+)$/),
+      setextMatch = i + 1 < lines.length && (lines[i + 1].match(/^={3,}\s*$/) || lines[i + 1].match(/^-{3,}\s*$/));
 
     if (atxMatch) {
       hasHeadings = true;

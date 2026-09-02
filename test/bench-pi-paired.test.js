@@ -5,36 +5,35 @@ const { buildSummary, parsePiOutput } = require('../bench/bench-pi-paired.js');
 describe('bench pi paired parser', () => {
   it('counts usage once when Pi repeats it for the same response', () => {
     const raw = [
-      JSON.stringify({
-        type: 'message_end',
-        message: {
-          role: 'assistant',
-          responseId: 'resp_1',
-          usage: { input: 100, output: 20, cacheRead: 30, cacheWrite: 40, cost: { total: 0.12 } },
-          content: [{ type: 'text', text: 'First final answer.' }],
-        },
-      }),
-      JSON.stringify({
-        type: 'turn_end',
-        message: {
-          role: 'assistant',
-          responseId: 'resp_1',
-          usage: { input: 100, output: 20, cacheRead: 30, cacheWrite: 40, cost: { total: 0.12 } },
-          content: [{ type: 'text', text: 'First final answer.' }],
-        },
-      }),
-      JSON.stringify({
-        type: 'message_end',
-        message: {
-          role: 'assistant',
-          responseId: 'resp_2',
-          usage: { input_tokens: 50, output_tokens: 10, cache_read_tokens: 5 },
-          content: 'Second final answer.',
-        },
-      }),
-    ].join('\n');
-
-    const parsed = parsePiOutput(raw);
+        JSON.stringify({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            responseId: 'resp_1',
+            usage: { input: 100, output: 20, cacheRead: 30, cacheWrite: 40, cost: { total: 0.12 } },
+            content: [{ type: 'text', text: 'First final answer.' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'turn_end',
+          message: {
+            role: 'assistant',
+            responseId: 'resp_1',
+            usage: { input: 100, output: 20, cacheRead: 30, cacheWrite: 40, cost: { total: 0.12 } },
+            content: [{ type: 'text', text: 'First final answer.' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            responseId: 'resp_2',
+            usage: { input_tokens: 50, output_tokens: 10, cache_read_tokens: 5 },
+            content: 'Second final answer.',
+          },
+        }),
+      ].join('\n'),
+      parsed = parsePiOutput(raw);
 
     expect(parsed.usage.input_tokens).toBe(150);
     expect(parsed.usage.output_tokens).toBe(30);
@@ -53,29 +52,28 @@ describe('bench pi paired parser', () => {
 
   it('separates final answer tokens from setup/tool-call overhead', () => {
     const raw = [
-      JSON.stringify({
-        type: 'message_end',
-        message: {
-          role: 'assistant',
-          responseId: 'resp_setup',
-          usage: { input: 1000, output: 25 },
-          content: [{ type: 'toolCall', id: 'call_1', name: 'read', arguments: { path: 'skill.md' } }],
-        },
-      }),
-      JSON.stringify({ type: 'tool_execution_start', toolName: 'read' }),
-      JSON.stringify({ type: 'tool_execution_end', toolName: 'read', result: { content: [] } }),
-      JSON.stringify({
-        type: 'message_end',
-        message: {
-          role: 'assistant',
-          responseId: 'resp_answer',
-          usage: { input: 10, output: 40, cacheRead: 200 },
-          content: [{ type: 'text', text: 'Final answer.' }],
-        },
-      }),
-    ].join('\n');
-
-    const parsed = parsePiOutput(raw);
+        JSON.stringify({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            responseId: 'resp_setup',
+            usage: { input: 1000, output: 25 },
+            content: [{ type: 'toolCall', id: 'call_1', name: 'read', arguments: { path: 'skill.md' } }],
+          },
+        }),
+        JSON.stringify({ type: 'tool_execution_start', toolName: 'read' }),
+        JSON.stringify({ type: 'tool_execution_end', toolName: 'read', result: { content: [] } }),
+        JSON.stringify({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            responseId: 'resp_answer',
+            usage: { input: 10, output: 40, cacheRead: 200 },
+            content: [{ type: 'text', text: 'Final answer.' }],
+          },
+        }),
+      ].join('\n'),
+      parsed = parsePiOutput(raw);
 
     expect(parsed.usage.active_tokens).toBe(1075);
     expect(parsed.usage.effective_tokens).toBe(1275);
@@ -88,33 +86,32 @@ describe('bench pi paired parser', () => {
 
   it('classifies usage as answer tokens when text arrives in streamed updates before usage', () => {
     const raw = [
-      JSON.stringify({
-        type: 'message_start',
-        message: {
-          role: 'assistant',
-          responseId: 'resp_answer',
-        },
-      }),
-      JSON.stringify({
-        type: 'message_update',
-        message: {
-          role: 'assistant',
-          responseId: 'resp_answer',
-          content: [{ type: 'text', text: 'Streamed final answer.' }],
-        },
-      }),
-      JSON.stringify({
-        type: 'message_end',
-        message: {
-          role: 'assistant',
-          responseId: 'resp_answer',
-          usage: { input: 100, output: 25 },
-          content: [],
-        },
-      }),
-    ].join('\n');
-
-    const parsed = parsePiOutput(raw);
+        JSON.stringify({
+          type: 'message_start',
+          message: {
+            role: 'assistant',
+            responseId: 'resp_answer',
+          },
+        }),
+        JSON.stringify({
+          type: 'message_update',
+          message: {
+            role: 'assistant',
+            responseId: 'resp_answer',
+            content: [{ type: 'text', text: 'Streamed final answer.' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            responseId: 'resp_answer',
+            usage: { input: 100, output: 25 },
+            content: [],
+          },
+        }),
+      ].join('\n'),
+      parsed = parsePiOutput(raw);
 
     expect(parsed.usage.answer_active_tokens).toBe(125);
     expect(parsed.usage.setup_active_tokens).toBe(0);
@@ -124,15 +121,14 @@ describe('bench pi paired parser', () => {
 
   it('flags streamed final answers that do not have matching usage events', () => {
     const raw = JSON.stringify({
-      type: 'message_update',
-      message: {
-        role: 'assistant',
-        responseId: 'resp_answer',
-        content: [{ type: 'text', text: 'Final answer without usage.' }],
-      },
-    });
-
-    const parsed = parsePiOutput(raw);
+        type: 'message_update',
+        message: {
+          role: 'assistant',
+          responseId: 'resp_answer',
+          content: [{ type: 'text', text: 'Final answer without usage.' }],
+        },
+      }),
+      parsed = parsePiOutput(raw);
 
     expect(parsed.usage.answer_active_tokens).toBe(0);
     expect(parsed.behavior.missing_answer_usage_responses).toBe(1);
@@ -141,31 +137,30 @@ describe('bench pi paired parser', () => {
 
   it('does not grade structured Pi error transcripts as answers', () => {
     const raw = [
-      JSON.stringify({
-        type: 'message_start',
-        message: {
-          role: 'user',
-          content: [{ type: 'text', text: 'Question mentioning rankObservations and typeBoost.' }],
-        },
-      }),
-      JSON.stringify({
-        type: 'message_end',
-        message: {
-          role: 'assistant',
-          content: [],
-          stopReason: 'error',
-          errorMessage: 'Connection error.',
-          usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        },
-      }),
-      JSON.stringify({
-        type: 'auto_retry_end',
-        success: false,
-        finalError: 'Connection error.',
-      }),
-    ].join('\n');
-
-    const parsed = parsePiOutput(raw);
+        JSON.stringify({
+          type: 'message_start',
+          message: {
+            role: 'user',
+            content: [{ type: 'text', text: 'Question mentioning rankObservations and typeBoost.' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            content: [],
+            stopReason: 'error',
+            errorMessage: 'Connection error.',
+            usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          },
+        }),
+        JSON.stringify({
+          type: 'auto_retry_end',
+          success: false,
+          finalError: 'Connection error.',
+        }),
+      ].join('\n'),
+      parsed = parsePiOutput(raw);
 
     expect(parsed.answer).toBe('');
     expect(parsed.behavior.error_events).toBe(2);
@@ -174,36 +169,35 @@ describe('bench pi paired parser', () => {
 
   it('counts executed tools from Pi tool execution events', () => {
     const raw = [
-      JSON.stringify({
-        type: 'message_end',
-        message: {
-          role: 'assistant',
-          responseId: 'resp_tool',
-          usage: { input: 10, output: 5 },
-          content: [{ type: 'toolCall', id: 'call_1', name: 'memory-code', arguments: { mode: 'search' } }],
-        },
-      }),
-      JSON.stringify({
-        type: 'tool_execution_start',
-        toolCallId: 'call_1',
-        toolName: 'memory-code',
-        args: { mode: 'search' },
-      }),
-      JSON.stringify({
-        type: 'tool_execution_end',
-        toolCallId: 'call_1',
-        toolName: 'memory-code',
-        result: { content: [] },
-      }),
-      JSON.stringify({
-        type: 'tool_execution_start',
-        toolCallId: 'call_2',
-        toolName: 'read',
-        args: { path: 'src/memory-domain/search.js', offset: 45, limit: 40 },
-      }),
-    ].join('\n');
-
-    const parsed = parsePiOutput(raw);
+        JSON.stringify({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            responseId: 'resp_tool',
+            usage: { input: 10, output: 5 },
+            content: [{ type: 'toolCall', id: 'call_1', name: 'memory-code', arguments: { mode: 'search' } }],
+          },
+        }),
+        JSON.stringify({
+          type: 'tool_execution_start',
+          toolCallId: 'call_1',
+          toolName: 'memory-code',
+          args: { mode: 'search' },
+        }),
+        JSON.stringify({
+          type: 'tool_execution_end',
+          toolCallId: 'call_1',
+          toolName: 'memory-code',
+          result: { content: [] },
+        }),
+        JSON.stringify({
+          type: 'tool_execution_start',
+          toolCallId: 'call_2',
+          toolName: 'read',
+          args: { path: 'src/memory-domain/search.js', offset: 45, limit: 40 },
+        }),
+      ].join('\n'),
+      parsed = parsePiOutput(raw);
 
     expect(parsed.tool_counts).toEqual({
       'memory-code': 1,
