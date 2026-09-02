@@ -13,12 +13,15 @@ function buildSectionHierarchy(sections) {
 }
 
 function buildOutlineTree(sections) {
-  const byId = new Map();
-  for (const s of sections) {
-    byId.set(s.id, { ...s, children: [] });
-  }
-  const roots = [];
-  for (const s of sections) {
+  const byId = new Map(),
+  roots = (() => {
+
+    for (const s of sections) {
+      byId.set(s.id, { ...s, children: [] });
+    }
+    
+  return ([]);
+})();for (const s of sections) {
     const node = byId.get(s.id);
     if (s.parent_id && byId.has(s.parent_id)) {
       byId.get(s.parent_id).children.push(node);

@@ -130,11 +130,14 @@ describe('Error patterns and DB isolation', () => {
 
   describe('db.js — atomic migrations (Issue #35)', () => {
     it('should report migration status when up-to-date', () => {
-      const result = dbModule.ensureDb();
-      expect(result.ok).toBe(true);
+      const result = dbModule.ensureDb(),
+      rows = (() => {
 
-      const rows = dbModule.sqlJson('PRAGMA user_version');
-      expect(rows[0].user_version).toBeGreaterThanOrEqual(6);
+        expect(result.ok).toBe(true);
+  
+        
+  return (dbModule.sqlJson('PRAGMA user_version'));
+})();expect(rows[0].user_version).toBeGreaterThanOrEqual(6);
     });
 
     it('migrations should not silently swallow errors', () => {

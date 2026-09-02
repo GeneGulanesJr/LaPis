@@ -14,22 +14,25 @@ function checkTrajectory(parsedOutput) {
 
   let readCount = 0,
     editCount = 0,
-    bashCount = 0;
+    bashCount = 0,
+  readEditRatio = (() => {
 
-  for (const [tool, count] of Object.entries(toolCounts)) {
-    if (READ_TOOLS.has(tool)) {
-      readCount += count;
+  
+    for (const [tool, count] of Object.entries(toolCounts)) {
+      if (READ_TOOLS.has(tool)) {
+        readCount += count;
+      }
+      if (EDIT_TOOLS.has(tool)) {
+        editCount += count;
+      }
+      if (tool === BASH_TOOL) {
+        bashCount += count;
+      }
     }
-    if (EDIT_TOOLS.has(tool)) {
-      editCount += count;
-    }
-    if (tool === BASH_TOOL) {
-      bashCount += count;
-    }
-  }
-
-  let readEditRatio = 0;
-  if (editCount > 0) {
+  
+    
+  return (0);
+})();if (editCount > 0) {
     readEditRatio = readCount / (readCount + editCount);
   } else if (readCount > 0) {
     readEditRatio = 1;

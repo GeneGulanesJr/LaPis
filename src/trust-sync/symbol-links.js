@@ -77,12 +77,12 @@ function linkSymbol(deps, args) {
 }
 
 function autoLink(deps, args) {
-  const project = args.project;
+  const project = args.project,
+  repository = project ? (getTrustSyncRepository(deps, ['findUnlinked', 'insertSymbolLink'])) : undefined,
+  unlinked = project ? (repository.findUnlinked(project)) : undefined;
   if (!project) {
     return deps.jsonErrNoExit('--project required');
   }
-  const repository = getTrustSyncRepository(deps, ['findUnlinked', 'insertSymbolLink']),
-    unlinked = repository.findUnlinked(project);
   let linked = 0;
   for (const row of unlinked) {
     repository.insertSymbolLink({
@@ -99,11 +99,11 @@ function autoLink(deps, args) {
 function adjustTrust(deps, args) {
   const memoryId = args['memory-id'] || args.memoryId,
     delta = parseFloat(args.delta || '0'),
-    reason = args.reason || 'manual';
+    reason = args.reason || 'manual',
+  newTrust = memoryId ? (getTrustSyncRepository(deps, ['adjustTrust']).adjustTrust({ memoryId, delta, reason })) : undefined;
   if (!memoryId) {
     return deps.jsonErrNoExit('--memory-id required');
   }
-  const newTrust = getTrustSyncRepository(deps, ['adjustTrust']).adjustTrust({ memoryId, delta, reason });
   if (newTrust === null) {
     return { ok: true, memoryId, newTrust: null, delta, reason, warning: 'No symbol link found for this memory' };
   }
@@ -121,22 +121,22 @@ function recordRecall(deps, args) {
 }
 
 function staleLinks(deps, args) {
-  const repo = args.repo;
+  const repo = args.repo,
+  links = repo ? (getTrustSyncRepository(deps, ['getStaleLinks']).getStaleLinks(repo)) : undefined;
   if (!repo) {
     return deps.jsonErrNoExit('--repo required');
   }
-  const links = getTrustSyncRepository(deps, ['getStaleLinks']).getStaleLinks(repo);
   return { links, total: links.length };
 }
 
 function syncCodeTrust(deps, args) {
-  const repo = args.repo;
+  const repo = args.repo,
+  detected = repo ? (detectChangedSymbols(deps, repo)) : undefined;
   if (!repo) {
     return deps.jsonErrNoExit('Missing --repo');
   }
 
   // Try new git-based detection first
-  const detected = detectChangedSymbols(deps, repo);
   if (detected.error) {
     return detected.error;
   }
@@ -181,11 +181,14 @@ function syncCodeTrust(deps, args) {
       }
       deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE name = ?', [detected.new_head, repo]);
     },
-    tx = deps.withTransaction || require('../../db').withTransaction;
-  tx(applyTrustUpdates);
+    tx = deps.withTransaction || require('../../db').withTransaction,
+  result = (() => {
 
-  const result = stripOperations(evaluated);
-  result.changed_symbols = detected.changedSet.size;
+    tx(applyTrustUpdates);
+  
+    
+  return (stripOperations(evaluated));
+})();result.changed_symbols = detected.changedSet.size;
   result.changed_files = detected.changed_files;
   result.old_head = detected.old_head;
   result.new_head = detected.new_head;
@@ -193,17 +196,17 @@ function syncCodeTrust(deps, args) {
 }
 
 function trustRecovery(deps, args) {
-  const sessionId = parseInt(args.session, 10);
+  const sessionId = parseInt(args.session, 10),
+  repository = sessionId ? (getTrustSyncRepository(deps, [
+      'getRecalledMemoryIds',
+      'updateLinkTrustByMemoryId',
+      'insertTrustAdjustment',
+    ])) : undefined,
+  recalled = sessionId ? (repository.getRecalledMemoryIds(sessionId)) : undefined;
   if (!sessionId) {
     return deps.jsonErrNoExit('Missing --session');
   }
 
-  const repository = getTrustSyncRepository(deps, [
-      'getRecalledMemoryIds',
-      'updateLinkTrustByMemoryId',
-      'insertTrustAdjustment',
-    ]),
-    recalled = repository.getRecalledMemoryIds(sessionId);
   let recovered = 0;
   for (const row of recalled) {
     const memoryId = String(row.memory_id);

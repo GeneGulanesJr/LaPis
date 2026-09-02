@@ -110,17 +110,20 @@ describe('correctness review fixes (round 2) — source-level', () => {
 
   // ── F20: user-prompt-submit logs errors on assembleContextLines failure ──
   it('F20: user-prompt-submit logs via console.error for assembleContextLines failures', () => {
-    const src = fs.readFileSync(require.resolve('../src/claude-code/handlers/user-prompt-submit'), 'utf8');
-    expect(src).toContain('console.error');
-    expect(src).toContain('assembleContextLines failed');
-    // The specific catch on the assembleContextLines(...) call must NOT be a
-    // Silent `() => null` swallow — it must take the error and log it.
-    const assembleIdx = src.indexOf('assembleContextLines({');
-    if (assembleIdx === -1) {
+    const src = fs.readFileSync(require.resolve('../src/claude-code/handlers/user-prompt-submit'), 'utf8'),
+    assembleIdx = (() => {
+
+      expect(src).toContain('console.error');
+      expect(src).toContain('assembleContextLines failed');
+      // The specific catch on the assembleContextLines(...) call must NOT be a
+      // Silent `() => null` swallow — it must take the error and log it.
+      
+  return (src.indexOf('assembleContextLines({'));
+})(),
+    snippet = !(assembleIdx === -1) ? (src.slice(assembleIdx, assembleIdx + 800)) : undefined;if (assembleIdx === -1) {
       throw new Error('could not locate assembleContextLines({ call');
     }
     // Find the closing `)` of the .catch chained onto that call.
-    const snippet = src.slice(assembleIdx, assembleIdx + 800);
     expect(snippet).toMatch(/\.catch\(\s*\(err\)\s*=>/);
   });
 
@@ -180,30 +183,36 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
       );
       const fileId = dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [
         repoId,
-      ])[0].id;
+      ])[0].id,
+      result = (() => {
 
-      dbModule.sqlRun(
-        `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
-          start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
-          stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
-         VALUES (?, ?, ?, 'validateUser', 'function', '() => void', 'validateUser',
-          1, 1, 0, 50, '', '', 'javascript', '', '', 'h1', '', '[]', '[]', '[]', '')`,
-        [repoId, fileId, `/tmp/${repoName}/internal.js`],
-      );
-
-      dbModule.sqlRun(
-        `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id,
-          source_name, source_module, line_start, line_end, scope_depth)
-         VALUES (?, ?, 'validateUser', 're_export', 'external_file', ?, 'validateUser',
-          './internal', 1, 1, 0)`,
-        [repoId, fileId, fileId],
-      );
-
-      const result = getDeadCode(dbModule.getDb(), repoId, { includeTests: true });
-      expect(result).toBeDefined();
-      expect(Array.isArray(result.dead_symbols)).toBe(true);
-      const sym = result.dead_symbols.find((s) => s.name === 'validateUser');
-      if (sym) {
+  
+        dbModule.sqlRun(
+          `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
+            start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
+            stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
+           VALUES (?, ?, ?, 'validateUser', 'function', '() => void', 'validateUser',
+            1, 1, 0, 50, '', '', 'javascript', '', '', 'h1', '', '[]', '[]', '[]', '')`,
+          [repoId, fileId, `/tmp/${repoName}/internal.js`],
+        );
+  
+        dbModule.sqlRun(
+          `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id,
+            source_name, source_module, line_start, line_end, scope_depth)
+           VALUES (?, ?, 'validateUser', 're_export', 'external_file', ?, 'validateUser',
+            './internal', 1, 1, 0)`,
+          [repoId, fileId, fileId],
+        );
+  
+        
+  return (getDeadCode(dbModule.getDb(), repoId, { includeTests: true }));
+})(),
+      sym = (() => {
+expect(result).toBeDefined();
+        expect(Array.isArray(result.dead_symbols)).toBe(true);
+        
+  return (result.dead_symbols.find((s) => s.name === 'validateUser'));
+})();if (sym) {
         // When the symbol IS re-exported, the dead-code detector must
         // Either omit it entirely (confidence < threshold) or include the
         // 're_exported' signal with reduced confidence.
@@ -356,20 +365,22 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
       const repoId = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
         repoName,
         `/tmp/${repoName}`,
-      ])[0].id;
+      ])[0].id,
+      coreFileId = (() => {
 
-      dbModule.sqlRun(
-        `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
-         VALUES (?, ?, 'javascript',
-          'export function criticalFunction() { return 1; }',
-          'core-h', 1000, 100, 1)`,
-        [repoId, `/tmp/${repoName}/src/core.js`],
-      );
-      const coreFileId = dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [
+  
+        dbModule.sqlRun(
+          `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
+           VALUES (?, ?, 'javascript',
+            'export function criticalFunction() { return 1; }',
+            'core-h', 1000, 100, 1)`,
+          [repoId, `/tmp/${repoName}/src/core.js`],
+        );
+        
+  return (dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [
         repoId,
-      ])[0].id;
-
-      dbModule.sqlRun(
+      ])[0].id);
+})(); dbModule.sqlRun(
         `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
           start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
           stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
@@ -380,20 +391,22 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
       const targetSym = dbModule.sqlJson('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?', [
         repoId,
         'criticalFunction',
-      ])[0].id;
+      ])[0].id,
+      testFileId = (() => {
 
-      dbModule.sqlRun(
-        `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
-         VALUES (?, ?, 'javascript',
-          'test("critical", () => { criticalFunction(); });',
-          'api-h', 1000, 100, 1)`,
-        [repoId, `/tmp/${repoName}/test/api.test.js`],
-      );
-      const testFileId = dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [
+  
+        dbModule.sqlRun(
+          `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
+           VALUES (?, ?, 'javascript',
+            'test("critical", () => { criticalFunction(); });',
+            'api-h', 1000, 100, 1)`,
+          [repoId, `/tmp/${repoName}/test/api.test.js`],
+        );
+        
+  return (dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [
         repoId,
-      ])[0].id;
-
-      dbModule.sqlRun(
+      ])[0].id);
+})(); dbModule.sqlRun(
         `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
           start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
           stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
@@ -404,16 +417,19 @@ describeIfSqlite('correctness review fixes (round 2) — integration', () => {
       const testCaller = dbModule.sqlJson('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?', [
         repoId,
         'runApiTest',
-      ])[0].id;
+      ])[0].id,
+      result = (() => {
 
-      dbModule.sqlRun(
-        `INSERT INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number)
-         VALUES (?, ?, 'criticalFunction', ?, 1.0, 1)`,
-        [repoId, testCaller, targetSym],
-      );
-
-      const result = blastRadius(dbModule.getDb(), repoId, 'criticalFunction');
-      expect(result.error).toBeUndefined();
+  
+        dbModule.sqlRun(
+          `INSERT INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number)
+           VALUES (?, ?, 'criticalFunction', ?, 1.0, 1)`,
+          [repoId, testCaller, targetSym],
+        );
+  
+        
+  return (blastRadius(dbModule.getDb(), repoId, 'criticalFunction'));
+})();expect(result.error).toBeUndefined();
       expect(result.tests_likely_affected).toBeDefined();
       expect(result.tests_likely_affected.length).toBe(1);
       expect(result.tests_likely_affected[0]).toMatch(/api\.test\.js$/);

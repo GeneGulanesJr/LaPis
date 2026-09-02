@@ -76,22 +76,22 @@ export function registerDocTools(pi: ExtensionAPI, deps: DocDeps) {
             'index-docs': 'index-docs',
             'reindex-docs': 'reindex-docs',
           },
-          mode = typeof params.mode === 'string' ? params.mode : '';
+          mode = typeof params.mode === 'string' ? params.mode : '',
+        cmd = mode ? (cmdMap[mode]) : undefined;
         if (!mode) {
           return toolTextResult(docHelpText());
         }
 
-        const cmd = cmdMap[mode];
         if (!cmd) {
           return toolTextResult(`Unknown memory-doc mode: ${mode}\n\n${docHelpText()}`, {}, true);
         }
 
-        const validationError = validateDocParams(mode, params);
+        const validationError = validateDocParams(mode, params),
+        args = !(validationError) ? ({}) : undefined;
         if (validationError) {
           return toolTextResult(validationError, {}, true);
         }
 
-        const args: Record<string, string> = {};
         if (params.repo) {
           args.repo = params.repo;
         }

@@ -54,12 +54,15 @@ describe('code-analysis: import-graph', () => {
   });
 
   it('should list repo-wide edges with source/target/type', () => {
-    const r = run(`import-graph --repo ${REPO}`);
-    expect(r.error).toBeUndefined();
-    expect(Array.isArray(r.edges)).toBe(true);
-    expect(r.edges.length).toBeGreaterThan(0);
-    const edge = r.edges[0];
-    expect(edge.source).toBeTruthy();
+    const r = run(`import-graph --repo ${REPO}`),
+    edge = (() => {
+
+      expect(r.error).toBeUndefined();
+      expect(Array.isArray(r.edges)).toBe(true);
+      expect(r.edges.length).toBeGreaterThan(0);
+      
+  return (r.edges[0]);
+})();expect(edge.source).toBeTruthy();
     expect(edge.target).toBeTruthy();
     expect(edge.type).toBeTruthy();
   });
@@ -109,10 +112,13 @@ describe('code-analysis: dead-code', () => {
 
 describe('code-analysis: complexity', () => {
   it('should return complexity data for the whole repo', () => {
-    const r = run(`complexity --repo ${REPO}`);
-    expect(r.error).toBeUndefined();
-    const list = Array.isArray(r) ? r : [r];
-    expect(list.length).toBeGreaterThan(0);
+    const r = run(`complexity --repo ${REPO}`),
+    list = (() => {
+
+      expect(r.error).toBeUndefined();
+      
+  return (Array.isArray(r) ? r : [r]);
+})();expect(list.length).toBeGreaterThan(0);
     // Every entry should have cyclomatic complexity
     for (const item of list) {
       expect(typeof item.cyclomatic).toBe('number');
@@ -140,12 +146,15 @@ describe('code-analysis: complexity', () => {
 
 describe('code-analysis: outline', () => {
   it('should return file outline with standalone symbols', () => {
-    const r = run(`outline --repo ${REPO} --file src/code-analysis/complexity-impl.js`);
-    expect(r.error).toBeUndefined();
-    expect(Array.isArray(r.standalone)).toBe(true);
-    expect(r.standalone.length).toBeGreaterThan(0);
-    const first = r.standalone[0];
-    expect(first.name).toBeTruthy();
+    const r = run(`outline --repo ${REPO} --file src/code-analysis/complexity-impl.js`),
+    first = (() => {
+
+      expect(r.error).toBeUndefined();
+      expect(Array.isArray(r.standalone)).toBe(true);
+      expect(r.standalone.length).toBeGreaterThan(0);
+      
+  return (r.standalone[0]);
+})();expect(first.name).toBeTruthy();
   });
 
   it('should return a bounded directory summary for broad paths', () => {
@@ -215,11 +224,14 @@ describe('code-analysis: coupling', () => {
   });
 
   it('should categorize files as stable/balanced/unstable', () => {
-    const r = run(`coupling --repo ${REPO}`);
-    expect(r.error).toBeUndefined();
-    expect(r.metrics.length).toBeGreaterThan(0);
-    const categories = new Set(r.metrics.map((m) => m.category));
-    for (const c of categories) {
+    const r = run(`coupling --repo ${REPO}`),
+    categories = (() => {
+
+      expect(r.error).toBeUndefined();
+      expect(r.metrics.length).toBeGreaterThan(0);
+      
+  return (new Set(r.metrics.map((m) => m.category)));
+})();for (const c of categories) {
       expect(['stable', 'balanced', 'unstable']).toContain(c);
     }
   });
@@ -360,10 +372,13 @@ describe('code-analysis: untested (v6)', () => {
   });
 
   it('should exclude private symbols by default', () => {
-    const r = run(`untested --repo ${REPO} --min-confidence 0.3`);
-    expect(r.error).toBeUndefined();
-    const privateSyms = (r.untested || []).filter((s) => s.name.startsWith('_'));
-    expect(privateSyms.length).toBe(0);
+    const r = run(`untested --repo ${REPO} --min-confidence 0.3`),
+    privateSyms = (() => {
+
+      expect(r.error).toBeUndefined();
+      
+  return ((r.untested || []).filter((s) => s.name.startsWith('_')));
+})();expect(privateSyms.length).toBe(0);
   });
 
   it('should include private symbols when requested', () => {
@@ -382,14 +397,17 @@ describe('code-analysis: untested (v6)', () => {
 
 describe('code-analysis: pr-risk (v6)', () => {
   it('should compute risk profile with signal breakdown', () => {
-    const r = run(`pr-risk --repo ${REPO}`);
-    expect(r.error).toBeUndefined();
-    expect(r.signals).toBeDefined();
-    expect(typeof r.composite).toBe('number');
-    expect(['low', 'medium', 'high', 'critical']).toContain(r.risk_level);
-    // Signal count: may be empty if no changes between HEAD and main
-    const signalKeys = Object.keys(r.signals);
-    expect(signalKeys.length).toBeGreaterThanOrEqual(0);
+    const r = run(`pr-risk --repo ${REPO}`),
+    signalKeys = (() => {
+
+      expect(r.error).toBeUndefined();
+      expect(r.signals).toBeDefined();
+      expect(typeof r.composite).toBe('number');
+      expect(['low', 'medium', 'high', 'critical']).toContain(r.risk_level);
+      // Signal count: may be empty if no changes between HEAD and main
+      
+  return (Object.keys(r.signals));
+})();expect(signalKeys.length).toBeGreaterThanOrEqual(0);
     for (const key of signalKeys) {
       expect(r.signals[key]).toBeGreaterThanOrEqual(0);
       expect(r.signals[key]).toBeLessThanOrEqual(1);
@@ -397,12 +415,15 @@ describe('code-analysis: pr-risk (v6)', () => {
   });
 
   it('should report changed files and symbols count', () => {
-    const r = run(`pr-risk --repo ${REPO}`);
-    expect(r.error).toBeUndefined();
-    // Pr-risk returns { signals: {}, risk_level, composite, changed_files }
-    // Changed_files is a top-level field
-    const changedFiles = r.changed_files ?? r.signals?.changed_files;
-    expect(changedFiles !== undefined || r.note !== undefined).toBe(true);
+    const r = run(`pr-risk --repo ${REPO}`),
+    changedFiles = (() => {
+
+      expect(r.error).toBeUndefined();
+      // Pr-risk returns { signals: {}, risk_level, composite, changed_files }
+      // Changed_files is a top-level field
+      
+  return (r.changed_files ?? r.signals?.changed_files);
+})();expect(changedFiles !== undefined || r.note !== undefined).toBe(true);
   });
 
   it('should guard against missing db', () => {

@@ -77,14 +77,17 @@ describe('updateObservation versioning', () => {
         scope: 'project',
         topicKey: null,
       }),
-      id = inserted[0].id;
+      id = inserted[0].id,
+    versions = (() => {
 
-    updateObservation(deps, { id, title: 'New title' });
-
-    const versions = deps.sqlJson('SELECT field, old_value, new_value FROM observation_versions WHERE memory_id = ?', [
+  
+      updateObservation(deps, { id, title: 'New title' });
+  
+      
+  return (deps.sqlJson('SELECT field, old_value, new_value FROM observation_versions WHERE memory_id = ?', [
       id,
-    ]);
-    expect(versions).toHaveLength(1);
+    ]));
+})();expect(versions).toHaveLength(1);
     expect(versions[0].field).toBe('title');
     expect(versions[0].old_value).toBe('Old title');
     expect(versions[0].new_value).toBe('New title');
@@ -100,12 +103,15 @@ describe('updateObservation versioning', () => {
         scope: 'project',
         topicKey: null,
       }),
-      id = inserted[0].id;
+      id = inserted[0].id,
+    versions = (() => {
 
-    updateObservation(deps, { id, title: 'New', content: 'new content' });
-
-    const versions = deps.sqlJson('SELECT field FROM observation_versions WHERE memory_id = ? ORDER BY field', [id]);
-    expect(versions).toHaveLength(2);
+  
+      updateObservation(deps, { id, title: 'New', content: 'new content' });
+  
+      
+  return (deps.sqlJson('SELECT field FROM observation_versions WHERE memory_id = ? ORDER BY field', [id]));
+})();expect(versions).toHaveLength(2);
     expect(versions.map((v) => v.field)).toEqual(['content', 'title']);
   });
 
@@ -120,11 +126,14 @@ describe('updateObservation versioning', () => {
         topicKey: null,
       }),
       id = inserted[0].id,
-      result = updateObservation(deps, { id });
-    expect(result).toBeNull();
+      result = updateObservation(deps, { id }),
+    versions = (() => {
 
-    const versions = deps.sqlJson('SELECT * FROM observation_versions WHERE memory_id = ?', [id]);
-    expect(versions).toHaveLength(0);
+      expect(result).toBeNull();
+  
+      
+  return (deps.sqlJson('SELECT * FROM observation_versions WHERE memory_id = ?', [id]));
+})();expect(versions).toHaveLength(0);
   });
 });
 
@@ -174,11 +183,14 @@ describe('memory-get includes version history', () => {
         scope: 'project',
         topicKey: null,
       }),
-      id = inserted[0].id;
+      id = inserted[0].id,
+    result = (() => {
 
-    updateObservation(deps, { id, title: 'V2' });
-    const result = get(deps, { id: String(id) });
-    expect(result.versions).toHaveLength(1);
+  
+      updateObservation(deps, { id, title: 'V2' });
+      
+  return (get(deps, { id: String(id) }));
+})();expect(result.versions).toHaveLength(1);
     expect(result.versions[0].field).toBe('title');
     expect(result.versions[0].old_value).toBe('V1');
     expect(result.versions[0].new_value).toBe('V2');

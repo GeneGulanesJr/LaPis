@@ -169,12 +169,14 @@ function resolveSymbolTarget(db, repoId, symbolQuery, fileHint) {
       // Slightly prefer symbols earlier in the repo (lower file path)
       score -= row.file_path.length * 0.01;
       return { row, score };
-    });
+    }),
+  best = (() => {
 
-  ranked.sort((a, b) => b.score - a.score);
-  const best = ranked[0].row;
-
-  return {
+  
+    ranked.sort((a, b) => b.score - a.score);
+    
+  return (ranked[0].row);
+})(); return {
     symbol: best.name,
     qualified_name: best.qualified_name,
     kind: best.kind,
@@ -247,43 +249,46 @@ function findLikelyTests(db, repoId, target, top) {
       if (!item.line && line) {
         item.line = line;
       }
-    };
+    },
+  baseName = (() => {
 
-  if (target.symbol_id) {
-    const callers = db
-      .prepare(
-        `SELECT DISTINCT cf.path, cc.line_number
-         FROM code_calls cc
-         JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
-         JOIN code_files cf ON cf.id = cs.file_id
-         WHERE cc.repo_id = ? AND cc.callee_symbol_id = ? AND ${testPathSql('cf.path')}
-         ORDER BY cf.path
-         LIMIT ?`,
-      )
-      .all(repoId, target.symbol_id, top);
-    for (const row of callers) {
-      add(row.path, 'calls target symbol', row.line_number);
+  
+    if (target.symbol_id) {
+      const callers = db
+        .prepare(
+          `SELECT DISTINCT cf.path, cc.line_number
+           FROM code_calls cc
+           JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
+           JOIN code_files cf ON cf.id = cs.file_id
+           WHERE cc.repo_id = ? AND cc.callee_symbol_id = ? AND ${testPathSql('cf.path')}
+           ORDER BY cf.path
+           LIMIT ?`,
+        )
+        .all(repoId, target.symbol_id, top);
+      for (const row of callers) {
+        add(row.path, 'calls target symbol', row.line_number);
+      }
     }
-  }
-
-  if (target.file_id) {
-    const importers = db
-      .prepare(
-        `SELECT DISTINCT sf.path, ci.line_number
-         FROM code_imports ci
-         JOIN code_files sf ON sf.id = ci.source_file_id
-         WHERE ci.repo_id = ? AND ci.target_file_id = ? AND ${testPathSql('sf.path')}
-         ORDER BY sf.path
-         LIMIT ?`,
-      )
-      .all(repoId, target.file_id, top);
-    for (const row of importers) {
-      add(row.path, 'imports target file', row.line_number);
+  
+    if (target.file_id) {
+      const importers = db
+        .prepare(
+          `SELECT DISTINCT sf.path, ci.line_number
+           FROM code_imports ci
+           JOIN code_files sf ON sf.id = ci.source_file_id
+           WHERE ci.repo_id = ? AND ci.target_file_id = ? AND ${testPathSql('sf.path')}
+           ORDER BY sf.path
+           LIMIT ?`,
+        )
+        .all(repoId, target.file_id, top);
+      for (const row of importers) {
+        add(row.path, 'imports target file', row.line_number);
+      }
     }
-  }
-
-  const baseName = basenameWithoutExt(target.file || target.symbol || '');
-  if (baseName) {
+  
+    
+  return (basenameWithoutExt(target.file || target.symbol || ''));
+})();if (baseName) {
     const nameMatches = db
       .prepare(
         `SELECT path FROM code_files

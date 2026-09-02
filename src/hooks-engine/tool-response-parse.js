@@ -87,15 +87,14 @@ function collectIds(text, re) {
  * @returns {number[]}
  */
 function parseMemoryIds(toolResponse) {
-  const text = extractToolResponseText(toolResponse);
+  const text = extractToolResponseText(toolResponse),
+  bracketed = text ? (collectIds(text, BRACKETED_ID_RE)) : undefined,
+  bare = text ? (collectIds(text, BARE_ID_RE)) : undefined,
+  seen = text ? (new Set(bracketed)) : undefined,
+  merged = text ? ([...bracketed]) : undefined;
   if (!text) {
     return [];
   }
-  const bracketed = collectIds(text, BRACKETED_ID_RE),
-    bare = collectIds(text, BARE_ID_RE),
-    // Union, bracketed first (they are the canonical list markers).
-    seen = new Set(bracketed),
-    merged = [...bracketed];
   for (const id of bare) {
     if (!seen.has(id)) {
       seen.add(id);
@@ -117,11 +116,11 @@ function parseMemoryIds(toolResponse) {
  * @returns {number[]}
  */
 function parseSearchResultIds(toolResponse) {
-  const text = extractToolResponseText(toolResponse);
+  const text = extractToolResponseText(toolResponse),
+  bracketed = text ? (collectIds(text, BRACKETED_ID_RE)) : undefined;
   if (!text) {
     return [];
   }
-  const bracketed = collectIds(text, BRACKETED_ID_RE);
   if (bracketed.length > 0) {
     return bracketed;
   }

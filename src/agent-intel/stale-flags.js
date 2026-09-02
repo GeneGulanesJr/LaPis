@@ -34,45 +34,48 @@ function scanFileForStaleFlags(filePath) {
 
   const content = fs.readFileSync(filePath, 'utf-8'),
     lines = content.split('\n'),
-    findings = [];
+    findings = [],
+  ternaryRegex = (() => {
 
-  // Pattern-based detection for constant conditions
-  for (const pattern of STALE_FLAG_PATTERNS) {
-    let match;
-    const regex = new RegExp(pattern.source, pattern.flags);
-    while ((match = regex.exec(content)) !== null) {
-      const lineNum = content.substring(0, match.index).split('\n').length,
-        line = lines[lineNum - 1]?.trim() || '';
-
-      findings.push({
-        filePath,
-        lineNumber: lineNum,
-        type: 'constant_condition',
-        context: line.substring(0, 100),
-      });
+  
+    // Pattern-based detection for constant conditions
+    for (const pattern of STALE_FLAG_PATTERNS) {
+      let match;
+      const regex = new RegExp(pattern.source, pattern.flags);
+      while ((match = regex.exec(content)) !== null) {
+        const lineNum = content.substring(0, match.index).split('\n').length,
+          line = lines[lineNum - 1]?.trim() || '';
+  
+        findings.push({
+          filePath,
+          lineNumber: lineNum,
+          type: 'constant_condition',
+          context: line.substring(0, 100),
+        });
+      }
     }
-  }
-
-  // Detect one-sided branches using dedicated patterns
-  for (const pattern of ONE_SIDED_IF_PATTERNS) {
-    let match;
-    const regex = new RegExp(pattern.source, pattern.flags || 'g');
-    while ((match = regex.exec(content)) !== null) {
-      const lineNum = content.substring(0, match.index).split('\n').length,
-        line = lines[lineNum - 1]?.trim() || '';
-
-      findings.push({
-        filePath,
-        lineNumber: lineNum,
-        type: 'one_sided_branch',
-        context: line.substring(0, 100),
-      });
+  
+    // Detect one-sided branches using dedicated patterns
+    for (const pattern of ONE_SIDED_IF_PATTERNS) {
+      let match;
+      const regex = new RegExp(pattern.source, pattern.flags || 'g');
+      while ((match = regex.exec(content)) !== null) {
+        const lineNum = content.substring(0, match.index).split('\n').length,
+          line = lines[lineNum - 1]?.trim() || '';
+  
+        findings.push({
+          filePath,
+          lineNumber: lineNum,
+          type: 'one_sided_branch',
+          context: line.substring(0, 100),
+        });
+      }
     }
-  }
-
-  // Check for one-sided ternaries: condition ? expr : expr (where expr is same)
-  const ternaryRegex = /(\w+)\s*\?\s*(\w+)\s*:\s*\w+/g;
-  let match;
+  
+    // Check for one-sided ternaries: condition ? expr : expr (where expr is same)
+    
+  return (/(\w+)\s*\?\s*(\w+)\s*:\s*\w+/g);
+})();let match;
   while ((match = ternaryRegex.exec(content)) !== null) {
     const [, condition] = match;
     // Check if the condition looks like a flag constant

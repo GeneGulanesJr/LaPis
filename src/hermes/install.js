@@ -178,27 +178,30 @@ async function runInstall(argv, io = {}) {
   // READ + WRITE phase: single read, then staged text edits, then one atomic
   // Write. A corrupt/absent config starts empty — install never crashes the
   // User's config, and only touches the keys LaPis owns.
-  let text = readText(paths.config);
+  let text = readText(paths.config),
+  skillInstalled = (() => {
 
-  text = upsertSubBlock(text, 'mcp_servers', flags.mcpName, mcpBodyLines(flags, home));
-  written.push(paths.config);
-
-  if (flags.hooks) {
-    for (const hook of HOOK_EVENTS) {
-      text = upsertListItem(text, 'hooks', hook.event, hookItemLines(hook), command);
-    }
-    text = upsertScalar(text, 'hooks_auto_accept', 'true');
+  
+    text = upsertSubBlock(text, 'mcp_servers', flags.mcpName, mcpBodyLines(flags, home));
     written.push(paths.config);
-    mergeAllowlist(paths.allowlist, command);
-    written.push(paths.allowlist);
-  }
-
-  if (text.trim() !== '') {
-    writeTextAtomic(paths.config, text);
-  }
-
-  let skillInstalled = false;
-  if (flags.skill && fs.existsSync(SKILL_SOURCE)) {
+  
+    if (flags.hooks) {
+      for (const hook of HOOK_EVENTS) {
+        text = upsertListItem(text, 'hooks', hook.event, hookItemLines(hook), command);
+      }
+      text = upsertScalar(text, 'hooks_auto_accept', 'true');
+      written.push(paths.config);
+      mergeAllowlist(paths.allowlist, command);
+      written.push(paths.allowlist);
+    }
+  
+    if (text.trim() !== '') {
+      writeTextAtomic(paths.config, text);
+    }
+  
+    
+  return (false);
+})();if (flags.skill && fs.existsSync(SKILL_SOURCE)) {
     fs.mkdirSync(path.dirname(paths.skillFile), { recursive: true });
     fs.copyFileSync(SKILL_SOURCE, paths.skillFile);
     written.push(paths.skillFile);

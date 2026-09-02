@@ -15,10 +15,13 @@ describe('async code indexing', () => {
   afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
   it('runs indexRepository via the async path and finishes a small repo', async () => {
-    const dbModule = require('../db');
-    dbModule.createDb({ memoryPath: ':memory:' });
-    const deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
-    const jobStore = require('../src/code-index/job-store'),
+    const dbModule = require('../db'),
+    deps = (() => {
+
+      dbModule.createDb({ memoryPath: ':memory:' });
+      
+  return ({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun });
+})();const jobStore = require('../src/code-index/job-store'),
       jobId = jobStore.createJob(deps, { repoName: 'tmprepo', mode: 'full', filesTotal: 0 });
 
     const { createJobQueue } = require('../src/code-index/job-queue'),

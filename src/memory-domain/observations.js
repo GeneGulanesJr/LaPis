@@ -93,16 +93,19 @@ function capturePassive(deps, args) {
   const section = match[1],
     itemRe = /(?:^|\n)\s*(?:[-*]|\d+[.)])\s*([^\n]*(?:\n(?!\s*(?:[-*]|\d+[.)])\s*)[^\n]*)*)/g,
     items = [];
-  let m;
-  while ((m = itemRe.exec(section)) !== null) {
-    const cleaned = m[1].replace(/\n\s+/g, ' ').trim();
-    if (cleaned) {
-      items.push(cleaned);
-    }
-  }
+  let m,
+  inserted = (() => {
 
-  let inserted = 0;
-  const sessionId = findLatestSession(null);
+    while ((m = itemRe.exec(section)) !== null) {
+      const cleaned = m[1].replace(/\n\s+/g, ' ').trim();
+      if (cleaned) {
+        items.push(cleaned);
+      }
+    }
+  
+    
+  return (0);
+})();const sessionId = findLatestSession(null);
   for (const item of items) {
     const summary =
       item.length > CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH

@@ -56,11 +56,11 @@ function extractKeywords(symbol, source) {
 }
 
 function makeSummary(symbol) {
-  const doc = (symbol.docstring || '').trim().split('\n').find(Boolean);
+  const doc = (symbol.docstring || '').trim().split('\n').find(Boolean),
+  signature = !(doc) ? ((symbol.signature || '').trim()) : undefined;
   if (doc) {
     return doc.slice(0, 240);
   }
-  const signature = (symbol.signature || '').trim();
   if (signature) {
     return signature.slice(0, 240);
   }
@@ -138,25 +138,31 @@ function _parseRawSymbols(filePath, reg, content) {
     return { rawSymbols: [], source: '', callees: [], tree: null };
   }
   let rawSymbols,
-    source = content;
-  if (content !== undefined) {
-    rawSymbols = reg.parseContent(filePath, content);
-  } else {
-    rawSymbols = reg.parseFile(filePath);
-    try {
-      source = require('fs').readFileSync(filePath, 'utf-8');
-    } catch {
-      source = '';
+    source = content,
+  callees = (() => {
+
+    if (content !== undefined) {
+      rawSymbols = reg.parseContent(filePath, content);
+    } else {
+      rawSymbols = reg.parseFile(filePath);
+      try {
+        source = require('fs').readFileSync(filePath, 'utf-8');
+      } catch {
+        source = '';
+      }
     }
-  }
-  let callees = [];
-  if (source && typeof reg.extractCalleesFromContent === 'function') {
-    try {
-      callees = reg.extractCalleesFromContent(filePath, source);
-    } catch {}
-  }
-  let tree = null;
-  try {
+    
+  return ([]);
+})(),
+  tree = (() => {
+if (source && typeof reg.extractCalleesFromContent === 'function') {
+      try {
+        callees = reg.extractCalleesFromContent(filePath, source);
+      } catch {}
+    }
+    
+  return (null);
+})();try {
     const parseResult = reg.parseTree(filePath, source || content);
     tree = parseResult ? parseResult.tree : null;
   } catch {}

@@ -102,10 +102,13 @@ async function init() {
         }
         try {
           // oxlint-disable-next-line no-await-in-loop
-          const lang = await _LanguageClass.load(wasmPath);
-          _languages[key] = lang;
-          const parser = new _ParserClass();
-          parser.setLanguage(lang);
+          const lang = await _LanguageClass.load(wasmPath),
+          parser = (() => {
+
+            _languages[key] = lang;
+            
+  return (new _ParserClass());
+})();parser.setLanguage(lang);
           _parsers[key] = parser;
         } catch (e) {
           console.error(`[parse-code] Failed to load grammar ${wasmFile}: ${e.message}`);
@@ -959,138 +962,141 @@ function _extractPythonSymbols(filePath, sourceStr, parser) {
     seen = new Set();
 
   function walk(node, depth) {
-    const kind = _PY_SYMBOL_NODES[node.type];
-    if (kind) {
-      let name = '';
-      for (const child of node.children) {
-        if (child.type === 'identifier') {
-          name = child.text;
-          break;
+    const kind = _PY_SYMBOL_NODES[node.type],
+    childDepth = (() => {
+
+      if (kind) {
+        let name = '';
+        for (const child of node.children) {
+          if (child.type === 'identifier') {
+            name = child.text;
+            break;
+          }
+        }
+        if (name) {
+          const key = `${name}:${kind}:${node.startIndex}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            let parentName = '',
+              p = node.parent;
+            while (p) {
+              if (p.type === 'class_definition') {
+                for (const c of p.children) {
+                  if (c.type === 'identifier') {
+                    parentName = c.text;
+                    break;
+                  }
+                }
+                break;
+              }
+              p = p.parent;
+            }
+            symbols.push({
+              name,
+              kind,
+              language: 'python',
+              file: filePath,
+              signature: sourceStr
+                .substring(node.startIndex, Math.min(node.startIndex + 200, node.endIndex))
+                .split('\n')[0],
+              qualified_name: parentName ? `${parentName}.${name}` : name,
+              start_line: node.startPosition.row + 1,
+              end_line: node.endPosition.row + 1,
+              start_byte: node.startIndex,
+              end_byte: node.endIndex,
+              docstring: _getDocstring(node),
+              body_preview: _getBodyPreview(node, sourceStr),
+              parent_name: parentName,
+            });
+          }
         }
       }
-      if (name) {
-        const key = `${name}:${kind}:${node.startIndex}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          let parentName = '',
-            p = node.parent;
-          while (p) {
-            if (p.type === 'class_definition') {
-              for (const c of p.children) {
-                if (c.type === 'identifier') {
-                  parentName = c.text;
-                  break;
+      if (node.type === 'expression_statement' && depth === 0) {
+        for (const child of node.children) {
+          if (child.type === 'assignment') {
+            const left = child.child(0);
+            if (left && left.type === 'identifier') {
+              const name = left.text;
+              // oxlint-disable-next-line no-continue
+              if (name === '_' || (name.startsWith('__') && name.endsWith('__'))) {
+                continue;
+              }
+              const right = child.child(2);
+              let assignKind = 'constant';
+              if (right) {
+                if (right.type === 'dictionary' || right.type === 'list' || right.type === 'set') {
+                  assignKind = 'constant';
+                } else if (right.type === 'call') {
+                  const callee = right.child(0);
+                  if (callee && callee.type === 'identifier' && callee.text === 'TypedDict') {
+                    assignKind = 'type';
+                  } else if (callee && callee.type === 'identifier' && callee.text === 'NamedTuple') {
+                    assignKind = 'type';
+                  }
+                } else if (right.type === 'identifier') {
+                  assignKind = 'type';
                 }
               }
-              break;
+              const key = `${name}:${assignKind}:${node.startIndex}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                symbols.push({
+                  name,
+                  kind: assignKind,
+                  language: 'python',
+                  file: filePath,
+                  signature: sourceStr
+                    .substring(node.startIndex, Math.min(node.startIndex + 200, node.endIndex))
+                    .split('\n')[0],
+                  qualified_name: name,
+                  start_line: node.startPosition.row + 1,
+                  end_line: node.endPosition.row + 1,
+                  start_byte: node.startIndex,
+                  end_byte: node.endIndex,
+                  docstring: '',
+                  body_preview: '',
+                  parent_name: '',
+                });
+              }
             }
-            p = p.parent;
           }
+        }
+      }
+      if (node.type === 'decorator') {
+        const name = node.text.replace(/^@/, '').split('(')[0];
+        if (name && !seen.has(`@${name}:decorator:${node.startIndex}`)) {
+          seen.add(`@${name}:decorator:${node.startIndex}`);
+        }
+      }
+      if (node.type === 'import_statement' || node.type === 'import_from_statement') {
+        const importPath = node.text
+            .replace(/^from\s+/, '')
+            .split(/\s+import\b/)[0]
+            .trim(),
+          key = `import:${importPath}:${node.startIndex}`;
+        if (!seen.has(key)) {
+          seen.add(key);
           symbols.push({
-            name,
-            kind,
+            name: importPath,
+            kind: 'import',
             language: 'python',
             file: filePath,
-            signature: sourceStr
-              .substring(node.startIndex, Math.min(node.startIndex + 200, node.endIndex))
-              .split('\n')[0],
-            qualified_name: parentName ? `${parentName}.${name}` : name,
+            signature: node.text.split('\n')[0].slice(0, 200),
+            qualified_name: importPath,
             start_line: node.startPosition.row + 1,
             end_line: node.endPosition.row + 1,
             start_byte: node.startIndex,
             end_byte: node.endIndex,
-            docstring: _getDocstring(node),
-            body_preview: _getBodyPreview(node, sourceStr),
-            parent_name: parentName,
+            docstring: '',
+            body_preview: '',
+            parent_name: '',
           });
         }
       }
-    }
-    if (node.type === 'expression_statement' && depth === 0) {
-      for (const child of node.children) {
-        if (child.type === 'assignment') {
-          const left = child.child(0);
-          if (left && left.type === 'identifier') {
-            const name = left.text;
-            // oxlint-disable-next-line no-continue
-            if (name === '_' || (name.startsWith('__') && name.endsWith('__'))) {
-              continue;
-            }
-            const right = child.child(2);
-            let assignKind = 'constant';
-            if (right) {
-              if (right.type === 'dictionary' || right.type === 'list' || right.type === 'set') {
-                assignKind = 'constant';
-              } else if (right.type === 'call') {
-                const callee = right.child(0);
-                if (callee && callee.type === 'identifier' && callee.text === 'TypedDict') {
-                  assignKind = 'type';
-                } else if (callee && callee.type === 'identifier' && callee.text === 'NamedTuple') {
-                  assignKind = 'type';
-                }
-              } else if (right.type === 'identifier') {
-                assignKind = 'type';
-              }
-            }
-            const key = `${name}:${assignKind}:${node.startIndex}`;
-            if (!seen.has(key)) {
-              seen.add(key);
-              symbols.push({
-                name,
-                kind: assignKind,
-                language: 'python',
-                file: filePath,
-                signature: sourceStr
-                  .substring(node.startIndex, Math.min(node.startIndex + 200, node.endIndex))
-                  .split('\n')[0],
-                qualified_name: name,
-                start_line: node.startPosition.row + 1,
-                end_line: node.endPosition.row + 1,
-                start_byte: node.startIndex,
-                end_byte: node.endIndex,
-                docstring: '',
-                body_preview: '',
-                parent_name: '',
-              });
-            }
-          }
-        }
-      }
-    }
-    if (node.type === 'decorator') {
-      const name = node.text.replace(/^@/, '').split('(')[0];
-      if (name && !seen.has(`@${name}:decorator:${node.startIndex}`)) {
-        seen.add(`@${name}:decorator:${node.startIndex}`);
-      }
-    }
-    if (node.type === 'import_statement' || node.type === 'import_from_statement') {
-      const importPath = node.text
-          .replace(/^from\s+/, '')
-          .split(/\s+import\b/)[0]
-          .trim(),
-        key = `import:${importPath}:${node.startIndex}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        symbols.push({
-          name: importPath,
-          kind: 'import',
-          language: 'python',
-          file: filePath,
-          signature: node.text.split('\n')[0].slice(0, 200),
-          qualified_name: importPath,
-          start_line: node.startPosition.row + 1,
-          end_line: node.endPosition.row + 1,
-          start_byte: node.startIndex,
-          end_byte: node.endIndex,
-          docstring: '',
-          body_preview: '',
-          parent_name: '',
-        });
-      }
-    }
-
-    const childDepth = _PY_SCOPE_NODES.has(node.type) ? depth + 1 : depth;
-    for (const child of node.children) {
+  
+      
+  return (_PY_SCOPE_NODES.has(node.type) ? depth + 1 : depth);
+})();for (const child of node.children) {
       walk(child, childDepth);
     }
   }
@@ -1621,23 +1627,26 @@ function _extractSqlSymbolsRegex(filePath, source) {
     { re: /\bUPDATE\s+([`\[\]"']?\w+[`\[\]"']?(?:\.[`\[\]"']?\w+[`\[\]"']?)?)/gi, kind: 'update' },
     { re: /\bDELETE\s+FROM\s+([`\[\]"']?\w+[`\[\]"']?(?:\.[`\[\]"']?\w+[`\[\]"']?)?)/gi, kind: 'delete' },
     { re: /\bCREATE\s+PROCEDURE\s+([`\[\]"']?\w+[`\[\]"']?(?:\.[`\[\]"']?\w+[`\[\]"']?)?)/gi, kind: 'procedure' },
-  ];
+  ],
+  selectRe = (() => {
 
-  for (const { re, kind } of patterns) {
-    let match;
-    re.lastIndex = 0;
-    while ((match = re.exec(source)) !== null) {
-      const rawName = match[1].replace(/[`\[\]"']/g, ''),
-        line = getLine(match.index),
-        lineEnd = source.indexOf('\n', match.index),
-        endByte = lineEnd === -1 ? source.length : lineEnd,
-        sig = source.substring(match.index, endByte).trim();
-      add(rawName, kind, line, match.index, endByte, sig);
+  
+    for (const { re, kind } of patterns) {
+      let match;
+      re.lastIndex = 0;
+      while ((match = re.exec(source)) !== null) {
+        const rawName = match[1].replace(/[`\[\]"']/g, ''),
+          line = getLine(match.index),
+          lineEnd = source.indexOf('\n', match.index),
+          endByte = lineEnd === -1 ? source.length : lineEnd,
+          sig = source.substring(match.index, endByte).trim();
+        add(rawName, kind, line, match.index, endByte, sig);
+      }
     }
-  }
-
-  const selectRe = /\bSELECT\b/gi;
-  let selMatch;
+  
+    
+  return (/\bSELECT\b/gi);
+})();let selMatch;
   while ((selMatch = selectRe.exec(source)) !== null) {
     const line = getLine(selMatch.index),
       lineEnd = source.indexOf('\n', selMatch.index),
@@ -1950,57 +1959,62 @@ function _extractHtmlSymbolsAst(filePath, source, parser) {
           sl = startTag.startPosition.row + 1,
           el = endTag ? endTag.endPosition.row + 1 : startTag.endPosition.row + 1,
           sb = startTag.startIndex,
-          eb = endTag ? endTag.endIndex : startTag.endIndex;
+          eb = endTag ? endTag.endIndex : startTag.endIndex,
+        isCustom = (() => {
 
-        for (const attr of attrs) {
-          if (attr.name === 'id' && attr.value) {
-            add(attr.value, 'id', sl, el, sb, eb, `id="${attr.value}"`, tagName);
-          }
-        }
-
-        for (const attr of attrs) {
-          if (attr.name === 'class' && attr.value) {
-            for (const cls of attr.value.split(/\s+/).filter(Boolean)) {
-              add(cls, 'css_class', sl, el, sb, eb, `class="${cls}"`, tagName);
-            }
-          }
-        }
-
-        const isCustom =
-          (tagName.includes('-') && !_STANDARD_HTML_TAGS.has(tagName)) || /^[A-Z]/.test(getTagName(startTag));
-        if (isCustom) {
-          const attrSig = attrs.map((a) => (a.value ? `${a.name}="${a.value}"` : a.name)).join(' ');
-          add(getTagName(startTag), 'component', sl, el, sb, eb, `<${getTagName(startTag)} ${attrSig}>`, parentName);
-        }
-
-        if (_SEMANTIC_ELEMENTS.has(tagName)) {
-          const text = getTextContent(node);
-          add(`<${tagName}>`, 'element', sl, el, sb, eb, sig, parentName, text);
-        }
-
-        if (_HEADING_TAGS.has(tagName)) {
-          const text = getTextContent(node);
-          add(text || `<${tagName}>`, 'heading', sl, el, sb, eb, sig, parentName);
-        }
-
-        if (tagName === 'meta') {
-          let metaName = '',
-            metaContent = '';
+  
           for (const attr of attrs) {
-            if (attr.name === 'name' || attr.name === 'property') {
-              metaName = attr.value;
-            }
-            if (attr.name === 'content') {
-              metaContent = attr.value;
+            if (attr.name === 'id' && attr.value) {
+              add(attr.value, 'id', sl, el, sb, eb, `id="${attr.value}"`, tagName);
             }
           }
-          if (metaName) {
-            add(metaName, 'meta', sl, sl, sb, eb, `name="${metaName}" content="${metaContent}"`, '', metaContent);
+  
+          for (const attr of attrs) {
+            if (attr.name === 'class' && attr.value) {
+              for (const cls of attr.value.split(/\s+/).filter(Boolean)) {
+                add(cls, 'css_class', sl, el, sb, eb, `class="${cls}"`, tagName);
+              }
+            }
           }
-        }
-
-        const resAttrs = _RESOURCE_ATTRS[tagName];
-        if (resAttrs) {
+  
+          
+  return ((tagName.includes('-') && !_STANDARD_HTML_TAGS.has(tagName)) || /^[A-Z]/.test(getTagName(startTag)));
+})(),
+        resAttrs = (() => {
+if (isCustom) {
+            const attrSig = attrs.map((a) => (a.value ? `${a.name}="${a.value}"` : a.name)).join(' ');
+            add(getTagName(startTag), 'component', sl, el, sb, eb, `<${getTagName(startTag)} ${attrSig}>`, parentName);
+          }
+  
+          if (_SEMANTIC_ELEMENTS.has(tagName)) {
+            const text = getTextContent(node);
+            add(`<${tagName}>`, 'element', sl, el, sb, eb, sig, parentName, text);
+          }
+  
+          if (_HEADING_TAGS.has(tagName)) {
+            const text = getTextContent(node);
+            add(text || `<${tagName}>`, 'heading', sl, el, sb, eb, sig, parentName);
+          }
+  
+          if (tagName === 'meta') {
+            let metaName = '',
+              metaContent = '';
+            for (const attr of attrs) {
+              if (attr.name === 'name' || attr.name === 'property') {
+                metaName = attr.value;
+              }
+              if (attr.name === 'content') {
+                metaContent = attr.value;
+              }
+            }
+            if (metaName) {
+              add(metaName, 'meta', sl, sl, sb, eb, `name="${metaName}" content="${metaContent}"`, '', metaContent);
+            }
+          }
+  
+          
+  return (_RESOURCE_ATTRS[tagName]);
+})();if (resAttrs) {
           for (const attr of attrs) {
             if (resAttrs.includes(attr.name) && attr.value) {
               add(attr.value, 'link_ref', sl, el, sb, eb, `<${tagName} ${attr.name}="${attr.value}">`, tagName);
@@ -2548,18 +2562,18 @@ function extractCalleesFromContent(filePath, content) {
     return [];
   }
   const ext = path.extname(filePath).toLowerCase(),
-    langConfig = LANGUAGE_MAP[ext];
+    langConfig = LANGUAGE_MAP[ext],
+  parser = !(!langConfig || langConfig.languageName === 'sql') ? (_parsers[langConfig.parserKey]) : undefined,
+  tree = !(!langConfig || langConfig.languageName === 'sql') && parser ? (parser.parse(content)) : undefined,
+  result = !(!langConfig || langConfig.languageName === 'sql') && parser ? (_walkCallees(tree.rootNode, SKIP_CALLEE_NAMES)) : undefined;
   if (!langConfig || langConfig.languageName === 'sql') {
     return [];
   }
 
-  const parser = _parsers[langConfig.parserKey];
   if (!parser) {
     return [];
   }
 
-  const tree = parser.parse(content),
-    result = _walkCallees(tree.rootNode, SKIP_CALLEE_NAMES);
   tree.delete();
   return result;
 }
@@ -2569,12 +2583,12 @@ function extractCallees(filePath) {
     return [];
   }
   const ext = path.extname(filePath).toLowerCase(),
-    langConfig = LANGUAGE_MAP[ext];
+    langConfig = LANGUAGE_MAP[ext],
+  parser = !(!langConfig || langConfig.languageName === 'sql') ? (_parsers[langConfig.parserKey]) : undefined;
   if (!langConfig || langConfig.languageName === 'sql') {
     return [];
   }
 
-  const parser = _parsers[langConfig.parserKey];
   if (!parser) {
     return [];
   }
@@ -2607,15 +2621,15 @@ function parseTree(filePath, content) {
     return null;
   }
   const ext = path.extname(filePath).toLowerCase(),
-    langConfig = LANGUAGE_MAP[ext];
+    langConfig = LANGUAGE_MAP[ext],
+  parser = langConfig ? (_parsers[langConfig.parserKey]) : undefined,
+  tree = langConfig && parser ? (parser.parse(content)) : undefined;
   if (!langConfig) {
     return null;
   }
-  const parser = _parsers[langConfig.parserKey];
   if (!parser) {
     return null;
   }
-  const tree = parser.parse(content);
   if (!tree) {
     return null;
   }

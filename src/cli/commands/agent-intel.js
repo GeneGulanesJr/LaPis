@@ -63,14 +63,14 @@ function register(commands, deps) {
     if (!repoName) {
       return deps.jsonErrNoExit('Missing --repo. Usage: audit-diff --repo X --files f1,f2');
     }
-    const repoRow = deps.sqlJson('SELECT id, path FROM code_repos WHERE name = ?', [repoName]);
+    const repoRow = deps.sqlJson('SELECT id, path FROM code_repos WHERE name = ?', [repoName]),
+    files = repoRow.length ? ((args.files || '')
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean)) : undefined;
     if (!repoRow.length) {
       return deps.jsonErrNoExit(`Repo "${repoName}" not found.`);
     }
-    const files = (args.files || '')
-      .split(',')
-      .map((f) => f.trim())
-      .filter(Boolean);
     return auditDiffModule.auditDiff(db, repoRow[0].id, {
       files,
       task: args.task || '',
@@ -85,11 +85,11 @@ function register(commands, deps) {
     if (!repoName) {
       return deps.jsonErrNoExit('Missing --repo. Usage: runtime-ingest --repo X --coverage <path>');
     }
-    const repoRow = deps.sqlJson('SELECT id FROM code_repos WHERE name = ?', [repoName]);
+    const repoRow = deps.sqlJson('SELECT id FROM code_repos WHERE name = ?', [repoName]),
+    coveragePath = repoRow.length ? (args.coverage) : undefined;
     if (!repoRow.length) {
       return deps.jsonErrNoExit(`Repo "${repoName}" not found. Run index-repo first.`);
     }
-    const coveragePath = args.coverage;
     if (!coveragePath) {
       return deps.jsonErrNoExit('Missing --coverage <path>');
     }
@@ -132,11 +132,11 @@ function register(commands, deps) {
     if (!repoName) {
       return deps.jsonErrNoExit('Missing --repo. Usage: blast --repo X --symbol <name>');
     }
-    const repoRow = deps.sqlJson('SELECT id FROM code_repos WHERE name = ?', [repoName]);
+    const repoRow = deps.sqlJson('SELECT id FROM code_repos WHERE name = ?', [repoName]),
+    symbolName = repoRow.length ? (args.symbol) : undefined;
     if (!repoRow.length) {
       return deps.jsonErrNoExit(`Repo "${repoName}" not found.`);
     }
-    const symbolName = args.symbol;
     if (!symbolName) {
       return deps.jsonErrNoExit('Missing --symbol <name>');
     }
@@ -151,11 +151,11 @@ function register(commands, deps) {
     if (!repoName) {
       return deps.jsonErrNoExit('Missing --repo. Usage: stale-flags --repo X');
     }
-    const repoRow = deps.sqlJson('SELECT id, path FROM code_repos WHERE name = ?', [repoName]);
+    const repoRow = deps.sqlJson('SELECT id, path FROM code_repos WHERE name = ?', [repoName]),
+    findings = repoRow.length ? (staleFlags.detectStaleFlagsInRepo(db, repoRow[0].id, repoRow[0].path)) : undefined;
     if (!repoRow.length) {
       return deps.jsonErrNoExit(`Repo "${repoName}" not found.`);
     }
-    const findings = staleFlags.detectStaleFlagsInRepo(db, repoRow[0].id, repoRow[0].path);
     staleFlags.persistStaleFlags(db, findings);
     return { stale_flags: findings };
   };

@@ -29,16 +29,19 @@ describe('compress-search-output', () => {
   });
 
   it('truncates when too many matches', () => {
-    const lines = [];
-    for (let i = 0; i < 100; i++) {
-      lines.push(`file${i % 5}.js:${i + 1}:TODO: item ${i}`);
-    }
-    const result = compressSearchOutput({
+    const lines = [],
+    result = (() => {
+
+      for (let i = 0; i < 100; i++) {
+        lines.push(`file${i % 5}.js:${i + 1}:TODO: item ${i}`);
+      }
+      
+  return (compressSearchOutput({
       stdout: lines.join('\n'),
       stderr: '',
       exitCode: 0,
       commandArgs: ['rg', 'TODO'],
-    });
-    expect(result.summary).toContain('100 match');
+    }));
+})();expect(result.summary).toContain('100 match');
   });
 });

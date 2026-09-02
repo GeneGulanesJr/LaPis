@@ -28,14 +28,14 @@ function findDupes(db, repoId, opts = {}) {
        FROM code_symbols
        WHERE repo_id = ? AND body_preview IS NOT NULL AND length(body_preview) >= ?`,
       )
-      .all(repoId, minBodyLength);
+      .all(repoId, minBodyLength),
+  fingerprints = !(symbols.length === 0) ? ([]) : undefined;
 
   if (symbols.length === 0) {
     return { duplicate_groups: [], total_symbols_scanned: 0, groups_found: 0, scan_duration_ms: 0 };
   }
 
   // Fingerprint all symbols
-  const fingerprints = [];
   for (const sym of symbols) {
     const fp = fingerprintSymbol(sym);
     if (fp) {
@@ -50,22 +50,25 @@ function findDupes(db, repoId, opts = {}) {
   // Compare pairs that collide in a band, then verify with exact Jaccard.
   // This preserves the reported threshold (exact Jaccard is still applied to
   // Every candidate) while collapsing the comparison set from O(n^2) to ~O(n).
-  const buckets = new Map();
-  for (let i = 0; i < fingerprints.length; i++) {
-    const keys = lshBands(fingerprints[i].signature, CFG.LSH_ROWS_PER_BAND);
-    for (const key of keys) {
-      let bucket = buckets.get(key);
-      if (!bucket) {
-        bucket = [];
-        buckets.set(key, bucket);
-      }
-      bucket.push(i);
-    }
-  }
+  const buckets = new Map(),
+  neighbors = (() => {
 
-  // Build threshold neighbor map from candidate pairs only.
-  const neighbors = new Array(fingerprints.length);
-  for (let i = 0; i < fingerprints.length; i++) {
+    for (let i = 0; i < fingerprints.length; i++) {
+      const keys = lshBands(fingerprints[i].signature, CFG.LSH_ROWS_PER_BAND);
+      for (const key of keys) {
+        let bucket = buckets.get(key);
+        if (!bucket) {
+          bucket = [];
+          buckets.set(key, bucket);
+        }
+        bucket.push(i);
+      }
+    }
+  
+    // Build threshold neighbor map from candidate pairs only.
+    
+  return (new Array(fingerprints.length));
+})();for (let i = 0; i < fingerprints.length; i++) {
     neighbors[i] = null;
   }
   // Deduplicate candidate pairs with a compact integer key (lo * N + hi)
@@ -107,34 +110,37 @@ function findDupes(db, repoId, opts = {}) {
   // Greedy clustering, preserving the original "seed + unassigned neighbors"
   // Semantics but now only over verified-similar pairs.
   const groups = [],
-    assigned = new Set();
+    assigned = new Set(),
+  duplicateGroups = (() => {
 
-  for (let i = 0; i < fingerprints.length; i++) {
-    if (assigned.has(i)) {
-      continue;
-    }
-    const nbrs = neighbors[i];
-    if (!nbrs || nbrs.length === 0) {
-      continue;
-    }
-
-    const cluster = [i];
-    for (const j of nbrs) {
-      if (!assigned.has(j)) {
-        cluster.push(j);
+  
+    for (let i = 0; i < fingerprints.length; i++) {
+      if (assigned.has(i)) {
+        continue;
+      }
+      const nbrs = neighbors[i];
+      if (!nbrs || nbrs.length === 0) {
+        continue;
+      }
+  
+      const cluster = [i];
+      for (const j of nbrs) {
+        if (!assigned.has(j)) {
+          cluster.push(j);
+        }
+      }
+  
+      if (cluster.length >= 2) {
+        for (const idx of cluster) {
+          assigned.add(idx);
+        }
+        groups.push(cluster);
       }
     }
-
-    if (cluster.length >= 2) {
-      for (const idx of cluster) {
-        assigned.add(idx);
-      }
-      groups.push(cluster);
-    }
-  }
-
-  // Build output
-  const duplicateGroups = groups.slice(0, topK).map((cluster) => {
+  
+    // Build output
+    
+  return (groups.slice(0, topK).map((cluster) => {
     const instances = cluster.map((idx) => ({
       symbol_id: fingerprints[idx].symbolId,
       symbol_name: fingerprints[idx].symbolName,
@@ -164,9 +170,8 @@ function findDupes(db, repoId, opts = {}) {
       similarity: Math.round(maxSim * 100) / 100,
       instances,
     };
-  });
-
-  // Persist to duplicate_groups / duplicate_instances
+  }));
+})(); // Persist to duplicate_groups / duplicate_instances
   _persistGroups(db, repoId, duplicateGroups);
 
   return {

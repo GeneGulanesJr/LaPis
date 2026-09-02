@@ -6,10 +6,13 @@ describe('platform project-db', () => {
   });
 
   test('getKnownRepos returns [] when the DB is unavailable', () => {
-    const dbPath = require.resolve('../../db');
-    require(dbPath);
-    const prev = require.cache[dbPath].exports;
-    require.cache[dbPath].exports = {
+    const dbPath = require.resolve('../../db'),
+    prev = (() => {
+
+      require(dbPath);
+      
+  return (require.cache[dbPath].exports);
+})();require.cache[dbPath].exports = {
       sqlJson: () => {
         throw new Error('no db');
       },
@@ -23,10 +26,13 @@ describe('platform project-db', () => {
   });
 
   test('getKnownRepos caches results within TTL', () => {
-    const dbPath = require.resolve('../../db');
-    require(dbPath);
-    const prev = require.cache[dbPath].exports;
-    let calls = 0;
+    const dbPath = require.resolve('../../db'),
+    prev = (() => {
+
+      require(dbPath);
+      
+  return (require.cache[dbPath].exports);
+})();let calls = 0;
     require.cache[dbPath].exports = {
       sqlJson: (sql) => {
         if (sql.includes('code_repos')) {
@@ -47,10 +53,13 @@ describe('platform project-db', () => {
   });
 
   test('clearProjectDbCache forces a reload', () => {
-    const dbPath = require.resolve('../../db');
-    require(dbPath);
-    const prev = require.cache[dbPath].exports;
-    let calls = 0;
+    const dbPath = require.resolve('../../db'),
+    prev = (() => {
+
+      require(dbPath);
+      
+  return (require.cache[dbPath].exports);
+})();let calls = 0;
     require.cache[dbPath].exports = {
       sqlJson: (sql) => {
         if (sql.includes('code_repos')) {

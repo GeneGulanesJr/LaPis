@@ -60,31 +60,15 @@ function buildHtmlScopeBindingsAst(tree, _source) {
           sl = startTag.startPosition.row + 1,
           el = node.endPosition ? node.endPosition.row + 1 : sl,
           sb = startTag.startIndex,
-          eb = node.endIndex;
+          eb = node.endIndex,
+        isCustom = (() => {
 
-        for (const attr of attrs) {
-          if (attr.name === 'id' && attr.value) {
-            addBinding(bindings, {
-              name: attr.value,
-              kind: 'element_id',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: sl,
-              lineEnd: el,
-              scopeDepth: depth,
-              byteStart: sb,
-              byteEnd: eb,
-            });
-          }
-        }
-
-        for (const attr of attrs) {
-          if (attr.name === 'class' && attr.value) {
-            for (const cls of attr.value.split(/\s+/).filter(Boolean)) {
+  
+          for (const attr of attrs) {
+            if (attr.name === 'id' && attr.value) {
               addBinding(bindings, {
-                name: cls,
-                kind: 'css_class',
+                name: attr.value,
+                kind: 'element_id',
                 origin: 'local',
                 sourceModule: null,
                 sourceName: null,
@@ -96,48 +80,67 @@ function buildHtmlScopeBindingsAst(tree, _source) {
               });
             }
           }
-        }
-
-        if (tagName === 'script') {
+  
           for (const attr of attrs) {
-            if (attr.name === 'src' && attr.value) {
-              addBinding(bindings, {
-                name: attr.value,
-                kind: 'script_src',
-                origin: 'external_file',
-                sourceModule: attr.value,
-                sourceName: null,
-                lineStart: sl,
-                lineEnd: el,
-                scopeDepth: depth,
-                byteStart: sb,
-                byteEnd: eb,
-              });
+            if (attr.name === 'class' && attr.value) {
+              for (const cls of attr.value.split(/\s+/).filter(Boolean)) {
+                addBinding(bindings, {
+                  name: cls,
+                  kind: 'css_class',
+                  origin: 'local',
+                  sourceModule: null,
+                  sourceName: null,
+                  lineStart: sl,
+                  lineEnd: el,
+                  scopeDepth: depth,
+                  byteStart: sb,
+                  byteEnd: eb,
+                });
+              }
             }
           }
-        }
-
-        if (tagName === 'link') {
-          for (const attr of attrs) {
-            if (attr.name === 'href' && attr.value) {
-              addBinding(bindings, {
-                name: attr.value,
-                kind: 'link_href',
-                origin: 'external_file',
-                sourceModule: attr.value,
-                sourceName: null,
-                lineStart: sl,
-                lineEnd: sl,
-                scopeDepth: depth,
-                byteStart: sb,
-                byteEnd: eb,
-              });
+  
+          if (tagName === 'script') {
+            for (const attr of attrs) {
+              if (attr.name === 'src' && attr.value) {
+                addBinding(bindings, {
+                  name: attr.value,
+                  kind: 'script_src',
+                  origin: 'external_file',
+                  sourceModule: attr.value,
+                  sourceName: null,
+                  lineStart: sl,
+                  lineEnd: el,
+                  scopeDepth: depth,
+                  byteStart: sb,
+                  byteEnd: eb,
+                });
+              }
             }
           }
-        }
-
-        const isCustom = tagName.includes('-') || /^[A-Z]/.test(getTagName(startTag));
-        if (isCustom) {
+  
+          if (tagName === 'link') {
+            for (const attr of attrs) {
+              if (attr.name === 'href' && attr.value) {
+                addBinding(bindings, {
+                  name: attr.value,
+                  kind: 'link_href',
+                  origin: 'external_file',
+                  sourceModule: attr.value,
+                  sourceName: null,
+                  lineStart: sl,
+                  lineEnd: sl,
+                  scopeDepth: depth,
+                  byteStart: sb,
+                  byteEnd: eb,
+                });
+              }
+            }
+          }
+  
+          
+  return (tagName.includes('-') || /^[A-Z]/.test(getTagName(startTag)));
+})();if (isCustom) {
           addBinding(bindings, {
             name: getTagName(startTag),
             kind: 'component_ref',
@@ -176,40 +179,46 @@ function buildHtmlScopeBindingsRegex(source) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i],
       lineNum = i + 1,
-      scriptSrcMatch = line.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
-    if (scriptSrcMatch && /<script/i.test(line)) {
-      addBinding(bindings, {
-        name: scriptSrcMatch[1],
-        kind: 'script_src',
-        origin: 'external_file',
-        sourceModule: scriptSrcMatch[1],
-        sourceName: null,
-        lineStart: lineNum,
-        lineEnd: lineNum,
-        scopeDepth: 0,
-        byteStart: null,
-        byteEnd: null,
-      });
-    }
+      scriptSrcMatch = line.match(/\bsrc\s*=\s*["']([^"']+)["']/i),
+    idMatch = (() => {
 
-    const idMatch = line.match(/\bid\s*=\s*["']([^"']+)["']/i);
-    if (idMatch) {
-      addBinding(bindings, {
-        name: idMatch[1],
-        kind: 'element_id',
-        origin: 'local',
-        sourceModule: null,
-        sourceName: null,
-        lineStart: lineNum,
-        lineEnd: lineNum,
-        scopeDepth: 0,
-        byteStart: null,
-        byteEnd: null,
-      });
-    }
-
-    const classMatch = line.match(/\bclass\s*=\s*["']([^"']+)["']/i);
-    if (classMatch) {
+      if (scriptSrcMatch && /<script/i.test(line)) {
+        addBinding(bindings, {
+          name: scriptSrcMatch[1],
+          kind: 'script_src',
+          origin: 'external_file',
+          sourceModule: scriptSrcMatch[1],
+          sourceName: null,
+          lineStart: lineNum,
+          lineEnd: lineNum,
+          scopeDepth: 0,
+          byteStart: null,
+          byteEnd: null,
+        });
+      }
+  
+      
+  return (line.match(/\bid\s*=\s*["']([^"']+)["']/i));
+})(),
+    classMatch = (() => {
+if (idMatch) {
+        addBinding(bindings, {
+          name: idMatch[1],
+          kind: 'element_id',
+          origin: 'local',
+          sourceModule: null,
+          sourceName: null,
+          lineStart: lineNum,
+          lineEnd: lineNum,
+          scopeDepth: 0,
+          byteStart: null,
+          byteEnd: null,
+        });
+      }
+  
+      
+  return (line.match(/\bclass\s*=\s*["']([^"']+)["']/i));
+})();if (classMatch) {
       for (const cls of classMatch[1].split(/\s+/).filter(Boolean)) {
         addBinding(bindings, {
           name: cls,

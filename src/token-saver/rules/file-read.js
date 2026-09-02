@@ -2,7 +2,28 @@ const IMPORTANT_KEYWORDS =
   /\b(?:error|failed|exception|todo|fixme|warning|deprecated|security|password|token|api\s?key)\b/i;
 
 function compressFileRead({ stdout, stderr }) {
-  const combined = `${stdout}\n${stderr}`.trim();
+  const combined = `${stdout}\n${stderr}`.trim(),
+  lines = combined ? (combined.split('\n')) : undefined,
+  headLimit = combined ? (80) : undefined,
+  tailLimit = combined ? (80) : undefined,
+  head = combined && !(lines.length <= headLimit + tailLimit) ? (lines.slice(0, headLimit)) : undefined,
+  tail = combined && !(lines.length <= headLimit + tailLimit) ? (lines.slice(-tailLimit)) : undefined,
+  important = combined && !(lines.length <= headLimit + tailLimit) ? ([]) : undefined,
+  omitted = combined && !(lines.length <= headLimit + tailLimit) ? ((() => {
+
+  
+    for (let i = 0; i < lines.length; i++) {
+      if (IMPORTANT_KEYWORDS.test(lines[i])) {
+        important.push({
+          line: i + 1,
+          text: lines[i].trim(),
+        });
+      }
+    }
+  
+    
+  return (lines.length - headLimit - tailLimit);
+})()) : undefined;
   if (!combined) {
     return {
       summary: 'No output.',
@@ -11,9 +32,6 @@ function compressFileRead({ stdout, stderr }) {
     };
   }
 
-  const lines = combined.split('\n'),
-    headLimit = 80,
-    tailLimit = 80;
 
   if (lines.length <= headLimit + tailLimit) {
     return {
@@ -23,39 +41,28 @@ function compressFileRead({ stdout, stderr }) {
     };
   }
 
-  const head = lines.slice(0, headLimit),
-    tail = lines.slice(-tailLimit),
-    important = [];
+let output = `Large file output compressed.\n\n`,
+  summary = (() => {
 
-  for (let i = 0; i < lines.length; i++) {
-    if (IMPORTANT_KEYWORDS.test(lines[i])) {
-      important.push({
-        line: i + 1,
-        text: lines[i].trim(),
-      });
+    output += 'Head:\n';
+    output += head.join('\n');
+    output += '\n\n';
+  
+    if (important.length > 0) {
+      output += 'Important matches:\n';
+      for (const m of important.slice(0, 50)) {
+        output += `line ${m.line}: ${m.text}\n`;
+      }
+      output += '\n';
     }
-  }
-
-  const omitted = lines.length - headLimit - tailLimit;
-  let output = `Large file output compressed.\n\n`;
-  output += 'Head:\n';
-  output += head.join('\n');
-  output += '\n\n';
-
-  if (important.length > 0) {
-    output += 'Important matches:\n';
-    for (const m of important.slice(0, 50)) {
-      output += `line ${m.line}: ${m.text}\n`;
-    }
-    output += '\n';
-  }
-
-  output += `... ${omitted} lines omitted ...\n\n`;
-  output += 'Tail:\n';
-  output += tail.join('\n');
-
-  let summary = `${lines.length} lines compressed. Head/tail preserved.`;
-  if (important.length > 0) {
+  
+    output += `... ${omitted} lines omitted ...\n\n`;
+    output += 'Tail:\n';
+    output += tail.join('\n');
+  
+    
+  return (`${lines.length} lines compressed. Head/tail preserved.`);
+})();if (important.length > 0) {
     summary += ` ${Math.min(important.length, 50)} important line(s) found.`;
   }
   summary += ` ${omitted} lines omitted.`;

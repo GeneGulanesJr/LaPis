@@ -192,10 +192,13 @@ describe('index-repo (WASM)', () => {
           encoding: 'utf8',
           timeout: 10000,
         }),
-        result = JSON.parse(out);
-      expect(result.repos.length).toBeGreaterThanOrEqual(1);
-      const first = result.repos[0];
-      expect(first.name).toBeTruthy();
+        result = JSON.parse(out),
+      first = (() => {
+
+        expect(result.repos.length).toBeGreaterThanOrEqual(1);
+        
+  return (result.repos[0]);
+})();expect(first.name).toBeTruthy();
       expect(typeof first.file_count).toBe('number');
       expect(typeof first.symbol_count).toBe('number');
     });

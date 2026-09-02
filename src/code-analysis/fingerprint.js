@@ -121,14 +121,14 @@ function jaccardSimilarity(sig1, sig2) {
  */
 function lshBands(signature, rowsPerBand = CFG.LSH_ROWS_PER_BAND) {
   const len = signature.length,
-    r = rowsPerBand > 0 ? rowsPerBand : CFG.LSH_ROWS_PER_BAND;
+    r = rowsPerBand > 0 ? rowsPerBand : CFG.LSH_ROWS_PER_BAND,
+  numBands = !(len < r) ? (Math.ceil(len / r)) : undefined,
+  keys = !(len < r) ? (new Array(numBands)) : undefined;
   if (len < r) {
     return [];
   }
   // Math.ceil so a non-divisible signature length keeps its trailing band
   // Instead of silently discarding the remainder (which would reduce recall).
-  const numBands = Math.ceil(len / r),
-    keys = new Array(numBands);
   for (let b = 0; b < numBands; b++) {
     const start = b * r;
     keys[b] = `${b}:${signature.slice(start, start + r).join('|')}`;
@@ -143,17 +143,17 @@ function lshBands(signature, rowsPerBand = CFG.LSH_ROWS_PER_BAND) {
 function fingerprintSymbol(symbol) {
   const body = symbol.body_preview || '',
     normalized = normalizeBody(body),
-    tokens = tokenize(normalized);
+    tokens = tokenize(normalized),
+  shingles = !(tokens.length < 5) ? (shingle(tokens)) : undefined,
+  signature = !(tokens.length < 5) && !(shingles.length === 0) ? (minhashSignature(shingles)) : undefined;
   if (tokens.length < 5) {
     return null;
   }
 
-  const shingles = shingle(tokens);
   if (shingles.length === 0) {
     return null;
   }
 
-  const signature = minhashSignature(shingles);
 
   return {
     symbolName: symbol.name,

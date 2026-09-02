@@ -157,16 +157,19 @@ if (require.main === module) {
       yes: args.yes === true,
       includeDream: args['include-dream'] === true,
       bypassAgeGates: args['bypass-age-gates'] === true,
-    };
+    },
+  result = (() => {
 
-  if (!args.json && !args.yes) {
-    const report = triageReport(deps);
-    console.log(JSON.stringify(report, null, 2));
-    process.exit(0);
-  }
-
-  const result = cleanupSessions(deps, opts);
-  console.log(JSON.stringify(result, null, 2));
+  
+    if (!args.json && !args.yes) {
+      const report = triageReport(deps);
+      console.log(JSON.stringify(report, null, 2));
+      process.exit(0);
+    }
+  
+    
+  return (cleanupSessions(deps, opts));
+})();console.log(JSON.stringify(result, null, 2));
 }
 
 module.exports = { triageReport, cleanupSessions };

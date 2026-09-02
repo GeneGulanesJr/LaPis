@@ -39,71 +39,74 @@ async function runUninstall(argv, io = {}) {
 
   // MCP server entry.
   let text = readText(paths.config);
-  const beforeMcp = text;
-  text = removeSubBlock(text, 'mcp_servers', flags.mcpName);
-  if (text !== beforeMcp) {
-    removed.push(`mcp_servers.${flags.mcpName}`);
-  }
+  const beforeMcp = text,
+  skillDir = (() => {
 
-  // Hook entries (one list item per event, keyed by the LaPis command).
-  for (const { event } of HOOK_EVENTS) {
-    const beforeHooks = text;
-    text = removeListItems(text, 'hooks', event, command);
-    if (text !== beforeHooks) {
-      removed.push(`hooks.${event}`);
+    text = removeSubBlock(text, 'mcp_servers', flags.mcpName);
+    if (text !== beforeMcp) {
+      removed.push(`mcp_servers.${flags.mcpName}`);
     }
-  }
-
-  // Prune empty `hooks.<event>` shells, then drop the `hooks:` block and the
-  // `hooks_auto_accept` scalar — but only when no other hooks remain. The
-  // Scalar is shared config that other hooks may rely on for headless consent.
-  for (const { event } of HOOK_EVENTS) {
-    text = removeEmptySubBlock(text, 'hooks', event);
-  }
-  if (topBlockEmpty(text, 'hooks')) {
-    text = removeTopLevelBlock(text, 'hooks');
-    text = removeScalar(text, 'hooks_auto_accept');
-    removed.push('hooks (empty block)', 'hooks_auto_accept');
-  }
-  if (topBlockEmpty(text, 'mcp_servers')) {
-    text = removeTopLevelBlock(text, 'mcp_servers');
-    removed.push('mcp_servers (empty block)');
-  }
-
-  // Always write: if every LaPis-owned entry is gone the config may now be
-  // Empty, and leaving stale content behind would be worse than an empty file.
-  writeTextAtomic(paths.config, text);
-
-  // Allowlist approvals for the LaPis hook command.
-  try {
-    const allow = JSON.parse(readText(paths.allowlist) || '{}');
-    if (Array.isArray(allow.approvals)) {
-      const before = allow.approvals.length;
-      allow.approvals = allow.approvals.filter((a) => !(a && a.command === command));
-      if (allow.approvals.length !== before) {
-        if (allow.approvals.length === 0 && Object.keys(allow).length === 1) {
-          // Nothing left to approve and the file holds only `approvals` (the
-          // Shape install writes) — drop it so uninstall leaves no residue.
-          try {
-            fs.unlinkSync(paths.allowlist);
-          } catch {
-            // Fall back to writing the empty file if unlink fails.
-            writeTextAtomic(paths.allowlist, `${JSON.stringify(allow, null, 2)}\n`);
-          }
-        } else {
-          writeTextAtomic(paths.allowlist, `${JSON.stringify(allow, null, 2)}\n`);
-        }
-        removed.push(`allowlist (${before - allow.approvals.length} approval(s))`);
+  
+    // Hook entries (one list item per event, keyed by the LaPis command).
+    for (const { event } of HOOK_EVENTS) {
+      const beforeHooks = text;
+      text = removeListItems(text, 'hooks', event, command);
+      if (text !== beforeHooks) {
+        removed.push(`hooks.${event}`);
       }
     }
-  } catch {
-    // Corrupt allowlist → leave it; never destroy user data on uninstall.
-  }
-
-  // Skill directory (ours by path), then prune now-empty parent dirs so
-  // Uninstall leaves zero residue under `skills/`.
-  const skillDir = path.dirname(paths.skillFile);
-  if (fs.existsSync(paths.skillFile)) {
+  
+    // Prune empty `hooks.<event>` shells, then drop the `hooks:` block and the
+    // `hooks_auto_accept` scalar — but only when no other hooks remain. The
+    // Scalar is shared config that other hooks may rely on for headless consent.
+    for (const { event } of HOOK_EVENTS) {
+      text = removeEmptySubBlock(text, 'hooks', event);
+    }
+    if (topBlockEmpty(text, 'hooks')) {
+      text = removeTopLevelBlock(text, 'hooks');
+      text = removeScalar(text, 'hooks_auto_accept');
+      removed.push('hooks (empty block)', 'hooks_auto_accept');
+    }
+    if (topBlockEmpty(text, 'mcp_servers')) {
+      text = removeTopLevelBlock(text, 'mcp_servers');
+      removed.push('mcp_servers (empty block)');
+    }
+  
+    // Always write: if every LaPis-owned entry is gone the config may now be
+    // Empty, and leaving stale content behind would be worse than an empty file.
+    writeTextAtomic(paths.config, text);
+  
+    // Allowlist approvals for the LaPis hook command.
+    try {
+      const allow = JSON.parse(readText(paths.allowlist) || '{}');
+      if (Array.isArray(allow.approvals)) {
+        const before = allow.approvals.length;
+        allow.approvals = allow.approvals.filter((a) => !(a && a.command === command));
+        if (allow.approvals.length !== before) {
+          if (allow.approvals.length === 0 && Object.keys(allow).length === 1) {
+            // Nothing left to approve and the file holds only `approvals` (the
+            // Shape install writes) — drop it so uninstall leaves no residue.
+            try {
+              fs.unlinkSync(paths.allowlist);
+            } catch {
+              // Fall back to writing the empty file if unlink fails.
+              writeTextAtomic(paths.allowlist, `${JSON.stringify(allow, null, 2)}\n`);
+            }
+          } else {
+            writeTextAtomic(paths.allowlist, `${JSON.stringify(allow, null, 2)}\n`);
+          }
+          removed.push(`allowlist (${before - allow.approvals.length} approval(s))`);
+        }
+      }
+    } catch {
+      // Corrupt allowlist → leave it; never destroy user data on uninstall.
+    }
+  
+    // Skill directory (ours by path), then prune now-empty parent dirs so
+    // Uninstall leaves zero residue under `skills/`.
+    
+  return (path.dirname(paths.skillFile));
+})();if (fs.existsSync(paths.skillFile)) {
     fs.rmSync(skillDir, { recursive: true, force: true });
     removed.push(`skill (${path.join('skills', 'memory', 'lapis')})`);
     let parent = path.dirname(skillDir); // Skills/memory

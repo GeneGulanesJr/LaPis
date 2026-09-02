@@ -126,16 +126,19 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
       repos = await deps.getKnownRepos(),
       resolvedCwd = path.resolve(ctx.cwd),
       cwdRepo = resolveIndexedRepo(resolvedCwd, repos, deps.state.currentProject),
-      isStale = cwdRepo ? deps.isRepoStale(cwdRepo) : false;
+      isStale = cwdRepo ? deps.isRepoStale(cwdRepo) : false,
+    isNewProject = (() => {
 
-    // Self-heal stale session-start project key when path-resolved repo name differs.
-    // Context for this turn was fetched with the stale key; counts catch up next turn.
-    if (cwdRepo && cwdRepo.name.toLowerCase() !== (deps.state.currentProject || '').toLowerCase()) {
-      deps.state.currentProject = cwdRepo.name;
-    }
-
-    const isNewProject = crossProjectResult !== null && !projectContext;
-    let effectiveObservations: any[] = [];
+  
+      // Self-heal stale session-start project key when path-resolved repo name differs.
+      // Context for this turn was fetched with the stale key; counts catch up next turn.
+      if (cwdRepo && cwdRepo.name.toLowerCase() !== (deps.state.currentProject || '').toLowerCase()) {
+        deps.state.currentProject = cwdRepo.name;
+      }
+  
+      
+  return (crossProjectResult !== null && !projectContext);
+})();let effectiveObservations: any[] = [];
     if (promptQuery) {
       effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : observations;
     }

@@ -6,7 +6,10 @@ const FAIL_PATTERNS = /\b(?:FAIL|failed|failure|error|Error|ERR)\b/,
   COVERAGE_PATTERNS = /(?:coverage|Statements|Branches|Functions|Lines|All files)/i;
 
 function compressTestOutput({ stdout, stderr, exitCode }) {
-  const combined = `${stdout}\n${stderr}`.trim();
+  const combined = `${stdout}\n${stderr}`.trim(),
+  lines = combined ? (combined.split('\n')) : undefined,
+  kept = combined ? ([]) : undefined,
+  failedBlocks = combined ? ([]) : undefined;
   if (!combined) {
     return {
       summary: exitCode === 0 ? 'All tests passed (no output).' : 'Tests failed (no output).',
@@ -15,54 +18,54 @@ function compressTestOutput({ stdout, stderr, exitCode }) {
     };
   }
 
-  const lines = combined.split('\n'),
-    kept = [],
-    failedBlocks = [];
   let inFailure = false,
     failureBuf = [],
     hiddenCount = 0;
   const summaryLines = [],
-    coverageLines = [];
+    coverageLines = [],
+  result = (() => {
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (WATCH_HINT.test(line)) {
-      hiddenCount++;
-    } else if (/^\s*(?:PASS|✓|✔)/.test(line) && !FAIL_PATTERNS.test(line)) {
-      hiddenCount++;
-    } else if (/^\s*(?:FAIL|✗|✘|×)/.test(line) || (/FAIL/i.test(line) && !PASS_PATTERNS.test(line))) {
-      inFailure = true;
-      failureBuf = [line];
-    } else if (SUMMARY_PATTERNS.test(line) && !FAIL_PATTERNS.test(line) && !inFailure) {
-      summaryLines.push(line);
-    } else if (COVERAGE_PATTERNS.test(line) && !inFailure) {
-      coverageLines.push(line);
-    } else if (DIFF_PATTERNS.test(line) || FAIL_PATTERNS.test(line)) {
-      if (inFailure) {
-        failureBuf.push(line);
+  
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+  
+      if (WATCH_HINT.test(line)) {
+        hiddenCount++;
+      } else if (/^\s*(?:PASS|✓|✔)/.test(line) && !FAIL_PATTERNS.test(line)) {
+        hiddenCount++;
+      } else if (/^\s*(?:FAIL|✗|✘|×)/.test(line) || (/FAIL/i.test(line) && !PASS_PATTERNS.test(line))) {
+        inFailure = true;
+        failureBuf = [line];
+      } else if (SUMMARY_PATTERNS.test(line) && !FAIL_PATTERNS.test(line) && !inFailure) {
+        summaryLines.push(line);
+      } else if (COVERAGE_PATTERNS.test(line) && !inFailure) {
+        coverageLines.push(line);
+      } else if (DIFF_PATTERNS.test(line) || FAIL_PATTERNS.test(line)) {
+        if (inFailure) {
+          failureBuf.push(line);
+        } else {
+          kept.push(line);
+        }
+      } else if (inFailure) {
+        if (line.trim() === '' && failureBuf.length > 2) {
+          failedBlocks.push(failureBuf.join('\n'));
+          inFailure = false;
+          failureBuf = [];
+        } else {
+          failureBuf.push(line);
+        }
       } else {
-        kept.push(line);
+        hiddenCount++;
       }
-    } else if (inFailure) {
-      if (line.trim() === '' && failureBuf.length > 2) {
-        failedBlocks.push(failureBuf.join('\n'));
-        inFailure = false;
-        failureBuf = [];
-      } else {
-        failureBuf.push(line);
-      }
-    } else {
-      hiddenCount++;
     }
-  }
-
-  if (inFailure && failureBuf.length > 0) {
-    failedBlocks.push(failureBuf.join('\n'));
-  }
-
-  const result = exitCode === 0 ? 'PASSED' : 'FAILED';
-  let output = `Test result: ${result}\n\n`;
+  
+    if (inFailure && failureBuf.length > 0) {
+      failedBlocks.push(failureBuf.join('\n'));
+    }
+  
+    
+  return (exitCode === 0 ? 'PASSED' : 'FAILED');
+})();let output = `Test result: ${result}\n\n`;
 
   if (summaryLines.length > 0) {
     output += 'Summary:\n';

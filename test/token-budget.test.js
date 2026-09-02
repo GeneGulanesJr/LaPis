@@ -103,11 +103,14 @@ describe('context() with token-budget', () => {
         makeObs(3, 'learning', 2000, 'Yet another'),
       ],
       deps = makeDeps(observations),
-      result = context(deps, { project: 'TestProject', 'token-budget': '600' });
+      result = context(deps, { project: 'TestProject', 'token-budget': '600' }),
+    truncated = (() => {
 
-    expect(result.observations.length).toBeLessThanOrEqual(3);
-    const truncated = result.observations.filter((o) => o._truncated);
-    expect(truncated.length).toBeGreaterThan(0);
+  
+      expect(result.observations.length).toBeLessThanOrEqual(3);
+      
+  return (result.observations.filter((o) => o._truncated));
+})();expect(truncated.length).toBeGreaterThan(0);
     expect(result.stats.truncated_count).toBeGreaterThan(0);
     expect(result.stats.total_count).toBe(3);
   });
@@ -216,14 +219,17 @@ describe('context() with token-budget', () => {
     // First obs is large (gets truncated to header), second is small (fits fully)
     const observations = [makeObs(1, 'discovery', 5000, 'Huge discovery'), makeObs(2, 'learning', 10, 'Tiny learning')],
       deps = makeDeps(observations),
-      result = context(deps, { project: 'TestProject', 'token-budget': '600' });
+      result = context(deps, { project: 'TestProject', 'token-budget': '600' }),
+    tiny = (() => {
 
-    // Both observations should be present
-    expect(result.observations.length).toBe(2);
-    // First should be truncated
-    expect(result.observations.find((o) => o.id === 1)._truncated).toBe(true);
-    // Second should be intact (it fits in remaining budget)
-    const tiny = result.observations.find((o) => o.id === 2);
-    expect(tiny.content).toBe('x'.repeat(10));
+  
+      // Both observations should be present
+      expect(result.observations.length).toBe(2);
+      // First should be truncated
+      expect(result.observations.find((o) => o.id === 1)._truncated).toBe(true);
+      // Second should be intact (it fits in remaining budget)
+      
+  return (result.observations.find((o) => o.id === 2));
+})();expect(tiny.content).toBe('x'.repeat(10));
   });
 });

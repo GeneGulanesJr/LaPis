@@ -211,13 +211,13 @@ function search(deps, args) {
     scope = args.scope || null,
     limit = parseInt(args.limit || '10', 10),
     sessionId = args['session-id'] ? parseInt(args['session-id'], 10) : null,
-    includeCode = args['include-code'] === 'true' || args['include-code'] === true;
+    includeCode = args['include-code'] === 'true' || args['include-code'] === true,
+  isFtsSpecial = query ? (/[*"\-]|\b(AND|OR|NOT)\b/i.test(query)) : undefined,
+  needsFallback = query ? (query === '*' || query === '' || isFtsSpecial) : undefined;
   if (!query) {
     return jsonErrNoExit('Missing --query');
   }
 
-  const isFtsSpecial = /[*"\-]|\b(AND|OR|NOT)\b/i.test(query),
-    needsFallback = query === '*' || query === '' || isFtsSpecial;
 
   let rows;
   if (!needsFallback) {

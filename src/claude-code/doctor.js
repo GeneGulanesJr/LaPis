@@ -109,10 +109,13 @@ function checkNativeModule(deps) {
 
 function checkDatabase(deps) {
   try {
-    const db = deps.db || require('../../db');
-    db.ensureDb();
-    const dbPath = db.DB_PATH;
-    fs.accessSync(dbPath, fs.constants.W_OK);
+    const db = deps.db || require('../../db'),
+    dbPath = (() => {
+
+      db.ensureDb();
+      
+  return (db.DB_PATH);
+})();fs.accessSync(dbPath, fs.constants.W_OK);
     db.getDb().prepare('SELECT 1').get();
     return { name: 'database', ok: true, detail: `writable at ${dbPath}` };
   } catch (e) {
@@ -134,13 +137,13 @@ function checkMcpConfig(paths, mcpName, cwd, env) {
     };
   }
   const { entry, scope, file } = found,
-    args = Array.isArray(entry.args) ? entry.args : [];
+    args = Array.isArray(entry.args) ? entry.args : [],
+  base = !(args[args.length - 1] !== 'mcp') ? (path.basename(String(entry.command || ''))) : undefined;
   if (args[args.length - 1] !== 'mcp') {
     return { name: 'MCP server config', ok: false, detail: `entry in ${file} does not spawn \`mcp\`` };
   }
   // Node-script invocation: the script path must exist; otherwise resolve the
   // Command itself (PATH lookup for bare names, fs check for paths).
-  const base = path.basename(String(entry.command || ''));
   if ((base === 'node' || base === 'node.exe') && args.length > 1) {
     if (!fs.existsSync(args[0])) {
       return { name: 'MCP server config', ok: false, detail: `script not found: ${args[0]}` };
@@ -160,7 +163,8 @@ function checkHooksConfig(paths) {
       ['local', paths.localSettings],
       ['user', paths.userSettings],
     ],
-    found = sources.map(([label, file]) => ({ label, file, count: countLapisHooks(file) })).filter((s) => s.count > 0);
+    found = sources.map(([label, file]) => ({ label, file, count: countLapisHooks(file) })).filter((s) => s.count > 0),
+  detail = !(found.length === 0) ? (found.map((s) => `${s.count} handlers (${s.label}: ${s.file})`).join(', ')) : undefined;
   if (found.length === 0) {
     return {
       name: 'hooks config',
@@ -168,22 +172,27 @@ function checkHooksConfig(paths) {
       detail: 'no LaPis hooks found — run `lapis claude-code install`',
     };
   }
-  const detail = found.map((s) => `${s.count} handlers (${s.label}: ${s.file})`).join(', ');
   return { name: 'hooks config', ok: true, detail };
 }
 
 function checkStateStore(deps) {
   try {
     const stateStore = deps.stateStore || require('./state-store'),
-      dir = stateStore.DEFAULT_DIR;
-    fs.mkdirSync(dir, { recursive: true });
-    const probe = path.join(dir, `.doctor-probe-${process.pid}`);
-    fs.writeFileSync(probe, 'ok', 'utf8');
-    fs.unlinkSync(probe);
+      dir = stateStore.DEFAULT_DIR,
+    probe = (() => {
 
-    // Observability into the state dir: TTL window + size + oldest file (#233).
-    const ttl = typeof stateStore.defaultTtlHours === 'function' ? stateStore.defaultTtlHours() : 24;
-    let bytes = 0,
+      fs.mkdirSync(dir, { recursive: true });
+      
+  return (path.join(dir, `.doctor-probe-${process.pid}`));
+})(),
+    ttl = (() => {
+fs.writeFileSync(probe, 'ok', 'utf8');
+      fs.unlinkSync(probe);
+  
+      // Observability into the state dir: TTL window + size + oldest file (#233).
+      
+  return (typeof stateStore.defaultTtlHours === 'function' ? stateStore.defaultTtlHours() : 24);
+})();let bytes = 0,
       oldestName = null,
       oldestMs = Infinity;
     try {
@@ -233,13 +242,16 @@ function runDoctor(argv, io = {}) {
       checkMcpConfig(paths, flags.mcpName, cwd, env),
       checkHooksConfig(paths),
       checkStateStore(io),
-    ];
+    ],
+  ok = (() => {
 
-  for (const check of checks) {
-    log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
-  }
-  const ok = checks.every((c) => c.ok);
-  log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
+  
+    for (const check of checks) {
+      log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
+    }
+    
+  return (checks.every((c) => c.ok));
+})();log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
   return { ok, checks };
 }
 

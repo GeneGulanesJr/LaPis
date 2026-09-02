@@ -206,11 +206,11 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const result = await deps.mem('get', { id: String(params.id) });
+        const result = await deps.mem('get', { id: String(params.id) }),
+        id = !(!result || result.error) ? (parseInt(String(params.id), 10)) : undefined;
         if (!result || result.error) {
           return { content: [{ type: 'text', text: `Memory #${params.id} not found.` }], details: {}, isError: true };
         }
-        const id = parseInt(String(params.id), 10);
         if (deps.state.pendingRecallFeedback?.has(id)) {
           deps.state.pendingRecallFeedback.delete(id);
         }
@@ -246,36 +246,42 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           `Type: ${result.type} | Scope: ${result.scope} | Project: ${result.project}`,
           '',
           result.content,
-        ];
-        if (result.expires_at) {
-          const expMs = Date.parse(`${String(result.expires_at).replace(' ', 'T')}Z`);
-          if (Number.isFinite(expMs)) {
-            const msLeft = expMs - Date.now();
-            if (msLeft <= 0) {
-              lines.push('', `⏰ Status: EXPIRED (${result.expires_at})`);
+        ],
+        versions = (() => {
+
+          if (result.expires_at) {
+            const expMs = Date.parse(`${String(result.expires_at).replace(' ', 'T')}Z`);
+            if (Number.isFinite(expMs)) {
+              const msLeft = expMs - Date.now();
+              if (msLeft <= 0) {
+                lines.push('', `⏰ Status: EXPIRED (${result.expires_at})`);
+              } else {
+                const days = Math.floor(msLeft / 86400000),
+                  hours = Math.floor((msLeft % 86400000) / 3600000),
+                  countdown =
+                    days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h` : `${Math.floor(msLeft / 60000)}m`,
+                  icon = days < 3 ? '⏰' : '🕒';
+                lines.push('', `${icon} Expires: ${result.expires_at} (in ${countdown})`);
+              }
             } else {
-              const days = Math.floor(msLeft / 86400000),
-                hours = Math.floor((msLeft % 86400000) / 3600000),
-                countdown =
-                  days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h` : `${Math.floor(msLeft / 60000)}m`,
-                icon = days < 3 ? '⏰' : '🕒';
-              lines.push('', `${icon} Expires: ${result.expires_at} (in ${countdown})`);
+              lines.push('', `⏰ Expires: ${result.expires_at}`);
             }
-          } else {
-            lines.push('', `⏰ Expires: ${result.expires_at}`);
           }
-        }
-        const versions = (result.versions as any[]) || [];
-        if (versions.length > 0) {
-          lines.push('', '## Edit History');
-          for (const v of versions) {
-            lines.push(`- **${v.field}** changed (${v.created_at}):`);
-            lines.push(`  from: ${String(v.old_value).slice(0, 100)}`);
-            lines.push(`  to:   ${String(v.new_value).slice(0, 100)}`);
+          
+  return ((result.versions as any[]) || []);
+})(),
+        relations = (() => {
+if (versions.length > 0) {
+            lines.push('', '## Edit History');
+            for (const v of versions) {
+              lines.push(`- **${v.field}** changed (${v.created_at}):`);
+              lines.push(`  from: ${String(v.old_value).slice(0, 100)}`);
+              lines.push(`  to:   ${String(v.new_value).slice(0, 100)}`);
+            }
           }
-        }
-        const relations = (result.relations as any[]) || [];
-        if (relations.length > 0) {
+          
+  return ((result.relations as any[]) || []);
+})();if (relations.length > 0) {
           lines.push('', '## Relations');
           for (const rel of relations) {
             const otherId = rel.source_id === parseInt(String(params.id), 10) ? rel.target_id : rel.source_id,
@@ -425,18 +431,18 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const result = await deps.mem('related', { id: String(params.id) });
+        const result = await deps.mem('related', { id: String(params.id) }),
+        related = result ? ((result.related as any[]) || []) : undefined,
+        lines = result && !(related.length === 0) ? (related.flatMap((r: any) => [
+          `### ${r.symbol}`,
+          ...(r.memories || []).map((m: any) => `- [#${m.id}] [${m.type}] ${m.title}`),
+        ])) : undefined;
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to find related memories.' }], details: {}, isError: true };
         }
-        const related = (result.related as any[]) || [];
         if (related.length === 0) {
           return { content: [{ type: 'text', text: 'No related memories found.' }], details: result ?? {} };
         }
-        const lines = related.flatMap((r: any) => [
-          `### ${r.symbol}`,
-          ...(r.memories || []).map((m: any) => `- [#${m.id}] [${m.type}] ${m.title}`),
-        ]);
         return {
           content: [{ type: 'text', text: `Related memories for #${params.id}:\n${lines.join('\n')}` }],
           details: result ?? {},
@@ -478,13 +484,13 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
             'token-budget': String(tokenBudget),
             deep: params.deep ? 'true' : 'false',
             ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
-          });
+          }),
+        observations = result ? ((result.observations as any[]) || []) : undefined;
 
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to load context.' }], details: {}, isError: true };
         }
 
-        const observations = (result.observations as any[]) || [];
         if (observations.length === 0) {
           return {
             content: [{ type: 'text', text: `No memories found for topic "${params.query}".` }],
@@ -532,7 +538,8 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
       try {
         const result = await deps.mem('sync-code-trust', {
           repo: params.repo,
-        });
+        }),
+        lines = result && !(result.message) ? ([]) : undefined;
 
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to sync trust scores.' }], details: {}, isError: true };
@@ -545,7 +552,6 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           };
         }
 
-        const lines: string[] = [];
         if ((result.adjusted as any[])?.length) {
           lines.push(`### ⚠️ Trust reduced (symbols changed): ${result.adjusted.length}`);
           (result.adjusted as any[]).forEach((a: any) => {

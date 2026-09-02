@@ -56,23 +56,22 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
       limit,
       query,
       sessionId,
-    });
+    }),
+  effectiveContext = !(!contextResult && !crossProjectResult) ? (contextResult || crossProjectResult) : undefined,
+  isNewProject = !(!contextResult && !crossProjectResult) ? (crossProjectResult !== null && !contextResult) : undefined,
+  observations = !(!contextResult && !crossProjectResult) ? ((effectiveContext.observations || []).filter(Boolean)) : undefined,
+  personal = !(!contextResult && !crossProjectResult) ? ((effectiveContext.personal || []).filter(Boolean)) : undefined,
+  stats = !(!contextResult && !crossProjectResult) ? (effectiveContext.stats || {}) : undefined,
+  topic = !(!contextResult && !crossProjectResult) ? (effectiveContext.topic || null) : undefined,
+  repos = !(!contextResult && !crossProjectResult) ? (getKnownRepos()) : undefined,
+  resolvedCwd = !(!contextResult && !crossProjectResult) ? (path.resolve(resolveCwd(cwd))) : undefined,
+  cwdRepo = !(!contextResult && !crossProjectResult) ? (findMatchingRepo(resolvedCwd, repos)) : undefined,
+  isStale = !(!contextResult && !crossProjectResult) ? (false) : undefined;
 
   if (!contextResult && !crossProjectResult) {
     return null;
   }
 
-  const effectiveContext = contextResult || crossProjectResult,
-    isNewProject = crossProjectResult !== null && !contextResult,
-    observations = (effectiveContext.observations || []).filter(Boolean),
-    personal = (effectiveContext.personal || []).filter(Boolean),
-    stats = effectiveContext.stats || {},
-    topic = effectiveContext.topic || null,
-    // Staleness check is deferred to Phase 2's best-effort posture.
-    repos = getKnownRepos(),
-    resolvedCwd = path.resolve(resolveCwd(cwd)),
-    cwdRepo = findMatchingRepo(resolvedCwd, repos),
-    isStale = false;
 
   let effectiveObservations = [];
   if (query) {

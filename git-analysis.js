@@ -58,12 +58,12 @@ function resolveTarget(repoId, target, db) {
  */
 // eslint-disable-next-line max-statements -- churn computation inherently requires many steps
 function getChurn(db, repoId, target, days, refresh) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  resolved = !(guard) ? (resolveTarget(repoId, target, db)) : undefined;
   if (guard) {
     return guard;
   }
 
-  const resolved = resolveTarget(repoId, target, db);
   if (resolved.error) {
     return resolved;
   }

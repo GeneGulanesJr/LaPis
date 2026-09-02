@@ -107,12 +107,12 @@ function _filesystemFreshness(_repoPath) {
  */
 function getFreshness(db, repoId, repoPath, storedHeadCommit) {
   const key = `freshness:${repoId}`,
-    cached = _cacheGet(key);
+    cached = _cacheGet(key),
+  freshness = !(cached) ? (checkFreshness(repoPath, storedHeadCommit)) : undefined;
   if (cached) {
     return cached;
   }
 
-  const freshness = checkFreshness(repoPath, storedHeadCommit);
   _cacheSet(key, freshness);
   return freshness;
 }
@@ -156,35 +156,35 @@ const _confidenceCalculators = {
     return Math.min(1.0, 0.5 + (nodes[0].pagerank - nodes[1].pagerank) * 20);
   },
   getDeadCode(data) {
-    const symbols = data?.symbols || data?.results || [];
+    const symbols = data?.symbols || data?.results || [],
+    sum = !(symbols.length === 0) ? (symbols.reduce((s, sym) => s + (sym.confidence || 0.5), 0)) : undefined;
     if (symbols.length === 0) {
       return 1.0;
     }
-    const sum = symbols.reduce((s, sym) => s + (sym.confidence || 0.5), 0);
     return parseFloat((sum / symbols.length).toFixed(2));
   },
   getHotspots(data) {
-    const files = data?.files || [];
+    const files = data?.files || [],
+    withChurn = !(files.length === 0) ? (files.filter((f) => (f.commits || 0) > 0).length) : undefined;
     if (files.length === 0) {
       return 1.0;
     }
-    const withChurn = files.filter((f) => (f.commits || 0) > 0).length;
     return parseFloat((withChurn / files.length).toFixed(2));
   },
   getBlastRadius(data) {
-    const edges = data?.edges || [];
+    const edges = data?.edges || [],
+    resolved = !(edges.length === 0) ? (edges.filter((e) => e.resolved !== false).length) : undefined;
     if (edges.length === 0) {
       return 1.0;
     }
-    const resolved = edges.filter((e) => e.resolved !== false).length;
     return parseFloat((resolved / edges.length).toFixed(2));
   },
   getExtractionCandidates(data) {
-    const candidates = data?.candidates || [];
+    const candidates = data?.candidates || [],
+    maxScore = !(candidates.length === 0) ? (Math.max(...candidates.map((c) => c.extraction_score || 0))) : undefined;
     if (candidates.length === 0) {
       return 1.0;
     }
-    const maxScore = Math.max(...candidates.map((c) => c.extraction_score || 0));
     return maxScore <= 0 ? 0.0 : parseFloat(maxScore.toFixed(2));
   },
   getSignalChains(data) {
@@ -226,11 +226,11 @@ const _confidenceCalculators = {
     return parseFloat((withBody / allSymbols).toFixed(2));
   },
   getProvenance(data) {
-    const commits = data?.commits || [];
+    const commits = data?.commits || [],
+    classified = !(commits.length === 0) ? (commits.filter((c) => c.classification !== 'unknown').length) : undefined;
     if (commits.length === 0) {
       return 1.0;
     }
-    const classified = commits.filter((c) => c.classification !== 'unknown').length;
     return parseFloat((classified / commits.length).toFixed(2));
   },
   getUntestedSymbols(data) {
@@ -240,11 +240,11 @@ const _confidenceCalculators = {
   },
   getPrRiskProfile(data) {
     const signals = data?.signals || {},
-      signalKeys = Object.keys(signals).filter((k) => k !== 'composite');
+      signalKeys = Object.keys(signals).filter((k) => k !== 'composite'),
+    hasData = !(signalKeys.length === 0) ? (signalKeys.filter((k) => signals[k] != null).length) : undefined;
     if (signalKeys.length === 0) {
       return 0.0;
     }
-    const hasData = signalKeys.filter((k) => signals[k] != null).length;
     return parseFloat((hasData / signalKeys.length).toFixed(2));
   },
   'coding-context'(data) {

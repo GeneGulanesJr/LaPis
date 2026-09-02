@@ -498,14 +498,17 @@ describeIntegration('incremental derived rebuild integration', () => {
     });
 
     it('handles deleted files in incremental reindex', () => {
-      const yPath = path.join(tmpRepo, 'y.js');
-      if (!fs.existsSync(yPath)) {
-        fs.writeFileSync(yPath, 'function y() { return 2; }');
-        run(`reindex-repo --repo ${name} --mode incremental`);
-      }
-      fs.unlinkSync(yPath);
-      const result = run(`reindex-repo --repo ${name} --mode incremental`);
-      expect(result.success).toBe(true);
+      const yPath = path.join(tmpRepo, 'y.js'),
+      result = (() => {
+
+        if (!fs.existsSync(yPath)) {
+          fs.writeFileSync(yPath, 'function y() { return 2; }');
+          run(`reindex-repo --repo ${name} --mode incremental`);
+        }
+        fs.unlinkSync(yPath);
+        
+  return (run(`reindex-repo --repo ${name} --mode incremental`));
+})();expect(result.success).toBe(true);
       expect(result.files_removed).toBeGreaterThanOrEqual(1);
       expect(result.derived_scope).toBe('file');
     });

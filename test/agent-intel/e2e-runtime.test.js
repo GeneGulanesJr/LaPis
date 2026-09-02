@@ -89,22 +89,28 @@ export function batchProcess(items) {
 
   it('stale-flags command works', () => {
     // Add stale flag to repo
-    const flagFile = path.join(tmpRepo, 'src', 'flags.js');
-    fs.writeFileSync(flagFile, `if (process.env.FEATURE_OLD_CODE === 'enabled') { legacy(); }`);
-    run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
+    const flagFile = path.join(tmpRepo, 'src', 'flags.js'),
+    result = (() => {
 
-    const result = run(`stale-flags --repo ${repoName}`);
-    expect(result.stale_flags.length).toBeGreaterThanOrEqual(1);
+      fs.writeFileSync(flagFile, `if (process.env.FEATURE_OLD_CODE === 'enabled') { legacy(); }`);
+      run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
+  
+      
+  return (run(`stale-flags --repo ${repoName}`));
+})();expect(result.stale_flags.length).toBeGreaterThanOrEqual(1);
 
     fs.unlinkSync(flagFile);
   });
 
   it('hot-symbols and cold-symbols commands work', () => {
-    const hotResult = run(`hot-symbols --repo ${repoName}`);
-    expect(hotResult.error).toBeUndefined();
-    expect(hotResult.hot_symbols.some((s) => s.function_name === 'processPayment')).toBe(true);
+    const hotResult = run(`hot-symbols --repo ${repoName}`),
+    coldResult = (() => {
 
-    const coldResult = run(`cold-symbols --repo ${repoName}`);
-    expect(coldResult.error).toBeUndefined();
+      expect(hotResult.error).toBeUndefined();
+      expect(hotResult.hot_symbols.some((s) => s.function_name === 'processPayment')).toBe(true);
+  
+      
+  return (run(`cold-symbols --repo ${repoName}`));
+})();expect(coldResult.error).toBeUndefined();
   });
 });

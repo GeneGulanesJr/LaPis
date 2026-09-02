@@ -80,8 +80,7 @@ function insertAt(ls, range) {
  * (rendered at indent + 2). Other sibling sub-blocks are preserved.
  */
 function upsertSubBlock(text, topKey, subKey, bodyLines, indent = 2) {
-  const ls = splitLines(text);
-  const range = topBlockRange(joinLines(ls), topKey);
+  const ls = splitLines(text), range = topBlockRange(joinLines(ls), topKey);
   if (!range) {
     const block = [
         `${topKey}:`,
@@ -124,12 +123,12 @@ function upsertSubBlock(text, topKey, subKey, bodyLines, indent = 2) {
 /** Remove a `subKey:` block at `indent` inside top-level `topKey`. */
 function removeSubBlock(text, topKey, subKey, indent = 2) {
   const ls = splitLines(text),
-    range = topBlockRange(text, topKey);
+    range = topBlockRange(text, topKey),
+  pad = range ? (' '.repeat(indent)) : undefined,
+  subRe = range ? (new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`)) : undefined;
   if (!range) {
     return text;
   }
-  const pad = ' '.repeat(indent),
-    subRe = new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`);
   let subStart = -1;
   for (let i = range.start + 1; i < range.end; i++) {
     if (subRe.test(ls[i])) {
@@ -166,11 +165,11 @@ function isEmptyLineForPrune(line) {
 
 /** True when a top-level block has no content (only blank/bare-key lines). */
 function topBlockEmpty(text, key) {
-  const range = topBlockRange(text, key);
+  const range = topBlockRange(text, key),
+  lines = range ? (splitLines(text).slice(range.start + 1, range.end)) : undefined;
   if (!range) {
     return false;
   }
-  const lines = splitLines(text).slice(range.start + 1, range.end);
   return lines.every(isEmptyLineForPrune);
 }
 
@@ -180,12 +179,12 @@ function topBlockEmpty(text, key) {
  */
 function removeEmptySubBlock(text, topKey, subKey, indent = 2) {
   const ls = splitLines(text),
-    range = topBlockRange(text, topKey);
+    range = topBlockRange(text, topKey),
+  pad = range ? (' '.repeat(indent)) : undefined,
+  subRe = range ? (new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`)) : undefined;
   if (!range) {
     return text;
   }
-  const pad = ' '.repeat(indent),
-    subRe = new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`);
   let subStart = -1;
   for (let i = range.start + 1; i < range.end; i++) {
     if (subRe.test(ls[i])) {
@@ -216,11 +215,11 @@ function removeEmptySubBlock(text, topKey, subKey, indent = 2) {
 
 /** Remove a top-level block and its body. */
 function removeTopLevelBlock(text, key) {
-  const range = topBlockRange(text, key);
+  const range = topBlockRange(text, key),
+  ls = range ? (splitLines(text)) : undefined;
   if (!range) {
     return text;
   }
-  const ls = splitLines(text);
   ls.splice(range.start, range.end - range.start);
   return squashBlankLines(joinLines(ls));
 }
@@ -232,9 +231,9 @@ function removeTopLevelBlock(text, key) {
  * relative to the item (rendered at indent 4). Other items are preserved.
  */
 function upsertListItem(text, topKey, subKey, itemLines, marker) {
-  const ls = splitLines(removeListItems(text, topKey, subKey, marker));
-  const range = topBlockRange(joinLines(ls), topKey),
-    items = itemLines.map((l) => `    ${l}`);
+  const ls = splitLines(removeListItems(text, topKey, subKey, marker)),
+  range = topBlockRange(joinLines(ls), topKey),
+  items = itemLines.map((l) => `    ${l}`);
   if (!range) {
     const block = [`${topKey}:`, `  ${subKey}:`, ...items],
       sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];

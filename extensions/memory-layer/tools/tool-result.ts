@@ -34,15 +34,17 @@ export function normalizeToolResult(result: unknown, fallbackText = 'No output.'
           return { ...item, text: stringifyToolText(item.text) };
         }
         return item;
-      });
+      }),
+  details = (() => {
 
-  if (normalizedContent.length === 0) {
-    normalizedContent.push({ type: 'text', text: fallbackText });
-  }
-
-  const details = candidate.details && typeof candidate.details === 'object' ? candidate.details : {};
-
-  return {
+  
+    if (normalizedContent.length === 0) {
+      normalizedContent.push({ type: 'text', text: fallbackText });
+    }
+  
+    
+  return (candidate.details && typeof candidate.details === 'object' ? candidate.details : {});
+})(); return {
     ...candidate,
     content: normalizedContent,
     details: details as Record<string, unknown>,

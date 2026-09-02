@@ -114,64 +114,70 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
             'audit-diff': 'audit-diff',
             'enrich-symbols': 'enrich-symbols',
           },
-          mode = typeof params.mode === 'string' ? params.mode : '';
+          mode = typeof params.mode === 'string' ? params.mode : '',
+        cmd = mode ? (cmdMap[mode]) : undefined;
         if (!mode) {
           return toolTextResult(codeHelpText());
         }
 
-        const cmd = cmdMap[mode];
         if (!cmd) {
           return toolTextResult(`Unknown memory-code mode: ${mode}\n\n${codeHelpText()}`, {}, true);
         }
 
         const codeRepos =
             mode === 'index-repo' || mode === 'reindex-repo' || mode === 'health' ? [] : await deps.getKnownRepos(),
-          inferredRepo = inferCurrentRepo(params, codeRepos, process.cwd());
-        if (inferredRepo) {
-          params = { ...params, repo: inferredRepo };
-        }
+          inferredRepo = inferCurrentRepo(params, codeRepos, process.cwd()),
+        validationError = (() => {
 
-        const validationError = validateCodeParams(mode, params);
-        if (validationError) {
+          if (inferredRepo) {
+            params = { ...params, repo: inferredRepo };
+          }
+  
+          
+  return (validateCodeParams(mode, params));
+})();if (validationError) {
           return toolTextResult(validationError, {}, true);
         }
 
-        const args: Record<string, string> = {};
-        if (params.repo) {
-          args.repo = params.repo;
-        }
-        if (params.symbol) {
-          args.symbol = params.symbol;
-        }
-        if (params.query || (mode === 'search' && params.symbol)) {
-          args.query = String(params.query || params.symbol);
-        }
-        if (params.task || ((mode === 'preflight' || mode === 'agent-pack') && params.query)) {
-          args.task = String(params.task || params.query);
-        }
-        if (params.file) {
-          args.file = params.file;
-        }
-        if (params.depth) {
-          args.depth = String(params.depth);
-        }
-        if (params.direction) {
-          args.direction = params.direction;
-        }
-        if (cmd === 'call-hierarchy') {
-          args.direction = mode === 'callers' ? 'callers' : 'callees';
-        }
-        if (params.min_confidence) {
-          args['min-confidence'] = String(params.min_confidence);
-        }
-        if (params.days) {
-          args.days = String(params.days);
-        }
-        if (params.refresh) {
-          args.refresh = 'true';
-        }
-        const top = params.top || (cmd === 'search-code' ? 5 : null);
-        if (top) {
+        const args: Record<string, string> = {},
+        top = (() => {
+
+          if (params.repo) {
+            args.repo = params.repo;
+          }
+          if (params.symbol) {
+            args.symbol = params.symbol;
+          }
+          if (params.query || (mode === 'search' && params.symbol)) {
+            args.query = String(params.query || params.symbol);
+          }
+          if (params.task || ((mode === 'preflight' || mode === 'agent-pack') && params.query)) {
+            args.task = String(params.task || params.query);
+          }
+          if (params.file) {
+            args.file = params.file;
+          }
+          if (params.depth) {
+            args.depth = String(params.depth);
+          }
+          if (params.direction) {
+            args.direction = params.direction;
+          }
+          if (cmd === 'call-hierarchy') {
+            args.direction = mode === 'callers' ? 'callers' : 'callees';
+          }
+          if (params.min_confidence) {
+            args['min-confidence'] = String(params.min_confidence);
+          }
+          if (params.days) {
+            args.days = String(params.days);
+          }
+          if (params.refresh) {
+            args.refresh = 'true';
+          }
+          
+  return (params.top || (cmd === 'search-code' ? 5 : null));
+})();if (top) {
           if (cmd === 'search-code') {
             args['max-results'] = String(top);
           } else {

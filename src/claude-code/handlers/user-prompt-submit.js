@@ -48,13 +48,16 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt }) {
       'code-limit': String(CONTEXT.PREFLIGHT_CODE_LIMIT || 3),
       'memory-limit': String(CONTEXT.PREFLIGHT_MEMORY_LIMIT || 2),
       'doc-limit': String(CONTEXT.PREFLIGHT_DOC_LIMIT || 1),
-    });
-    if (preflightResult && !preflightResult.error) {
-      appendPreflightBlock(lines, preflightResult);
-    }
+    }),
+    target = (() => {
 
-    const target = chooseCodingContextTarget(prompt, preflightResult);
-    if (target) {
+      if (preflightResult && !preflightResult.error) {
+        appendPreflightBlock(lines, preflightResult);
+      }
+  
+      
+  return (chooseCodingContextTarget(prompt, preflightResult));
+})();if (target) {
       const codingContextResult = await dispatch('coding-context', {
         repo: cwdRepo.name,
         ...target,

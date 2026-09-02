@@ -110,7 +110,12 @@ async function runHook(argv, opts = {}) {
 
   // Event name precedence: explicit argv > payload.hook_event_name.
   const resolvedEvent = event || payload.hook_event_name,
-    handler = HANDLERS[resolvedEvent];
+    handler = HANDLERS[resolvedEvent],
+  resolvedDispatchClient = handler ? (opts.dispatchClient || dispatchClient) : undefined,
+  dispatch = handler ? (opts.dispatch || resolvedDispatchClient.dispatch) : undefined,
+  getKnownRepos = handler ? (opts.getKnownRepos || resolvedDispatchClient.getKnownRepos) : undefined,
+  getKnownProjects = handler ? (opts.getKnownProjects || resolvedDispatchClient.getKnownProjects) : undefined,
+  resolvedStateStore = handler ? (opts.stateStore || stateStore) : undefined;
 
   if (!handler) {
     // Unknown/unwired event (e.g. PreToolUse in Phase 2): no-op, never crash.
@@ -120,11 +125,6 @@ async function runHook(argv, opts = {}) {
   // Allow tests / alternate backends to inject the state store and dispatch
   // Client the same way they inject dispatch/getKnownRepos (#231). `dispatch`
   // And `getKnownRepos` fall back to the (possibly injected) client's methods.
-  const resolvedDispatchClient = opts.dispatchClient || dispatchClient,
-    dispatch = opts.dispatch || resolvedDispatchClient.dispatch,
-    getKnownRepos = opts.getKnownRepos || resolvedDispatchClient.getKnownRepos,
-    getKnownProjects = opts.getKnownProjects || resolvedDispatchClient.getKnownProjects,
-    resolvedStateStore = opts.stateStore || stateStore;
 
   // EnsureDb once — mirrors src/mcp/server.js:118-130.
   if (opts.ensureDb !== false) {

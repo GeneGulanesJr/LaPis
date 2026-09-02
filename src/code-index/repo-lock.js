@@ -31,11 +31,11 @@ function getDbApi() {
 }
 
 function reclaimStaleLock(sqlJson, sqlRun, repoName) {
-  const rows = sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', [repoName]);
+  const rows = sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', [repoName]),
+  pid = !(rows.length === 0) ? (parseInt(String(rows[0].holder_id).split(':')[0], 10)) : undefined;
   if (rows.length === 0) {
     return false;
   }
-  const pid = parseInt(String(rows[0].holder_id).split(':')[0], 10);
   if (isProcessAlive(pid)) {
     return false;
   }

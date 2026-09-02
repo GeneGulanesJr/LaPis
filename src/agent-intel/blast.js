@@ -47,55 +47,61 @@ function blastRadius(db, repoId, symbolName, options = {}) {
   // Import and exercise the symbol, and only matched tests whose file path
   // Happened to embed the symbol name. Use the call graph instead: find any
   // File that contains a symbol whose caller chain reaches the target.
-  let likelyTests = [];
-  try {
-    likelyTests = db
-      .prepare(
-        `
-        SELECT DISTINCT cf.path
-        FROM code_calls cc
-        JOIN code_symbols caller ON caller.id = cc.caller_symbol_id
-        JOIN code_files cf ON cf.id = caller.file_id
-        WHERE cc.repo_id = ?
-          AND cc.callee_symbol_id = ?
-          AND (LOWER(cf.path) LIKE '%test%' OR LOWER(cf.path) LIKE '%spec%')
-        UNION
-        SELECT DISTINCT cf.path
-        FROM code_imports ci
-        JOIN code_symbols sym ON sym.file_id = ci.source_file_id
-        JOIN code_calls cc ON cc.caller_symbol_id = sym.id
-        JOIN code_files cf ON cf.id = ci.source_file_id
-        WHERE ci.repo_id = ?
-          AND cc.callee_symbol_id = ?
-          AND (LOWER(cf.path) LIKE '%test%' OR LOWER(cf.path) LIKE '%spec%')
-        LIMIT 20
-      `,
-      )
-      .all(repoId, symbolRow.id, repoId, symbolRow.id);
-  } catch {
-    likelyTests = [];
-  }
+  let likelyTests = [],
+  docsAffected = (() => {
 
-  // Docs that reference this symbol
-  let docsAffected = [];
-  try {
-    const docsWithSymbol = db
-      .prepare(`
-      SELECT ds.title, df.path as file_path
-      FROM doc_sections ds
-      JOIN doc_files df ON df.id = ds.file_id
-      WHERE ds.repo_id = ? AND ds.content LIKE ?
-      LIMIT 10
-    `)
-      .all(repoId, `%${symbolRow.name}%`);
-    docsAffected = docsWithSymbol.map((d) => d.file_path);
-  } catch {
-    // Doc_sections may not have required structure - graceful degradation
-  }
-
-  // Runtime hotness (if available)
-  let runtime = null;
-  if (includeRuntime) {
+    try {
+      likelyTests = db
+        .prepare(
+          `
+          SELECT DISTINCT cf.path
+          FROM code_calls cc
+          JOIN code_symbols caller ON caller.id = cc.caller_symbol_id
+          JOIN code_files cf ON cf.id = caller.file_id
+          WHERE cc.repo_id = ?
+            AND cc.callee_symbol_id = ?
+            AND (LOWER(cf.path) LIKE '%test%' OR LOWER(cf.path) LIKE '%spec%')
+          UNION
+          SELECT DISTINCT cf.path
+          FROM code_imports ci
+          JOIN code_symbols sym ON sym.file_id = ci.source_file_id
+          JOIN code_calls cc ON cc.caller_symbol_id = sym.id
+          JOIN code_files cf ON cf.id = ci.source_file_id
+          WHERE ci.repo_id = ?
+            AND cc.callee_symbol_id = ?
+            AND (LOWER(cf.path) LIKE '%test%' OR LOWER(cf.path) LIKE '%spec%')
+          LIMIT 20
+        `,
+        )
+        .all(repoId, symbolRow.id, repoId, symbolRow.id);
+    } catch {
+      likelyTests = [];
+    }
+  
+    // Docs that reference this symbol
+    
+  return ([]);
+})(),
+  runtime = (() => {
+try {
+      const docsWithSymbol = db
+        .prepare(`
+        SELECT ds.title, df.path as file_path
+        FROM doc_sections ds
+        JOIN doc_files df ON df.id = ds.file_id
+        WHERE ds.repo_id = ? AND ds.content LIKE ?
+        LIMIT 10
+      `)
+        .all(repoId, `%${symbolRow.name}%`);
+      docsAffected = docsWithSymbol.map((d) => d.file_path);
+    } catch {
+      // Doc_sections may not have required structure - graceful degradation
+    }
+  
+    // Runtime hotness (if available)
+    
+  return (null);
+})();if (includeRuntime) {
     try {
       // Try to match by symbol_id first, then by function_name and file_path
       let runtimeData = db

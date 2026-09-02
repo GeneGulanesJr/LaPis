@@ -14,18 +14,18 @@ function _requireNativeDb(db) {
  * Audit changed files for violations.
  */
 function auditDiff(db, repoId, opts = {}) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  { files = [], task = '' } = !(guard) ? (opts) : undefined,
+  violations = !(guard) && !(files.length === 0) ? ([]) : undefined,
+  weights = !(guard) && !(files.length === 0) ? (CFG.RISK_WEIGHTS) : undefined;
   if (guard) {
     return guard;
   }
 
-  const { files = [], task = '' } = opts;
   if (files.length === 0) {
     return { violations: [], risk: 'low', files_checked: 0 };
   }
 
-  const violations = [],
-    weights = CFG.RISK_WEIGHTS;
   let riskScore = 0;
 
   for (const filePath of files.slice(0, CFG.MAX_FILES)) {
@@ -36,26 +36,32 @@ function auditDiff(db, repoId, opts = {}) {
       .all(repoId, filePath);
 
     for (const sym of symbols) {
-      const dupes = _checkDuplicateCreation(db, repoId, sym);
-      if (dupes) {
-        violations.push(dupes);
-        riskScore += weights.duplicate;
-      }
+      const dupes = _checkDuplicateCreation(db, repoId, sym),
+      constraint = (() => {
 
-      const constraint = _checkConstraintViolation(db, sym);
-      if (constraint) {
+        if (dupes) {
+          violations.push(dupes);
+          riskScore += weights.duplicate;
+        }
+  
+        
+  return (_checkConstraintViolation(db, sym));
+})();if (constraint) {
         violations.push(constraint);
         riskScore += weights.constraint;
       }
 
-      const untested = _checkUntestedPublic(db, repoId, sym);
-      if (untested) {
-        violations.push(untested);
-        riskScore += weights.untested;
-      }
+      const untested = _checkUntestedPublic(db, repoId, sym),
+      hotPath = (() => {
 
-      const hotPath = _checkHotPath(db, repoId, sym);
-      if (hotPath) {
+        if (untested) {
+          violations.push(untested);
+          riskScore += weights.untested;
+        }
+  
+        
+  return (_checkHotPath(db, repoId, sym));
+})();if (hotPath) {
         violations.push(hotPath);
         riskScore += weights.hot_path;
       }
@@ -116,11 +122,11 @@ function _checkDuplicateCreation(db, repoId, sym) {
 
 function _checkConstraintViolation(db, sym) {
   try {
-    const meta = db.prepare(`SELECT constraints FROM symbol_metadata WHERE symbol_id = ?`).get(sym.id);
+    const meta = db.prepare(`SELECT constraints FROM symbol_metadata WHERE symbol_id = ?`).get(sym.id),
+    constraints = !(!meta || !meta.constraints) ? (JSON.parse(meta.constraints)) : undefined;
     if (!meta || !meta.constraints) {
       return null;
     }
-    const constraints = JSON.parse(meta.constraints);
     if (constraints.length === 0) {
       return null;
     }

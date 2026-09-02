@@ -132,10 +132,13 @@ describe('translate-result', () => {
   });
 
   it('serializes plain objects as JSON text', () => {
-    const r = toCallToolResult({ results: [{ id: 1, title: 'x' }] });
-    expect(r.isError).toBeUndefined();
-    const parsed = JSON.parse(r.content[0].text);
-    expect(parsed.results[0].id).toBe(1);
+    const r = toCallToolResult({ results: [{ id: 1, title: 'x' }] }),
+    parsed = (() => {
+
+      expect(r.isError).toBeUndefined();
+      
+  return (JSON.parse(r.content[0].text));
+})();expect(parsed.results[0].id).toBe(1);
   });
 
   it('passes through already-shaped content, stripping only leading icons', () => {
@@ -215,10 +218,13 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
     const saveResult = await client.callTool({
       name: 'memory-save',
       arguments: { title: 'My Decision', content: 'Use X because Y' },
-    });
-    expect(saveResult.isError).toBeUndefined();
-    const parsed = JSON.parse(saveResult.content[0].text);
-    expect(parsed.id).toBe(42);
+    }),
+    parsed = (() => {
+
+      expect(saveResult.isError).toBeUndefined();
+      
+  return (JSON.parse(saveResult.content[0].text));
+})();expect(parsed.id).toBe(42);
     expect(parsed.title).toBe('My Decision');
 
     // Dispatch received the project-scoped args
@@ -299,11 +305,14 @@ describe('startMcpServer', () => {
   it('writes to stderr and exits non-zero when ensureDb() throws', async () => {
     // Swap the cached db module for one whose ensureDb() throws so we
     // Exercise the real error path without touching the real DB.
-    const dbPath = require.resolve('../db');
-    // Ensure the module is cached so we can swap its exports.
-    require(dbPath);
-    const realDb = require.cache[dbPath].exports;
-    require.cache[dbPath].exports = {
+    const dbPath = require.resolve('../db'),
+    realDb = (() => {
+
+      // Ensure the module is cached so we can swap its exports.
+      require(dbPath);
+      
+  return (require.cache[dbPath].exports);
+})();require.cache[dbPath].exports = {
       ensureDb: () => {
         throw new Error('EACCES: ~/.lapis unwritable');
       },

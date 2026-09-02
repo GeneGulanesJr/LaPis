@@ -3,16 +3,11 @@
 const { _requireNativeDb, DEAD_CODE } = require('./shared-deps');
 
 function getDeadCode(db, repoId, opts) {
-  const guard = _requireNativeDb(db);
-  if (guard) {
-    return guard;
-  }
-  const minConfidence = opts.minConfidence || DEAD_CODE.DEFAULT_MIN_CONFIDENCE,
-    includeTests = opts.includeTests || false,
-    // ── Gather entry points ──
-    entryFiles = new Set(),
-    // 1. Filename patterns
-    entryPatterns = [
+  const guard = _requireNativeDb(db),
+  minConfidence = !(guard) ? (opts.minConfidence || DEAD_CODE.DEFAULT_MIN_CONFIDENCE) : undefined,
+  includeTests = !(guard) ? (opts.includeTests || false) : undefined,
+  entryFiles = !(guard) ? (new Set()) : undefined,
+  entryPatterns = !(guard) ? ([
       '%main.js',
       '%index.js',
       '%index.ts',
@@ -22,7 +17,10 @@ function getDeadCode(db, repoId, opts) {
       '%app.ts',
       '%server.js',
       '%server.ts',
-    ];
+    ]) : undefined;
+  if (guard) {
+    return guard;
+  }
   for (const pattern of entryPatterns) {
     const rows = db.prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?').all(repoId, pattern);
     for (const r of rows) {
@@ -33,55 +31,61 @@ function getDeadCode(db, repoId, opts) {
   // 2. Shebang files
   const shebangFiles = db
     .prepare("SELECT id FROM code_files WHERE repo_id = ? AND content LIKE '#!/usr/bin/env%'")
-    .all(repoId);
-  for (const r of shebangFiles) {
-    entryFiles.add(r.id);
-  }
+    .all(repoId),
+  exportDefaultFiles = (() => {
 
-  // 3. export default
-  const exportDefaultFiles = db
+    for (const r of shebangFiles) {
+      entryFiles.add(r.id);
+    }
+  
+    // 3. export default
+    
+  return (db
     .prepare("SELECT id FROM code_files WHERE repo_id = ? AND content LIKE '%export default%'")
-    .all(repoId);
-  for (const r of exportDefaultFiles) {
+    .all(repoId));
+})();for (const r of exportDefaultFiles) {
     entryFiles.add(r.id);
   }
 
   // 4. package.json bin/main/exports fields
   const packageJsonFiles = db
     .prepare("SELECT id, path, content FROM code_files WHERE repo_id = ? AND path LIKE '%/package.json'")
-    .all(repoId);
-  for (const pkg of packageJsonFiles) {
-    try {
-      const pkgData = JSON.parse(pkg.content);
-      if (pkgData.main) {
-        const mainRow = db
-          .prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?')
-          .get(repoId, `%${pkgData.main}%`);
-        if (mainRow) {
-          entryFiles.add(mainRow.id);
-        }
-      }
-      if (pkgData.bin) {
-        const bins = typeof pkgData.bin === 'string' ? [pkgData.bin] : Object.values(pkgData.bin);
-        for (const bin of bins) {
-          const binRow = db
+    .all(repoId),
+  barrelFiles = (() => {
+
+    for (const pkg of packageJsonFiles) {
+      try {
+        const pkgData = JSON.parse(pkg.content);
+        if (pkgData.main) {
+          const mainRow = db
             .prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?')
-            .get(repoId, `%${bin}%`);
-          if (binRow) {
-            entryFiles.add(binRow.id);
+            .get(repoId, `%${pkgData.main}%`);
+          if (mainRow) {
+            entryFiles.add(mainRow.id);
           }
         }
-      }
-    } catch {}
-  }
-
-  // 5. Barrel files (index.js/ts that re-export other modules)
-  const barrelFiles = db
+        if (pkgData.bin) {
+          const bins = typeof pkgData.bin === 'string' ? [pkgData.bin] : Object.values(pkgData.bin);
+          for (const bin of bins) {
+            const binRow = db
+              .prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?')
+              .get(repoId, `%${bin}%`);
+            if (binRow) {
+              entryFiles.add(binRow.id);
+            }
+          }
+        }
+      } catch {}
+    }
+  
+    // 5. Barrel files (index.js/ts that re-export other modules)
+    
+  return (db
     .prepare(
       "SELECT source_file_id as file_id FROM code_imports WHERE import_type = 're-export' AND repo_id = ? GROUP BY source_file_id",
     )
-    .all(repoId);
-  for (const b of barrelFiles) {
+    .all(repoId));
+})();for (const b of barrelFiles) {
     entryFiles.add(b.file_id);
   }
 

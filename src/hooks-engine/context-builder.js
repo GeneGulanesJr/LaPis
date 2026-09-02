@@ -43,21 +43,21 @@ function summarizeMemoryContent(content) {
       .map((line) => line.trim())
       .filter(Boolean),
     priority = lines.filter((line) => /^\*\*(What|Why|Where)\*\*:/i.test(line)),
-    selected = (priority.length > 0 ? priority : lines).slice(0, 3);
+    selected = (priority.length > 0 ? priority : lines).slice(0, 3),
+  normalized = !(selected.length === 0) ? (selected
+    .join(' ')
+    .replace(/\*\*(What|Why|Where)\*\*:\s*/gi, '$1: ')
+    .replace(/\s+/g, ' ')
+    .trim()) : undefined,
+  limit = !(selected.length === 0) && normalized ? (CONTEXT.PROMPT_MEMORY_SNIPPET_LENGTH || 280) : undefined;
   if (selected.length === 0) {
     return null;
   }
 
-  const normalized = selected
-    .join(' ')
-    .replace(/\*\*(What|Why|Where)\*\*:\s*/gi, '$1: ')
-    .replace(/\s+/g, ' ')
-    .trim();
   if (!normalized) {
     return null;
   }
 
-  const limit = CONTEXT.PROMPT_MEMORY_SNIPPET_LENGTH || 280;
   return normalized.length > limit ? `${normalized.slice(0, limit - 1)}…` : normalized;
 }
 

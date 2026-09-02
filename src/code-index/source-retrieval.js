@@ -118,22 +118,25 @@ function searchCodeLike(query, repoName, kind, maxResults) {
     JOIN code_repos r ON r.id = s.repo_id
     WHERE (s.name LIKE ? OR s.qualified_name LIKE ? OR s.signature LIKE ? OR s.summary LIKE ?)
   `;
-  const params = [likeQuery, likeQuery, likeQuery, likeQuery];
+  const params = [likeQuery, likeQuery, likeQuery, likeQuery],
+  rows = (() => {
 
-  if (repoName) {
-    sql += ' AND r.name = ?';
-    params.push(repoName);
-  }
-  if (kind) {
-    sql += ' AND s.kind = ?';
-    params.push(kind);
-  }
-
-  sql += ' LIMIT ?';
-  params.push(maxResults);
-
-  const rows = sqlJson(sql, params);
-  return {
+  
+    if (repoName) {
+      sql += ' AND r.name = ?';
+      params.push(repoName);
+    }
+    if (kind) {
+      sql += ' AND s.kind = ?';
+      params.push(kind);
+    }
+  
+    sql += ' LIMIT ?';
+    params.push(maxResults);
+  
+    
+  return (sqlJson(sql, params));
+})();return {
     query,
     results: rows.map(mapSearchRow),
     total: rows.length,

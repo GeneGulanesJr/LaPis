@@ -129,10 +129,13 @@ describe('registerOutputCompression', () => {
 
   test('updates compressionStats after compression', async () => {
     const pi = makePi(),
-      state = makeState();
-    registerOutputCompression(pi as any, { state, getConfig: makeConfig() });
-    const large = 'x'.repeat(5000);
-    await pi.getHandler('tool_result')(bashEvent('npm test', large), {});
+      state = makeState(),
+    large = (() => {
+
+      registerOutputCompression(pi as any, { state, getConfig: makeConfig() });
+      
+  return ('x'.repeat(5000));
+})();await pi.getHandler('tool_result')(bashEvent('npm test', large), {});
 
     expect(state.compressionStats.totalRuns).toBe(1);
     expect(state.compressionStats.totalOriginalTokens).toBeGreaterThan(0);
@@ -141,10 +144,13 @@ describe('registerOutputCompression', () => {
 
   test('calls recordRun with correct data', async () => {
     const { recordRun } = await import('../src/token-saver/savings-store'),
-      pi = makePi();
-    registerOutputCompression(pi as any, { state: makeState() as any, getConfig: makeConfig() });
-    const large = 'x'.repeat(5000);
-    await pi.getHandler('tool_result')(bashEvent('npm test', large), {});
+      pi = makePi(),
+    large = (() => {
+
+      registerOutputCompression(pi as any, { state: makeState() as any, getConfig: makeConfig() });
+      
+  return ('x'.repeat(5000));
+})();await pi.getHandler('tool_result')(bashEvent('npm test', large), {});
 
     expect(recordRun).toHaveBeenCalledTimes(1);
     const call = (recordRun as any).mock.calls[0][0];
@@ -161,12 +167,15 @@ describe('registerOutputCompression', () => {
   });
 
   test('recordRun failure does not break tool result', async () => {
-    const { recordRun } = await import('../src/token-saver/savings-store');
-    recordRun.mockImplementation(() => {
-      throw new Error('DB locked');
-    });
-    const pi = makePi();
-    registerOutputCompression(pi as any, { state: makeState() as any, getConfig: makeConfig() });
+    const { recordRun } = await import('../src/token-saver/savings-store'),
+    pi = (() => {
+
+      recordRun.mockImplementation(() => {
+        throw new Error('DB locked');
+      });
+      
+  return (makePi());
+})();registerOutputCompression(pi as any, { state: makeState() as any, getConfig: makeConfig() });
     const large = 'x'.repeat(5000),
       // Must NOT throw
       result = await pi.getHandler('tool_result')(bashEvent('npm test', large), {});
@@ -184,10 +193,13 @@ describe('registerOutputCompression', () => {
 
   test('sets exitCode to 1 when isError is true', async () => {
     const { compressOutput } = await import('../src/token-saver/compress-output'),
-      pi = makePi();
-    registerOutputCompression(pi as any, { state: makeState() as any, getConfig: makeConfig() });
-    const large = 'FAIL '.repeat(2000);
-    await pi.getHandler('tool_result')(bashEvent('npm test', large, true), {});
+      pi = makePi(),
+    large = (() => {
+
+      registerOutputCompression(pi as any, { state: makeState() as any, getConfig: makeConfig() });
+      
+  return ('FAIL '.repeat(2000));
+})();await pi.getHandler('tool_result')(bashEvent('npm test', large, true), {});
     expect(compressOutput).toHaveBeenCalledWith(expect.objectContaining({ exitCode: 1 }));
   });
 });

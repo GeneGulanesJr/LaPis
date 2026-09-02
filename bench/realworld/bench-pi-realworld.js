@@ -181,16 +181,19 @@ function seedMemory(memorySeedPath, memoryOnHome) {
     msPath = path.join(lapisRoot, 'memory-store.js');
 
   for (const seed of seeds) {
-    const args = ['save', '--type', seed.type || 'architecture', '--title', seed.title, '--content', seed.content];
-    if (seed.project) {
-      args.push('--project', seed.project);
-    }
-    if (seed.scope) {
-      args.push('--scope', seed.scope);
-    }
+    const args = ['save', '--type', seed.type || 'architecture', '--title', seed.title, '--content', seed.content],
+    homeEnv = (() => {
 
-    const homeEnv = memoryOnHome ? `HOME=${shellQuote(memoryOnHome)} ` : '';
-    execSync(`${homeEnv}node "${msPath}" ${args.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(' ')}`, {
+      if (seed.project) {
+        args.push('--project', seed.project);
+      }
+      if (seed.scope) {
+        args.push('--scope', seed.scope);
+      }
+  
+      
+  return (memoryOnHome ? `HOME=${shellQuote(memoryOnHome)} ` : '');
+})();execSync(`${homeEnv}node "${msPath}" ${args.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(' ')}`, {
       cwd: lapisRoot,
       encoding: 'utf-8',
       timeout: 10_000,
@@ -427,10 +430,13 @@ async function runTaskSide(task, side, runIndex, args, repoRoot, noMemoryHome, m
     }
 
     // Run Pi with the appropriate HOME
-    const homeDir = side === 'memory-off' ? noMemoryHome : memoryOnHome;
-    benchLog(`[${runId}] Starting Pi (${side})`);
-    const command = buildPiCommand(homeDir, task.prompt, outFile);
-    fs.mkdirSync(path.dirname(outFile), { recursive: true });
+    const homeDir = side === 'memory-off' ? noMemoryHome : memoryOnHome,
+    command = (() => {
+
+      benchLog(`[${runId}] Starting Pi (${side})`);
+      
+  return (buildPiCommand(homeDir, task.prompt, outFile));
+})();fs.mkdirSync(path.dirname(outFile), { recursive: true });
     const run = await runCommand(command, worktreePath, args.timeoutMs);
     benchLog(`[${runId}] Pi finished in ${run.elapsed_ms}ms`);
 
@@ -494,11 +500,11 @@ function fmtMs(ms) {
   if (!ms) {
     return 'n/a';
   }
-  const s = Math.round(ms / 1000);
+  const s = Math.round(ms / 1000),
+  m = !(s < 60) ? (Math.floor(s / 60)) : undefined;
   if (s < 60) {
     return `${s}s`;
   }
-  const m = Math.floor(s / 60);
   return `${m}m ${s % 60}s`;
 }
 
@@ -544,13 +550,16 @@ function printReport(results) {
 
   // Print table
   const col1 = 24,
-    colN = 12;
-  benchLog('');
-  benchLog(`╔${'═'.repeat(col1 + 2)}╤${'═'.repeat(colN + 2)}╤${'═'.repeat(colN + 2)}╗`);
-  benchLog(`║${'Metric'.padEnd(col1 + 2)}│${'Memory Off'.padStart(colN + 1)} │${'Memory On'.padStart(colN + 1)} ║`);
-  benchLog(`╟${'─'.repeat(col1 + 2)}┼${'─'.repeat(colN + 2)}┼${'─'.repeat(colN + 2)}╢`);
+    colN = 12,
+  rows = (() => {
 
-  const rows = [
+    benchLog('');
+    benchLog(`╔${'═'.repeat(col1 + 2)}╤${'═'.repeat(colN + 2)}╤${'═'.repeat(colN + 2)}╗`);
+    benchLog(`║${'Metric'.padEnd(col1 + 2)}│${'Memory Off'.padStart(colN + 1)} │${'Memory On'.padStart(colN + 1)} ║`);
+    benchLog(`╟${'─'.repeat(col1 + 2)}┼${'─'.repeat(colN + 2)}┼${'─'.repeat(colN + 2)}╢`);
+  
+    
+  return ([
     ['Tasks solved', bySide['memory-off'].solved, bySide['memory-on'].solved],
     ['Tests passed', bySide['memory-off'].testPassed, bySide['memory-on'].testPassed],
     ['Median active tokens', fmtNum(bySide['memory-off'].medianTokens), fmtNum(bySide['memory-on'].medianTokens)],
@@ -577,9 +586,8 @@ function printReport(results) {
       String(bySide['memory-off'].medianReadEditRatio),
       String(bySide['memory-on'].medianReadEditRatio),
     ],
-  ];
-
-  for (const [label, offVal, onVal] of rows) {
+  ]);
+})(); for (const [label, offVal, onVal] of rows) {
     benchLog(
       `║ ${label.padEnd(col1)} ` +
         `│${String(offVal).padStart(colN + 1)} ` +
@@ -642,10 +650,13 @@ async function runWarmup(warmupFile, repoRoot, outDir, warmupHome) {
   }
 
   for (const prompt of warmup) {
-    const warmupOut = path.join(outDir, 'warmup', `warmup-${Date.now()}.jsonl`);
-    fs.mkdirSync(path.dirname(warmupOut), { recursive: true });
-    const command = buildPiCommand(warmupHome, prompt, warmupOut);
-    benchLog(`[warmup] Running: ${prompt.slice(0, 80)}...`);
+    const warmupOut = path.join(outDir, 'warmup', `warmup-${Date.now()}.jsonl`),
+    command = (() => {
+
+      fs.mkdirSync(path.dirname(warmupOut), { recursive: true });
+      
+  return (buildPiCommand(warmupHome, prompt, warmupOut));
+})();benchLog(`[warmup] Running: ${prompt.slice(0, 80)}...`);
     // eslint-disable-next-line no-await-in-loop
     await runCommand(command, repoRoot, 120_000);
   }
@@ -658,15 +669,18 @@ async function main() {
       onlyLong: args.onlyLong,
       onlyShort: args.onlyShort,
       category: args.category,
-    });
+    }),
+  outDir = (() => {
 
-  if (tasks.length === 0) {
-    console.error('No tasks found. Add task JSON files to bench/realworld/tasks/');
-    process.exit(2);
-  }
-
-  const outDir = path.resolve(args.outDir);
-  fs.mkdirSync(outDir, { recursive: true });
+  
+    if (tasks.length === 0) {
+      console.error('No tasks found. Add task JSON files to bench/realworld/tasks/');
+      process.exit(2);
+    }
+  
+    
+  return (path.resolve(args.outDir));
+})();fs.mkdirSync(outDir, { recursive: true });
   const repoRoot = getRepoRoot(),
     noMemoryHome = prepareNoMemoryHome(outDir);
 
@@ -677,25 +691,27 @@ async function main() {
   }
 
   const longCount = tasks.filter((t) => t.horizon === 'long').length,
-    shortCount = tasks.length - longCount;
-  benchLog(`[bench] Realworld Pi Memory Benchmark`);
-  benchLog(`[bench] Tasks: ${tasks.length} (${longCount} long, ${shortCount} short), Runs per side: ${args.runs}`);
-  benchLog(`[bench] Output: ${outDir}`);
-  benchLog(`[bench] memory-off HOME: ${noMemoryHome}`);
-  if (args.accumulate) {
-    benchLog(`[bench] Accumulate mode ON — shared memory-on HOME across tasks`);
-    benchLog(`[bench] memory-on HOME: ${accumulateMemoryOnHome}`);
-  } else {
-    benchLog(`[bench] memory-on: isolated HOME per task (seeded from fixtures)`);
-  }
-  if (args.warmup) {
-    benchLog(`[bench] Warmup: ${args.warmup}`);
-  }
-  benchLog('');
+    shortCount = tasks.length - longCount,
+  allResults = (() => {
 
-  const allResults = [];
-
-  // Warmup once before all tasks (builds organic memory for memory-on side)
+    benchLog(`[bench] Realworld Pi Memory Benchmark`);
+    benchLog(`[bench] Tasks: ${tasks.length} (${longCount} long, ${shortCount} short), Runs per side: ${args.runs}`);
+    benchLog(`[bench] Output: ${outDir}`);
+    benchLog(`[bench] memory-off HOME: ${noMemoryHome}`);
+    if (args.accumulate) {
+      benchLog(`[bench] Accumulate mode ON — shared memory-on HOME across tasks`);
+      benchLog(`[bench] memory-on HOME: ${accumulateMemoryOnHome}`);
+    } else {
+      benchLog(`[bench] memory-on: isolated HOME per task (seeded from fixtures)`);
+    }
+    if (args.warmup) {
+      benchLog(`[bench] Warmup: ${args.warmup}`);
+    }
+    benchLog('');
+  
+    
+  return ([]);
+})(); // Warmup once before all tasks (builds organic memory for memory-on side)
   if (args.warmup) {
     const warmupHome = accumulateMemoryOnHome || prepareMemoryOnHome(outDir, 'warmup');
     benchLog(`[warmup] Running warmup prompts into ${warmupHome}`);

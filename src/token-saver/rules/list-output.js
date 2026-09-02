@@ -16,7 +16,10 @@ const COLLAPSE_DIRS = [
 ];
 
 function compressListOutput({ stdout, stderr }) {
-  const combined = `${stdout}\n${stderr}`.trim();
+  const combined = `${stdout}\n${stderr}`.trim(),
+  lines = combined ? (combined.split('\n')) : undefined,
+  sourceDirs = combined ? ({}) : undefined,
+  collapsed = combined ? ({}) : undefined;
   if (!combined) {
     return {
       summary: 'No output.',
@@ -25,40 +28,40 @@ function compressListOutput({ stdout, stderr }) {
     };
   }
 
-  const lines = combined.split('\n'),
-    sourceDirs = {},
-    collapsed = {};
-  let collapsedCount = 0;
+  let collapsedCount = 0,
+  output = (() => {
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed && trimmed !== '.') {
-      let isCollapsed = false;
-      for (const dir of COLLAPSE_DIRS) {
-        if (trimmed.startsWith(`${dir}/`) || trimmed.startsWith(`${dir}\\`) || trimmed === dir) {
-          if (!collapsed[dir]) {
-            collapsed[dir] = 0;
+  
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed && trimmed !== '.') {
+        let isCollapsed = false;
+        for (const dir of COLLAPSE_DIRS) {
+          if (trimmed.startsWith(`${dir}/`) || trimmed.startsWith(`${dir}\\`) || trimmed === dir) {
+            if (!collapsed[dir]) {
+              collapsed[dir] = 0;
+            }
+            collapsed[dir]++;
+            collapsedCount++;
+            isCollapsed = true;
+            break;
           }
-          collapsed[dir]++;
-          collapsedCount++;
-          isCollapsed = true;
-          break;
         }
-      }
-
-      if (!isCollapsed) {
-        const parts = trimmed.split(/[/\\]/),
-          topDir = parts[0];
-        if (!sourceDirs[topDir]) {
-          sourceDirs[topDir] = 0;
+  
+        if (!isCollapsed) {
+          const parts = trimmed.split(/[/\\]/),
+            topDir = parts[0];
+          if (!sourceDirs[topDir]) {
+            sourceDirs[topDir] = 0;
+          }
+          sourceDirs[topDir]++;
         }
-        sourceDirs[topDir]++;
       }
     }
-  }
-
-  let output = 'Directory summary:\n';
-  for (const [dir, count] of Object.entries(sourceDirs)) {
+  
+    
+  return ('Directory summary:\n');
+})();for (const [dir, count] of Object.entries(sourceDirs)) {
     output += `${dir}/ (${count} entries)\n`;
   }
 

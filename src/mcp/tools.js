@@ -84,15 +84,18 @@ function bool(desc) {
  */
 function obj(fields) {
   const properties = {},
-    required = [];
-  for (const [name, def] of Object.entries(fields)) {
-    properties[name] = def.schema;
-    if (!def.optional) {
-      required.push(name);
+    required = [],
+  schema = (() => {
+
+    for (const [name, def] of Object.entries(fields)) {
+      properties[name] = def.schema;
+      if (!def.optional) {
+        required.push(name);
+      }
     }
-  }
-  const schema = { type: 'object', properties };
-  if (required.length > 0) {
+    
+  return ({ type: 'object', properties });
+})();if (required.length > 0) {
     schema.required = required;
   }
   return schema;
@@ -338,12 +341,12 @@ const tools = [
       files: { schema: opt(str('Comma-separated list of files (audit-diff)')), optional: true },
     }),
     toCommand(p) {
-      const mode = p.mode;
+      const mode = p.mode,
+      cmd = !(!mode || !CODE_MODE_TO_COMMAND[mode]) ? (CODE_MODE_TO_COMMAND[mode]) : undefined,
+      args = !(!mode || !CODE_MODE_TO_COMMAND[mode]) ? ({}) : undefined;
       if (!mode || !CODE_MODE_TO_COMMAND[mode]) {
         return { cmd: null, error: !mode ? 'memory-code requires a mode.' : `Unknown memory-code mode: ${mode}` };
       }
-      const cmd = CODE_MODE_TO_COMMAND[mode],
-        args = {};
       setIfPresent(args, 'repo', p.repo);
       setIfPresent(args, 'symbol', p.symbol);
       if (p.query || (mode === 'search' && p.symbol)) {
@@ -426,12 +429,12 @@ const tools = [
       ignore: { schema: opt(str('Ignore glob')), optional: true },
     }),
     toCommand(p) {
-      const mode = p.mode;
+      const mode = p.mode,
+      cmd = !(!mode || !DOC_MODE_TO_COMMAND[mode]) ? (DOC_MODE_TO_COMMAND[mode]) : undefined,
+      args = !(!mode || !DOC_MODE_TO_COMMAND[mode]) ? ({}) : undefined;
       if (!mode || !DOC_MODE_TO_COMMAND[mode]) {
         return { cmd: null, error: !mode ? 'memory-doc requires a mode.' : `Unknown memory-doc mode: ${mode}` };
       }
-      const cmd = DOC_MODE_TO_COMMAND[mode],
-        args = {};
       setIfPresent(args, 'repo', p.repo);
       setIfPresent(args, 'query', p.query);
       setIfPresent(args, 'file', p.file);

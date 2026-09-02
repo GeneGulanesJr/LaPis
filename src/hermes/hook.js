@@ -108,11 +108,11 @@ function readGuardReason(payload, deps) {
   }
 
   const repos = (deps && deps.repos) || indexedRepos(),
-    matched = resolveIndexedRepo(cwd, repos, null);
+    matched = resolveIndexedRepo(cwd, repos, null),
+  rp = matched ? (normalizeRepoPath(matched.path || matched.name)) : undefined;
   if (!matched) {
     return null;
   }
-  const rp = normalizeRepoPath(matched.path || matched.name);
   if (absNorm !== rp && !absNorm.startsWith(`${rp}/`)) {
     return null;
   }
@@ -147,13 +147,13 @@ function searchGuardReason(payload, deps) {
   }
   const cwd = payload.cwd || process.cwd(),
     repos = (deps && deps.repos) || indexedRepos(),
-    matched = resolveIndexedRepo(cwd, repos, null);
+    matched = resolveIndexedRepo(cwd, repos, null),
+  absPath = matched ? (path.resolve(cwd, searchPath || cwd)) : undefined,
+  rp = matched ? (normalizeRepoPath(matched.path || matched.name)) : undefined,
+  absNorm = matched ? (normalizeRepoPath(absPath)) : undefined;
   if (!matched) {
     return null;
   }
-  const absPath = path.resolve(cwd, searchPath || cwd),
-    rp = normalizeRepoPath(matched.path || matched.name),
-    absNorm = normalizeRepoPath(absPath);
   if (absNorm !== rp && !absNorm.startsWith(`${rp}/`)) {
     return null;
   }
@@ -196,18 +196,18 @@ function handlePayload(payload, deps = {}) {
 function syncTrust(payload) {
   const cwd = payload.cwd || process.cwd(),
     repos = indexedRepos(),
-    hit = repos.find((r) => cwd === r.path || cwd.startsWith(`${r.path}${path.sep}`));
+    hit = repos.find((r) => cwd === r.path || cwd.startsWith(`${r.path}${path.sep}`)),
+  child = !(!hit || !hit.name) ? (spawn(process.execPath, [lapisEntry(), 'sync-code-trust', '--repo', hit.name], {
+    detached: true,
+    stdio: 'ignore',
+    cwd: hit.path || cwd,
+  })) : undefined;
   if (!hit || !hit.name) {
     return;
   }
   // Sync-code-trust resolves the repo by name (code_repos.name is NOT NULL),
   // So a path fallback would never match — bail out instead of spawning a
   // Doomed process.
-  const child = spawn(process.execPath, [lapisEntry(), 'sync-code-trust', '--repo', hit.name], {
-    detached: true,
-    stdio: 'ignore',
-    cwd: hit.path || cwd,
-  });
   child.unref();
 }
 
@@ -239,12 +239,9 @@ function startSession(payload) {
  */
 function injectContext(payload) {
   try {
-    const userMessage = (payload.extra && payload.extra.user_message) || '';
-    if (!userMessage || !payload.cwd) {
-      return null;
-    }
-    const st = loadState(sessionStateDir(), payload.session_id),
-      args = [
+    const userMessage = (payload.extra && payload.extra.user_message) || '',
+    st = !(!userMessage || !payload.cwd) ? (loadState(sessionStateDir(), payload.session_id)) : undefined,
+    args = !(!userMessage || !payload.cwd) ? ([
         lapisEntry(),
         'context',
         '--query',
@@ -253,22 +250,18 @@ function injectContext(payload) {
         payload.cwd,
         '--token-budget',
         String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
-      ];
+      ]) : undefined;
+    if (!userMessage || !payload.cwd) {
+      return null;
+    }
     if (st.lapisSessionId) {
       args.push('--session-id', String(st.lapisSessionId));
     }
-    const res = spawnSync(process.execPath, args, { timeout: 15000, encoding: 'utf8' });
-    if (res.status !== 0 || !res.stdout) {
-      return null;
-    }
-    const parsed = JSON.parse(res.stdout),
-      // The `context` CLI returns {sessions, personal, observations,
-      // cross_project_suggestions, project, cross_project, topic, stats} —
-      // render it through the shared block builder (same as the Claude bridge)
-      // so the injected context matches what Claude Code agents see.
-      repos = indexedRepos(),
-      cwdRepo = resolveIndexedRepo(payload.cwd, repos, null),
-      lines = buildContextBlock({
+    const res = spawnSync(process.execPath, args, { timeout: 15000, encoding: 'utf8' }),
+    parsed = !(res.status !== 0 || !res.stdout) ? (JSON.parse(res.stdout)) : undefined,
+    repos = !(res.status !== 0 || !res.stdout) ? (indexedRepos()) : undefined,
+    cwdRepo = !(res.status !== 0 || !res.stdout) ? (resolveIndexedRepo(payload.cwd, repos, null)) : undefined,
+    lines = !(res.status !== 0 || !res.stdout) ? (buildContextBlock({
         promptQuery: userMessage.slice(0, 500),
         currentProject: parsed.project || payload.cwd,
         projectDir: payload.cwd,
@@ -282,7 +275,10 @@ function injectContext(payload) {
         effectiveStats: parsed.stats || {},
         topic: parsed.topic || null,
         crossProjectSuggestions: parsed.cross_project_suggestions || [],
-      });
+      })) : undefined;
+    if (res.status !== 0 || !res.stdout) {
+      return null;
+    }
     if (!Array.isArray(lines) || lines.length === 0) {
       return null;
     }

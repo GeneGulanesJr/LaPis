@@ -21,28 +21,37 @@ describe('job-store', () => {
   });
 
   it('updateProgress writes files_done and current_file atomically', () => {
-    const id = jobStore.createJob(deps, { repoName: 'bar', mode: 'full', filesTotal: 10 });
-    jobStore.updateProgress(deps, id, { filesDone: 5, currentFile: 'src/a.js' });
-    const job = jobStore.getJob(deps, id);
-    expect(job.files_done).toBe(5);
+    const id = jobStore.createJob(deps, { repoName: 'bar', mode: 'full', filesTotal: 10 }),
+    job = (() => {
+
+      jobStore.updateProgress(deps, id, { filesDone: 5, currentFile: 'src/a.js' });
+      
+  return (jobStore.getJob(deps, id));
+})();expect(job.files_done).toBe(5);
     expect(job.current_file).toBe('src/a.js');
     expect(job.status).toBe('running');
   });
 
   it('completeJob sets status=completed and completed_at', () => {
-    const id = jobStore.createJob(deps, { repoName: 'baz', mode: 'full', filesTotal: 10 });
-    jobStore.completeJob(deps, id, { status: 'completed', filesDone: 10 });
-    const job = jobStore.getJob(deps, id);
-    expect(job.status).toBe('completed');
+    const id = jobStore.createJob(deps, { repoName: 'baz', mode: 'full', filesTotal: 10 }),
+    job = (() => {
+
+      jobStore.completeJob(deps, id, { status: 'completed', filesDone: 10 });
+      
+  return (jobStore.getJob(deps, id));
+})();expect(job.status).toBe('completed');
     expect(job.completed_at).toBeTruthy();
   });
 
   it('listRunningJobs returns only status=running jobs', () => {
     const a = jobStore.createJob(deps, { repoName: 'a', mode: 'full', filesTotal: 10 }),
-      b = jobStore.createJob(deps, { repoName: 'b', mode: 'incremental', filesTotal: 10 });
-    jobStore.completeJob(deps, b, { status: 'completed' });
-    const running = jobStore.listRunningJobs(deps);
-    expect(running.map((j) => j.id)).toContain(a);
+      b = jobStore.createJob(deps, { repoName: 'b', mode: 'incremental', filesTotal: 10 }),
+    running = (() => {
+
+      jobStore.completeJob(deps, b, { status: 'completed' });
+      
+  return (jobStore.listRunningJobs(deps));
+})();expect(running.map((j) => j.id)).toContain(a);
     expect(running.map((j) => j.id)).not.toContain(b);
   });
 });

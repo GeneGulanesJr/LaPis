@@ -192,11 +192,13 @@ describe('claude-code handlers: SessionStart', () => {
 
 describe('claude-code handlers: UserPromptSubmit', () => {
   test('passes stored numeric sessionId as session-id to context', async () => {
-    const stateStore = makeStateStore();
-    stateStore.saveState('claude-4', { ...realStateStore.defaultState(), sessionId: 123 });
-    const { dispatch, calls } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
+    const stateStore = makeStateStore(),
+    { dispatch, calls } = (() => {
 
-    await handleUserPromptSubmit({
+      stateStore.saveState('claude-4', { ...realStateStore.defaultState(), sessionId: 123 });
+      
+  return (makeFakeDispatch({ context: () => EMPTY_CONTEXT }));
+})(); await handleUserPromptSubmit({
       payload: { session_id: 'claude-4', prompt: 'refactor the dispatch module', cwd: '/p' },
       dispatch,
       getKnownRepos: () => [],
@@ -228,11 +230,13 @@ describe('claude-code handlers: UserPromptSubmit', () => {
   });
 
   test('preflight is skipped when no indexed repo matches cwd', async () => {
-    const stateStore = makeStateStore();
-    stateStore.saveState('claude-6', { ...realStateStore.defaultState(), sessionId: 1 });
-    const { dispatch, calls } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
+    const stateStore = makeStateStore(),
+    { dispatch, calls } = (() => {
 
-    await handleUserPromptSubmit({
+      stateStore.saveState('claude-6', { ...realStateStore.defaultState(), sessionId: 1 });
+      
+  return (makeFakeDispatch({ context: () => EMPTY_CONTEXT }));
+})(); await handleUserPromptSubmit({
       payload: { session_id: 'claude-6', prompt: 'implement the login feature', cwd: '/elsewhere' },
       dispatch,
       getKnownRepos: () => [],
@@ -243,11 +247,13 @@ describe('claude-code handlers: UserPromptSubmit', () => {
   });
 
   test('sets hasInjectedContext and persists state', async () => {
-    const stateStore = makeStateStore();
-    stateStore.saveState('claude-7', { ...realStateStore.defaultState(), sessionId: 1 });
-    const { dispatch } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
+    const stateStore = makeStateStore(),
+    { dispatch } = (() => {
 
-    await handleUserPromptSubmit({
+      stateStore.saveState('claude-7', { ...realStateStore.defaultState(), sessionId: 1 });
+      
+  return (makeFakeDispatch({ context: () => EMPTY_CONTEXT }));
+})(); await handleUserPromptSubmit({
       payload: { session_id: 'claude-7', prompt: 'hello', cwd: '/p' },
       dispatch,
       getKnownRepos: () => [],
@@ -275,25 +281,30 @@ describe('claude-code handlers: Stop', () => {
 
   test('bails out when stop_hook_active is set', async () => {
     const { dispatch, calls } = makeFakeDispatch(),
-      stateStore = makeStateStore();
-    stateStore.saveState('claude-9', { ...realStateStore.defaultState(), sessionId: 1, turnCount: 4 });
-    const before = stateStore._peek('claude-9').turnCount;
-    await handleStop({ payload: { session_id: 'claude-9', stop_hook_active: true, cwd: '/p' }, dispatch, stateStore });
+      stateStore = makeStateStore(),
+    before = (() => {
+
+      stateStore.saveState('claude-9', { ...realStateStore.defaultState(), sessionId: 1, turnCount: 4 });
+      
+  return (stateStore._peek('claude-9').turnCount);
+})();await handleStop({ payload: { session_id: 'claude-9', stop_hook_active: true, cwd: '/p' }, dispatch, stateStore });
     expect(stateStore._peek('claude-9').turnCount).toBe(before);
     expect(calls).toHaveLength(0);
   });
 
   test('increments turn and persists; checkpoint fires at turn % 10', async () => {
-    const stateStore = makeStateStore();
-    stateStore.saveState('claude-10', {
-      ...realStateStore.defaultState(),
-      sessionId: 1,
-      turnCount: 9,
-      currentProject: 'p',
-    });
-    const { dispatch, calls } = makeFakeDispatch();
+    const stateStore = makeStateStore(),
+    { dispatch, calls } = (() => {
 
-    await runStopCapture({
+      stateStore.saveState('claude-10', {
+        ...realStateStore.defaultState(),
+        sessionId: 1,
+        turnCount: 9,
+        currentProject: 'p',
+      });
+      
+  return (makeFakeDispatch());
+})(); await runStopCapture({
       dispatch,
       stateStore,
       claudeSessionId: 'claude-10',
@@ -355,18 +366,21 @@ describe('claude-code handlers: Stop', () => {
         'Analyzing the requirements and constraints of this subsystem in detail before proceeding. '.repeat(4),
       assistantText = `${reasoning} Based on the tradeoffs, going with a queue-based design because it avoids head-of-line blocking.`,
       txDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-stop-tx-')),
-      txPath = path.join(txDir, 't.jsonl');
-    fs.writeFileSync(
-      txPath,
-      [
-        JSON.stringify({ message: { role: 'user', content: 'do work' } }),
-        JSON.stringify({ message: { role: 'assistant', content: assistantText } }),
-      ].join('\n'),
-      'utf8',
-    );
+      txPath = path.join(txDir, 't.jsonl'),
+    stateStore = (() => {
 
-    const stateStore = makeStateStore();
-    stateStore.saveState('claude-tx', {
+      fs.writeFileSync(
+        txPath,
+        [
+          JSON.stringify({ message: { role: 'user', content: 'do work' } }),
+          JSON.stringify({ message: { role: 'assistant', content: assistantText } }),
+        ].join('\n'),
+        'utf8',
+      );
+  
+      
+  return (makeStateStore());
+})();stateStore.saveState('claude-tx', {
       ...realStateStore.defaultState(),
       sessionId: 1,
       turnCount: 3,
@@ -417,15 +431,18 @@ describe('claude-code handlers: Stop', () => {
 
   test('runStopCapture dispatches outside the mutateState lock', async () => {
     let mutateDepth = 0;
-    const stateStore = makeStateStore();
-    stateStore.saveState('lock', {
-      ...realStateStore.defaultState(),
-      sessionId: 1,
-      turnCount: 3,
-      pendingRecallFeedback: [[9, { sessionId: 1, query: 'q' }]],
-    });
-    const origMutate = stateStore.mutateState.bind(stateStore);
-    stateStore.mutateState = async (id, mutator) => {
+    const stateStore = makeStateStore(),
+    origMutate = (() => {
+
+      stateStore.saveState('lock', {
+        ...realStateStore.defaultState(),
+        sessionId: 1,
+        turnCount: 3,
+        pendingRecallFeedback: [[9, { sessionId: 1, query: 'q' }]],
+      });
+      
+  return (stateStore.mutateState.bind(stateStore));
+})();stateStore.mutateState = async (id, mutator) => {
       mutateDepth += 1;
       try {
         return await origMutate(id, mutator);

@@ -41,24 +41,30 @@ function foo() {
     );
     try {
       const callees = codeParser.extractCallees(tmpFile),
-        objCall = callees.find((c) => c.callee === 'method');
-      expect(objCall).toBeDefined();
-      expect(objCall.receiver).toBe('obj');
-      expect(objCall.full_path).toBe('obj.method');
-      expect(objCall.is_method).toBe(true);
+        objCall = callees.find((c) => c.callee === 'method'),
+      thisCall = (() => {
 
-      const thisCall = callees.find((c) => c.callee === 'selfMethod');
-      expect(thisCall).toBeDefined();
+        expect(objCall).toBeDefined();
+        expect(objCall.receiver).toBe('obj');
+        expect(objCall.full_path).toBe('obj.method');
+        expect(objCall.is_method).toBe(true);
+  
+        
+  return (callees.find((c) => c.callee === 'selfMethod'));
+})();expect(thisCall).toBeDefined();
       expect(thisCall.receiver).toBe('this');
       expect(thisCall.full_path).toBe('this.selfMethod');
 
-      const superCall = callees.find((c) => c.callee === 'parentMethod');
-      expect(superCall).toBeDefined();
-      expect(superCall.receiver).toBe('super');
-      expect(superCall.full_path).toBe('super.parentMethod');
+      const superCall = callees.find((c) => c.callee === 'parentMethod'),
+      plainCall = (() => {
 
-      const plainCall = callees.find((c) => c.callee === 'plainCall');
-      expect(plainCall).toBeDefined();
+        expect(superCall).toBeDefined();
+        expect(superCall.receiver).toBe('super');
+        expect(superCall.full_path).toBe('super.parentMethod');
+  
+        
+  return (callees.find((c) => c.callee === 'plainCall'));
+})();expect(plainCall).toBeDefined();
       expect(plainCall.receiver).toBeNull();
       expect(plainCall.is_method).toBe(false);
     } finally {
@@ -78,12 +84,15 @@ function foo() {
     );
     try {
       const callees = codeParser.extractCallees(tmpFile),
-        prepareCall = callees.find((c) => c.callee === 'prepare');
-      expect(prepareCall).toBeDefined();
-      expect(prepareCall.receiver).toBe('db');
+        prepareCall = callees.find((c) => c.callee === 'prepare'),
+      runCall = (() => {
 
-      const runCall = callees.find((c) => c.callee === 'run');
-      expect(runCall).toBeDefined();
+        expect(prepareCall).toBeDefined();
+        expect(prepareCall.receiver).toBe('db');
+  
+        
+  return (callees.find((c) => c.callee === 'run'));
+})();expect(runCall).toBeDefined();
     } finally {
       cleanupTmp([tmpFile]);
     }
@@ -200,10 +209,13 @@ describe('accuracy: extractImportBindings', () => {
         `import { bar as baz } from './b';`,
         `import defVal from './c';`,
       ].join('\n'),
-      bindings = extractImportBindings(content);
-    expect(bindings.length).toBe(3);
-    const localNames = bindings.map((b) => b.localName);
-    expect(localNames).toContain('foo');
+      bindings = extractImportBindings(content),
+    localNames = (() => {
+
+      expect(bindings.length).toBe(3);
+      
+  return (bindings.map((b) => b.localName));
+})();expect(localNames).toContain('foo');
     expect(localNames).toContain('baz');
     expect(localNames).toContain('defVal');
   });
@@ -332,14 +344,17 @@ class Child extends Base {
       symbol: 'doWork',
       direction: 'callees',
       depth: 1,
-    });
+    }),
+    resolvedCallees = (() => {
 
-    expect(result.error).toBeUndefined();
-    expect(result.callees).toBeDefined();
-    expect(Array.isArray(result.callees)).toBe(true);
-
-    const resolvedCallees = result.callees.filter((c) => c.callee_symbol_id !== null);
-    expect(resolvedCallees.length).toBeGreaterThan(0);
+  
+      expect(result.error).toBeUndefined();
+      expect(result.callees).toBeDefined();
+      expect(Array.isArray(result.callees)).toBe(true);
+  
+      
+  return (result.callees.filter((c) => c.callee_symbol_id !== null));
+})();expect(resolvedCallees.length).toBeGreaterThan(0);
   });
 
   it('should resolve this.init() in Child.setup to Base.init', () => {
@@ -347,16 +362,22 @@ class Child extends Base {
       symbol: 'setup',
       direction: 'callees',
       depth: 1,
-    });
+    }),
+    initCalls = (() => {
 
-    expect(result.error).toBeUndefined();
-    expect(result.callees).toBeDefined();
-
-    const initCalls = result.callees.filter((c) => c.callee_name === 'init');
-    expect(initCalls.length).toBeGreaterThan(0);
-
-    const resolvedInit = initCalls.find((c) => c.callee_symbol_id !== null);
-    if (resolvedInit) {
+  
+      expect(result.error).toBeUndefined();
+      expect(result.callees).toBeDefined();
+  
+      
+  return (result.callees.filter((c) => c.callee_name === 'init'));
+})(),
+    resolvedInit = (() => {
+expect(initCalls.length).toBeGreaterThan(0);
+  
+      
+  return (initCalls.find((c) => c.callee_symbol_id !== null));
+})();if (resolvedInit) {
       expect(resolvedInit.confidence).toBeGreaterThanOrEqual(0.9);
     }
   });

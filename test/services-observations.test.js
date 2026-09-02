@@ -208,11 +208,14 @@ describe('services/observations', () => {
         insertCapturePassiveObservation = vi.fn(),
         deps = { jsonErrNoExit, insertCapturePassiveObservation, findLatestSession },
         longItem = 'a'.repeat(CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH + 50),
-        content = `## Key Learnings:\n\n- ${longItem}`;
-      obsService.capturePassive(deps, { content });
-      expect(insertCapturePassiveObservation).toHaveBeenCalled();
-      const call = insertCapturePassiveObservation.mock.calls[0][0];
-      expect(call.summary.length).toBeLessThanOrEqual(CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH);
+        content = `## Key Learnings:\n\n- ${longItem}`,
+      call = (() => {
+
+        obsService.capturePassive(deps, { content });
+        expect(insertCapturePassiveObservation).toHaveBeenCalled();
+        
+  return (insertCapturePassiveObservation.mock.calls[0][0]);
+})();expect(call.summary.length).toBeLessThanOrEqual(CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH);
     });
   });
 });

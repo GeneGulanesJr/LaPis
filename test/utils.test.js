@@ -103,10 +103,13 @@ describe('utils.js', () => {
     });
 
     it('should find code files in src but skip node_modules', () => {
-      const files = utils.walkDirForCode(tmpDir);
-      expect(files.length).toBe(3);
-      const basenames = files.map((f) => path.basename(f)).sort();
-      expect(basenames).toEqual(['app.ts', 'index.js', 'style.css']);
+      const files = utils.walkDirForCode(tmpDir),
+      basenames = (() => {
+
+        expect(files.length).toBe(3);
+        
+  return (files.map((f) => path.basename(f)).sort());
+})();expect(basenames).toEqual(['app.ts', 'index.js', 'style.css']);
     });
 
     it('should skip hidden directories', () => {
@@ -117,13 +120,16 @@ describe('utils.js', () => {
     });
 
     it('should find .py, .go, .rs files', () => {
-      const pyDir = path.join(tmpDir, 'scripts');
-      fs.mkdirSync(pyDir, { recursive: true });
-      fs.writeFileSync(path.join(pyDir, 'run.py'), 'print("hi")');
-      fs.writeFileSync(path.join(pyDir, 'main.go'), 'package main');
-      fs.writeFileSync(path.join(pyDir, 'lib.rs'), 'fn main(){}');
-      const files = utils.walkDirForCode(tmpDir);
-      expect(files.length).toBeGreaterThanOrEqual(3);
+      const pyDir = path.join(tmpDir, 'scripts'),
+      files = (() => {
+
+        fs.mkdirSync(pyDir, { recursive: true });
+        fs.writeFileSync(path.join(pyDir, 'run.py'), 'print("hi")');
+        fs.writeFileSync(path.join(pyDir, 'main.go'), 'package main');
+        fs.writeFileSync(path.join(pyDir, 'lib.rs'), 'fn main(){}');
+        
+  return (utils.walkDirForCode(tmpDir));
+})();expect(files.length).toBeGreaterThanOrEqual(3);
     });
   });
 

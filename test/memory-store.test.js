@@ -54,12 +54,15 @@ describe('memory-store: save', () => {
   });
 
   it('should require --title and --content', () => {
-    const result = runFail(`save --title "Only title" --project ${testProject}`);
-    expect(result.error).toBeDefined();
-    expect(result.error).toContain('Missing');
+    const result = runFail(`save --title "Only title" --project ${testProject}`),
+    result2 = (() => {
 
-    const result2 = runFail(`save --content "Only content" --project ${testProject}`);
-    expect(result2.error).toBeDefined();
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain('Missing');
+  
+      
+  return (runFail(`save --content "Only content" --project ${testProject}`));
+})();expect(result2.error).toBeDefined();
   });
 
   it('should save with all optional fields', () => {
@@ -203,10 +206,13 @@ describe('memory-store: search', () => {
   it('should exclude soft-deleted observations from search', () => {
     const saved = run(
       `save --title "Will be deleted soon" --content "Temporary content" --project ${testProject} --force`,
-    );
-    run(`delete --id ${saved.id}`);
-    const result = run(`search --query "Will be deleted soon" --project ${testProject}`);
-    expect(result.results.every((r) => r.id !== saved.id)).toBe(true);
+    ),
+    result = (() => {
+
+      run(`delete --id ${saved.id}`);
+      
+  return (run(`search --query "Will be deleted soon" --project ${testProject}`));
+})();expect(result.results.every((r) => r.id !== saved.id)).toBe(true);
   });
 
   it('should record recall tracking when session-id is provided', () => {
@@ -312,10 +318,13 @@ describe('memory-store: update', () => {
   });
 
   it('should clear expiry with --clear-expiry', () => {
-    const saved = run(`save --title "Will lose its TTL" --content "x" --project ${testProject} --expires-in 5d`);
-    expect(saved.expires_at).toBeTruthy();
-    const result = run(`update --id ${saved.id} --clear-expiry true`);
-    expect(result.expires_at).toBeNull();
+    const saved = run(`save --title "Will lose its TTL" --content "x" --project ${testProject} --expires-in 5d`),
+    result = (() => {
+
+      expect(saved.expires_at).toBeTruthy();
+      
+  return (run(`update --id ${saved.id} --clear-expiry true`));
+})();expect(result.expires_at).toBeNull();
   });
 
   it('should reject invalid --expires-in on update', () => {
@@ -473,12 +482,15 @@ describe('memory-store: suggest-topic-key', () => {
 
 describe('memory-store: search ranking quality', () => {
   it('should rank decisions higher than session summaries', () => {
-    const proj = `test-ranking-${Date.now()}`;
-    run(`save --title "Important decision" --content "Use PostgreSQL" --project ${proj} --type decision --force`);
-    run(`save --title "Session summary" --content "Worked on stuff" --project ${proj} --type session_summary --force`);
+    const proj = `test-ranking-${Date.now()}`,
+    result = (() => {
 
-    const result = run(`search --query "Important" --project ${proj}`);
-    if (result.results.length >= 2) {
+      run(`save --title "Important decision" --content "Use PostgreSQL" --project ${proj} --type decision --force`);
+      run(`save --title "Session summary" --content "Worked on stuff" --project ${proj} --type session_summary --force`);
+  
+      
+  return (run(`search --query "Important" --project ${proj}`));
+})();if (result.results.length >= 2) {
       const decisionIdx = result.results.findIndex((r) => r.type === 'decision'),
         summaryIdx = result.results.findIndex((r) => r.type === 'session_summary');
       if (decisionIdx >= 0 && summaryIdx >= 0) {
@@ -488,10 +500,13 @@ describe('memory-store: search ranking quality', () => {
   });
 
   it('should produce valid numeric scores (no NaN)', () => {
-    const proj = `test-nan-${Date.now()}`;
-    run(`save --title "NaN test" --content "Check for NaN" --project ${proj} --force`);
-    const result = run(`search --query "NaN test" --project ${proj}`);
-    for (const r of result.results) {
+    const proj = `test-nan-${Date.now()}`,
+    result = (() => {
+
+      run(`save --title "NaN test" --content "Check for NaN" --project ${proj} --force`);
+      
+  return (run(`search --query "NaN test" --project ${proj}`));
+})();for (const r of result.results) {
       expect(typeof r._score).toBe('number');
       expect(isNaN(r._score)).toBe(false);
     }

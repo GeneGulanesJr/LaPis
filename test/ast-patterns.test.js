@@ -291,29 +291,41 @@ describe('ast-patterns.js', () => {
 
   describe('parseCustomPattern', () => {
     it('should parse and run call patterns', () => {
-      const parsed = astPatterns.parseCustomPattern('call:eval');
-      expect(parsed.error).toBeUndefined();
-      expect(parsed.detect).toBeDefined();
-      // Verify it actually detects
-      const match = parsed.detect({ body_preview: 'eval("2+2")' });
-      expect(match).not.toBeNull();
-      expect(match.count).toBe(1);
-      // Verify it doesn't false-positive
-      const noMatch = parsed.detect({ body_preview: 'return 42;' });
-      expect(noMatch).toBeNull();
+      const parsed = astPatterns.parseCustomPattern('call:eval'),
+      match = (() => {
+
+        expect(parsed.error).toBeUndefined();
+        expect(parsed.detect).toBeDefined();
+        // Verify it actually detects
+        
+  return (parsed.detect({ body_preview: 'eval("2+2")' }));
+})(),
+      noMatch = (() => {
+expect(match).not.toBeNull();
+        expect(match.count).toBe(1);
+        // Verify it doesn't false-positive
+        
+  return (parsed.detect({ body_preview: 'return 42;' }));
+})();expect(noMatch).toBeNull();
     });
 
     it('should parse and run string patterns', () => {
-      const parsed = astPatterns.parseCustomPattern('string:todo');
-      expect(parsed.error).toBeUndefined();
-      expect(parsed.detect).toBeDefined();
-      // Verify it detects (case-sensitive by default)
-      const match = parsed.detect({ body_preview: '// todo: fix later' });
-      expect(match).not.toBeNull();
-      expect(match.count).toBe(1);
-      // Verify it doesn't false-positive
-      const noMatch = parsed.detect({ body_preview: 'all done here' });
-      expect(noMatch).toBeNull();
+      const parsed = astPatterns.parseCustomPattern('string:todo'),
+      match = (() => {
+
+        expect(parsed.error).toBeUndefined();
+        expect(parsed.detect).toBeDefined();
+        // Verify it detects (case-sensitive by default)
+        
+  return (parsed.detect({ body_preview: '// todo: fix later' }));
+})(),
+      noMatch = (() => {
+expect(match).not.toBeNull();
+        expect(match.count).toBe(1);
+        // Verify it doesn't false-positive
+        
+  return (parsed.detect({ body_preview: 'all done here' }));
+})();expect(noMatch).toBeNull();
     });
 
     it('should parse nesting patterns (with + suffix)', () => {
@@ -329,16 +341,22 @@ describe('ast-patterns.js', () => {
     });
 
     it('should parse and run lines patterns', () => {
-      const parsed = astPatterns.parseCustomPattern('lines:80');
-      expect(parsed.error).toBeUndefined();
-      expect(parsed.detect).toBeDefined();
-      // Verify: symbol spanning lines 1-100 → 100 lines ≥ 80
-      const match = parsed.detect({ start_line: 1, end_line: 100 });
-      expect(match).not.toBeNull();
-      expect(match.lines_of_code).toBe(100);
-      // Verify: short symbol rejected
-      const noMatch = parsed.detect({ start_line: 1, end_line: 10 });
-      expect(noMatch).toBeNull();
+      const parsed = astPatterns.parseCustomPattern('lines:80'),
+      match = (() => {
+
+        expect(parsed.error).toBeUndefined();
+        expect(parsed.detect).toBeDefined();
+        // Verify: symbol spanning lines 1-100 → 100 lines ≥ 80
+        
+  return (parsed.detect({ start_line: 1, end_line: 100 }));
+})(),
+      noMatch = (() => {
+expect(match).not.toBeNull();
+        expect(match.lines_of_code).toBe(100);
+        // Verify: short symbol rejected
+        
+  return (parsed.detect({ start_line: 1, end_line: 10 }));
+})();expect(noMatch).toBeNull();
     });
 
     it('should handle values with colons', () => {

@@ -369,21 +369,24 @@ function parsePiOutput(raw) {
     ),
     usageResponseIds = new Set(
       usageClassifications.map((usageClassification) => usageClassification.responseId).filter(Boolean),
-    );
-  behavior.missing_answer_usage_responses = [...answerResponseIds].filter(
-    (responseId) => !usageResponseIds.has(responseId),
-  ).length;
-  for (const usageClassification of usageClassifications) {
-    const isAnswerUsage = usageClassification.responseId
-      ? answerResponseIds.has(usageClassification.responseId)
-      : usageClassification.hasAssistantAnswerText;
-    if (isAnswerUsage) {
-      usage.answer_active_tokens += usageClassification.activeTokens;
-    } else {
-      usage.setup_active_tokens += usageClassification.activeTokens;
+    ),
+  result = (() => {
+
+    behavior.missing_answer_usage_responses = [...answerResponseIds].filter(
+      (responseId) => !usageResponseIds.has(responseId),
+    ).length;
+    for (const usageClassification of usageClassifications) {
+      const isAnswerUsage = usageClassification.responseId
+        ? answerResponseIds.has(usageClassification.responseId)
+        : usageClassification.hasAssistantAnswerText;
+      if (isAnswerUsage) {
+        usage.answer_active_tokens += usageClassification.activeTokens;
+      } else {
+        usage.setup_active_tokens += usageClassification.activeTokens;
+      }
     }
-  }
-  const result = {
+    
+  return ({
     usage,
     answer: answerParts.join('\n').trim() || (parsedEvents === 0 ? raw.trim() : ''),
     tool_counts: Object.fromEntries(toolCounts.entries()),
@@ -391,8 +394,8 @@ function parsePiOutput(raw) {
       ...behavior,
       tool_names: toolNames,
     },
-  };
-  if (parsedEvents > 0 && answerParts.length === 0 && assistantByResponse.size === 0 && behavior.error_events > 0) {
+  });
+})();if (parsedEvents > 0 && answerParts.length === 0 && assistantByResponse.size === 0 && behavior.error_events > 0) {
     result.parse_warning = 'Pi events contained errors and no assistant answer';
   } else if (
     answerParts.length === 0 &&
@@ -539,14 +542,17 @@ async function main() {
   const args = parseArgs(process.argv.slice(2)),
     taskPack = JSON.parse(fs.readFileSync(args.tasks, 'utf-8')),
     repo = taskPack.repo || path.basename(process.cwd()),
-    tasks = (taskPack.tasks || []).filter((task) => !args.only || task.id === args.only);
-  if (tasks.length === 0) {
-    console.error(`No tasks matched ${args.only || args.tasks}`);
-    process.exit(2);
-  }
+    tasks = (taskPack.tasks || []).filter((task) => !args.only || task.id === args.only),
+  outDir = (() => {
 
-  const outDir = path.resolve(args.outDir);
-  fs.mkdirSync(outDir, { recursive: true });
+    if (tasks.length === 0) {
+      console.error(`No tasks matched ${args.only || args.tasks}`);
+      process.exit(2);
+    }
+  
+    
+  return (path.resolve(args.outDir));
+})();fs.mkdirSync(outDir, { recursive: true });
   const noMemoryHome = prepareNoMemoryHome(outDir),
     offCommand = process.env.BENCH_PI_MEMORY_OFF_CMD || defaultPiCommand(noMemoryHome),
     onCommand = process.env.BENCH_PI_MEMORY_ON_CMD || defaultPiCommand();
@@ -760,31 +766,34 @@ function buildSummary(results) {
 function buildCategorySummary(results) {
   const groups = new Map();
   for (const result of results) {
-    const category = result.category || 'uncategorized';
-    if (!groups.has(category)) {
-      groups.set(category, {
-        category,
-        tasks: 0,
-        offMatched: 0,
-        offTotal: 0,
-        onMatched: 0,
-        onTotal: 0,
-        offTokens: 0,
-        onTokens: 0,
-        offCache: 0,
-        onCache: 0,
-        offEffectiveTokens: 0,
-        onEffectiveTokens: 0,
-        offCacheDiscountedTokens: 0,
-        onCacheDiscountedTokens: 0,
-        offAnswerTokens: 0,
-        onAnswerTokens: 0,
-        offSetupTokens: 0,
-        onSetupTokens: 0,
-      });
-    }
-    const group = groups.get(category);
-    group.tasks++;
+    const category = result.category || 'uncategorized',
+    group = (() => {
+
+      if (!groups.has(category)) {
+        groups.set(category, {
+          category,
+          tasks: 0,
+          offMatched: 0,
+          offTotal: 0,
+          onMatched: 0,
+          onTotal: 0,
+          offTokens: 0,
+          onTokens: 0,
+          offCache: 0,
+          onCache: 0,
+          offEffectiveTokens: 0,
+          onEffectiveTokens: 0,
+          offCacheDiscountedTokens: 0,
+          onCacheDiscountedTokens: 0,
+          offAnswerTokens: 0,
+          onAnswerTokens: 0,
+          offSetupTokens: 0,
+          onSetupTokens: 0,
+        });
+      }
+      
+  return (groups.get(category));
+})();group.tasks++;
     group.offMatched += result.memory_off.grade.matched;
     group.offTotal += result.memory_off.grade.total;
     group.onMatched += result.memory_on.grade.matched;

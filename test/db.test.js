@@ -26,10 +26,13 @@ describe('db.js (database layer)', () => {
     });
 
     it('should create memory.db in the correct path', () => {
-      const dbPath = dbModule.DB_PATH;
-      expect(fs.existsSync(dbPath)).toBe(true);
-      const stat = fs.statSync(dbPath);
-      expect(stat.size).toBeGreaterThan(0);
+      const dbPath = dbModule.DB_PATH,
+      stat = (() => {
+
+        expect(fs.existsSync(dbPath)).toBe(true);
+        
+  return (fs.statSync(dbPath));
+})();expect(stat.size).toBeGreaterThan(0);
     });
   });
 
@@ -60,11 +63,14 @@ describe('db.js (database layer)', () => {
     });
 
     it('runMigrations should not throw on version 5 schema', () => {
-      const db = dbModule.getDb();
-      // Force version to 5
-      db.exec('PRAGMA user_version = 5');
-      const result = dbModule.ensureDb();
-      expect(result.ok).toBe(true);
+      const db = dbModule.getDb(),
+      result = (() => {
+
+        // Force version to 5
+        db.exec('PRAGMA user_version = 5');
+        
+  return (dbModule.ensureDb());
+})();expect(result.ok).toBe(true);
     });
   });
 

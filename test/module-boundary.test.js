@@ -39,13 +39,16 @@ describe('Module boundary: doc-index failure does not break memory save/search',
           },
         ],
         'Decision',
-      );
-    expect(ranked).toHaveLength(1);
-    expect(ranked[0]._score).toBeGreaterThan(0);
+      ),
+    trustResult = (() => {
 
-    // Also verify trust-sync works independently
-    const trustResult = evaluateTrustSync([], new Set());
-    expect(trustResult.adjusted).toEqual([]);
+      expect(ranked).toHaveLength(1);
+      expect(ranked[0]._score).toBeGreaterThan(0);
+  
+      // Also verify trust-sync works independently
+      
+  return (evaluateTrustSync([], new Set()));
+})();expect(trustResult.adjusted).toEqual([]);
   });
 });
 
@@ -163,13 +166,16 @@ describe('Module boundary: one code analyzer failure does not break other analyz
   it('runAnalyzer isolates failure to the calling analyzer', () => {
     const failed = runAnalyzer('dead-code', () => {
       throw new Error('parse error');
-    });
-    expect(failed.scoped).toBe(true);
-    expect(failed.analyzer).toBe('dead-code');
+    }),
+    succeeded = (() => {
 
-    // Other analyzers still work fine
-    const succeeded = runAnalyzer('complexity', () => ({ symbols: 42 }));
-    expect(succeeded).toEqual({ symbols: 42 });
+      expect(failed.scoped).toBe(true);
+      expect(failed.analyzer).toBe('dead-code');
+  
+      // Other analyzers still work fine
+      
+  return (runAnalyzer('complexity', () => ({ symbols: 42 })));
+})();expect(succeeded).toEqual({ symbols: 42 });
   });
 
   it('graph.getImportGraph returns a scoped error for broken db without affecting quality.getComplexity', () => {
@@ -181,13 +187,16 @@ describe('Module boundary: one code analyzer failure does not break other analyz
       };
     }
 
-    const graphResult = graph.getImportGraph(throwingDb('graph failed'), 1);
-    expect(graphResult.scoped).toBe(true);
-    expect(graphResult.analyzer).toBeDefined();
+    const graphResult = graph.getImportGraph(throwingDb('graph failed'), 1),
+    qualityResult = (() => {
 
-    // Quality module still works independently
-    const qualityResult = quality.getComplexity(throwingDb('quality failed'), 1);
-    expect(qualityResult.scoped).toBe(true);
+      expect(graphResult.scoped).toBe(true);
+      expect(graphResult.analyzer).toBeDefined();
+  
+      // Quality module still works independently
+      
+  return (quality.getComplexity(throwingDb('quality failed'), 1));
+})();expect(qualityResult.scoped).toBe(true);
 
     // They got different errors — no cross-contamination
     expect(graphResult.error).toBe('graph failed');

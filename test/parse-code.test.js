@@ -28,73 +28,106 @@ describe('parse-code (WASM tree-sitter)', () => {
   describe('parse-code: JavaScript', () => {
     it('should extract JS function declarations', () => {
       const tmpFile = path.join('/tmp', 'test-parse-fn.js'),
-        symbols = writeTmpTest(tmpFile, 'function hello(name) {\n  return name;\n}');
-      fs.unlinkSync(tmpFile);
+        symbols = writeTmpTest(tmpFile, 'function hello(name) {\n  return name;\n}'),
+      fn = (() => {
 
-      const fn = symbols.find((s) => s.name === 'hello');
-      expect(fn.kind).toBe('function');
+        fs.unlinkSync(tmpFile);
+  
+        
+  return (symbols.find((s) => s.name === 'hello'));
+})();expect(fn.kind).toBe('function');
       expect(fn.start_line).toBe(1);
       expect(fn.signature).toContain('hello');
       expect(fn.language).toBe('javascript');
     });
 
     it('should extract JS class declarations and methods', () => {
-      const tmpFile = path.join('/tmp', 'test-class.js');
-      fs.writeFileSync(tmpFile, 'class MyClass {\n  greet() {\n    return "hi";\n  }\n}');
-      const symbols = codeParser.parseFile(tmpFile);
-      fs.unlinkSync(tmpFile);
+      const tmpFile = path.join('/tmp', 'test-class.js'),
+      symbols = (() => {
 
-      const cls = symbols.find((s) => s.name === 'MyClass' && s.kind === 'class');
-      expect(cls).toBeDefined();
+        fs.writeFileSync(tmpFile, 'class MyClass {\n  greet() {\n    return "hi";\n  }\n}');
+        
+  return (codeParser.parseFile(tmpFile));
+})();fs.unlinkSync(tmpFile);
 
-      const method = symbols.find((s) => s.name === 'greet' && s.kind === 'method');
-      expect(method).toBeDefined();
+      const cls = symbols.find((s) => s.name === 'MyClass' && s.kind === 'class'),
+      method = (() => {
+
+        expect(cls).toBeDefined();
+  
+        
+  return (symbols.find((s) => s.name === 'greet' && s.kind === 'method'));
+})();expect(method).toBeDefined();
       expect(method.parent_name).toBe('MyClass');
       expect(method.qualified_name).toBe('MyClass.greet');
     });
 
     it('should extract arrow function variables', () => {
-      const tmpFile = path.join('/tmp', 'test-arrow.js');
-      fs.writeFileSync(tmpFile, 'const add = (a, b) => a + b;');
-      const symbols = codeParser.parseFile(tmpFile);
-      fs.unlinkSync(tmpFile);
+      const tmpFile = path.join('/tmp', 'test-arrow.js'),
+      symbols = (() => {
 
-      const fn = symbols.find((s) => s.name === 'add' && s.kind === 'function');
-      expect(fn).toBeDefined();
+        fs.writeFileSync(tmpFile, 'const add = (a, b) => a + b;');
+        
+  return (codeParser.parseFile(tmpFile));
+})(),
+      fn = (() => {
+fs.unlinkSync(tmpFile);
+  
+        
+  return (symbols.find((s) => s.name === 'add' && s.kind === 'function'));
+})();expect(fn).toBeDefined();
     });
 
     it('should extract docstrings from JSDoc comments', () => {
-      const tmpFile = path.join('/tmp', 'test-docstring.js');
-      fs.writeFileSync(tmpFile, '/** A greeter function */\nfunction greet(who) {\n  return "Hello " + who;\n}');
-      const symbols = codeParser.parseFile(tmpFile);
-      fs.unlinkSync(tmpFile);
+      const tmpFile = path.join('/tmp', 'test-docstring.js'),
+      symbols = (() => {
 
-      const fn = symbols.find((s) => s.name === 'greet');
-      expect(fn).toBeDefined();
+        fs.writeFileSync(tmpFile, '/** A greeter function */\nfunction greet(who) {\n  return "Hello " + who;\n}');
+        
+  return (codeParser.parseFile(tmpFile));
+})(),
+      fn = (() => {
+fs.unlinkSync(tmpFile);
+  
+        
+  return (symbols.find((s) => s.name === 'greet'));
+})();expect(fn).toBeDefined();
       expect(fn.docstring).toContain('greeter');
     });
 
     it('should extract JSX components from .jsx files', () => {
-      const tmpFile = path.join('/tmp', 'test-comp.jsx');
-      fs.writeFileSync(tmpFile, 'export function Card({ title }) {\n  return <section>{title}</section>;\n}');
-      const symbols = codeParser.parseFile(tmpFile);
-      fs.unlinkSync(tmpFile);
+      const tmpFile = path.join('/tmp', 'test-comp.jsx'),
+      symbols = (() => {
 
-      const fn = symbols.find((sym) => sym.name === 'Card');
-      expect(fn).toBeDefined();
+        fs.writeFileSync(tmpFile, 'export function Card({ title }) {\n  return <section>{title}</section>;\n}');
+        
+  return (codeParser.parseFile(tmpFile));
+})(),
+      fn = (() => {
+fs.unlinkSync(tmpFile);
+  
+        
+  return (symbols.find((sym) => sym.name === 'Card'));
+})();expect(fn).toBeDefined();
       expect(fn.language).toBe('javascript');
     });
 
     it('should return output with all required fields', () => {
-      const tmpFile = path.join('/tmp', 'test-schema.js');
-      fs.writeFileSync(tmpFile, 'function myFunc(x) { return x; }');
-      const symbols = codeParser.parseFile(tmpFile);
-      fs.unlinkSync(tmpFile);
+      const tmpFile = path.join('/tmp', 'test-schema.js'),
+      symbols = (() => {
 
-      const fn = symbols.find((s) => s.name === 'myFunc');
-      expect(fn).toBeDefined();
+        fs.writeFileSync(tmpFile, 'function myFunc(x) { return x; }');
+        
+  return (codeParser.parseFile(tmpFile));
+})();fs.unlinkSync(tmpFile);
 
-      const requiredFields = [
+      const fn = symbols.find((s) => s.name === 'myFunc'),
+      requiredFields = (() => {
+
+        expect(fn).toBeDefined();
+  
+        
+  return ([
         'name',
         'kind',
         'language',
@@ -108,8 +141,8 @@ describe('parse-code (WASM tree-sitter)', () => {
         'docstring',
         'body_preview',
         'parent_name',
-      ];
-      for (const field of requiredFields) {
+      ]);
+})();for (const field of requiredFields) {
         expect(field in fn).toBe(true);
       }
     });
@@ -117,30 +150,42 @@ describe('parse-code (WASM tree-sitter)', () => {
 
   describe('parse-code: TypeScript', () => {
     it('should extract TS interface and type alias', () => {
-      const tmpFile = path.join('/tmp', 'test-types.ts');
-      fs.writeFileSync(tmpFile, 'interface User {\n  name: string;\n  age: number;\n}\n\ntype ID = string;');
-      const symbols = codeParser.parseFile(tmpFile);
-      fs.unlinkSync(tmpFile);
+      const tmpFile = path.join('/tmp', 'test-types.ts'),
+      symbols = (() => {
 
-      const iface = symbols.find((s) => s.name === 'User' && s.kind === 'interface');
-      expect(iface).toBeDefined();
-      expect(iface.language).toBe('typescript');
+        fs.writeFileSync(tmpFile, 'interface User {\n  name: string;\n  age: number;\n}\n\ntype ID = string;');
+        
+  return (codeParser.parseFile(tmpFile));
+})();fs.unlinkSync(tmpFile);
 
-      const typeAlias = symbols.find((s) => s.name === 'ID' && s.kind === 'type');
-      expect(typeAlias).toBeDefined();
+      const iface = symbols.find((s) => s.name === 'User' && s.kind === 'interface'),
+      typeAlias = (() => {
+
+        expect(iface).toBeDefined();
+        expect(iface.language).toBe('typescript');
+  
+        
+  return (symbols.find((s) => s.name === 'ID' && s.kind === 'type'));
+})();expect(typeAlias).toBeDefined();
     });
 
     it('should extract TSX component', () => {
-      const tmpFile = path.join('/tmp', 'test-comp.tsx');
-      fs.writeFileSync(
-        tmpFile,
-        'export function Header({ title }: { title: string }) {\n  return <h1>{title}</h1>;\n}',
-      );
-      const symbols = codeParser.parseFile(tmpFile);
-      fs.unlinkSync(tmpFile);
+      const tmpFile = path.join('/tmp', 'test-comp.tsx'),
+      symbols = (() => {
 
-      const fn = symbols.find((s) => s.name === 'Header');
-      expect(fn).toBeDefined();
+        fs.writeFileSync(
+          tmpFile,
+          'export function Header({ title }: { title: string }) {\n  return <h1>{title}</h1>;\n}',
+        );
+        
+  return (codeParser.parseFile(tmpFile));
+})(),
+      fn = (() => {
+fs.unlinkSync(tmpFile);
+  
+        
+  return (symbols.find((s) => s.name === 'Header'));
+})();expect(fn).toBeDefined();
       expect(fn.language).toBe('typescript');
     });
   });
@@ -169,11 +214,14 @@ describe('parse-code (WASM tree-sitter)', () => {
         symbols = writeTmpTest(
           tmpFile,
           'def greet(name):\n    """Say hello."""\n    return f"Hello {name}"\n\nclass Animal:\n    def speak(self):\n        return "roar"',
-        );
-      fs.unlinkSync(tmpFile);
-      expect(symbols.length).toBeGreaterThanOrEqual(2);
-      const greet = symbols.find((s) => s.name === 'greet' && s.kind === 'function');
-      expect(greet).toBeDefined();
+        ),
+      greet = (() => {
+
+        fs.unlinkSync(tmpFile);
+        expect(symbols.length).toBeGreaterThanOrEqual(2);
+        
+  return (symbols.find((s) => s.name === 'greet' && s.kind === 'function'));
+})();expect(greet).toBeDefined();
       expect(greet.language).toBe('python');
       expect(greet.docstring).toBeDefined();
       expect(typeof greet.docstring).toBe('string');
@@ -189,10 +237,13 @@ describe('parse-code (WASM tree-sitter)', () => {
         'package main\n\n// Greet says hello\nfunc Greet(name string) string {\n\treturn "Hello " + name\n}\n\nfunc add(a, b int) int {\n\treturn a + b\n}',
       );
       try {
-        const symbols = codeParser.parseFile(tmpFile);
-        expect(symbols.length).toBeGreaterThanOrEqual(2);
-        const greet = symbols.find((s) => s.name === 'Greet' && s.kind === 'function');
-        expect(greet).toBeDefined();
+        const symbols = codeParser.parseFile(tmpFile),
+        greet = (() => {
+
+          expect(symbols.length).toBeGreaterThanOrEqual(2);
+          
+  return (symbols.find((s) => s.name === 'Greet' && s.kind === 'function'));
+})();expect(greet).toBeDefined();
         expect(greet.language).toBe('go');
       } finally {
         fs.unlinkSync(tmpFile);
@@ -206,10 +257,13 @@ describe('parse-code (WASM tree-sitter)', () => {
         '/// Adds two numbers\nfn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n\npub fn greet(name: &str) -> String {\n    format!("Hello, {}", name)\n}',
       );
       try {
-        const symbols = codeParser.parseFile(tmpFile);
-        expect(symbols.length).toBeGreaterThanOrEqual(2);
-        const add = symbols.find((s) => s.name === 'add' && s.kind === 'function');
-        expect(add).toBeDefined();
+        const symbols = codeParser.parseFile(tmpFile),
+        add = (() => {
+
+          expect(symbols.length).toBeGreaterThanOrEqual(2);
+          
+  return (symbols.find((s) => s.name === 'add' && s.kind === 'function'));
+})();expect(add).toBeDefined();
         expect(add.language).toBe('rust');
       } finally {
         fs.unlinkSync(tmpFile);

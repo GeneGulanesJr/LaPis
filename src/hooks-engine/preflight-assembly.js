@@ -84,12 +84,12 @@ function extractExplicitSymbol(prompt) {
 }
 
 function chooseCodingContextTarget(prompt, preflightResult) {
-  const promptFiles = extractFilePaths(prompt || '');
+  const promptFiles = extractFilePaths(prompt || ''),
+  explicitSymbol = !(promptFiles.length > 0) ? (extractExplicitSymbol(prompt)) : undefined;
   if (promptFiles.length > 0) {
     return { file: promptFiles[0] };
   }
 
-  const explicitSymbol = extractExplicitSymbol(prompt);
   if (explicitSymbol) {
     return { symbol: explicitSymbol };
   }

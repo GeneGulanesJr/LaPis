@@ -82,10 +82,13 @@ describe('services/dedup: checkDuplicate', () => {
   it('should pass type filter to SQL query', () => {
     const deps = {
       sqlJson: vi.fn(() => []),
-    };
-    checkDuplicate(deps, 'Test title', 'bugfix', null, null);
-    const params = deps.sqlJson.mock.calls[0][1];
-    expect(params[0]).toBe('bugfix');
+    },
+    params = (() => {
+
+      checkDuplicate(deps, 'Test title', 'bugfix', null, null);
+      
+  return (deps.sqlJson.mock.calls[0][1]);
+})();expect(params[0]).toBe('bugfix');
   });
 });
 
@@ -143,9 +146,12 @@ describe('services/dedup: markDuplicate', () => {
       sqlJson: vi.fn(),
       sqlRun: vi.fn(),
       softDeleteObservation: vi.fn(),
-    };
-    markDuplicate(deps, { source: '1', target: '2' });
-    const callArgs = deps.sqlRun.mock.calls[0];
-    expect(callArgs[1][3]).toBeDefined();
+    },
+    callArgs = (() => {
+
+      markDuplicate(deps, { source: '1', target: '2' });
+      
+  return (deps.sqlRun.mock.calls[0]);
+})();expect(callArgs[1][3]).toBeDefined();
   });
 });

@@ -193,10 +193,13 @@ describe('claude-code PreToolUse: memory-tool bookkeeping', () => {
         },
         getKnownRepos: reposFn,
         stateStore,
-      });
-    expect(out).toBeNull();
-    const st = stateStore._peek('s');
-    expect(st.exploredFiles).toContain('src/foo.ts');
+      }),
+    st = (() => {
+
+      expect(out).toBeNull();
+      
+  return (stateStore._peek('s'));
+})();expect(st.exploredFiles).toContain('src/foo.ts');
     expect(st.exploredFiles).toContain('foo.ts');
     expect(st.callsSinceLastMemory).toBe(0);
     expect(st.lastMemoryToolCall).toBeGreaterThan(0);

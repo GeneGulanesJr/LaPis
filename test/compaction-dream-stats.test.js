@@ -51,11 +51,14 @@ describe('dream cycle stats persistence', () => {
       };
 
     const { dream } = require('../src/memory-domain/compaction'),
-      report = dream(deps);
+      report = dream(deps),
+    settingsWrites = (() => {
 
-    expect(report.ok).toBe(true);
-    const settingsWrites = sqlRunCalls.filter((c) => c.query.includes('settings'));
-    expect(settingsWrites).toHaveLength(3);
+  
+      expect(report.ok).toBe(true);
+      
+  return (sqlRunCalls.filter((c) => c.query.includes('settings')));
+})();expect(settingsWrites).toHaveLength(3);
     expect(settingsWrites[0].query).toContain('dream_last_run');
     expect(settingsWrites[1].query).toContain('dream_total_cleaned');
     expect(settingsWrites[1].params[0]).toBe('10'); // Previous 10 + 0 cleaned

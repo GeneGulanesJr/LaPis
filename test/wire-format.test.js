@@ -37,12 +37,15 @@ describe('wire-format.js', () => {
           { name: 'bar', kind: 'class', file: 'src/b.js' },
           { name: 'baz', kind: 'method', file: 'src/c.js' },
         ],
-        compact = wireFormat._encodeList(rows);
-      expect(compact._header).toEqual(['name', 'kind', 'file']);
-      expect(compact._rows.length).toBe(3);
+        compact = wireFormat._encodeList(rows),
+      decoded = (() => {
 
-      const decoded = wireFormat._decodeList(compact);
-      expect(decoded.length).toBe(3);
+        expect(compact._header).toEqual(['name', 'kind', 'file']);
+        expect(compact._rows.length).toBe(3);
+  
+        
+  return (wireFormat._decodeList(compact));
+})();expect(decoded.length).toBe(3);
       expect(decoded[0].name).toBe('foo');
       expect(decoded[0].kind).toBe('function');
       expect(decoded[1].name).toBe('bar');
@@ -79,11 +82,14 @@ describe('wire-format.js', () => {
           { file: 'src/utils/helpers/array.js' },
           { file: 'src/utils/helpers/object.js' },
         ],
-        compact = wireFormat._encodeList(rows);
-      expect(compact._prefixes).toBeDefined();
-      // Should intern the common prefix
-      const decoded = wireFormat._decodeList(compact);
-      expect(decoded.length).toBe(4);
+        compact = wireFormat._encodeList(rows),
+      decoded = (() => {
+
+        expect(compact._prefixes).toBeDefined();
+        // Should intern the common prefix
+        
+  return (wireFormat._decodeList(compact));
+})();expect(decoded.length).toBe(4);
       expect(decoded[0].file).toBe('src/utils/helpers/string.js');
       expect(decoded[3].file).toBe('src/utils/helpers/object.js');
     });
@@ -148,11 +154,14 @@ describe('wire-format.js', () => {
           { name: 'a', signals: ['no_callers', 'dead'] },
           { name: 'b', signals: ['no_callers', 'dead'] },
         ],
-        compact = wireFormat._encodeList(rows);
-      expect(compact._header).not.toContain('signals');
-      expect(compact._hoisted.signals).toEqual(['no_callers', 'dead']);
-      const decoded = wireFormat._decodeList(compact);
-      expect(decoded[0].signals).toEqual(['no_callers', 'dead']);
+        compact = wireFormat._encodeList(rows),
+      decoded = (() => {
+
+        expect(compact._header).not.toContain('signals');
+        expect(compact._hoisted.signals).toEqual(['no_callers', 'dead']);
+        
+  return (wireFormat._decodeList(compact));
+})();expect(decoded[0].signals).toEqual(['no_callers', 'dead']);
     });
   });
 
@@ -218,11 +227,14 @@ describe('wire-format.js', () => {
           ],
           total: 3,
         },
-        compact = wireFormat.compactResponse(data);
-      expect(compact.files._header).toBeDefined();
+        compact = wireFormat.compactResponse(data),
+      expanded = (() => {
 
-      const expanded = wireFormat.expandResponse(compact);
-      expect(expanded.files.length).toBe(3);
+        expect(compact.files._header).toBeDefined();
+  
+        
+  return (wireFormat.expandResponse(compact));
+})();expect(expanded.files.length).toBe(3);
       expect(expanded.files[0].name).toBe('foo.js');
       expect(expanded.files[0].commits).toBe(5);
       expect(expanded.total).toBe(3);

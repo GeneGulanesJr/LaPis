@@ -48,12 +48,15 @@ async function main() {
         throw new Error('cancelled');
       }
       // Derive language from current_file if not provided by the indexer.
-      const lang = language || (current_file ? safeGetLanguage(current_file) : null);
-      if (lang) {
-        languageCounters.set(lang, (languageCounters.get(lang) || 0) + 1);
-      }
-      const now = Date.now();
-      // Throttle SQLite writes — at most once per second, plus a final write at completion.
+      const lang = language || (current_file ? safeGetLanguage(current_file) : null),
+      now = (() => {
+
+        if (lang) {
+          languageCounters.set(lang, (languageCounters.get(lang) || 0) + 1);
+        }
+        
+  return (Date.now());
+})();// Throttle SQLite writes — at most once per second, plus a final write at completion.
       if (now - lastWrite >= writeThrottleMs || (files_total && files_done >= files_total)) {
         try {
           jobStore.updateProgress(deps, jobId, {

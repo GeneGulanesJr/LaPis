@@ -95,19 +95,21 @@ const { copyHtmlGrammar } = require('./scripts/postinstall-helpers'),
   }
 
   let lockPath,
-    lock = null;
-  try {
-    lockPath = path.join(root, 'package-lock.json');
-    if (fs.existsSync(lockPath)) {
-      lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    lock = null,
+  lockChanged = (() => {
+
+    try {
+      lockPath = path.join(root, 'package-lock.json');
+      if (fs.existsSync(lockPath)) {
+        lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+      }
+    } catch {
+      lock = null;
     }
-  } catch {
-    lock = null;
-  }
-
-  let lockChanged = false;
-
-  for (const [pkg, safe] of Object.entries(SAFE)) {
+  
+    
+  return (false);
+})(); for (const [pkg, safe] of Object.entries(SAFE)) {
     const safeSrc = nm(pkg),
       nestedDirs = findNestedCopies(pkg);
     if (!nestedDirs.length) {

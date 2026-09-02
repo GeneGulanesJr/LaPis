@@ -2,16 +2,16 @@ function parseExpiresIn(duration) {
   if (duration == null) {
     return null;
   }
-  const raw = String(duration).trim().toLowerCase();
+  const raw = String(duration).trim().toLowerCase(),
+  match = raw ? (raw.match(/^(\d+)\s*([hdwm])$/)) : undefined,
+  n = raw && match ? (parseInt(match[1], 10)) : undefined,
+  unit = raw && match ? (match[2]) : undefined;
   if (!raw) {
     return null;
   }
-  const match = raw.match(/^(\d+)\s*([hdwm])$/);
   if (!match) {
     return null;
   }
-  const n = parseInt(match[1], 10),
-    unit = match[2];
   if (!Number.isFinite(n) || n <= 0) {
     return null;
   }

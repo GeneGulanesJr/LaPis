@@ -96,17 +96,17 @@ function parseFlags(argv) {
  * @returns {{ mode: string, command: string, baseArgs: string[], machineSpecific: boolean }}
  */
 function resolveInvocation(flags, io) {
-  const bin = flags.bin;
+  const bin = flags.bin,
+  hasSeparator = bin ? (bin.includes('/') || bin.includes('\\')) : undefined,
+  abs = bin && hasSeparator ? (path.resolve(io.cwd, bin)) : undefined;
   if (!bin) {
     return { mode: 'npx', command: 'npx', baseArgs: ['-y', PACKAGE_NAME], machineSpecific: false };
   }
-  const hasSeparator = bin.includes('/') || bin.includes('\\');
   if (!hasSeparator) {
     // Bare name on PATH (e.g. `--bin lapis` after a global npm install):
     // PATH-relative, so still committable.
     return { mode: 'global-bin', command: bin, baseArgs: [], machineSpecific: false };
   }
-  const abs = path.resolve(io.cwd, bin);
   if (abs.endsWith('.js') || abs.endsWith('.cjs') || abs.endsWith('.mjs')) {
     // `node <script>` works on every platform (Windows cannot exec-spawn a
     // Shebang script or a .cmd shim).
@@ -189,11 +189,11 @@ function isLapisMcpEntry(entry) {
   if (commandString(entry).includes(PACKAGE_NAME)) {
     return true;
   }
-  const args = Array.isArray(entry.args) ? entry.args : [];
+  const args = Array.isArray(entry.args) ? entry.args : [],
+  base = !(args[args.length - 1] !== 'mcp') ? (path.basename(String(entry.command || '')).toLowerCase()) : undefined;
   if (args[args.length - 1] !== 'mcp') {
     return false;
   }
-  const base = path.basename(String(entry.command || '')).toLowerCase();
   if (base === 'node' || base === 'node.exe') {
     return isLapisBinName(args[0]);
   }
@@ -594,11 +594,11 @@ function removeClaudeMdBlock(filePath) {
     return false;
   }
   const start = existing.indexOf(CLAUDE_MD_START),
-    end = existing.indexOf(CLAUDE_MD_END);
+    end = existing.indexOf(CLAUDE_MD_END),
+  next = !(start === -1 || end === -1 || end <= start) ? ((existing.slice(0, start) + existing.slice(end + CLAUDE_MD_END.length)).replace(/\n{3,}/g, '\n\n')) : undefined;
   if (start === -1 || end === -1 || end <= start) {
     return false;
   }
-  const next = (existing.slice(0, start) + existing.slice(end + CLAUDE_MD_END.length)).replace(/\n{3,}/g, '\n\n');
   if (!next.trim()) {
     fs.unlinkSync(filePath);
   } else {
@@ -700,31 +700,37 @@ async function runInstall(argv, io) {
     // corrupt file aborts the whole install instead of leaving a half-installed
     // state (readJson throws on corrupt JSON rather than clobbering it).
     mcpConfig = readJson(targets.mcp.file),
-    settings = readJson(targets.hooksFile);
+    settings = readJson(targets.hooksFile),
+  groups = (() => {
 
-  // WRITE PHASE.
-  // 1. MCP server config (one of the two config systems).
-  upsertMcpServer(mcpServersFor(mcpConfig, targets.mcp), flags.mcpName, buildMcpEntry(invocation));
-  writeJson(targets.mcp.file, mcpConfig);
-  written.push(targets.mcp.file);
-
-  // 2. Hooks config (the other config system) — plus optional auto-allow.
-  const groups = buildHookGroups(hookInvocationFor(invocation, { cwd, global: flags.global }), flags.mcpName);
-  mergeHookGroups(settings, groups);
-  if (flags.autoAllow) {
-    addAutoAllow(settings, flags.mcpName);
-  }
-  writeJson(targets.hooksFile, settings);
-  written.push(targets.hooksFile);
-
-  // 3. CLAUDE.md memory protocol block (optional, default on).
-  if (flags.claudeMd) {
-    upsertClaudeMdBlock(targets.claudeMdFile, claudeMdBlock(flags.mcpName));
-    written.push(targets.claudeMdFile);
-  }
-
-  const dispatchMode = flags.daemon ? 'daemon' : invocation.mode;
-  log(`Installed LaPis for Claude Code (${dispatchMode} dispatch).`);
+  
+    // WRITE PHASE.
+    // 1. MCP server config (one of the two config systems).
+    upsertMcpServer(mcpServersFor(mcpConfig, targets.mcp), flags.mcpName, buildMcpEntry(invocation));
+    writeJson(targets.mcp.file, mcpConfig);
+    written.push(targets.mcp.file);
+  
+    // 2. Hooks config (the other config system) — plus optional auto-allow.
+    
+  return (buildHookGroups(hookInvocationFor(invocation, { cwd, global: flags.global }), flags.mcpName));
+})(),
+  dispatchMode = (() => {
+mergeHookGroups(settings, groups);
+    if (flags.autoAllow) {
+      addAutoAllow(settings, flags.mcpName);
+    }
+    writeJson(targets.hooksFile, settings);
+    written.push(targets.hooksFile);
+  
+    // 3. CLAUDE.md memory protocol block (optional, default on).
+    if (flags.claudeMd) {
+      upsertClaudeMdBlock(targets.claudeMdFile, claudeMdBlock(flags.mcpName));
+      written.push(targets.claudeMdFile);
+    }
+  
+    
+  return (flags.daemon ? 'daemon' : invocation.mode);
+})();log(`Installed LaPis for Claude Code (${dispatchMode} dispatch).`);
   log(`  MCP server "${flags.mcpName}" (${targets.mcp.kind} scope) → ${targets.mcp.file}`);
   log(`  Hooks → ${targets.hooksFile}`);
   if (flags.claudeMd) {

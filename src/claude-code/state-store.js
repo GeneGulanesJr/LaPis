@@ -71,11 +71,11 @@ function sanitizeKey(sessionId) {
   if (typeof sessionId !== 'string' && typeof sessionId !== 'number') {
     return null;
   }
-  const raw = String(sessionId).trim();
+  const raw = String(sessionId).trim(),
+  safe = raw ? (raw.replace(/[^\w.-]/g, '_')) : undefined;
   if (!raw) {
     return null;
   }
-  const safe = raw.replace(/[^\w.-]/g, '_');
   if (!safe || PLACEHOLDER_KEYS.has(safe.toLowerCase()) || /^_+$/.test(safe)) {
     return null;
   }
@@ -151,10 +151,13 @@ function saveState(sessionId, state, opts) {
 }
 
 function atomicWrite(filePath, state) {
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmpPath = `${filePath}.${process.pid}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(state, null, 0), 'utf8');
+  const dir = path.dirname(filePath),
+  tmpPath = (() => {
+
+    fs.mkdirSync(dir, { recursive: true });
+    
+  return (`${filePath}.${process.pid}.tmp`);
+})();fs.writeFileSync(tmpPath, JSON.stringify(state, null, 0), 'utf8');
   fs.renameSync(tmpPath, filePath);
 }
 
@@ -184,11 +187,11 @@ function clearState(sessionId, opts) {
  * @returns the mutator's return value.
  */
 async function mutateState(sessionId, mutator, opts) {
-  const filePath = statePath(sessionId, opts);
+  const filePath = statePath(sessionId, opts),
+  dir = filePath ? (path.dirname(filePath)) : undefined;
   if (!filePath) {
     return mutator(defaultState());
   }
-  const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
   const lockPath = `${filePath}.lock`,
     acquired = await acquireLock(lockPath, opts);

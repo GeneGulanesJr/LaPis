@@ -207,10 +207,13 @@ describe('services/search: symbolCluster', () => {
     const deps = {
       sqlJson: vi.fn(() => []),
       jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
-    };
-    symbolCluster(deps, { symbol: 'sym1', repo: 'my-repo' });
-    const call = deps.sqlJson.mock.calls[0];
-    expect(call[0]).toContain('AND sl.repo = ?');
+    },
+    call = (() => {
+
+      symbolCluster(deps, { symbol: 'sym1', repo: 'my-repo' });
+      
+  return (deps.sqlJson.mock.calls[0]);
+})();expect(call[0]).toContain('AND sl.repo = ?');
     expect(call[1]).toContain('my-repo');
   });
 });

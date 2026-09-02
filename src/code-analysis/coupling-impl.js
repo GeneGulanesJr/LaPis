@@ -34,12 +34,12 @@ function _prCacheSet(repoId, value) {
 
 function buildPageRank(db, repoId) {
   // Check cache
-  const cached = _prCacheGet(repoId);
+  const cached = _prCacheGet(repoId),
+  guard = !(cached) ? (_requireNativeDb(db)) : undefined;
   if (cached) {
     return cached;
   }
 
-  const guard = _requireNativeDb(db);
   if (guard) {
     return { error: guard.error };
   }
@@ -122,18 +122,18 @@ function clearPageRankCache(repoId) {
 // ══════════════════════════════════════════════════════════
 
 function getSymbolImportance(db, repoId, opts = {}) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  topN = !(guard) ? (opts.top || 20) : undefined,
+  scope = !(guard) ? (opts.scope || null) : undefined,
+  pr = !(guard) ? (buildPageRank(db, repoId)) : undefined,
+  { ranks, symbolMap, n: totalSymbols } = !(guard) && !(pr.error) ? (pr) : undefined;
   if (guard) {
     return guard;
   }
-  const topN = opts.top || 20,
-    scope = opts.scope || null,
-    pr = buildPageRank(db, repoId);
   if (pr.error) {
     return pr;
   }
 
-  const { ranks, symbolMap, n: totalSymbols } = pr;
 
   // Apply scope filter if provided
   let entries = [...ranks.entries()];

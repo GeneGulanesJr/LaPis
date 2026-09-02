@@ -9,12 +9,12 @@ function symbolMatchesChange(symbolId, changedSymbol) {
     return true;
   }
   const symbol = String(symbolId ?? ''),
-    changed = String(changedSymbol ?? '');
+    changed = String(changedSymbol ?? ''),
+  boundaryPattern = !(!symbol || !changed) ? (new RegExp(`(^|[^A-Za-z0-9_$])${escapeRegExp(changed)}($|[^A-Za-z0-9_$])`)) : undefined;
   if (!symbol || !changed) {
     return false;
   }
 
-  const boundaryPattern = new RegExp(`(^|[^A-Za-z0-9_$])${escapeRegExp(changed)}($|[^A-Za-z0-9_$])`);
   return boundaryPattern.test(symbol);
 }
 

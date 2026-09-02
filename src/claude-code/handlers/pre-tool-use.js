@@ -218,13 +218,16 @@ async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stat
   }
 
   const { resolvedCwd: cwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
-    state = stateStore.loadState(claudeSessionId);
-  if (!state.currentProject) {
-    state.currentProject = project;
-  }
+    state = stateStore.loadState(claudeSessionId),
+  args = (() => {
 
-  const args = { input, repos, cwd, state };
-  switch (role) {
+    if (!state.currentProject) {
+      state.currentProject = project;
+    }
+  
+    
+  return ({ input, repos, cwd, state });
+})();switch (role) {
     case 'read-guardrail':
       return readGuardrail(args);
     case 'search-guardrail':

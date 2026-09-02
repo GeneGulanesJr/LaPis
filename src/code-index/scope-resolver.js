@@ -318,50 +318,53 @@ function runReexportResolution(db, repoId, passNum) {
       ),
       insertResolution = db.prepare(
         `INSERT INTO scope_resolution (binding_id, resolved_symbol_id, resolved_file_id, status, resolved_at_pass, confidence) VALUES (?, ?, ?, ?, ?, ?)`,
-      );
+      ),
+    namespaceBindings = (() => {
 
-    for (const binding of wildcardBindings) {
-      // Enumerate exported symbols from the source file
-      const exportedSymbols = db
-        .prepare(
-          `SELECT id, name, start_line, end_line FROM code_symbols WHERE file_id = ? AND name IS NOT NULL LIMIT ?`,
-        )
-        .all(binding.source_file_id, WILDCARD_EXPANSION_CAP + 1);
-
-      if (exportedSymbols.length > WILDCARD_EXPANSION_CAP) {
-        warnings.push(`Wildcard import from ${binding.source_module} exceeded ${WILDCARD_EXPANSION_CAP} symbol cap`);
-      }
-
-      for (const sym of exportedSymbols.slice(0, WILDCARD_EXPANSION_CAP)) {
-        // Create synthetic binding
-        const synthBindingId = insertBinding.run(
-          repoId,
-          binding.file_id,
-          sym.name,
-          'named_import',
-          'external_file',
-          binding.source_file_id,
-          sym.name,
-          binding.source_module || null,
-          // Use the wildcard import's line range
-          ...getBindingLineRange(db, binding.id),
-          0,
-          passNum,
-        ).lastInsertRowid;
-
-        insertResolution.run(synthBindingId, sym.id, binding.source_file_id, 'resolved_internal', passNum, 0.8);
+  
+      for (const binding of wildcardBindings) {
+        // Enumerate exported symbols from the source file
+        const exportedSymbols = db
+          .prepare(
+            `SELECT id, name, start_line, end_line FROM code_symbols WHERE file_id = ? AND name IS NOT NULL LIMIT ?`,
+          )
+          .all(binding.source_file_id, WILDCARD_EXPANSION_CAP + 1);
+  
+        if (exportedSymbols.length > WILDCARD_EXPANSION_CAP) {
+          warnings.push(`Wildcard import from ${binding.source_module} exceeded ${WILDCARD_EXPANSION_CAP} symbol cap`);
+        }
+  
+        for (const sym of exportedSymbols.slice(0, WILDCARD_EXPANSION_CAP)) {
+          // Create synthetic binding
+          const synthBindingId = insertBinding.run(
+            repoId,
+            binding.file_id,
+            sym.name,
+            'named_import',
+            'external_file',
+            binding.source_file_id,
+            sym.name,
+            binding.source_module || null,
+            // Use the wildcard import's line range
+            ...getBindingLineRange(db, binding.id),
+            0,
+            passNum,
+          ).lastInsertRowid;
+  
+          insertResolution.run(synthBindingId, sym.id, binding.source_file_id, 'resolved_internal', passNum, 0.8);
+          resolved++;
+        }
+  
+        // Mark the wildcard binding itself as resolved
+        db.prepare(
+          `UPDATE scope_resolution SET status = 'resolved_external', resolved_at_pass = ? WHERE binding_id = ?`,
+        ).run(passNum, binding.id);
         resolved++;
       }
-
-      // Mark the wildcard binding itself as resolved
-      db.prepare(
-        `UPDATE scope_resolution SET status = 'resolved_external', resolved_at_pass = ? WHERE binding_id = ?`,
-      ).run(passNum, binding.id);
-      resolved++;
-    }
-
-    // ── Namespace imports (JS) ───────────────────────────
-    const namespaceBindings = db
+  
+      // ── Namespace imports (JS) ───────────────────────────
+      
+  return (db
       .prepare(`
       SELECT fsb.id, fsb.file_id, fsb.name, fsb.source_file_id, fsb.source_module
       FROM file_scope_bindings fsb
@@ -369,9 +372,8 @@ function runReexportResolution(db, repoId, passNum) {
       WHERE fsb.repo_id = ? AND fsb.kind = 'namespace_import'
         AND sr.status = 'unresolved' AND fsb.source_file_id IS NOT NULL
     `)
-      .all(repoId);
-
-    for (const binding of namespaceBindings) {
+      .all(repoId));
+})(); for (const binding of namespaceBindings) {
       const exportedSymbols = db
         .prepare(
           `SELECT id, name, start_line, end_line FROM code_symbols WHERE file_id = ? AND name IS NOT NULL LIMIT ?`,
@@ -457,48 +459,54 @@ function resolveScopeBindingsForFiles(db, repoId, changedFileIds, deletedFileIds
     }
 
     // Also clean for direct importers of changed files
-    const importerFileIds = new Set();
-    for (const fileId of changedFileIds) {
-      const importers = db
-        .prepare(`SELECT DISTINCT source_file_id FROM code_imports WHERE target_file_id = ?`)
-        .all(fileId);
-      for (const imp of importers) {
-        importerFileIds.add(imp.source_file_id);
-      }
-    }
+    const importerFileIds = new Set(),
+    allFileIds = (() => {
 
-    for (const fileId of importerFileIds) {
-      db.prepare(
-        `DELETE FROM scope_resolution WHERE binding_id IN (SELECT id FROM file_scope_bindings WHERE file_id = ?)`,
-      ).run(fileId);
-    }
-
-    // Re-resolve for all affected files
-    const allFileIds = [...new Set([...changedFileIds, ...importerFileIds])];
-    for (const fileId of allFileIds) {
-      // Only resolve bindings for this specific file
-      const bindings = db
-        .prepare(`
-        SELECT fsb.id, fsb.file_id, fsb.name, fsb.kind, fsb.origin, fsb.source_file_id,
-               fsb.source_name, fsb.line_start, fsb.line_end, fsb.scope_depth
-        FROM file_scope_bindings fsb
-        WHERE fsb.repo_id = ? AND fsb.file_id = ? AND fsb.id NOT IN (SELECT binding_id FROM scope_resolution)
-      `)
-        .all(repoId, fileId);
-
-      for (const binding of bindings) {
-        const status = resolveBindingDirect(db, binding, 2);
-        if (status && status.startsWith('resolved')) {
-          resolved++;
-        } else {
-          unresolved++;
+      for (const fileId of changedFileIds) {
+        const importers = db
+          .prepare(`SELECT DISTINCT source_file_id FROM code_imports WHERE target_file_id = ?`)
+          .all(fileId);
+        for (const imp of importers) {
+          importerFileIds.add(imp.source_file_id);
         }
       }
-    }
-
-    // Run re-export resolution for all affected files
-    const reexportResult = runReexportResolution(db, repoId, 3);
-    resolved += reexportResult.resolved || 0;
+  
+      for (const fileId of importerFileIds) {
+        db.prepare(
+          `DELETE FROM scope_resolution WHERE binding_id IN (SELECT id FROM file_scope_bindings WHERE file_id = ?)`,
+        ).run(fileId);
+      }
+  
+      // Re-resolve for all affected files
+      
+  return ([...new Set([...changedFileIds, ...importerFileIds])]);
+})(),
+    reexportResult = (() => {
+for (const fileId of allFileIds) {
+        // Only resolve bindings for this specific file
+        const bindings = db
+          .prepare(`
+          SELECT fsb.id, fsb.file_id, fsb.name, fsb.kind, fsb.origin, fsb.source_file_id,
+                 fsb.source_name, fsb.line_start, fsb.line_end, fsb.scope_depth
+          FROM file_scope_bindings fsb
+          WHERE fsb.repo_id = ? AND fsb.file_id = ? AND fsb.id NOT IN (SELECT binding_id FROM scope_resolution)
+        `)
+          .all(repoId, fileId);
+  
+        for (const binding of bindings) {
+          const status = resolveBindingDirect(db, binding, 2);
+          if (status && status.startsWith('resolved')) {
+            resolved++;
+          } else {
+            unresolved++;
+          }
+        }
+      }
+  
+      // Run re-export resolution for all affected files
+      
+  return (runReexportResolution(db, repoId, 3));
+})();resolved += reexportResult.resolved || 0;
     warnings.push(...reexportResult.warnings);
   });
 

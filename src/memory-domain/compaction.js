@@ -124,15 +124,18 @@ function dream(deps, args = {}) {
     // so expired rows don't get soft-deleted or consolidated unnecessarily
     expiredCount = deps.sqlJson(
       "SELECT COUNT(*) as cnt FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')",
-    );
-  if (expiredCount[0]?.cnt > 0) {
-    deps.sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
-    report.phases.preExpiredPurge = { count: expiredCount[0].cnt };
-    totalCleaned += expiredCount[0].cnt;
-  }
+    ),
+  superseded = (() => {
 
-  // Phase 1: Superseded memories
-  const superseded = deps.sqlJson(`
+    if (expiredCount[0]?.cnt > 0) {
+      deps.sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
+      report.phases.preExpiredPurge = { count: expiredCount[0].cnt };
+      totalCleaned += expiredCount[0].cnt;
+    }
+  
+    // Phase 1: Superseded memories
+    
+  return (deps.sqlJson(`
     SELECT o.id, o.title, o.type, o.project,
            r.source_id AS newer_id, r.relation, r.confidence
     FROM observations o
@@ -140,8 +143,8 @@ function dream(deps, args = {}) {
     WHERE r.relation IN ('duplicate', 'supersedes')
       AND o.deleted_at IS NULL
       AND r.confidence >= ${DEDUP.DREAM_SUPERSEDED_CONFIDENCE}
-  `);
-  for (const row of superseded) {
+  `));
+})();for (const row of superseded) {
     deps.softDeleteObservation(row.id);
     cleanedIds.push({
       id: row.id,
@@ -153,34 +156,37 @@ function dream(deps, args = {}) {
   totalCleaned += superseded.length;
 
   // Phase 2: Stale auto-progress memories
-  const staleAutoTypes = ['progress', 'accomplished'];
-  for (const type of staleAutoTypes) {
-    const rows = deps.sqlJson(
-      `
-      SELECT o.id, o.title, o.project
-      FROM observations o
-      LEFT JOIN (
-        SELECT memory_id, COUNT(*) as recall_count
-        FROM recall_log
-        WHERE was_useful = 1
-        GROUP BY memory_id
-      ) rl ON rl.memory_id = o.id
-      WHERE o.type = ? AND o.deleted_at IS NULL
-        AND (rl.recall_count IS NULL OR rl.recall_count = 0)
-    `,
-      [type],
-    );
-    for (const row of rows) {
-      deps.softDeleteObservation(row.id);
-      cleanedIds.push({ id: row.id, title: row.title, reason: `${type} type, never recalled` });
-    }
-    report.phases[`stale_${type}`] = { count: rows.length };
-    totalCleaned += rows.length;
-  }
+  const staleAutoTypes = ['progress', 'accomplished'],
+  autoDetectedTypes = (() => {
 
-  // Phase 3: Never-recalled auto-detected decisions with low trust
-  const autoDetectedTypes = ['decision', 'bugfix', 'discovery'];
-  for (const type of autoDetectedTypes) {
+    for (const type of staleAutoTypes) {
+      const rows = deps.sqlJson(
+        `
+        SELECT o.id, o.title, o.project
+        FROM observations o
+        LEFT JOIN (
+          SELECT memory_id, COUNT(*) as recall_count
+          FROM recall_log
+          WHERE was_useful = 1
+          GROUP BY memory_id
+        ) rl ON rl.memory_id = o.id
+        WHERE o.type = ? AND o.deleted_at IS NULL
+          AND (rl.recall_count IS NULL OR rl.recall_count = 0)
+      `,
+        [type],
+      );
+      for (const row of rows) {
+        deps.softDeleteObservation(row.id);
+        cleanedIds.push({ id: row.id, title: row.title, reason: `${type} type, never recalled` });
+      }
+      report.phases[`stale_${type}`] = { count: rows.length };
+      totalCleaned += rows.length;
+    }
+  
+    // Phase 3: Never-recalled auto-detected decisions with low trust
+    
+  return (['decision', 'bugfix', 'discovery']);
+})();for (const type of autoDetectedTypes) {
     const rows = deps.sqlJson(
       `
       SELECT o.id, o.title, o.project
@@ -217,22 +223,25 @@ function dream(deps, args = {}) {
     FROM observations
     WHERE (title LIKE 'CORRECTION:%' OR title LIKE 'Correction:%')
       AND deleted_at IS NULL
-  `);
-  for (const row of corrections) {
-    const refMatch = row.content.match(/#(\d+)/),
-      refNote = refMatch ? ` (referenced #${refMatch[1]} — ensure it was updated)` : '';
-    deps.softDeleteObservation(row.id);
-    cleanedIds.push({
-      id: row.id,
-      title: row.title,
-      reason: `correction entry${refNote} — should use memory-update instead`,
-    });
-  }
-  report.phases.staleCorrections = { count: corrections.length };
-  totalCleaned += corrections.length;
+  `),
+  obsoleteConfigs = (() => {
 
-  // Phase 5: Obsolete setup/config states (uses observation_relations for O(n) instead of self-join)
-  const obsoleteConfigs = deps.sqlJson(`
+    for (const row of corrections) {
+      const refMatch = row.content.match(/#(\d+)/),
+        refNote = refMatch ? ` (referenced #${refMatch[1]} — ensure it was updated)` : '';
+      deps.softDeleteObservation(row.id);
+      cleanedIds.push({
+        id: row.id,
+        title: row.title,
+        reason: `correction entry${refNote} — should use memory-update instead`,
+      });
+    }
+    report.phases.staleCorrections = { count: corrections.length };
+    totalCleaned += corrections.length;
+  
+    // Phase 5: Obsolete setup/config states (uses observation_relations for O(n) instead of self-join)
+    
+  return (deps.sqlJson(`
     SELECT o1.id, o1.title, o1.project, o1.type,
            r.source_id AS newer_id,
            o2.title AS newer_title
@@ -263,8 +272,8 @@ function dream(deps, args = {}) {
       AND o1.topic_key = o2.topic_key
       AND o1.created_at < o2.created_at
     LIMIT 500
-  `);
-  for (const row of obsoleteConfigs) {
+  `));
+})();for (const row of obsoleteConfigs) {
     deps.softDeleteObservation(row.id);
     cleanedIds.push({
       id: row.id,

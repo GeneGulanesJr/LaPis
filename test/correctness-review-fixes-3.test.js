@@ -19,14 +19,17 @@ const os = require('os');
 describe('correctness review fixes (round 3) — F23-F26', () => {
   // ── F23: LIKE escape clauses carry ESCAPE '\' ──────────────────────────
   it('F23a: search.js LIKE fallback includes ESCAPE clause with a backslash', () => {
-    const src = fs.readFileSync(require.resolve('../src/memory-domain/search'), 'utf8');
-    // The fallback WHERE must use LIKE ? ESCAPE so escaped %/_ are literals.
-    expect(src).toMatch(/LIKE \? ESCAPE/);
-    // The escape char in the generated SQL must be a real backslash, not the
-    // Empty string produced by a JS-escaped quote ('\' -> ''). In source the
-    // Backslash is doubled ('\\'), so the captured group contains a backslash.
-    const m = src.match(/LIKE \? ESCAPE '([^']*)'/);
-    expect(m).not.toBeNull();
+    const src = fs.readFileSync(require.resolve('../src/memory-domain/search'), 'utf8'),
+    m = (() => {
+
+      // The fallback WHERE must use LIKE ? ESCAPE so escaped %/_ are literals.
+      expect(src).toMatch(/LIKE \? ESCAPE/);
+      // The escape char in the generated SQL must be a real backslash, not the
+      // Empty string produced by a JS-escaped quote ('\' -> ''). In source the
+      // Backslash is doubled ('\\'), so the captured group contains a backslash.
+      
+  return (src.match(/LIKE \? ESCAPE '([^']*)'/));
+})();expect(m).not.toBeNull();
     expect(m[1]).toContain('\\');
     expect(m[1].length).toBeGreaterThan(0);
   });
@@ -35,12 +38,15 @@ describe('correctness review fixes (round 3) — F23-F26', () => {
     const src = fs.readFileSync(require.resolve('../src/memory-domain/context'), 'utf8'),
       // Every LIKE clause (where + score) must carry ESCAPE.
       likeClauses = src.match(/LIKE \?/g) || [],
-      escapedClauses = src.match(/LIKE \? ESCAPE/g) || [];
-    expect(escapedClauses.length).toBe(likeClauses.length);
-    expect(likeClauses.length).toBeGreaterThan(0);
-    // And the escape char must be a real backslash (doubled in source).
-    const m = src.match(/LIKE \? ESCAPE '([^']*)'/);
-    expect(m).not.toBeNull();
+      escapedClauses = src.match(/LIKE \? ESCAPE/g) || [],
+    m = (() => {
+
+      expect(escapedClauses.length).toBe(likeClauses.length);
+      expect(likeClauses.length).toBeGreaterThan(0);
+      // And the escape char must be a real backslash (doubled in source).
+      
+  return (src.match(/LIKE \? ESCAPE '([^']*)'/));
+})();expect(m).not.toBeNull();
     expect(m[1]).toContain('\\');
     expect(m[1].length).toBeGreaterThan(0);
   });

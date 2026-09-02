@@ -22,12 +22,12 @@ const { _requireNativeDb } = require('./shared-deps'),
  * Finds all files/symbols affected by a change to the given symbol or file.
  */
 function getAffectedGraph(db, repoId, opts = {}) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  { symbol, file, minReachability = DEFAULT_MIN_REACHABILITY, maxDepth = DEFAULT_MAX_DEPTH } = !(guard) ? (opts) : undefined;
   if (guard) {
     return guard;
   }
 
-  const { symbol, file, minReachability = DEFAULT_MIN_REACHABILITY, maxDepth = DEFAULT_MAX_DEPTH } = opts;
 
   if (!symbol && !file) {
     return { error: 'Missing --symbol or --file' };
@@ -66,24 +66,26 @@ function getAffectedGraph(db, repoId, opts = {}) {
   const visited = new Map(), // Key → { reachability, depth, signals }
     queue = [],
     affectedFiles = new Map(), // FileId → { path, reachability, signals, depth }
-    affectedSymbols = new Map(); // SymbolId → { name, file, reachability, via }
-
-  if (seedSymbolIds.length > 0) {
-    const key = `sym:${seedSymbolIds[0]}`;
-    visited.set(key, { reachability: 1.0, depth: 0, signals: [] });
-    queue.push({ type: 'symbol', id: seedSymbolIds[0], fileId: seedFileId, reachability: 1.0, depth: 0 });
-  }
-  if (seedFileId) {
-    const key = `file:${seedFileId}`;
-    if (!visited.has(key)) {
+    affectedSymbols = new Map(),
+  stmtFilePath = (() => {
+ // SymbolId → { name, file, reachability, via }
+  
+    if (seedSymbolIds.length > 0) {
+      const key = `sym:${seedSymbolIds[0]}`;
       visited.set(key, { reachability: 1.0, depth: 0, signals: [] });
+      queue.push({ type: 'symbol', id: seedSymbolIds[0], fileId: seedFileId, reachability: 1.0, depth: 0 });
     }
-    queue.push({ type: 'file', id: seedFileId, reachability: 1.0, depth: 0 });
-  }
-
-  const stmtFilePath = db.prepare('SELECT path FROM code_files WHERE id = ?');
-
-  while (queue.length > 0) {
+    if (seedFileId) {
+      const key = `file:${seedFileId}`;
+      if (!visited.has(key)) {
+        visited.set(key, { reachability: 1.0, depth: 0, signals: [] });
+      }
+      queue.push({ type: 'file', id: seedFileId, reachability: 1.0, depth: 0 });
+    }
+  
+    
+  return (db.prepare('SELECT path FROM code_files WHERE id = ?'));
+})(); while (queue.length > 0) {
     const current = queue.shift();
 
     if (current.depth < maxDepth) {

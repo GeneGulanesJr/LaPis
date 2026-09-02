@@ -282,11 +282,11 @@ function buildImportGraph(db, repoId) {
 }
 
 function getImportGraph(db, repoId, opts) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  { file, direction = 'both', depth = 1 } = !(guard) ? (opts) : undefined;
   if (guard) {
     return guard;
   }
-  const { file, direction = 'both', depth = 1 } = opts;
 
   if (depth <= 1 && file) {
     const fileRow = db
@@ -317,12 +317,12 @@ function getImportGraph(db, repoId, opts) {
   if (depth > 1 && file) {
     const fileRow = db
       .prepare("SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ? ESCAPE '!'")
-      .get(repoId, `%${_likeEscape(file)}%`);
+      .get(repoId, `%${_likeEscape(file)}%`),
+    result = fileRow ? ({}) : undefined;
     if (!fileRow) {
       return { error: `File not found: ${file}` };
     }
 
-    const result = {};
     if (direction === 'imports' || direction === 'both') {
       result.downstream = db
         .prepare(`
@@ -365,11 +365,11 @@ function getImportGraph(db, repoId, opts) {
 // ══════════════════════════════════════════════════════════
 
 function getBlastRadius(db, repoId, opts) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  { symbol, depth = 3, minConfidence = 0.7 } = !(guard) ? (opts) : undefined;
   if (guard) {
     return guard;
   }
-  const { symbol, depth = 3, minConfidence = 0.7 } = opts;
   if (!symbol) {
     return { error: 'Missing --symbol' };
   }
@@ -565,12 +565,8 @@ function getDependencyCycles(db, repoId) {
 // ══════════════════════════════════════════════════════════
 
 function winnow(db, repoId, opts = {}) {
-  const guard = _requireNativeDb(db);
-  if (guard) {
-    return guard;
-  }
-
-  const {
+  const guard = _requireNativeDb(db),
+  {
       kind = null,
       minComplexity = null,
       minChurn = null,
@@ -580,9 +576,12 @@ function winnow(db, repoId, opts = {}) {
       nameRegex = null,
       sortBy = 'pagerank',
       top = 20,
-    } = opts,
-    // Get PageRank data — lazy require to avoid circular deps
-    pr = _getCoupling().buildPageRank(db, repoId);
+    } = !(guard) ? (opts) : undefined,
+  pr = !(guard) ? (_getCoupling().buildPageRank(db, repoId)) : undefined;
+  if (guard) {
+    return guard;
+  }
+
   if (pr.error) {
     return pr;
   }
@@ -708,13 +707,15 @@ function winnow(db, repoId, opts = {}) {
         complexity: (a, b) => (b.cyclomatic || 0) - (a.cyclomatic || 0),
         churn: (a, b) => (b.commits || 0) - (a.commits || 0),
         callers: (a, b) => (b.caller_count || 0) - (a.caller_count || 0),
-      }[sortBy] || ((a, b) => b.pagerank - a.pagerank);
+      }[sortBy] || ((a, b) => b.pagerank - a.pagerank),
+  topResults = (() => {
 
-  enriched.sort(sortFn);
-
-  const topResults = enriched.slice(0, top);
-
-  return {
+  
+    enriched.sort(sortFn);
+  
+    
+  return (enriched.slice(0, top));
+})(); return {
     results: topResults,
     total_matched: filteredRows.length,
     total_symbols: totalSymbols,

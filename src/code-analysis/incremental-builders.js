@@ -4,7 +4,8 @@ const { codeParser, _requireNativeDb, _SKIP_CALLEE_NAMES, CALL_GRAPH, COMPLEXITY
 const { extractImportBindings, extractImportsFromSource, resolveImportTarget } = require('./import-graph-impl');
 
 function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = []) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  allAffected = !(guard) && !(!changedFileIds.length && !deletedFileIds.length) ? (new Set([...changedFileIds, ...deletedFileIds])) : undefined;
   if (guard) {
     return guard;
   }
@@ -12,7 +13,6 @@ function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [
     return { success: true, edges: 0, incremental: true };
   }
 
-  const allAffected = new Set([...changedFileIds, ...deletedFileIds]);
   if (allAffected.size > 0) {
     const ph = [...allAffected].map(() => '?').join(','),
       importers = db
@@ -72,7 +72,9 @@ function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [
 }
 
 function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [], opts = {}) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  { onProgress } = !(guard) && !(!changedFileIds.length && !deletedFileIds.length) ? (opts) : undefined,
+  deletedSet = !(guard) && !(!changedFileIds.length && !deletedFileIds.length) ? (new Set(deletedFileIds)) : undefined;
   if (guard) {
     return guard;
   }
@@ -80,8 +82,6 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     return { success: true, calls: 0, incremental: true };
   }
 
-  const { onProgress } = opts,
-    deletedSet = new Set(deletedFileIds);
 
   if (changedFileIds.length > 0) {
     const ph = changedFileIds.map(() => '?').join(',');
@@ -101,18 +101,20 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
       `SELECT DISTINCT s.file_id FROM code_calls cc JOIN code_symbols s ON s.id = cc.caller_symbol_id WHERE cc.repo_id = ? AND cc.callee_symbol_id IS NULL`,
     )
     .all(repoId)
-    .map((r) => r.file_id);
+    .map((r) => r.file_id),
+  rebuildFileIds = (() => {
 
-  if (staleCallers.length > 0) {
-    const stalePh = staleCallers.map(() => '?').join(',');
-    db.prepare(
-      `DELETE FROM code_calls WHERE repo_id = ? AND caller_symbol_id IN (SELECT id FROM code_symbols WHERE file_id IN (${stalePh})) AND callee_symbol_id IS NULL`,
-    ).run(repoId, ...staleCallers);
-  }
-
-  const rebuildFileIds = new Set([...changedFileIds, ...staleCallers].filter((id) => !deletedSet.has(id)));
-
-  if (rebuildFileIds.size === 0) {
+  
+    if (staleCallers.length > 0) {
+      const stalePh = staleCallers.map(() => '?').join(',');
+      db.prepare(
+        `DELETE FROM code_calls WHERE repo_id = ? AND caller_symbol_id IN (SELECT id FROM code_symbols WHERE file_id IN (${stalePh})) AND callee_symbol_id IS NULL`,
+      ).run(repoId, ...staleCallers);
+    }
+  
+    
+  return (new Set([...changedFileIds, ...staleCallers].filter((id) => !deletedSet.has(id))));
+})(); if (rebuildFileIds.size === 0) {
     return { success: true, calls: 0, incremental: true };
   }
 
@@ -196,11 +198,11 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     fileBindingsCache = {};
 
   function getFileSymbol(fileId, name, kind) {
-    const byName = symbolsByFileAndName.get(fileId);
+    const byName = symbolsByFileAndName.get(fileId),
+    matches = byName ? (byName.get(name)) : undefined;
     if (!byName) {
       return null;
     }
-    const matches = byName.get(name);
     if (!matches) {
       return null;
     }
@@ -229,12 +231,15 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     }
     const bindings = extractImportBindings(fileContent || ''),
       imports = getFileImports(fileId),
-      importMap = new Map();
-    for (const imp of imports) {
-      importMap.set(imp.target_module, imp.target_file_id);
-    }
-    const resolved = bindings.map((b) => ({ ...b, target_file_id: importMap.get(b.modulePath) || null }));
-    fileBindingsCache[fileId] = resolved;
+      importMap = new Map(),
+    resolved = (() => {
+
+      for (const imp of imports) {
+        importMap.set(imp.target_module, imp.target_file_id);
+      }
+      
+  return (bindings.map((b) => ({ ...b, target_file_id: importMap.get(b.modulePath) || null })));
+})();fileBindingsCache[fileId] = resolved;
     return resolved;
   }
 
@@ -365,16 +370,16 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     if (sym.end_byte <= sym.start_byte) {
       return;
     }
-    const body = Buffer.from(fileContent, 'utf-8').toString('utf-8', sym.start_byte, sym.end_byte);
-    if (!body || body.length < 2) {
-      return;
-    }
-    const seen = new Set(),
-      callPatterns = [
+    const body = Buffer.from(fileContent, 'utf-8').toString('utf-8', sym.start_byte, sym.end_byte),
+    seen = !(!body || body.length < 2) ? (new Set()) : undefined,
+    callPatterns = !(!body || body.length < 2) ? ([
         /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
         /\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
         /\bnew\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-      ];
+      ]) : undefined;
+    if (!body || body.length < 2) {
+      return;
+    }
     for (const pattern of callPatterns) {
       let match;
       pattern.lastIndex = 0;
@@ -450,17 +455,20 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
       }
 
       if (fileCallees.length > 0) {
-        const calleeByLine = new Map();
-        for (const c of fileCallees) {
-          if (!calleeByLine.has(c.line)) {
-            calleeByLine.set(c.line, []);
+        const calleeByLine = new Map(),
+        _seen = (() => {
+
+          for (const c of fileCallees) {
+            if (!calleeByLine.has(c.line)) {
+              calleeByLine.set(c.line, []);
+            }
+            calleeByLine.get(c.line).push(c);
           }
-          calleeByLine.get(c.line).push(c);
-        }
-        // PERF(issue #134): Pre-allocated dedup Set — cleared per symbol instead of
-        // Allocating a new Set. For N symbols this eliminates N Set allocations.
-        const _seen = new Set();
-        for (const sym of fileSymbols) {
+          // PERF(issue #134): Pre-allocated dedup Set — cleared per symbol instead of
+          // Allocating a new Set. For N symbols this eliminates N Set allocations.
+          
+  return (new Set());
+})();for (const sym of fileSymbols) {
           _seen.clear();
           for (let line = sym.start_line; line <= sym.end_line; line++) {
             const lineCallees = calleeByLine.get(line);
@@ -556,16 +564,19 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
       /\&\&/g,
       /\|\|/g,
       /\?\?/g,
-    ];
-    for (const pattern of decisionPatterns) {
-      pattern.lastIndex = 0;
-      const m = body.match(pattern);
-      if (m) {
-        cyclomatic += m.length;
+    ],
+    ternaryRe = (() => {
+
+      for (const pattern of decisionPatterns) {
+        pattern.lastIndex = 0;
+        const m = body.match(pattern);
+        if (m) {
+          cyclomatic += m.length;
+        }
       }
-    }
-    const ternaryRe = /\?(?:\s*[^.:])/g;
-    let __ternaryMatch;
+      
+  return (/\?(?:\s*[^.:])/g);
+})();let __ternaryMatch;
     while ((_ternaryMatch = ternaryRe.exec(body)) !== null) {
       cyclomatic++;
     }

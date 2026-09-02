@@ -26,29 +26,35 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
 
       // ── Function declarations ──────────────────────────────
       case 'function_definition': {
-        const nameNode = node.childForFieldName('name');
-        if (nameNode) {
-          addBinding(bindings, {
-            name: nameNode.text,
-            kind: 'declaration',
-            origin: 'local',
-            sourceModule: null,
-            sourceName: null,
-            lineStart: node.startPosition.row + 1,
-            lineEnd: node.endPosition.row + 1,
-            scopeDepth,
-            byteStart: node.startIndex,
-            byteEnd: node.endIndex,
-          });
-        }
-        // Parameters
-        const params = node.childForFieldName('parameters');
-        if (params) {
-          extractPyParameters(params, scopeDepth + 1);
-        }
-        // Walk body at deeper scope
-        const body = node.childForFieldName('body');
-        if (body) {
+        const nameNode = node.childForFieldName('name'),
+        params = (() => {
+
+          if (nameNode) {
+            addBinding(bindings, {
+              name: nameNode.text,
+              kind: 'declaration',
+              origin: 'local',
+              sourceModule: null,
+              sourceName: null,
+              lineStart: node.startPosition.row + 1,
+              lineEnd: node.endPosition.row + 1,
+              scopeDepth,
+              byteStart: node.startIndex,
+              byteEnd: node.endIndex,
+            });
+          }
+          // Parameters
+          
+  return (node.childForFieldName('parameters'));
+})(),
+        body = (() => {
+if (params) {
+            extractPyParameters(params, scopeDepth + 1);
+          }
+          // Walk body at deeper scope
+          
+  return (node.childForFieldName('body'));
+})();if (body) {
           walkChildren(body, scopeDepth + 1);
         }
         return;
@@ -56,28 +62,34 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
 
       // ── Class declarations ─────────────────────────────────
       case 'class_definition': {
-        const nameNode = node.childForFieldName('name');
-        if (nameNode) {
-          addBinding(bindings, {
-            name: nameNode.text,
-            kind: 'declaration',
-            origin: 'local',
-            sourceModule: null,
-            sourceName: null,
-            lineStart: node.startPosition.row + 1,
-            lineEnd: node.endPosition.row + 1,
-            scopeDepth,
-            byteStart: node.startIndex,
-            byteEnd: node.endIndex,
-          });
-        }
-        // Decorators
-        const decorator = node.childForFieldName('decorator');
-        if (decorator) {
-          handleDecorator(decorator, bindings, scopeDepth);
-        }
-        const body = node.childForFieldName('body');
-        if (body) {
+        const nameNode = node.childForFieldName('name'),
+        decorator = (() => {
+
+          if (nameNode) {
+            addBinding(bindings, {
+              name: nameNode.text,
+              kind: 'declaration',
+              origin: 'local',
+              sourceModule: null,
+              sourceName: null,
+              lineStart: node.startPosition.row + 1,
+              lineEnd: node.endPosition.row + 1,
+              scopeDepth,
+              byteStart: node.startIndex,
+              byteEnd: node.endIndex,
+            });
+          }
+          // Decorators
+          
+  return (node.childForFieldName('decorator'));
+})(),
+        body = (() => {
+if (decorator) {
+            handleDecorator(decorator, bindings, scopeDepth);
+          }
+          
+  return (node.childForFieldName('body'));
+})();if (body) {
           walkChildren(body, scopeDepth + 1);
         }
         return;
@@ -163,11 +175,11 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
       endLine = node.endPosition.row + 1,
       // Find module name: from foo.bar import baz
       moduleNode = node.childForFieldName('module_name'),
-      modulePath = moduleNode ? moduleNode.text : null;
+      modulePath = moduleNode ? moduleNode.text : null,
+    isPackage = modulePath ? (!modulePath.startsWith('.')) : undefined;
     if (!modulePath) {
       return;
     }
-    const isPackage = !modulePath.startsWith('.');
 
     // Find imported names
     let child = node.firstChild;

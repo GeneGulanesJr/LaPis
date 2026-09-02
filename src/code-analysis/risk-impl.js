@@ -37,21 +37,24 @@ function getUntestedSymbols(db, repoId, opts = {}) {
   const { minConfidence = 0.5, includePrivate = false } = opts,
     // 1. Identify test files
     allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
-    testFileIds = new Set();
-  for (const f of allFiles) {
-    if (
-      f.path.includes('.test.') ||
-      f.path.includes('.spec.') ||
-      f.path.includes('/test/') ||
-      f.path.includes('/__tests__/')
-    ) {
-      testFileIds.add(f.id);
-    }
-  }
+    testFileIds = new Set(),
+  testImportedFiles = (() => {
 
-  // 2. Trace import graph from test files → production files (batch)
-  const testImportedFiles = new Set();
-  if (testFileIds.size > 0) {
+    for (const f of allFiles) {
+      if (
+        f.path.includes('.test.') ||
+        f.path.includes('.spec.') ||
+        f.path.includes('/test/') ||
+        f.path.includes('/__tests__/')
+      ) {
+        testFileIds.add(f.id);
+      }
+    }
+  
+    // 2. Trace import graph from test files → production files (batch)
+    
+  return (new Set());
+})();if (testFileIds.size > 0) {
     const testIdList = [...testFileIds],
       batchImports = db
         .prepare(
@@ -81,15 +84,18 @@ function getUntestedSymbols(db, repoId, opts = {}) {
           .prepare(
             `SELECT caller_symbol_id, callee_symbol_id FROM code_calls WHERE caller_symbol_id IN (${testSymIds.map(() => '?').join(',')}) AND callee_symbol_id IS NOT NULL`,
           )
-          .all(...testSymIds);
+          .all(...testSymIds),
+      directCalleeIds = (() => {
 
-      for (const dc of directCallees) {
-        testedSymbols.add(dc.callee_symbol_id);
-      }
-
-      // Batch: indirect callees (level 2) for all direct callee IDs at once
-      const directCalleeIds = [...testedSymbols];
-      if (directCalleeIds.length > 0) {
+  
+        for (const dc of directCallees) {
+          testedSymbols.add(dc.callee_symbol_id);
+        }
+  
+        // Batch: indirect callees (level 2) for all direct callee IDs at once
+        
+  return ([...testedSymbols]);
+})();if (directCalleeIds.length > 0) {
         const indirectCallees = db
           .prepare(
             `SELECT caller_symbol_id, callee_symbol_id FROM code_calls WHERE caller_symbol_id IN (${directCalleeIds.map(() => '?').join(',')}) AND callee_symbol_id IS NOT NULL`,
@@ -110,17 +116,20 @@ function getUntestedSymbols(db, repoId, opts = {}) {
       .all(repoId),
     // Exclusions
     entryPointPatterns = ['main.js', 'index.js', 'cli.js', 'app.js', 'server.js'],
-    excludedFileIds = new Set();
-  for (const f of allFiles) {
-    const basename = path.basename(f.path);
-    if (entryPointPatterns.includes(basename)) {
-      excludedFileIds.add(f.id);
-    }
-  }
+    excludedFileIds = new Set(),
+  untested = (() => {
 
-  // Build results with per-symbol confidence
-  const untested = [];
-  for (const sym of allSymbols) {
+    for (const f of allFiles) {
+      const basename = path.basename(f.path);
+      if (entryPointPatterns.includes(basename)) {
+        excludedFileIds.add(f.id);
+      }
+    }
+  
+    // Build results with per-symbol confidence
+    
+  return ([]);
+})();for (const sym of allSymbols) {
     // Skip test symbols themselves
     if (testFileIds.has(sym.file_id)) {
       // oxlint-disable-next-line no-continue
@@ -208,54 +217,57 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   }
 
   // Signal 1: Blast radius (30%) — batch computation for >20 symbols
-  let blastRadiusScore = 0;
-  try {
-    if (changedSymbolIds.size > 20) {
-      // Batch: recursive CTE for all changed symbols at once
-      // Use parameterized query to prevent SQL injection
-      const changedIdsArr = [...changedSymbolIds],
-        placeholders = changedIdsArr.map(() => '?').join(','),
-        rows = db
-          .prepare(`
-        WITH RECURSIVE call_tree AS (
-          SELECT callee_symbol_id, caller_symbol_id, 1 as depth
-          FROM code_calls WHERE repo_id = ? AND callee_symbol_id IN (${placeholders})
-          UNION ALL
-          SELECT cc.callee_symbol_id, cc.caller_symbol_id, ct.depth + 1
-          FROM code_calls cc JOIN call_tree ct ON cc.callee_symbol_id = ct.caller_symbol_id
-          WHERE ct.depth < 5
-        )
-        SELECT callee_symbol_id, COUNT(DISTINCT caller_symbol_id) as affected_callers
-        FROM call_tree GROUP BY callee_symbol_id
-      `)
-          .all(repoId, ...changedIdsArr),
-        maxCallers = Math.max(...rows.map((r) => r.affected_callers), 1);
-      blastRadiusScore = Math.min(1.0, maxCallers / PR_RISK.BLAST_RADIUS_NORMALIZER);
-    } else {
-      // Per-symbol blast radius for small PRs. Pass depth=5 to match the
-      // Batch CTE's `ct.depth < 5` boundary above; otherwise the per-symbol
-      // Path would use getBlastRadius's default depth=3 and produce a
-      // Systematically smaller affected-callers count than the batch branch,
-      // Causing risk scores to jump discontinuously when the changed-symbol
-      // Count crosses the >20 threshold.
-      let maxCallers = 0;
-      for (const sid of changedSymbolIds) {
-        const br = getBlastRadius(db, repoId, {
-            symbol: db.prepare('SELECT name FROM code_symbols WHERE id = ?').get(sid)?.name,
-            depth: 5,
-          }),
-          edgeCount = (br.callers || []).length;
-        if (edgeCount > maxCallers) {
-          maxCallers = edgeCount;
-        }
-      }
-      blastRadiusScore = Math.min(1.0, maxCallers / PR_RISK.BLAST_RADIUS_NORMALIZER);
-    }
-  } catch {}
+  let blastRadiusScore = 0,
+  complexityScore = (() => {
 
-  // Signal 2: Complexity (20%)
-  let complexityScore = 0;
-  try {
+    try {
+      if (changedSymbolIds.size > 20) {
+        // Batch: recursive CTE for all changed symbols at once
+        // Use parameterized query to prevent SQL injection
+        const changedIdsArr = [...changedSymbolIds],
+          placeholders = changedIdsArr.map(() => '?').join(','),
+          rows = db
+            .prepare(`
+          WITH RECURSIVE call_tree AS (
+            SELECT callee_symbol_id, caller_symbol_id, 1 as depth
+            FROM code_calls WHERE repo_id = ? AND callee_symbol_id IN (${placeholders})
+            UNION ALL
+            SELECT cc.callee_symbol_id, cc.caller_symbol_id, ct.depth + 1
+            FROM code_calls cc JOIN call_tree ct ON cc.callee_symbol_id = ct.caller_symbol_id
+            WHERE ct.depth < 5
+          )
+          SELECT callee_symbol_id, COUNT(DISTINCT caller_symbol_id) as affected_callers
+          FROM call_tree GROUP BY callee_symbol_id
+        `)
+            .all(repoId, ...changedIdsArr),
+          maxCallers = Math.max(...rows.map((r) => r.affected_callers), 1);
+        blastRadiusScore = Math.min(1.0, maxCallers / PR_RISK.BLAST_RADIUS_NORMALIZER);
+      } else {
+        // Per-symbol blast radius for small PRs. Pass depth=5 to match the
+        // Batch CTE's `ct.depth < 5` boundary above; otherwise the per-symbol
+        // Path would use getBlastRadius's default depth=3 and produce a
+        // Systematically smaller affected-callers count than the batch branch,
+        // Causing risk scores to jump discontinuously when the changed-symbol
+        // Count crosses the >20 threshold.
+        let maxCallers = 0;
+        for (const sid of changedSymbolIds) {
+          const br = getBlastRadius(db, repoId, {
+              symbol: db.prepare('SELECT name FROM code_symbols WHERE id = ?').get(sid)?.name,
+              depth: 5,
+            }),
+            edgeCount = (br.callers || []).length;
+          if (edgeCount > maxCallers) {
+            maxCallers = edgeCount;
+          }
+        }
+        blastRadiusScore = Math.min(1.0, maxCallers / PR_RISK.BLAST_RADIUS_NORMALIZER);
+      }
+    } catch {}
+  
+    // Signal 2: Complexity (20%)
+    
+  return (0);
+})();try {
     const changedIdsArr = [...changedSymbolIds],
       placeholders = changedIdsArr.map(() => '?').join(','),
       rows = db
@@ -269,33 +281,39 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   } catch {}
 
   // Signal 3: Churn (20%)
-  let churnScore = 0;
-  try {
-    let maxChurn = 0;
-    for (const filePath of changedFiles) {
-      const row = db
-        .prepare('SELECT commits FROM churn_metrics WHERE repo_id = ? AND file_path = ? AND window_days = 90')
-        .get(repoId, filePath);
-      if (row && row.commits > maxChurn) {
-        maxChurn = row.commits;
+  let churnScore = 0,
+  testCoverageScore = (() => {
+
+    try {
+      let maxChurn = 0;
+      for (const filePath of changedFiles) {
+        const row = db
+          .prepare('SELECT commits FROM churn_metrics WHERE repo_id = ? AND file_path = ? AND window_days = 90')
+          .get(repoId, filePath);
+        if (row && row.commits > maxChurn) {
+          maxChurn = row.commits;
+        }
       }
-    }
-    churnScore = Math.min(1.0, maxChurn / PR_RISK.CHURN_NORMALIZER);
-  } catch {}
-
-  // Signal 4: Test coverage (20%) — from untested detection
-  let testCoverageScore = 0;
-  try {
-    const untestedData = getUntestedSymbols(db, repoId, { minConfidence: 0.5 });
-    if (untestedData.total_files > 0 && untestedData.test_files_found > 0) {
-      const untestedRatio = untestedData.untested.length / Math.max(untestedData.total_symbols, 1);
-      testCoverageScore = Math.min(1.0, untestedRatio);
-    }
-  } catch {}
-
-  // Signal 5: Change volume (10%)
-  let changeVolumeScore = 0;
-  try {
+      churnScore = Math.min(1.0, maxChurn / PR_RISK.CHURN_NORMALIZER);
+    } catch {}
+  
+    // Signal 4: Test coverage (20%) — from untested detection
+    
+  return (0);
+})(),
+  changeVolumeScore = (() => {
+try {
+      const untestedData = getUntestedSymbols(db, repoId, { minConfidence: 0.5 });
+      if (untestedData.total_files > 0 && untestedData.test_files_found > 0) {
+        const untestedRatio = untestedData.untested.length / Math.max(untestedData.total_symbols, 1);
+        testCoverageScore = Math.min(1.0, untestedRatio);
+      }
+    } catch {}
+  
+    // Signal 5: Change volume (10%)
+    
+  return (0);
+})();try {
     const diffStat = gitDiffOutput(repo.path, base, branch, true),
       // Parse the last line which has the total: "X files changed, Y insertions(+), Z deletions(-)"
       totalMatch = diffStat.match(/(\d+) insertions?.*?(\d+) deletions?/);
@@ -313,23 +331,24 @@ function getPrRiskProfile(db, repoId, opts = {}) {
     wComplexity = weights.complexity,
     wChurn = weights.churn;
   const wTestCoverage = testCoverageScore > 0 ? weights.test_coverage : 0,
-    wChangeVolume = weights.change_volume;
+    wChangeVolume = weights.change_volume,
+  composite = (() => {
 
-  if (wTestCoverage === 0) {
-    const adjustment = weights.test_coverage;
-    wBlastRadius += adjustment * 0.5;
-    wComplexity += adjustment * 0.25;
-    wChurn += adjustment * 0.25;
-  }
-
-  const composite =
-    blastRadiusScore * wBlastRadius +
+  
+    if (wTestCoverage === 0) {
+      const adjustment = weights.test_coverage;
+      wBlastRadius += adjustment * 0.5;
+      wComplexity += adjustment * 0.25;
+      wChurn += adjustment * 0.25;
+    }
+  
+    
+  return (blastRadiusScore * wBlastRadius +
     complexityScore * wComplexity +
     churnScore * wChurn +
     testCoverageScore * wTestCoverage +
-    changeVolumeScore * wChangeVolume;
-
-  let riskLevel = 'critical';
+    changeVolumeScore * wChangeVolume);
+})(); let riskLevel = 'critical';
   if (composite <= PR_RISK.RISK_LEVELS.LOW) {
     riskLevel = 'low';
   } else if (composite <= PR_RISK.RISK_LEVELS.MEDIUM) {

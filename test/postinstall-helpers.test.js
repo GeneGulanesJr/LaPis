@@ -12,13 +12,19 @@ const path = require('path'),
 
 function makeFixture({ srcBytes = VALID_WASM, destBytes = null } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-postinstall-')),
-    grammarDir = path.join(root, 'grammars');
-  fs.mkdirSync(grammarDir, { recursive: true });
-  const src = path.join(root, 'source', 'tree-sitter-html.wasm');
-  fs.mkdirSync(path.dirname(src), { recursive: true });
-  fs.writeFileSync(src, srcBytes);
-  const dest = path.join(grammarDir, 'tree-sitter-html.wasm');
-  if (destBytes !== null) {
+    grammarDir = path.join(root, 'grammars'),
+  src = (() => {
+
+    fs.mkdirSync(grammarDir, { recursive: true });
+    
+  return (path.join(root, 'source', 'tree-sitter-html.wasm'));
+})(),
+  dest = (() => {
+fs.mkdirSync(path.dirname(src), { recursive: true });
+    fs.writeFileSync(src, srcBytes);
+    
+  return (path.join(grammarDir, 'tree-sitter-html.wasm'));
+})();if (destBytes !== null) {
     fs.writeFileSync(dest, destBytes);
   }
   return { root, grammarDir, src, destName: 'tree-sitter-html.wasm', dest };
@@ -59,10 +65,13 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('warns and skips when the source grammar is missing', () => {
-    const f = makeFixture();
-    fs.rmSync(f.src);
-    const res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
-    expect(res.copied).toBe(false);
+    const f = makeFixture(),
+    res = (() => {
+
+      fs.rmSync(f.src);
+      
+  return (copyGrammar({ ...f, warn: (m) => warns.push(m) }));
+})();expect(res.copied).toBe(false);
     expect(res.skipped).toBe(true);
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('src_missing');
@@ -71,10 +80,13 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('warns and skips when the destination directory is missing', () => {
-    const f = makeFixture();
-    fs.rmSync(f.grammarDir, { recursive: true, force: true });
-    const res = copyGrammar({ ...f, warn: (m) => warns.push(m) });
-    expect(res.copied).toBe(false);
+    const f = makeFixture(),
+    res = (() => {
+
+      fs.rmSync(f.grammarDir, { recursive: true, force: true });
+      
+  return (copyGrammar({ ...f, warn: (m) => warns.push(m) }));
+})();expect(res.copied).toBe(false);
     expect(res.skipped).toBe(true);
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('dest_dir_missing');
@@ -163,10 +175,13 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('copyHtmlGrammar wires root -> node_modules/tree-sitter-html -> grammars/', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-pi-html-'));
-    fs.mkdirSync(path.join(root, 'grammars'), { recursive: true });
-    const src = path.join(root, 'node_modules', 'tree-sitter-html', 'tree-sitter-html.wasm');
-    fs.mkdirSync(path.dirname(src), { recursive: true });
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-pi-html-')),
+    src = (() => {
+
+      fs.mkdirSync(path.join(root, 'grammars'), { recursive: true });
+      
+  return (path.join(root, 'node_modules', 'tree-sitter-html', 'tree-sitter-html.wasm'));
+})();fs.mkdirSync(path.dirname(src), { recursive: true });
     fs.writeFileSync(src, VALID_WASM);
     const dest = path.join(root, 'grammars', 'tree-sitter-html.wasm'),
       res = copyHtmlGrammar({ root, warn: (m) => warns.push(m) });
@@ -177,10 +192,13 @@ describe('postinstall grammar copy + verification', () => {
   });
 
   it('copyHtmlGrammar warns when node_modules/tree-sitter-html is absent', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-pi-html-'));
-    fs.mkdirSync(path.join(root, 'grammars'), { recursive: true });
-    const res = copyHtmlGrammar({ root, warn: (m) => warns.push(m) });
-    expect(res.ok).toBe(false);
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-pi-html-')),
+    res = (() => {
+
+      fs.mkdirSync(path.join(root, 'grammars'), { recursive: true });
+      
+  return (copyHtmlGrammar({ root, warn: (m) => warns.push(m) }));
+})();expect(res.ok).toBe(false);
     expect(res.reason).toBe('src_missing');
     expect(warns).toHaveLength(1);
   });

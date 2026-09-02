@@ -3,12 +3,13 @@
 const { path, _requireNativeDb } = require('./shared-deps');
 
 function getClassHierarchy(db, repoId, opts = {}) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  className = !(guard) ? (opts.class || opts.symbol) : undefined,
+  direction = !(guard) ? (opts.direction || 'both') : undefined;
   if (guard) {
     return guard;
   }
-  const className = opts.class || opts.symbol,
-    direction = opts.direction || 'both'; // 'ancestors', 'descendants', 'both'
+ // 'ancestors', 'descendants', 'both'
 
   if (!className) {
     return { error: 'Class name required. Pass --class or --symbol.' };
@@ -17,12 +18,12 @@ function getClassHierarchy(db, repoId, opts = {}) {
   // Find the symbol
   const sym = db
     .prepare('SELECT id, name, kind, file_path, parent_name FROM code_symbols WHERE repo_id = ? AND name = ?')
-    .get(repoId, className);
+    .get(repoId, className),
+  result = sym ? ({ name: sym.name, kind: sym.kind, file_path: sym.file_path, parent_name: sym.parent_name }) : undefined;
   if (!sym) {
     return { error: `Symbol "${className}" not found in repo.` };
   }
 
-  const result = { name: sym.name, kind: sym.kind, file_path: sym.file_path, parent_name: sym.parent_name };
 
   // Ancestors: walk parent_name chain upward
   if (direction === 'ancestors' || direction === 'both') {
@@ -144,15 +145,15 @@ function getSignalChains(db, repoId, opts = {}) {
 
   // If a specific symbol is requested, filter to chains containing it
   if (symbol) {
-    const symRow = db.prepare('SELECT id, name FROM code_symbols WHERE repo_id = ? AND name = ?').get(repoId, symbol);
+    const symRow = db.prepare('SELECT id, name FROM code_symbols WHERE repo_id = ? AND name = ?').get(repoId, symbol),
+    visited = symRow ? (new Set()) : undefined,
+    queue = symRow ? ([symRow.id]) : undefined,
+    parentMap = symRow ? (new Map()) : undefined;
     if (!symRow) {
       return { chains: [], note: `Symbol "${symbol}" not found` };
     }
 
     // Trace upstream to find which gateway leads to this symbol
-    const visited = new Set(),
-      queue = [symRow.id],
-      parentMap = new Map();
 
     while (queue.length) {
       const current = queue.shift();

@@ -31,12 +31,12 @@ function checkConfigFile(paths) {
 
 function checkMcpConfig(paths, mcpName) {
   const text = readText(paths.config),
-    range = topBlockRange(text, 'mcp_servers');
+    range = topBlockRange(text, 'mcp_servers'),
+  block = range ? (text.split('\n').slice(range.start, range.end).join('\n')) : undefined,
+  subRe = range ? (new RegExp(`^\\s{2}${mcpName}\\s*:`, 'm')) : undefined;
   if (!range) {
     return { ok: false, name: `MCP server "${mcpName}"`, detail: 'no mcp_servers block in config' };
   }
-  const block = text.split('\n').slice(range.start, range.end).join('\n'),
-    subRe = new RegExp(`^\\s{2}${mcpName}\\s*:`, 'm');
   if (!subRe.test(block)) {
     return { ok: false, name: `MCP server "${mcpName}"`, detail: `mcp_servers.${mcpName} entry missing` };
   }
@@ -153,13 +153,16 @@ function runDoctor(argv, io = {}) {
       checkDatabase(io),
       checkNativeModule(io),
       checkSkill(paths),
-    ];
+    ],
+  ok = (() => {
 
-  for (const check of checks) {
-    log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
-  }
-  const ok = checks.every((c) => c.ok);
-  log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
+  
+    for (const check of checks) {
+      log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
+    }
+    
+  return (checks.every((c) => c.ok));
+})();log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
   return { ok, checks };
 }
 

@@ -10,10 +10,13 @@ describe('repo-index lock', () => {
   afterEach(() => resetDb());
 
   it('acquires and releases a sqlite-backed lock', () => {
-    const holder = makeHolderId();
-    expect(tryAcquireSqliteLock('my-repo', holder)).toBe(true);
-    const rows = sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', ['my-repo']);
-    expect(rows[0].holder_id).toBe(holder);
+    const holder = makeHolderId(),
+    rows = (() => {
+
+      expect(tryAcquireSqliteLock('my-repo', holder)).toBe(true);
+      
+  return (sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', ['my-repo']));
+})();expect(rows[0].holder_id).toBe(holder);
     releaseSqliteLock('my-repo', holder);
     expect(sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', ['my-repo'])).toHaveLength(0);
   });

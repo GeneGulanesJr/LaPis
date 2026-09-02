@@ -3,12 +3,12 @@ const { getTrustSyncRepository } = require('./symbol-links');
 
 function symbolCluster(deps, args) {
   const symbolId = args.symbol || args.query,
-    repo = args.repo || null;
+    repo = args.repo || null,
+  memories = symbolId ? (getTrustSyncRepository(deps, ['getSymbolCluster']).getSymbolCluster({ symbolId, repo })) : undefined;
   if (!symbolId) {
     return deps.jsonErrNoExit('Missing --symbol');
   }
 
-  const memories = getTrustSyncRepository(deps, ['getSymbolCluster']).getSymbolCluster({ symbolId, repo });
   return { symbol: symbolId, memories };
 }
 
@@ -20,14 +20,14 @@ function related(deps, args) {
   }
 
   const repository = getTrustSyncRepository(deps, ['getSymbolsForMemory', 'getRelatedMemories']),
-    symbols = repository.getSymbolsForMemory(id);
+    symbols = repository.getSymbolsForMemory(id),
+  symbolIds = !(symbols.length === 0) ? (symbols.map((s) => s.symbol_id)) : undefined,
+  clusters = !(symbols.length === 0) ? (repository.getRelatedMemories({ memoryId: id, symbolIds })) : undefined,
+  grouped = !(symbols.length === 0) ? (new Map()) : undefined;
   if (symbols.length === 0) {
     return { memory_id: id, related: [] };
   }
 
-  const symbolIds = symbols.map((s) => s.symbol_id),
-    clusters = repository.getRelatedMemories({ memoryId: id, symbolIds }),
-    grouped = new Map();
   for (const row of clusters) {
     if (!grouped.has(row.symbol_id)) {
       grouped.set(row.symbol_id, []);

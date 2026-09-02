@@ -107,15 +107,18 @@ describe('services/observations: save with --expires-in', () => {
         softDeleteObservation: vi.fn(),
         checkDuplicate: vi.fn(() => ({ potential_duplicates: [] })),
         findLatestSession: vi.fn(() => '1'),
-      };
-    obsService.save(deps, {
-      title: 'Workaround',
-      content: 'For bug #123',
-      'expires-in': '7d',
-    });
-    expect(insertObservation).toHaveBeenCalledTimes(1);
-    const call = insertObservation.mock.calls[0][0];
-    expect(call.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      },
+    call = (() => {
+
+      obsService.save(deps, {
+        title: 'Workaround',
+        content: 'For bug #123',
+        'expires-in': '7d',
+      });
+      expect(insertObservation).toHaveBeenCalledTimes(1);
+      
+  return (insertObservation.mock.calls[0][0]);
+})();expect(call.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 
   it('passes null expiresAt when --expires-in is not provided', () => {
@@ -127,10 +130,13 @@ describe('services/observations: save with --expires-in', () => {
         softDeleteObservation: vi.fn(),
         checkDuplicate: vi.fn(() => ({ potential_duplicates: [] })),
         findLatestSession: vi.fn(() => '1'),
-      };
-    obsService.save(deps, { title: 'T', content: 'C' });
-    const call = insertObservation.mock.calls[0][0];
-    expect(call.expiresAt).toBeNull();
+      },
+    call = (() => {
+
+      obsService.save(deps, { title: 'T', content: 'C' });
+      
+  return (insertObservation.mock.calls[0][0]);
+})();expect(call.expiresAt).toBeNull();
   });
 
   it('accepts expiresIn camelCase as well', () => {
@@ -142,105 +148,129 @@ describe('services/observations: save with --expires-in', () => {
         softDeleteObservation: vi.fn(),
         checkDuplicate: vi.fn(() => ({ potential_duplicates: [] })),
         findLatestSession: vi.fn(() => '1'),
-      };
-    obsService.save(deps, { title: 'T', content: 'C', expiresIn: '1d' });
-    const call = insertObservation.mock.calls[0][0];
-    expect(call.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      },
+    call = (() => {
+
+      obsService.save(deps, { title: 'T', content: 'C', expiresIn: '1d' });
+      
+  return (insertObservation.mock.calls[0][0]);
+})();expect(call.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 });
 
 describe('data-access/observations: expires_at column', () => {
   it('insertObservation includes expires_at in INSERT', () => {
-    const deps = mockDeps();
-    deps.sqlJson.mockReturnValue([{ id: 1, created_at: '2025-01-01', expires_at: null }]);
-    obsDA.insertObservation(deps, {
-      sessionId: '1',
-      type: 'manual',
-      title: 'T',
-      content: 'C',
-      project: 'p',
-      scope: 'project',
-      topicKey: null,
-      expiresAt: '2026-12-31 00:00:00',
-    });
-    const [sql, params] = deps.sqlJson.mock.calls[0];
-    expect(sql).toContain('expires_at');
+    const deps = mockDeps(),
+    [sql, params] = (() => {
+
+      deps.sqlJson.mockReturnValue([{ id: 1, created_at: '2025-01-01', expires_at: null }]);
+      obsDA.insertObservation(deps, {
+        sessionId: '1',
+        type: 'manual',
+        title: 'T',
+        content: 'C',
+        project: 'p',
+        scope: 'project',
+        topicKey: null,
+        expiresAt: '2026-12-31 00:00:00',
+      });
+      
+  return (deps.sqlJson.mock.calls[0]);
+})();expect(sql).toContain('expires_at');
     expect(params).toContain('2026-12-31 00:00:00');
   });
 
   it('insertObservation with no expiresAt inserts NULL', () => {
-    const deps = mockDeps();
-    deps.sqlJson.mockReturnValue([{ id: 1, created_at: '2025-01-01' }]);
-    obsDA.insertObservation(deps, {
-      sessionId: '1',
-      type: 'manual',
-      title: 'T',
-      content: 'C',
-      project: 'p',
-      scope: 'project',
-      topicKey: null,
-    });
-    const params = deps.sqlJson.mock.calls[0][1];
-    expect(params[params.length - 1]).toBeNull();
+    const deps = mockDeps(),
+    params = (() => {
+
+      deps.sqlJson.mockReturnValue([{ id: 1, created_at: '2025-01-01' }]);
+      obsDA.insertObservation(deps, {
+        sessionId: '1',
+        type: 'manual',
+        title: 'T',
+        content: 'C',
+        project: 'p',
+        scope: 'project',
+        topicKey: null,
+      });
+      
+  return (deps.sqlJson.mock.calls[0][1]);
+})();expect(params[params.length - 1]).toBeNull();
   });
 
   it('getObservation selects expires_at', () => {
-    const deps = mockDeps();
-    deps.sqlJson.mockReturnValue([{ id: 1, expires_at: '2026-12-31 00:00:00' }]);
-    obsDA.getObservation(deps, 1);
-    const sql = deps.sqlJson.mock.calls[0][0];
-    expect(sql).toContain('expires_at');
+    const deps = mockDeps(),
+    sql = (() => {
+
+      deps.sqlJson.mockReturnValue([{ id: 1, expires_at: '2026-12-31 00:00:00' }]);
+      obsDA.getObservation(deps, 1);
+      
+  return (deps.sqlJson.mock.calls[0][0]);
+})();expect(sql).toContain('expires_at');
   });
 });
 
 describe('data-access/observations: updateObservation with expiry', () => {
   it('sets expires_at when expiresAt provided', () => {
-    const deps = mockDeps();
-    deps.sqlJson
-      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: null }])
-      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', expires_at: '2026-12-31 00:00:00' }]);
-    obsDA.updateObservation(deps, { id: 1, expiresAt: '2026-12-31 00:00:00' });
-    const updateCall = deps.sqlRun.mock.calls.find((c) => c[0].startsWith('UPDATE'));
-    expect(updateCall[0]).toContain('expires_at = ?');
+    const deps = mockDeps(),
+    updateCall = (() => {
+
+      deps.sqlJson
+        .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: null }])
+        .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', expires_at: '2026-12-31 00:00:00' }]);
+      obsDA.updateObservation(deps, { id: 1, expiresAt: '2026-12-31 00:00:00' });
+      
+  return (deps.sqlRun.mock.calls.find((c) => c[0].startsWith('UPDATE')));
+})();expect(updateCall[0]).toContain('expires_at = ?');
     expect(updateCall[1]).toContain('2026-12-31 00:00:00');
   });
 
   it('clears expires_at when clearExpiry is true', () => {
-    const deps = mockDeps();
-    deps.sqlJson
-      .mockReturnValueOnce([
-        { id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2026-12-31 00:00:00' },
-      ])
-      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', expires_at: null }]);
-    obsDA.updateObservation(deps, { id: 1, clearExpiry: true });
-    const updateCall = deps.sqlRun.mock.calls.find((c) => c[0].startsWith('UPDATE'));
-    expect(updateCall[0]).toContain('expires_at = ?');
+    const deps = mockDeps(),
+    updateCall = (() => {
+
+      deps.sqlJson
+        .mockReturnValueOnce([
+          { id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2026-12-31 00:00:00' },
+        ])
+        .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', expires_at: null }]);
+      obsDA.updateObservation(deps, { id: 1, clearExpiry: true });
+      
+  return (deps.sqlRun.mock.calls.find((c) => c[0].startsWith('UPDATE')));
+})();expect(updateCall[0]).toContain('expires_at = ?');
     expect(updateCall[1]).toContain(null);
   });
 
   it('records expiry change in observation_versions', () => {
-    const deps = mockDeps();
-    deps.sqlJson
-      .mockReturnValueOnce([
-        { id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2025-01-01 00:00:00' },
-      ])
-      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C' }]);
-    obsDA.updateObservation(deps, { id: 1, expiresAt: '2026-12-31 00:00:00' });
-    const versionCall = deps.sqlRun.mock.calls.find((c) => c[0].includes('observation_versions'));
-    expect(versionCall).toBeDefined();
+    const deps = mockDeps(),
+    versionCall = (() => {
+
+      deps.sqlJson
+        .mockReturnValueOnce([
+          { id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2025-01-01 00:00:00' },
+        ])
+        .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C' }]);
+      obsDA.updateObservation(deps, { id: 1, expiresAt: '2026-12-31 00:00:00' });
+      
+  return (deps.sqlRun.mock.calls.find((c) => c[0].includes('observation_versions')));
+})();expect(versionCall).toBeDefined();
     expect(versionCall[1]).toContain('expires_at');
   });
 
   it('records clearExpiry as an expires_at version row', () => {
-    const deps = mockDeps();
-    deps.sqlJson
-      .mockReturnValueOnce([
-        { id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2026-12-31 00:00:00' },
-      ])
-      .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', expires_at: null }]);
-    obsDA.updateObservation(deps, { id: 1, clearExpiry: true });
-    const versionCall = deps.sqlRun.mock.calls.find((c) => c[0].includes('observation_versions'));
-    expect(versionCall).toBeDefined();
+    const deps = mockDeps(),
+    versionCall = (() => {
+
+      deps.sqlJson
+        .mockReturnValueOnce([
+          { id: 1, title: 'T', content: 'C', type: 'manual', scope: 'project', expires_at: '2026-12-31 00:00:00' },
+        ])
+        .mockReturnValueOnce([{ id: 1, title: 'T', content: 'C', expires_at: null }]);
+      obsDA.updateObservation(deps, { id: 1, clearExpiry: true });
+      
+  return (deps.sqlRun.mock.calls.find((c) => c[0].includes('observation_versions')));
+})();expect(versionCall).toBeDefined();
     expect(versionCall[1]).toContain('expires_at');
     // Old_value is the prior date; new_value uses '' (NOT NULL convention)
     // Because observation_versions.new_value is TEXT NOT NULL.
@@ -266,10 +296,13 @@ describe('compaction: runCompact expires expired observations', () => {
   it('emits the expired purge SQL as the first cleanup step', () => {
     const sqlRun = vi.fn(),
       sqlRaw = vi.fn();
-    const { runCompact } = require('../src/memory-domain/compaction');
-    runCompact({ sqlRun, sqlRaw });
-    const firstNonFtsRun = sqlRun.mock.calls[0];
-    expect(firstNonFtsRun[0]).toContain('expires_at');
+    const { runCompact } = require('../src/memory-domain/compaction'),
+    firstNonFtsRun = (() => {
+
+      runCompact({ sqlRun, sqlRaw });
+      
+  return (sqlRun.mock.calls[0]);
+})();expect(firstNonFtsRun[0]).toContain('expires_at');
     expect(firstNonFtsRun[0]).toContain("datetime('now')");
   });
 });

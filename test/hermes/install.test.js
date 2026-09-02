@@ -11,10 +11,13 @@ const doctor = require('../../src/hermes/doctor');
 
 function makeIo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hermes-install-')),
-    home = path.join(root, 'hermes-home');
-  fs.mkdirSync(home, { recursive: true });
-  const lines = [];
-  return { home, log: (l) => lines.push(l), lines, root };
+    home = path.join(root, 'hermes-home'),
+  lines = (() => {
+
+    fs.mkdirSync(home, { recursive: true });
+    
+  return ([]);
+})();return { home, log: (l) => lines.push(l), lines, root };
 }
 
 function readConfig(home) {
@@ -57,10 +60,13 @@ describe('hermes install: default install', () => {
   });
 
   test('writes consent for every hook event', () => {
-    const allow = readAllowlist(io.home);
-    expect(allow.approvals).toHaveLength(5);
-    const cmd = hookCommand();
-    for (const event of ['pre_tool_call', 'post_tool_call', 'pre_llm_call', 'on_session_start', 'on_session_end']) {
+    const allow = readAllowlist(io.home),
+    cmd = (() => {
+
+      expect(allow.approvals).toHaveLength(5);
+      
+  return (hookCommand());
+})();for (const event of ['pre_tool_call', 'post_tool_call', 'pre_llm_call', 'on_session_start', 'on_session_end']) {
       expect(allow.approvals.some((a) => a.event === event && a.command === cmd)).toBe(true);
     }
   });
@@ -93,11 +99,14 @@ describe('hermes install: idempotency and coexistence', () => {
     const io = makeIo();
     await runInstall([], io);
     await runInstall([], io);
-    const text = readConfig(io.home);
-    expect(text.match(/  lapis:/g)).toHaveLength(1);
-    expect(text.match(/- matcher: "\^\(read_file\|search_files\)\$"/g)).toHaveLength(1);
-    const allow = readAllowlist(io.home);
-    expect(allow.approvals).toHaveLength(5);
+    const text = readConfig(io.home),
+    allow = (() => {
+
+      expect(text.match(/  lapis:/g)).toHaveLength(1);
+      expect(text.match(/- matcher: "\^\(read_file\|search_files\)\$"/g)).toHaveLength(1);
+      
+  return (readAllowlist(io.home));
+})();expect(allow.approvals).toHaveLength(5);
   });
 
   test('preserves pre-existing MCP servers and user hooks', async () => {
@@ -201,24 +210,27 @@ describe('hermes uninstall', () => {
     );
 
     const { removed } = await runUninstall([], io),
-      text = readConfig(io.home);
+      text = readConfig(io.home),
+    allow = (() => {
 
-    expect(removed).toContain('mcp_servers.lapis');
-    expect(removed).toContain('hooks.pre_tool_call');
-    expect(removed).toContain('hooks.on_session_end');
-    expect(text).not.toContain('lapis:');
-    expect(text).not.toContain(hookCommand());
-    // A user hook remains, so the shared hooks_auto_accept scalar survives —
-    // It may be used by other hooks for headless consent.
-    expect(text).toContain('hooks_auto_accept: true');
-    expect(removed).not.toContain('hooks_auto_accept');
-
-    // User's server and hook survive.
-    expect(text).toContain('    command: uvx');
-    expect(text).toContain('"/user/script.sh"');
-
-    const allow = readAllowlist(io.home);
-    expect(allow.approvals).toHaveLength(1);
+  
+      expect(removed).toContain('mcp_servers.lapis');
+      expect(removed).toContain('hooks.pre_tool_call');
+      expect(removed).toContain('hooks.on_session_end');
+      expect(text).not.toContain('lapis:');
+      expect(text).not.toContain(hookCommand());
+      // A user hook remains, so the shared hooks_auto_accept scalar survives —
+      // It may be used by other hooks for headless consent.
+      expect(text).toContain('hooks_auto_accept: true');
+      expect(removed).not.toContain('hooks_auto_accept');
+  
+      // User's server and hook survive.
+      expect(text).toContain('    command: uvx');
+      expect(text).toContain('"/user/script.sh"');
+  
+      
+  return (readAllowlist(io.home));
+})();expect(allow.approvals).toHaveLength(1);
     expect(allow.approvals[0].command).toBe('/user/script.sh');
   });
 
@@ -258,11 +270,14 @@ describe('hermes uninstall', () => {
     allow.approvals.push({ event: 'pre_tool_call', command: '/user/script.sh' });
     fs.writeFileSync(allowPath, `${JSON.stringify(allow, null, 2)}\n`);
 
-    const { removed } = await runUninstall([], io);
-    expect(removed.some((r) => r.startsWith('allowlist'))).toBe(true);
-    expect(fs.existsSync(allowPath)).toBe(true);
-    const after = JSON.parse(fs.readFileSync(allowPath, 'utf8'));
-    expect(after.version).toBe(1);
+    const { removed } = await runUninstall([], io),
+    after = (() => {
+
+      expect(removed.some((r) => r.startsWith('allowlist'))).toBe(true);
+      expect(fs.existsSync(allowPath)).toBe(true);
+      
+  return (JSON.parse(fs.readFileSync(allowPath, 'utf8')));
+})();expect(after.version).toBe(1);
     expect(after.approvals).toEqual([{ event: 'pre_tool_call', command: '/user/script.sh' }]);
   });
 });

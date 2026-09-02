@@ -71,12 +71,15 @@ describe('storeCochangePairs', () => {
       pathToId = new Map([
         ['src/a.js', Number(fA.lastInsertRowid)],
         ['src/b.js', Number(fB.lastInsertRowid)],
-      ]);
+      ]),
+    rows = (() => {
 
-    storeCochangePairs(testDb, rid, pairs, pathToId, 90);
-
-    const rows = testDb.prepare('SELECT * FROM file_cochange').all();
-    expect(rows).toHaveLength(2);
+  
+      storeCochangePairs(testDb, rid, pairs, pathToId, 90);
+  
+      
+  return (testDb.prepare('SELECT * FROM file_cochange').all());
+})();expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.co_commit_count === 5)).toBe(true);
     expect(rows.every((r) => r.strength === 1.0)).toBe(true);
   });

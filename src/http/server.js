@@ -232,11 +232,14 @@ async function startHttpServer(opts) {
     apiKey = resolveHttpApiKey(opts);
   assertServeHostPolicy(host, apiKey);
 
-  const db = require('../../db');
-  db.ensureDb();
+  const db = require('../../db'),
+  { sqlJson, sqlRun } = (() => {
 
-  const { sqlJson, sqlRun } = db;
-  const { createAurexRepository } = require('../platform/storage/repositories/aurex'),
+    db.ensureDb();
+  
+    
+  return (db);
+})();const { createAurexRepository } = require('../platform/storage/repositories/aurex'),
     aurex = createAurexRepository({ sqlJson, sqlRun }),
     server = createHttpServer({
       repositories: { aurex },

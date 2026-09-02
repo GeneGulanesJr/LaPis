@@ -233,38 +233,42 @@ describe('code-index source retrieval', () => {
 
 describe('code-index scanner hardening', () => {
   it('skips unsafe or noisy files and reports skip reasons', () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-scan-hardening-'));
-    fs.mkdirSync(path.join(tmp, 'src'));
-    fs.writeFileSync(path.join(tmp, 'src', 'app.js'), 'function app() {}');
-    fs.writeFileSync(path.join(tmp, '.env.js'), 'TOKEN=secret');
-    fs.writeFileSync(path.join(tmp, 'large.js'), 'x'.repeat(128));
-    fs.writeFileSync(path.join(tmp, 'binary.js'), Buffer.from([0, 1, 2, 3]));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-scan-hardening-')),
+    result = (() => {
 
-    const result = scanRepository(tmp, { maxFileSize: 32 });
-
-    expect(result.files.map((f) => path.basename(f))).toEqual(['app.js']);
+      fs.mkdirSync(path.join(tmp, 'src'));
+      fs.writeFileSync(path.join(tmp, 'src', 'app.js'), 'function app() {}');
+      fs.writeFileSync(path.join(tmp, '.env.js'), 'TOKEN=secret');
+      fs.writeFileSync(path.join(tmp, 'large.js'), 'x'.repeat(128));
+      fs.writeFileSync(path.join(tmp, 'binary.js'), Buffer.from([0, 1, 2, 3]));
+  
+      
+  return (scanRepository(tmp, { maxFileSize: 32 }));
+})(); expect(result.files.map((f) => path.basename(f))).toEqual(['app.js']);
     expect(result.skipReport.tooLarge).toBe(1);
     expect(result.skipReport.binary).toBe(1);
     expect(result.skipReport.secret).toBe(1);
   });
 
   it('skips lock files and auto-generated non-code files', () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-scan-lock-'));
-    fs.mkdirSync(path.join(tmp, 'src'));
-    fs.writeFileSync(path.join(tmp, 'src', 'app.js'), 'function app() {}');
-    fs.writeFileSync(path.join(tmp, 'package-lock.json'), '{}');
-    fs.writeFileSync(path.join(tmp, 'package.json'), '{}');
-    fs.writeFileSync(path.join(tmp, 'tsconfig.json'), '{}');
-    fs.writeFileSync(path.join(tmp, 'pnpm-lock.yaml'), 'lockfileVersion: 1');
-    fs.writeFileSync(path.join(tmp, 'Gemfile.lock'), 'GEM');
-    fs.writeFileSync(path.join(tmp, 'poetry.lock'), '[metadata]');
-    fs.writeFileSync(path.join(tmp, 'Cargo.lock'), '[package]');
-    fs.writeFileSync(path.join(tmp, 'composer.lock'), '{}');
-    fs.writeFileSync(path.join(tmp, 'go.sum'), 'module hash');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-scan-lock-')),
+    result = (() => {
 
-    const result = scanRepository(tmp, {});
-
-    expect(result.files.map((f) => path.basename(f))).toEqual(['app.js']);
+      fs.mkdirSync(path.join(tmp, 'src'));
+      fs.writeFileSync(path.join(tmp, 'src', 'app.js'), 'function app() {}');
+      fs.writeFileSync(path.join(tmp, 'package-lock.json'), '{}');
+      fs.writeFileSync(path.join(tmp, 'package.json'), '{}');
+      fs.writeFileSync(path.join(tmp, 'tsconfig.json'), '{}');
+      fs.writeFileSync(path.join(tmp, 'pnpm-lock.yaml'), 'lockfileVersion: 1');
+      fs.writeFileSync(path.join(tmp, 'Gemfile.lock'), 'GEM');
+      fs.writeFileSync(path.join(tmp, 'poetry.lock'), '[metadata]');
+      fs.writeFileSync(path.join(tmp, 'Cargo.lock'), '[package]');
+      fs.writeFileSync(path.join(tmp, 'composer.lock'), '{}');
+      fs.writeFileSync(path.join(tmp, 'go.sum'), 'module hash');
+  
+      
+  return (scanRepository(tmp, {}));
+})(); expect(result.files.map((f) => path.basename(f))).toEqual(['app.js']);
     expect(result.skipReport.lock).toBe(4);
     expect(result.skipReport.unsupportedExt).toBe(5);
   });

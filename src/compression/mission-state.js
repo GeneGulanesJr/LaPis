@@ -26,27 +26,30 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
      ORDER BY created_at DESC
      LIMIT ?`,
       [missionId, windowSize],
-    );
-  if (findings.length > 0) {
-    sections.push(
-      `## Research findings (${findings.length})\n${findings
-        .map((f) => `- [${f.relevance}/${f.status}] ${f.title}: ${f.content.slice(0, 200)}`)
-        .join('\n')}`,
-    );
-  }
+    ),
+  handoffs = (() => {
 
-  // 2. Recent worker handoffs (what was done vs. what remains)
-  // The handoffs table was added in the V22 migration (see db.js:runMigrationV22)
-  // And is persisted by src/platform/storage/repositories/aurex.js:createHandoff.
-  const handoffs = sqlJson(
+    if (findings.length > 0) {
+      sections.push(
+        `## Research findings (${findings.length})\n${findings
+          .map((f) => `- [${f.relevance}/${f.status}] ${f.title}: ${f.content.slice(0, 200)}`)
+          .join('\n')}`,
+      );
+    }
+  
+    // 2. Recent worker handoffs (what was done vs. what remains)
+    // The handoffs table was added in the V22 migration (see db.js:runMigrationV22)
+    // And is persisted by src/platform/storage/repositories/aurex.js:createHandoff.
+    
+  return (sqlJson(
     `SELECT feature_name, description, remaining, status
      FROM handoffs
      WHERE mission_id = ?
      ORDER BY created_at DESC
      LIMIT ?`,
     [missionId, windowSize],
-  );
-  if (handoffs.length > 0) {
+  ));
+})();if (handoffs.length > 0) {
     sections.push(
       `## Worker handoffs (${handoffs.length})\n${handoffs
         .map(
@@ -69,17 +72,20 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
      ORDER BY vv.timestamp DESC
      LIMIT ?`,
     [missionId, windowSize],
-  );
-  if (verdicts.length > 0) {
-    sections.push(
-      `## Failed verdicts (${verdicts.length})\n${verdicts
-        .map((v) => `- ${v.verdict}: ${v.findings?.slice(0, 200) ?? ''}`)
-        .join('\n')}`,
-    );
-  }
+  ),
+  costRows = (() => {
 
-  // 3. Cost summary (cumulative)
-  const costRows = sqlJson(
+    if (verdicts.length > 0) {
+      sections.push(
+        `## Failed verdicts (${verdicts.length})\n${verdicts
+          .map((v) => `- ${v.verdict}: ${v.findings?.slice(0, 200) ?? ''}`)
+          .join('\n')}`,
+      );
+    }
+  
+    // 3. Cost summary (cumulative)
+    
+  return (sqlJson(
     `SELECT
        COALESCE(SUM(cost), 0) AS total_cost,
        COALESCE(SUM(prompt_tokens), 0) AS total_prompt_tokens,
@@ -88,8 +94,8 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
      FROM cost_entries
      WHERE mission_id = ?`,
     [missionId],
-  );
-  if (costRows.length > 0 && costRows[0].entry_count > 0) {
+  ));
+})();if (costRows.length > 0 && costRows[0].entry_count > 0) {
     const c = costRows[0];
     sections.push(
       `## Cost summary\n${c.entry_count} entries, $${c.total_cost.toFixed(2)} total, ${c.total_prompt_tokens + c.total_completion_tokens} tokens`,

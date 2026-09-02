@@ -2,7 +2,10 @@ const ERROR_PATTERNS = /\b(?:error|exception|fatal|panic|critical|stack\s*trace|
   TIMESTAMP_PATTERNS = /\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}/;
 
 function compressLogs({ stdout, stderr }) {
-  const combined = `${stdout}\n${stderr}`.trim();
+  const combined = `${stdout}\n${stderr}`.trim(),
+  lines = combined ? (combined.split('\n')) : undefined,
+  errors = combined ? ([]) : undefined,
+  uniqueMessages = combined ? ({}) : undefined;
   if (!combined) {
     return {
       summary: 'No log output.',
@@ -11,9 +14,6 @@ function compressLogs({ stdout, stderr }) {
     };
   }
 
-  const lines = combined.split('\n'),
-    errors = [],
-    uniqueMessages = {};
   let lastTimestamp = null,
     deduped = 0;
 
@@ -22,16 +22,19 @@ function compressLogs({ stdout, stderr }) {
       errors.push(line);
     }
 
-    const tsMatch = line.match(TIMESTAMP_PATTERNS);
-    if (tsMatch) {
-      lastTimestamp = tsMatch[0];
-    }
+    const tsMatch = line.match(TIMESTAMP_PATTERNS),
+    _normalized = (() => {
 
-    const _normalized = line
+      if (tsMatch) {
+        lastTimestamp = tsMatch[0];
+      }
+  
+      
+  return (line
       .replace(/\d{4}[-/]\d{2}[-/]\d{2}[\sT]\d{2}:\d{2}:\d{2}(?:\.\d+)?/, '<ts>')
       .replace(/\s+/g, ' ')
-      .trim();
-    if (!uniqueMessages[_normalized]) {
+      .trim());
+})();if (!uniqueMessages[_normalized]) {
       uniqueMessages[_normalized] = { count: 0, original: line };
     }
     uniqueMessages[_normalized].count++;
@@ -45,31 +48,34 @@ function compressLogs({ stdout, stderr }) {
     totalLines = lines.length;
   deduped = totalLines - uniqueCount;
 
-  let output = 'Log summary:\n';
-  if (recurring.length > 0) {
-    output += 'Recurring messages:\n';
-    for (const [, info] of recurring) {
-      output += `- (${info.count}x) ${info.original.slice(0, 120)}\n`;
+  let output = 'Log summary:\n',
+  summary = (() => {
+
+    if (recurring.length > 0) {
+      output += 'Recurring messages:\n';
+      for (const [, info] of recurring) {
+        output += `- (${info.count}x) ${info.original.slice(0, 120)}\n`;
+      }
+      output += '\n';
     }
-    output += '\n';
-  }
-
-  if (errors.length > 0) {
-    output += 'Errors:\n';
-    for (const err of errors.slice(0, 20)) {
-      output += `${err}\n`;
+  
+    if (errors.length > 0) {
+      output += 'Errors:\n';
+      for (const err of errors.slice(0, 20)) {
+        output += `${err}\n`;
+      }
+      output += '\n';
     }
-    output += '\n';
-  }
-
-  if (lastTimestamp) {
-    output += `Last timestamp: ${lastTimestamp}\n`;
-  }
-
-  output += `\nDeduplicated: ${deduped} repeated lines removed`;
-
-  let summary = `${totalLines} log lines.`;
-  if (errors.length > 0) {
+  
+    if (lastTimestamp) {
+      output += `Last timestamp: ${lastTimestamp}\n`;
+    }
+  
+    output += `\nDeduplicated: ${deduped} repeated lines removed`;
+  
+    
+  return (`${totalLines} log lines.`);
+})();if (errors.length > 0) {
     summary += ` ${errors.length} error(s) found.`;
   }
   if (recurring.length > 0) {

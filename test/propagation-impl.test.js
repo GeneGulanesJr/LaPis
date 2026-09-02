@@ -101,12 +101,15 @@ describe('getAffectedGraph', () => {
         50,
         'javascript',
         'main',
-      );
+      ),
+    result = (() => {
 
-    insertCall.run(rid, Number(caller.lastInsertRowid), 'helper', Number(callee.lastInsertRowid), 1.0);
-
-    const result = getAffectedGraph(testDb, rid, { symbol: 'helper' });
-    expect(result.affected_files.length).toBeGreaterThanOrEqual(1);
+  
+      insertCall.run(rid, Number(caller.lastInsertRowid), 'helper', Number(callee.lastInsertRowid), 1.0);
+  
+      
+  return (getAffectedGraph(testDb, rid, { symbol: 'helper' }));
+})();expect(result.affected_files.length).toBeGreaterThanOrEqual(1);
     expect(result.affected_files.some((f) => f.path === 'consumer.js')).toBe(true);
     expect(result.affected_symbols.some((s) => s.name === 'main')).toBe(true);
   });
@@ -121,11 +124,14 @@ describe('getAffectedGraph', () => {
         'INSERT INTO code_imports (repo_id, source_file_id, target_module, target_file_id) VALUES (?, ?, ?, ?)',
       ),
       fLib = insertFile.run(rid, 'lib.js', 'javascript', '', ''),
-      fConsumer = insertFile.run(rid, 'consumer.js', 'javascript', '', '');
-    insertImport.run(rid, Number(fConsumer.lastInsertRowid), './lib', Number(fLib.lastInsertRowid));
+      fConsumer = insertFile.run(rid, 'consumer.js', 'javascript', '', ''),
+    result = (() => {
 
-    const result = getAffectedGraph(testDb, rid, { file: 'lib.js' });
-    expect(result.affected_files.some((f) => f.path === 'consumer.js')).toBe(true);
+      insertImport.run(rid, Number(fConsumer.lastInsertRowid), './lib', Number(fLib.lastInsertRowid));
+  
+      
+  return (getAffectedGraph(testDb, rid, { file: 'lib.js' }));
+})();expect(result.affected_files.some((f) => f.path === 'consumer.js')).toBe(true);
   });
 
   it('should find extends relations', () => {
@@ -169,20 +175,23 @@ describe('getAffectedGraph', () => {
         50,
         'javascript',
         'Child',
+      ),
+    result = (() => {
+
+  
+      insertRelation.run(
+        rid,
+        Number(childSym.lastInsertRowid),
+        Number(baseSym.lastInsertRowid),
+        Number(fChild.lastInsertRowid),
+        Number(fBase.lastInsertRowid),
+        'extends',
+        1.0,
       );
-
-    insertRelation.run(
-      rid,
-      Number(childSym.lastInsertRowid),
-      Number(baseSym.lastInsertRowid),
-      Number(fChild.lastInsertRowid),
-      Number(fBase.lastInsertRowid),
-      'extends',
-      1.0,
-    );
-
-    const result = getAffectedGraph(testDb, rid, { symbol: 'Base' });
-    expect(result.affected_files.some((f) => f.path === 'child.js')).toBe(true);
+  
+      
+  return (getAffectedGraph(testDb, rid, { symbol: 'Base' }));
+})();expect(result.affected_files.some((f) => f.path === 'child.js')).toBe(true);
     expect(result.affected_files.some((f) => f.signals.includes('extends'))).toBe(true);
   });
 
@@ -280,13 +289,19 @@ describe('getAffectedGraph', () => {
         'INSERT INTO file_cochange (repo_id, file_a_id, file_b_id, co_commit_count, strength) VALUES (?, ?, ?, ?, ?)',
       ),
       fA = insertFile.run(rid, 'a.js', 'javascript', '', ''),
-      fB = insertFile.run(rid, 'b.js', 'javascript', '', '');
-    insertCochange.run(rid, Number(fA.lastInsertRowid), Number(fB.lastInsertRowid), 10, 1.0);
+      fB = insertFile.run(rid, 'b.js', 'javascript', '', ''),
+    result = (() => {
 
-    const result = getAffectedGraph(testDb, rid, { file: 'a.js' });
-    expect(result.affected_files.some((f) => f.path === 'b.js')).toBe(true);
-    const bFile = result.affected_files.find((f) => f.path === 'b.js');
-    expect(bFile.signals).toContain('cochange');
+      insertCochange.run(rid, Number(fA.lastInsertRowid), Number(fB.lastInsertRowid), 10, 1.0);
+  
+      
+  return (getAffectedGraph(testDb, rid, { file: 'a.js' }));
+})(),
+    bFile = (() => {
+expect(result.affected_files.some((f) => f.path === 'b.js')).toBe(true);
+      
+  return (result.affected_files.find((f) => f.path === 'b.js'));
+})();expect(bFile.signals).toContain('cochange');
   });
 
   it('should respect minReachability threshold', () => {
@@ -299,10 +314,13 @@ describe('getAffectedGraph', () => {
         'INSERT INTO file_cochange (repo_id, file_a_id, file_b_id, co_commit_count, strength) VALUES (?, ?, ?, ?, ?)',
       ),
       fA = insertFile.run(rid, 'a.js', 'javascript', '', ''),
-      fB = insertFile.run(rid, 'b.js', 'javascript', '', '');
-    insertCochange.run(rid, Number(fA.lastInsertRowid), Number(fB.lastInsertRowid), 1, 0.1);
+      fB = insertFile.run(rid, 'b.js', 'javascript', '', ''),
+    result = (() => {
 
-    const result = getAffectedGraph(testDb, rid, { file: 'a.js', minReachability: 0.5 });
-    expect(result.affected_files.some((f) => f.path === 'b.js')).toBe(false);
+      insertCochange.run(rid, Number(fA.lastInsertRowid), Number(fB.lastInsertRowid), 1, 0.1);
+  
+      
+  return (getAffectedGraph(testDb, rid, { file: 'a.js', minReachability: 0.5 }));
+})();expect(result.affected_files.some((f) => f.path === 'b.js')).toBe(false);
   });
 });

@@ -40,25 +40,31 @@ describe('correctness review fixes', () => {
       sqlJson: dbModule.sqlJson,
       sqlRun: dbModule.sqlRun,
       jsonErrNoExit: (msg) => ({ error: msg }),
-    };
-    dbModule.sqlRun(
-      "INSERT INTO observations (session_id, type, title, content, project, scope) VALUES ('1','decision','HTTP fix token','unique-http-fix-token','p','project')",
-    );
-    const result = search(deps, { query: 'unique-http-fix-token', limit: '5' });
-    expect(result.results?.length).toBeGreaterThan(0);
+    },
+    result = (() => {
+
+      dbModule.sqlRun(
+        "INSERT INTO observations (session_id, type, title, content, project, scope) VALUES ('1','decision','HTTP fix token','unique-http-fix-token','p','project')",
+      );
+      
+  return (search(deps, { query: 'unique-http-fix-token', limit: '5' }));
+})();expect(result.results?.length).toBeGreaterThan(0);
     expect(mapSearchRows(result.results)).toHaveLength(result.results.length);
   });
 
   it('listMissionLedgers includes todos for each ledger', () => {
     const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun }),
       missionA = `mission-list-a-${Date.now()}`,
-      missionB = `mission-list-b-${Date.now()}`;
-    repo.createMissionLedger({ missionId: missionA, missionTitle: 'List A', status: 'planning' });
-    repo.createMissionLedger({ missionId: missionB, missionTitle: 'List B', status: 'planning' });
-    repo.createTodo(missionA, { title: 'Todo A', status: 'ready', goal: 'g' });
-    repo.createTodo(missionB, { title: 'Todo B', status: 'ready', goal: 'g' });
-    const list = repo.listMissionLedgers();
-    expect(list.find((l) => l.missionId === missionA)?.todos?.length).toBe(1);
+      missionB = `mission-list-b-${Date.now()}`,
+    list = (() => {
+
+      repo.createMissionLedger({ missionId: missionA, missionTitle: 'List A', status: 'planning' });
+      repo.createMissionLedger({ missionId: missionB, missionTitle: 'List B', status: 'planning' });
+      repo.createTodo(missionA, { title: 'Todo A', status: 'ready', goal: 'g' });
+      repo.createTodo(missionB, { title: 'Todo B', status: 'ready', goal: 'g' });
+      
+  return (repo.listMissionLedgers());
+})();expect(list.find((l) => l.missionId === missionA)?.todos?.length).toBe(1);
     expect(list.find((l) => l.missionId === missionB)?.todos?.length).toBe(1);
   });
 
@@ -88,41 +94,50 @@ describe('correctness review fixes', () => {
     const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun }),
       missionId = `mission-claim-${Date.now()}`,
       blockerId = `blocker-${Date.now()}`,
-      blockedId = `blocked-${Date.now()}`;
-    repo.createMissionLedger({ missionId, missionTitle: 'Claim test', status: 'planning' });
-    const blocker = repo.createTodo(missionId, { id: blockerId, title: 'Blocker', status: 'ready', goal: 'g' })[0];
-    repo.createTodo(missionId, {
+      blockedId = `blocked-${Date.now()}`,
+    blocker = (() => {
+
+      repo.createMissionLedger({ missionId, missionTitle: 'Claim test', status: 'planning' });
+      
+  return (repo.createTodo(missionId, { id: blockerId, title: 'Blocker', status: 'ready', goal: 'g' })[0]);
+})();repo.createTodo(missionId, {
       id: blockedId,
       title: 'Blocked',
       status: 'ready',
       goal: 'g',
       dependsOn: [blocker.id],
     });
-    const claimed = repo.claimNextReadyTodo(missionId, 'worker-a');
-    expect(claimed[0]?.id).toBe(blocker.id);
-    const blockedClaim = repo.claimNextReadyTodo(missionId, 'worker-b');
-    expect(blockedClaim).toEqual([]);
+    const claimed = repo.claimNextReadyTodo(missionId, 'worker-a'),
+    blockedClaim = (() => {
+
+      expect(claimed[0]?.id).toBe(blocker.id);
+      
+  return (repo.claimNextReadyTodo(missionId, 'worker-b'));
+})();expect(blockedClaim).toEqual([]);
   });
 
   it('claimNextReadyTodo allows claim when dependency is implemented', () => {
     const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun }),
       missionId = `mission-claim-impl-${Date.now()}`,
       blockerId = `blocker-impl-${Date.now()}`,
-      blockedId = `blocked-impl-${Date.now()}`;
-    repo.createMissionLedger({ missionId, missionTitle: 'Implemented dep', status: 'planning' });
-    repo.createTodo(missionId, { id: blockerId, title: 'Blocker', status: 'ready', goal: 'g' });
-    repo.createTodo(missionId, {
-      id: blockedId,
-      title: 'Blocked',
-      status: 'ready',
-      goal: 'g',
-      dependsOn: [blockerId],
-    });
-    repo.claimNextReadyTodo(missionId, 'worker-a');
-    repo.addTodoEvidence(blockerId, { changedFiles: ['src/a.js'] });
-    repo.setTodoStatus(blockerId, 'implemented');
-    const claimed = repo.claimNextReadyTodo(missionId, 'worker-b');
-    expect(claimed[0]?.id).toBe(blockedId);
+      blockedId = `blocked-impl-${Date.now()}`,
+    claimed = (() => {
+
+      repo.createMissionLedger({ missionId, missionTitle: 'Implemented dep', status: 'planning' });
+      repo.createTodo(missionId, { id: blockerId, title: 'Blocker', status: 'ready', goal: 'g' });
+      repo.createTodo(missionId, {
+        id: blockedId,
+        title: 'Blocked',
+        status: 'ready',
+        goal: 'g',
+        dependsOn: [blockerId],
+      });
+      repo.claimNextReadyTodo(missionId, 'worker-a');
+      repo.addTodoEvidence(blockerId, { changedFiles: ['src/a.js'] });
+      repo.setTodoStatus(blockerId, 'implemented');
+      
+  return (repo.claimNextReadyTodo(missionId, 'worker-b'));
+})();expect(claimed[0]?.id).toBe(blockedId);
   });
 
   it('logNegativeRecall returns structured error for invalid JSON', () => {
@@ -137,18 +152,24 @@ describe('correctness review fixes', () => {
 
   it('resolveScopeBindings runs without missing-column SQL errors', () => {
     const db = dbModule.getDb(),
-      repoPath = `/tmp/scope-fix-${Date.now()}`;
-    db.prepare('INSERT INTO code_repos (name, path, head_commit) VALUES (?, ?, NULL)').run('scope-fix', repoPath);
-    const repoId = db.prepare('SELECT id FROM code_repos WHERE name = ?').get('scope-fix').id;
-    db.prepare('INSERT INTO code_files (repo_id, path, content_hash, language, content) VALUES (?, ?, ?, ?, ?)').run(
-      repoId,
-      `${repoPath}/a.js`,
-      'abc',
-      'javascript',
-      'export const x = 1;',
-    );
-    const fileId = db.prepare('SELECT id FROM code_files WHERE repo_id = ?').get(repoId).id;
-    db.prepare(
+      repoPath = `/tmp/scope-fix-${Date.now()}`,
+    repoId = (() => {
+
+      db.prepare('INSERT INTO code_repos (name, path, head_commit) VALUES (?, ?, NULL)').run('scope-fix', repoPath);
+      
+  return (db.prepare('SELECT id FROM code_repos WHERE name = ?').get('scope-fix').id);
+})(),
+    fileId = (() => {
+db.prepare('INSERT INTO code_files (repo_id, path, content_hash, language, content) VALUES (?, ?, ?, ?, ?)').run(
+        repoId,
+        `${repoPath}/a.js`,
+        'abc',
+        'javascript',
+        'export const x = 1;',
+      );
+      
+  return (db.prepare('SELECT id FROM code_files WHERE repo_id = ?').get(repoId).id);
+})();db.prepare(
       `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, source_module, line_start, line_end, scope_depth)
        VALUES (?, ?, 'foo', 'named_import', 'external_file', NULL, 'foo', './utils', 1, 1, 0)`,
     ).run(repoId, fileId);

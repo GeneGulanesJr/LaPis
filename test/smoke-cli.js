@@ -53,16 +53,22 @@ function smokeTest(name, cmd, { expectExit0 = true, expectContains = null, env =
 function smokeTestWithDb(name, dbPath, cmdFn) {
   ensureDir(path.dirname(dbPath));
   // Create a minimal project directory for indexing
-  const projectDir = path.join(TMP_DIR, 'project');
-  ensureDir(projectDir);
-  fs.writeFileSync(path.join(projectDir, 'index.js'), '// hello\nfunction foo() { return 1; }\n');
+  const projectDir = path.join(TMP_DIR, 'project'),
+  docsDir = (() => {
 
-  const docsDir = path.join(TMP_DIR, 'docs');
-  ensureDir(docsDir);
-  fs.writeFileSync(path.join(docsDir, 'readme.md'), '# Test\n\nSome content.\n\n## Section One\n\nBody.\n');
-
-  const env = { HOME: path.join(TMP_DIR, 'home') };
-  ensureDir(env.HOME);
+    ensureDir(projectDir);
+    fs.writeFileSync(path.join(projectDir, 'index.js'), '// hello\nfunction foo() { return 1; }\n');
+  
+    
+  return (path.join(TMP_DIR, 'docs'));
+})(),
+  env = (() => {
+ensureDir(docsDir);
+    fs.writeFileSync(path.join(docsDir, 'readme.md'), '# Test\n\nSome content.\n\n## Section One\n\nBody.\n');
+  
+    
+  return ({ HOME: path.join(TMP_DIR, 'home') });
+})();ensureDir(env.HOME);
   try {
     cmdFn(env, projectDir, docsDir);
     console.log(`  ✓ ${name}`);

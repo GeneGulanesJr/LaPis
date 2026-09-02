@@ -175,11 +175,14 @@ describe('config.js', () => {
       vi.resetModules();
       vi.stubEnv('LAPIS_HOME', '/tmp/lapis-tilde-test');
       try {
-        const { loadConfig: load, resetConfigCache: reset } = await import('../config');
-        reset();
-        fs.readFileSync = () => '{"db_path": "~/my/db.db", "tier_config_path": "~/my/tier.jsonc"}';
-        const cfg = load();
-        expect(cfg.db_path).toBe(path.join('/tmp/lapis-tilde-test', 'my', 'db.db'));
+        const { loadConfig: load, resetConfigCache: reset } = await import('../config'),
+        cfg = (() => {
+
+          reset();
+          fs.readFileSync = () => '{"db_path": "~/my/db.db", "tier_config_path": "~/my/tier.jsonc"}';
+          
+  return (load());
+})();expect(cfg.db_path).toBe(path.join('/tmp/lapis-tilde-test', 'my', 'db.db'));
         expect(cfg.tier_config_path).toBe(path.join('/tmp/lapis-tilde-test', 'my', 'tier.jsonc'));
       } finally {
         vi.unstubAllEnvs();

@@ -75,17 +75,20 @@ function extractConstraints(symbol) {
     body = symbol.body_preview || '',
     docstring = symbol.docstring || '',
     // Extract from line comments
-    lineMatches = body.matchAll(/(?:\/\/|#)\s*(?:do not|don't|never|must not|should not|avoid)\s+(.+)/gi);
-  for (const m of lineMatches) {
-    const text = m[1].trim().replace(/\s*$/, '');
-    if (text.length > 0 && text.length <= CFG.MAX_CONSTRAINT_LENGTH) {
-      constraints.push(`Do not ${text.toLowerCase()}`);
-    }
-  }
+    lineMatches = body.matchAll(/(?:\/\/|#)\s*(?:do not|don't|never|must not|should not|avoid)\s+(.+)/gi),
+  docLines = (() => {
 
-  // Extract from docstring
-  const docLines = docstring.split('\n');
-  for (const line of docLines) {
+    for (const m of lineMatches) {
+      const text = m[1].trim().replace(/\s*$/, '');
+      if (text.length > 0 && text.length <= CFG.MAX_CONSTRAINT_LENGTH) {
+        constraints.push(`Do not ${text.toLowerCase()}`);
+      }
+    }
+  
+    // Extract from docstring
+    
+  return (docstring.split('\n'));
+})();for (const line of docLines) {
     const trimmed = line.replace(/\s*\*\s*/g, '').trim(),
       m = trimmed.match(/^(?:do not|don't|never|must not|should not|avoid)\s+(.+)/i);
     if (m) {

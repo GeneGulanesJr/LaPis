@@ -120,12 +120,12 @@ function daemonUrlFromLock(info) {
  *   2. lockfile with a live pid
  */
 function resolveDaemonUrl(opts = {}) {
-  const envUrl = process.env.LAPIS_DAEMON_URL;
+  const envUrl = process.env.LAPIS_DAEMON_URL,
+  lockfilePath = !(envUrl) ? (opts.lockfilePath || defaultLockfilePath()) : undefined,
+  info = !(envUrl) ? (readLockfile(lockfilePath)) : undefined;
   if (envUrl) {
     return envUrl.replace(/\/$/, '');
   }
-  const lockfilePath = opts.lockfilePath || defaultLockfilePath(),
-    info = readLockfile(lockfilePath);
   if (!info) {
     return null;
   }
@@ -253,13 +253,16 @@ async function runStart(argv, io = {}) {
     port: flags.port,
     host: flags.host,
     startedAt: new Date().toISOString(),
-  };
-  writeLockfile(info, lockfilePath);
+  },
+  cleanup = (() => {
 
-  const cleanup = () => {
+    writeLockfile(info, lockfilePath);
+  
+    
+  return (() => {
     removeLockfile(lockfilePath);
-  };
-  process.on('SIGINT', cleanup);
+  });
+})();process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
   process.on('exit', cleanup);
 

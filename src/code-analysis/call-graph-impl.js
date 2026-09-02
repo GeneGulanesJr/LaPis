@@ -4,11 +4,11 @@ const { codeParser, _requireNativeDb, CALL_GRAPH, _SKIP_CALLEE_NAMES } = require
 const { extractImportBindings } = require('./import-graph-impl');
 
 function buildCallGraph(db, repoId, opts = {}) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  { onProgress } = !(guard) ? (opts) : undefined;
   if (guard) {
     return guard;
   }
-  const { onProgress } = opts;
 
   db.prepare('DELETE FROM code_calls WHERE repo_id = ?').run(repoId);
 
@@ -82,22 +82,24 @@ function buildCallGraph(db, repoId, opts = {}) {
   }
 
   const fileRows = db.prepare('SELECT id, path, size_bytes FROM code_files WHERE repo_id = ?').all(repoId),
-    fileById = new Map();
-  for (const f of fileRows) {
-    fileById.set(f.id, f);
-  }
-  const contentStmt = db.prepare('SELECT content FROM code_files WHERE id = ?');
+    fileById = new Map(),
+  contentStmt = (() => {
 
-  let totalCalls = 0;
+    for (const f of fileRows) {
+      fileById.set(f.id, f);
+    }
+    
+  return (db.prepare('SELECT content FROM code_files WHERE id = ?'));
+})(); let totalCalls = 0;
   const fileImportsCache = {},
     fileBindingsCache = {};
 
   function getFileSymbol(fileId, name, kind) {
-    const byName = symbolsByFileAndName.get(fileId);
+    const byName = symbolsByFileAndName.get(fileId),
+    matches = byName ? (byName.get(name)) : undefined;
     if (!byName) {
       return null;
     }
-    const matches = byName.get(name);
     if (!matches) {
       return null;
     }
@@ -126,15 +128,18 @@ function buildCallGraph(db, repoId, opts = {}) {
     }
     const bindings = extractImportBindings(fileContent || ''),
       imports = getFileImports(fileId),
-      importMap = new Map();
-    for (const imp of imports) {
-      importMap.set(imp.target_module, imp.target_file_id);
-    }
-    const resolved = bindings.map((b) => ({
+      importMap = new Map(),
+    resolved = (() => {
+
+      for (const imp of imports) {
+        importMap.set(imp.target_module, imp.target_file_id);
+      }
+      
+  return (bindings.map((b) => ({
       ...b,
       target_file_id: importMap.get(b.modulePath) || null,
-    }));
-    fileBindingsCache[fileId] = resolved;
+    })));
+})();fileBindingsCache[fileId] = resolved;
     return resolved;
   }
 
@@ -321,17 +326,17 @@ function buildCallGraph(db, repoId, opts = {}) {
     if (sym.end_byte <= sym.start_byte) {
       return;
     }
-    const body = Buffer.from(fileContent, 'utf-8').toString('utf-8', sym.start_byte, sym.end_byte);
+    const body = Buffer.from(fileContent, 'utf-8').toString('utf-8', sym.start_byte, sym.end_byte),
+    seen = !(!body || body.length < 2) ? (new Set()) : undefined,
+    callPatterns = !(!body || body.length < 2) ? ([
+        /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+        /\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+        /\bnew\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+      ]) : undefined;
     if (!body || body.length < 2) {
       return;
     }
 
-    const seen = new Set(),
-      callPatterns = [
-        /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-        /\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-        /\bnew\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-      ];
 
     for (const pattern of callPatterns) {
       let match;
@@ -386,16 +391,19 @@ function buildCallGraph(db, repoId, opts = {}) {
     }
 
     if (fileCallees.length > 0) {
-      const calleeByLine = new Map();
-      for (const c of fileCallees) {
-        if (!calleeByLine.has(c.line)) {
-          calleeByLine.set(c.line, []);
-        }
-        calleeByLine.get(c.line).push(c);
-      }
+      const calleeByLine = new Map(),
+      _seen = (() => {
 
-      const _seen = new Set();
-      for (const sym of fileSymbols) {
+        for (const c of fileCallees) {
+          if (!calleeByLine.has(c.line)) {
+            calleeByLine.set(c.line, []);
+          }
+          calleeByLine.get(c.line).push(c);
+        }
+  
+        
+  return (new Set());
+})();for (const sym of fileSymbols) {
         _seen.clear();
         for (let line = sym.start_line; line <= sym.end_line; line++) {
           const lineCallees = calleeByLine.get(line);
@@ -458,26 +466,26 @@ function buildCallGraph(db, repoId, opts = {}) {
 }
 
 function getCallHierarchy(db, repoId, opts) {
-  const guard = _requireNativeDb(db);
+  const guard = _requireNativeDb(db),
+  { symbol, direction = 'callers', depth = 3, minConfidence = 0.0 } = !(guard) ? (opts) : undefined;
   if (guard) {
     return guard;
   }
-  const { symbol, direction = 'callers', depth = 3, minConfidence = 0.0 } = opts;
   if (!symbol) {
     return { error: 'Missing --symbol' };
   }
 
   const symRow = db
     .prepare('SELECT id, name, file_path FROM code_symbols WHERE repo_id = ? AND name = ?')
-    .all(repoId, symbol);
+    .all(repoId, symbol),
+  symbolId = !(symRow.length === 0) ? (symRow[0].id) : undefined,
+  ambiguous = !(symRow.length === 0) ? (symRow.length > 1) : undefined;
   if (symRow.length === 0) {
     return { error: `Symbol "${symbol}" not found` };
   }
 
   // If multiple matches, prefer the first one (already ordered by file_path)
   // Rather than hard-failing — callers can use --file to disambiguate
-  const symbolId = symRow[0].id,
-    ambiguous = symRow.length > 1;
 
   if (direction === 'callers') {
     const rows = db

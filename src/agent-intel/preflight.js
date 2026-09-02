@@ -53,15 +53,15 @@ function taskTerms(task) {
 }
 
 function inferRepoName(db, cwd) {
-  const repos = db.prepare('SELECT name, path FROM code_repos ORDER BY updated_at DESC, indexed_at DESC').all();
+  const repos = db.prepare('SELECT name, path FROM code_repos ORDER BY updated_at DESC, indexed_at DESC').all(),
+  resolvedCwd = !(repos.length === 0) ? (path.resolve(cwd || process.cwd()).toLowerCase()) : undefined,
+  cwdMatch = !(repos.length === 0) ? (repos.find((repo) => {
+      const repoPath = path.resolve(repo.path).toLowerCase();
+      return resolvedCwd === repoPath || resolvedCwd.startsWith(`${repoPath}${path.sep}`);
+    })) : undefined;
   if (repos.length === 0) {
     return null;
   }
-  const resolvedCwd = path.resolve(cwd || process.cwd()).toLowerCase(),
-    cwdMatch = repos.find((repo) => {
-      const repoPath = path.resolve(repo.path).toLowerCase();
-      return resolvedCwd === repoPath || resolvedCwd.startsWith(`${repoPath}${path.sep}`);
-    });
   if (cwdMatch) {
     return cwdMatch.name;
   }
@@ -230,11 +230,11 @@ function getDocMatches(db, task, repoName, limit) {
 
 function duplicateWarnings(task, codeItems) {
   const terms = taskTerms(task),
-    warnings = [];
+    warnings = [],
+  overlapThreshold = !(terms.length === 0) ? (Math.min(2, Math.max(1, terms.length))) : undefined;
   if (terms.length === 0) {
     return warnings;
   }
-  const overlapThreshold = Math.min(2, Math.max(1, terms.length));
   for (const item of codeItems.slice(0, 6)) {
     const normalizedSymbol = normalizeName(`${item.symbol} ${item.qualified_name || ''} ${item.signature || ''}`),
       overlap = terms.filter((term) => normalizedSymbol.includes(term));
@@ -282,14 +282,14 @@ function preflight(deps, args) {
       : { error: 'Missing task' };
   }
   const db = deps.getDb ? deps.getDb() : deps.db,
-    repoName = args.repo || inferRepoName(db, process.cwd());
+    repoName = args.repo || inferRepoName(db, process.cwd()),
+  repo = repoName ? (getRepoRow(db, repoName)) : undefined;
   if (!repoName) {
     return deps.jsonErrNoExit
       ? deps.jsonErrNoExit('Usage: preflight --task <task> --repo <repo>')
       : { error: 'Missing repo' };
   }
 
-  const repo = getRepoRow(db, repoName);
   if (!repo) {
     return deps.jsonErrNoExit
       ? deps.jsonErrNoExit(`Repo "${repoName}" not found. Run index-repo first.`)
@@ -313,16 +313,19 @@ function preflight(deps, args) {
     docs = docLimit > 0 ? getDocMatches(db, task, repoName, docLimit) : [],
     warnings = duplicateWarnings(task, codeItems),
     risk = riskLevel({ codeItems, memories, warnings, relatedFiles });
-  let duplicateRisk = 'low';
-  if (risk === 'high') {
-    duplicateRisk = 'high';
-  } else if (warnings.length) {
-    duplicateRisk = 'medium';
-  }
+  let duplicateRisk = 'low',
+  structuralDuplicates = (() => {
 
-  // Enrich with structural duplicates and symbol metadata
-  let structuralDuplicates = [];
-  try {
+    if (risk === 'high') {
+      duplicateRisk = 'high';
+    } else if (warnings.length) {
+      duplicateRisk = 'medium';
+    }
+  
+    // Enrich with structural duplicates and symbol metadata
+    
+  return ([]);
+})();try {
     const dupesModule = require('./dupes'),
       persistedDupes = dupesModule.loadDupes(db, repo.id);
     structuralDuplicates = persistedDupes
@@ -339,30 +342,33 @@ function preflight(deps, args) {
   }
 
   // Enrich top code items with metadata
-  let enrichedCodeItems = codeItems;
-  try {
-    const enrichment = require('./symbol-enrichment');
-    enrichedCodeItems = codeItems.slice(0, 5).map((item) => {
-      const symRow = symbolRows.find((s) => s.name === item.symbol && s.file_path === item.file);
-      if (symRow) {
-        const meta = enrichment.getSymbolMeta(db, symRow.id);
-        if (meta) {
-          return {
-            ...item,
-            intent: meta.intent || undefined,
-            constraints: meta.constraints ? JSON.parse(meta.constraints) : undefined,
-          };
-        }
-      }
-      return item;
-    });
-  } catch {
-    // Enrichment module may not exist yet
-  }
+  let enrichedCodeItems = codeItems,
+  runtimeHotness = (() => {
 
-  // Enrich with runtime hotness data if available
-  let runtimeHotness = null;
-  try {
+    try {
+      const enrichment = require('./symbol-enrichment');
+      enrichedCodeItems = codeItems.slice(0, 5).map((item) => {
+        const symRow = symbolRows.find((s) => s.name === item.symbol && s.file_path === item.file);
+        if (symRow) {
+          const meta = enrichment.getSymbolMeta(db, symRow.id);
+          if (meta) {
+            return {
+              ...item,
+              intent: meta.intent || undefined,
+              constraints: meta.constraints ? JSON.parse(meta.constraints) : undefined,
+            };
+          }
+        }
+        return item;
+      });
+    } catch {
+      // Enrichment module may not exist yet
+    }
+  
+    // Enrich with runtime hotness data if available
+    
+  return (null);
+})();try {
     const runtimeIngest = require('./runtime-ingest'),
       hotSymbols = runtimeIngest.getHotSymbols(db, repo.id, 50),
       // Check if any of the top code items are hot paths
@@ -425,28 +431,28 @@ function preflight(deps, args) {
 }
 
 function agentPack(deps, args) {
-  const result = preflight(deps, args);
-  if (result.error) {
-    return result;
-  }
-  const relevantSymbols = result.likely_existing_code.slice(0, 8).map((item) => ({
+  const result = preflight(deps, args),
+  relevantSymbols = !(result.error) ? (result.likely_existing_code.slice(0, 8).map((item) => ({
       symbol: item.symbol,
       file: item.file,
       line: item.line,
       reason: item.reason,
-    })),
-    pastDecisions = result.similar_past_tasks.slice(0, 5).map((memory) => ({
+    }))) : undefined,
+  pastDecisions = !(result.error) ? (result.similar_past_tasks.slice(0, 5).map((memory) => ({
       id: memory.id,
       title: memory.title,
       type: memory.type,
       snippet: memory.snippet,
-    })),
-    mustRead = uniq([
+    }))) : undefined,
+  mustRead = !(result.error) ? (uniq([
       ...result.related_files.slice(0, 5),
       ...result.tests_likely_affected.slice(0, 3),
       ...result.relevant_docs.slice(0, 3).map((doc) => doc.file),
-    ]).slice(0, 10),
-    suggestedPlan = [];
+    ]).slice(0, 10)) : undefined,
+  suggestedPlan = !(result.error) ? ([]) : undefined;
+  if (result.error) {
+    return result;
+  }
   if (result.duplicate_warnings.length > 0) {
     suggestedPlan.push('Inspect the existing matching symbol before creating new code.');
     suggestedPlan.push('Prefer extending or reusing the existing abstraction unless it is demonstrably wrong.');

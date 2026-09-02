@@ -206,12 +206,12 @@ const PRESET_DETECTORS = [
       }
       // Match numeric literals that aren't common constants
       const numRe = /(?<![a-zA-Z0-9_.])(\d{2,}|[3-9]\b|(?<!\d)-[3-9]\b)(?![a-zA-Z0-9_.])/g,
-        matches = [...symbol.body_preview.matchAll(numRe)];
+        matches = [...symbol.body_preview.matchAll(numRe)],
+      suspicious = !(matches.length === 0) ? (matches.filter((m) => parseInt(m[0]) > 99)) : undefined;
       if (matches.length === 0) {
         return null;
       }
       // Only flag if there are many or they're suspicious
-      const suspicious = matches.filter((m) => parseInt(m[0]) > 99);
       if (suspicious.length === 0 && matches.length < 5) {
         return null;
       }
@@ -235,20 +235,20 @@ const PRESET_DETECTORS = [
       }
       // Extract parameter names from signature
       const paramRe = /\(([^)]*)\)/,
-        sigMatch = symbol.signature.match(paramRe);
+        sigMatch = symbol.signature.match(paramRe),
+      params = sigMatch ? (sigMatch[1]
+        .split(',')
+        .map((p) => p.trim().split(/[:=]/)[0].trim())
+        .filter(Boolean)) : undefined,
+      reassigned = sigMatch && !(params.length === 0) ? ([]) : undefined;
       if (!sigMatch) {
         return null;
       }
-      const params = sigMatch[1]
-        .split(',')
-        .map((p) => p.trim().split(/[:=]/)[0].trim())
-        .filter(Boolean);
 
       if (params.length === 0) {
         return null;
       }
 
-      const reassigned = [];
       for (const param of params) {
         const assignRe = new RegExp(`\\b${param}\\s*=(?!=)`, 'g'),
           matches = [...symbol.body_preview.matchAll(assignRe)];
@@ -274,13 +274,13 @@ const PRESET_DETECTORS = [
  * Types: call, string, nesting, lines
  */
 function parseCustomPattern(raw) {
-  const colonIdx = raw.indexOf(':');
+  const colonIdx = raw.indexOf(':'),
+  type = !(colonIdx === -1) ? (raw.substring(0, colonIdx)) : undefined,
+  value = !(colonIdx === -1) ? (raw.substring(colonIdx + 1)) : undefined;
   if (colonIdx === -1) {
     return { error: `Invalid pattern: ${raw} (expected type:value)` };
   }
 
-  const type = raw.substring(0, colonIdx),
-    value = raw.substring(colonIdx + 1);
 
   switch (type) {
     case 'call': {
@@ -372,7 +372,8 @@ function parseCustomPattern(raw) {
  *                   the native-DB guard path also returns `error`.
  */
 function scanAstPatterns(db, repoId, opts = {}) {
-  const { category = 'all', patterns: customPatterns = [], limit = 200 } = opts;
+  const { category = 'all', patterns: customPatterns = [], limit = 200 } = opts,
+  detectors = !(!db || typeof db.prepare !== 'function') ? ([]) : undefined;
 
   // Guard: require native db
   if (!db || typeof db.prepare !== 'function') {
@@ -386,7 +387,6 @@ function scanAstPatterns(db, repoId, opts = {}) {
   }
 
   // Build detector list
-  const detectors = [];
 
   // Add preset detectors filtered by category
   for (const d of PRESET_DETECTORS) {

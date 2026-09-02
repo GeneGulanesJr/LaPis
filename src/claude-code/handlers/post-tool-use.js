@@ -63,11 +63,11 @@ function addExploredPath(state, p) {
 
 /** Harvest file paths mentioned in a memory-code response into exploredFiles. */
 function harvestExploredFiles(state, toolResponse) {
-  const text = extractToolResponseText(toolResponse);
+  const text = extractToolResponseText(toolResponse),
+  matches = text ? (text.match(CODE_PATH_RE) || []) : undefined;
   if (!text) {
     return;
   }
-  const matches = text.match(CODE_PATH_RE) || [];
   for (const fp of matches) {
     addExploredPath(state, fp);
   }

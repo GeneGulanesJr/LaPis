@@ -77,14 +77,14 @@ function getObservationRelations(deps, id) {
 function updateObservation(deps, { id, title, content, type, project, scope, topicKey, expiresAt, clearExpiry }) {
   const { sqlJson, sqlRun } = deps,
     parsedId = parseInt(id, 10),
-    current = sqlJson('SELECT title, content, type, scope, expires_at FROM observations WHERE id = ?', [parsedId]);
+    current = sqlJson('SELECT title, content, type, scope, expires_at FROM observations WHERE id = ?', [parsedId]),
+  before = !(!current || current.length === 0) ? (current[0]) : undefined,
+  fields = !(!current || current.length === 0) ? ({ title, content, type, scope }) : undefined,
+  versionEntries = !(!current || current.length === 0) ? ([]) : undefined;
   if (!current || current.length === 0) {
     return null;
   }
 
-  const before = current[0],
-    fields = { title, content, type, scope },
-    versionEntries = [];
   for (const [field, newVal] of Object.entries(fields)) {
     if (newVal !== undefined && newVal !== null && String(newVal) !== String(before[field] || '')) {
       versionEntries.push([parsedId, field, String(before[field] || ''), String(newVal)]);

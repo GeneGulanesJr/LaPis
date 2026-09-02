@@ -107,25 +107,28 @@ async function runSmokeTest() {
         isError: false,
       },
       {},
+    ),
+  config = (() => {
+
+    assert(largeResult !== undefined, 'Large output returned a result (correct)');
+    assert(largeResult.content && largeResult.content[0] && largeResult.content[0].text, 'Result has content with text');
+    assert(largeResult.content[0].text.startsWith('[Output compressed:'), 'Result starts with compression prefix');
+    assert(
+      largeResult.content[0].text.length < largeOutput.length,
+      `Output was compressed (${largeResult.content[0].text.length} < ${largeOutput.length})`,
     );
-  assert(largeResult !== undefined, 'Large output returned a result (correct)');
-  assert(largeResult.content && largeResult.content[0] && largeResult.content[0].text, 'Result has content with text');
-  assert(largeResult.content[0].text.startsWith('[Output compressed:'), 'Result starts with compression prefix');
-  assert(
-    largeResult.content[0].text.length < largeOutput.length,
-    `Output was compressed (${largeResult.content[0].text.length} < ${largeOutput.length})`,
-  );
-
-  // 6. Stats were updated
-  console.log('\n6. Checking compression stats...');
-  assert(state.compressionStats.totalRuns === 1, `totalRuns === 1 (got ${state.compressionStats.totalRuns})`);
-  assert(state.compressionStats.totalOriginalTokens > 0, 'totalOriginalTokens > 0');
-  assert(state.compressionStats.totalSavedTokens > 0, 'totalSavedTokens > 0');
-
-  // 7. Config defaults
-  console.log('\n7. Checking config defaults...');
-  const config = getConfig();
-  assert(config.output_compression !== undefined, 'output_compression key exists in config');
+  
+    // 6. Stats were updated
+    console.log('\n6. Checking compression stats...');
+    assert(state.compressionStats.totalRuns === 1, `totalRuns === 1 (got ${state.compressionStats.totalRuns})`);
+    assert(state.compressionStats.totalOriginalTokens > 0, 'totalOriginalTokens > 0');
+    assert(state.compressionStats.totalSavedTokens > 0, 'totalSavedTokens > 0');
+  
+    // 7. Config defaults
+    console.log('\n7. Checking config defaults...');
+    
+  return (getConfig());
+})();assert(config.output_compression !== undefined, 'output_compression key exists in config');
   assert(config.output_compression?.enabled === true, 'output_compression.enabled defaults to true');
   assert(config.output_compression?.min_chars === 2000, 'output_compression.min_chars defaults to 2000');
   assert(

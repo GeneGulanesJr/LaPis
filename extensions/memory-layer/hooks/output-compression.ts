@@ -42,12 +42,12 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
       minSavingsPercent = ocConfig.min_savings_percent ?? DEFAULT_MIN_SAVINGS_PERCENT,
       // Extract command and output text
       command = event.input.command as string,
-      textContent = event.content.find((c): c is { type: 'text'; text: string } => c.type === 'text');
+      textContent = event.content.find((c): c is { type: 'text'; text: string } => c.type === 'text'),
+    output = textContent ? (textContent.text) : undefined;
     if (!textContent) {
       return;
     }
 
-    const output = textContent.text;
 
     // Skip short output — no point compressing
     if (output.length < minChars) {

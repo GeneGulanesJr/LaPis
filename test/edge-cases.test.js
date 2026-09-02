@@ -75,10 +75,13 @@ describe('edge cases: CRUD', () => {
   it('should persist all optional fields on save', () => {
     const r = run(
       `save --title "Edge: all fields" --content "Full fields test" --type bugfix --project ${testProject} --scope personal --topic-key "testing/all-fields" --force`,
-    );
-    expect(r.id).toBeTruthy();
-    const got = run(`get --id ${r.id}`);
-    expect(got.type).toBe('bugfix');
+    ),
+    got = (() => {
+
+      expect(r.id).toBeTruthy();
+      
+  return (run(`get --id ${r.id}`));
+})();expect(got.type).toBe('bugfix');
     expect(got.project).toBe(testProject);
     expect(got.scope).toBe('personal');
     expect(got.topic_key).toBe('testing/all-fields');
@@ -90,10 +93,13 @@ describe('edge cases: CRUD', () => {
       content = `What: Tabs \t newlines \n emoji ✅. Why: Coverage.`,
       r = run(
         `save --title "${title.replace(/"/g, '\\"')}" --content "${content.replace(/"/g, '\\"')}" --type learning --force --project ${testProject}`,
-      );
-    expect(r.id).toBeTruthy();
-    const got = run(`get --id ${r.id}`);
-    expect(got.title).toContain('quotes');
+      ),
+    got = (() => {
+
+      expect(r.id).toBeTruthy();
+      
+  return (run(`get --id ${r.id}`));
+})();expect(got.title).toContain('quotes');
     expect(got.title).toContain('🎉');
     expect(got.content).toContain('✅');
     cleanup('Special:');
@@ -117,11 +123,14 @@ describe('edge cases: CRUD', () => {
     const r = run(
         `save --title "Edge: soft delete search" --content "visible" --type learning --force --project ${testProject}`,
       ),
-      search1 = run(`search --query "soft delete search" --project ${testProject}`);
-    expect(search1.results.length).toBeGreaterThanOrEqual(1);
-    run(`delete --id ${r.id}`);
-    const search2 = run(`search --query "soft delete search" --project ${testProject}`);
-    expect(search2.results.find((m) => m.id === r.id)).toBeUndefined();
+      search1 = run(`search --query "soft delete search" --project ${testProject}`),
+    search2 = (() => {
+
+      expect(search1.results.length).toBeGreaterThanOrEqual(1);
+      run(`delete --id ${r.id}`);
+      
+  return (run(`search --query "soft delete search" --project ${testProject}`));
+})();expect(search2.results.find((m) => m.id === r.id)).toBeUndefined();
   });
 });
 
@@ -166,12 +175,15 @@ describe('edge cases: search', () => {
 describe('edge cases: dedup', () => {
   it('should auto-merge duplicate saves', () => {
     const title = `Edge: dedup auto ${process.pid}`,
-      r1 = run(`save --title "${title}" --content "first" --type learning --force --project ${testProject}`);
-    expect(r1.id).toBeTruthy();
-    expect(r1.auto_merged).toBeUndefined();
+      r1 = run(`save --title "${title}" --content "first" --type learning --force --project ${testProject}`),
+    r2 = (() => {
 
-    const r2 = run(`save --title "${title}" --content "second" --type learning --project ${testProject}`);
-    expect(r2.auto_merged).toBe(true);
+      expect(r1.id).toBeTruthy();
+      expect(r1.auto_merged).toBeUndefined();
+  
+      
+  return (run(`save --title "${title}" --content "second" --type learning --project ${testProject}`));
+})();expect(r2.auto_merged).toBe(true);
     expect(r2.superseded_id).toBe(r1.id);
     expect(r2.similarity).toBe(1);
 
@@ -340,10 +352,13 @@ describe('edge cases: doc indexing', () => {
 // ═══════════════════════════════════════════
 describe('edge cases: sessions', () => {
   it('should create and end a session with summary', () => {
-    const start = run(`session-start --project ${testProject}`);
-    expect(start.sessionId).toBeTruthy();
-    const end = run(`session-end --id ${start.sessionId} --summary "test session" --content "content here"`);
-    expect(end.ok).toBe(true);
+    const start = run(`session-start --project ${testProject}`),
+    end = (() => {
+
+      expect(start.sessionId).toBeTruthy();
+      
+  return (run(`session-end --id ${start.sessionId} --summary "test session" --content "content here"`));
+})();expect(end.ok).toBe(true);
   });
 
   it('should error on session-end without --id', () => {

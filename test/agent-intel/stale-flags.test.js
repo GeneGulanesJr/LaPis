@@ -66,12 +66,15 @@ function normalFunc() { return true; }
   it('returns empty for clean repo', () => {
     // Create a clean repo
     const cleanRepoName = `test-clean-${Date.now()}`,
-      cleanTmp = path.join('/tmp', cleanRepoName);
-    writeTmpRepo(cleanTmp, { 'src/util.js': 'export function add(a, b) { return a + b; }' });
-    run(`index-repo --path "${cleanTmp}" --name ${cleanRepoName}`);
+      cleanTmp = path.join('/tmp', cleanRepoName),
+    result = (() => {
 
-    const result = run(`stale-flags --repo ${cleanRepoName}`);
-    expect(result.stale_flags.length).toBe(0);
+      writeTmpRepo(cleanTmp, { 'src/util.js': 'export function add(a, b) { return a + b; }' });
+      run(`index-repo --path "${cleanTmp}" --name ${cleanRepoName}`);
+  
+      
+  return (run(`stale-flags --repo ${cleanRepoName}`));
+})();expect(result.stale_flags.length).toBe(0);
 
     try {
       run(`remove-code-repo --repo ${cleanRepoName}`);

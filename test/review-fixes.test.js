@@ -58,15 +58,18 @@ describe('review fixes', () => {
       const session = dbModule.sqlJson(
         "INSERT INTO session_log (project, started_at) VALUES (?, datetime('now')) RETURNING id",
         ['review-fixes-trust'],
-      );
-      sessionId = session[0].id;
-      const obs = dbModule.sqlJson(
+      ),
+      obs = (() => {
+
+        sessionId = session[0].id;
+        
+  return (dbModule.sqlJson(
         `INSERT INTO observations (session_id, type, title, content, project, scope)
          VALUES (?, 'decision', 'Trust test', 'content', 'review-fixes-trust', 'project')
          RETURNING id`,
         [sessionId],
-      );
-      memoryId = obs[0].id;
+      ));
+})();memoryId = obs[0].id;
       dbModule.sqlRun('INSERT INTO recall_log (memory_id, session_id, query, was_useful) VALUES (?, ?, ?, 1)', [
         memoryId,
         sessionId,
@@ -103,24 +106,30 @@ describe('review fixes', () => {
          RETURNING id`,
           [negativeSessionId],
         ),
-        ignoredMemoryId = obs[0].id;
-      dbModule.sqlRun('INSERT INTO recall_log (memory_id, session_id, query, was_useful) VALUES (?, ?, ?, 0)', [
-        ignoredMemoryId,
-        negativeSessionId,
-        'ignored-search',
-      ]);
-      dbModule.sqlRun('INSERT INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)', [
-        String(ignoredMemoryId),
-        '__unlinked__',
-        'review-fixes-trust-negative',
-        0.5,
-      ]);
+        ignoredMemoryId = obs[0].id,
+      recalled = (() => {
 
-      const recalled = getRecalledMemoryIds({ sqlJson: dbModule.sqlJson }, negativeSessionId);
-      expect(recalled.some((r) => String(r.memory_id) === String(ignoredMemoryId))).toBe(false);
-
-      const result = trustRecovery({ session: String(negativeSessionId) });
-      expect(result.ok).toBe(true);
+        dbModule.sqlRun('INSERT INTO recall_log (memory_id, session_id, query, was_useful) VALUES (?, ?, ?, 0)', [
+          ignoredMemoryId,
+          negativeSessionId,
+          'ignored-search',
+        ]);
+        dbModule.sqlRun('INSERT INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)', [
+          String(ignoredMemoryId),
+          '__unlinked__',
+          'review-fixes-trust-negative',
+          0.5,
+        ]);
+  
+        
+  return (getRecalledMemoryIds({ sqlJson: dbModule.sqlJson }, negativeSessionId));
+})(),
+      result = (() => {
+expect(recalled.some((r) => String(r.memory_id) === String(ignoredMemoryId))).toBe(false);
+  
+        
+  return (trustRecovery({ session: String(negativeSessionId) }));
+})();expect(result.ok).toBe(true);
       expect(result.memoriesRecovered).toBe(0);
     });
   });

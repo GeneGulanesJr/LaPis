@@ -184,18 +184,20 @@ export async function memStreaming(
       reportInProcessFailure(cmd, msg, 'streaming');
     }
   }
-  const argList: string[] = [cmd, '--progress'];
-  for (const [k, v] of Object.entries(args)) {
-    if (v === undefined || v === null || v === '') {
-      // oxlint-disable-next-line no-continue
-      continue;
-    }
-    argList.push(`--${k}`);
-    argList.push(String(v));
-  }
-  const timeout = getTimeout(cmd);
+  const argList: string[] = [cmd, '--progress'],
+  timeout = (() => {
 
-  try {
+    for (const [k, v] of Object.entries(args)) {
+      if (v === undefined || v === null || v === '') {
+        // oxlint-disable-next-line no-continue
+        continue;
+      }
+      argList.push(`--${k}`);
+      argList.push(String(v));
+    }
+    
+  return (getTimeout(cmd));
+})(); try {
     return await new Promise<MemResult | null>((resolve, reject) => {
       const child = spawn('node', [MEMORY_SCRIPT, ...argList], {
         stdio: ['pipe', 'pipe', 'pipe'],
