@@ -89,25 +89,25 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^12.11.1",
-    "ignore": "^7.0.6",
-    "web-tree-sitter": "^0.26.12"
+    "ignore": "^7.0.8",
+    "web-tree-sitter": "^0.26.13"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.84.1",
+    "@earendil-works/pi-coding-agent": "^0.84.4",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/typescript-checker": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/node": "^25.8.0",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.11",
     "oxfmt": "^0.47.0",
-    "oxlint": "^1.62.0",
-    "tree-sitter-cli": "^0.26.12",
+    "oxlint": "^1.81.0",
+    "tree-sitter-cli": "^0.26.13",
     "tree-sitter-html": "^0.23.2",
     "tree-sitter-javascript": "^0.25.0",
     "tree-sitter-sql": "^0.1.0",
     "tree-sitter-typescript": "^0.23.2",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "brace-expansion": "^5.0.9",
