@@ -1,53 +1,51 @@
-const codeAnalysis = require('../../code-analysis');
-const { formatAnalysisForLlm } = require('../../platform/protocol/llm-format');
-
-const USAGE = {
-  'import-graph': '--repo X [--file F] [--direction imports|importers|both] [--depth N]',
-  'call-hierarchy': '--symbol S --repo X [--direction callers|callees] [--depth N]',
-  'blast-radius': '--symbol S --repo X [--depth N]',
-  'dead-code': '--repo X [--min-confidence 0.5] [--include-tests true]',
-  outline: '--file F --repo X',
-  complexity: '--repo X [--symbol S | --file F]',
-  churn: '--repo X [--file F] [--days 90] [--refresh]',
-  hotspots: '--repo X [--top N] [--days N]',
-  cycles: '--repo X',
-  importance: '--repo X [--top N] [--scope dir/]',
-  coupling: '--repo X [--file F] [--sort-by instability|afferent|efferent]',
-  extractable: '--repo X [--min-complexity N] [--min-callers N] [--top N]',
-  hierarchy: '--repo X --symbol S [--direction both|ancestors|descendants]',
-  'signal-chains': '--repo X [--kind http|cli] [--symbol S] [--max-depth N]',
-  'layer-violations': '--repo X [--rules JSON]',
-  winnow: '--repo X [--kind K] [--min-complexity N] [--top N] ...',
-  'ast-patterns': '--repo X [--category C] [--pattern P] [--limit N]',
-  provenance: '--repo X --symbol S',
-  untested: '--repo X [--min-confidence 0.5] [--include-private]',
-  'pr-risk': '--repo X [--branch B] [--base B]',
-  'coding-context': '--repo X [--symbol S | --file F] [--depth N] [--top N]',
-};
-
-const ANALYSIS_TOOLS = new Set([
-  'import-graph',
-  'call-hierarchy',
-  'blast-radius',
-  'dead-code',
-  'complexity',
-  'outline',
-  'churn',
-  'hotspots',
-  'cycles',
-  'importance',
-  'coupling',
-  'extractable',
-  'hierarchy',
-  'signal-chains',
-  'layer-violations',
-  'winnow',
-  'ast-patterns',
-  'provenance',
-  'untested',
-  'pr-risk',
-  'coding-context',
-]);
+const codeAnalysis = require('../../code-analysis'),
+  { formatAnalysisForLlm } = require('../../platform/protocol/llm-format'),
+  USAGE = {
+    'import-graph': '--repo X [--file F] [--direction imports|importers|both] [--depth N]',
+    'call-hierarchy': '--symbol S --repo X [--direction callers|callees] [--depth N]',
+    'blast-radius': '--symbol S --repo X [--depth N]',
+    'dead-code': '--repo X [--min-confidence 0.5] [--include-tests true]',
+    outline: '--file F --repo X',
+    complexity: '--repo X [--symbol S | --file F]',
+    churn: '--repo X [--file F] [--days 90] [--refresh]',
+    hotspots: '--repo X [--top N] [--days N]',
+    cycles: '--repo X',
+    importance: '--repo X [--top N] [--scope dir/]',
+    coupling: '--repo X [--file F] [--sort-by instability|afferent|efferent]',
+    extractable: '--repo X [--min-complexity N] [--min-callers N] [--top N]',
+    hierarchy: '--repo X --symbol S [--direction both|ancestors|descendants]',
+    'signal-chains': '--repo X [--kind http|cli] [--symbol S] [--max-depth N]',
+    'layer-violations': '--repo X [--rules JSON]',
+    winnow: '--repo X [--kind K] [--min-complexity N] [--top N] ...',
+    'ast-patterns': '--repo X [--category C] [--pattern P] [--limit N]',
+    provenance: '--repo X --symbol S',
+    untested: '--repo X [--min-confidence 0.5] [--include-private]',
+    'pr-risk': '--repo X [--branch B] [--base B]',
+    'coding-context': '--repo X [--symbol S | --file F] [--depth N] [--top N]',
+  },
+  ANALYSIS_TOOLS = new Set([
+    'import-graph',
+    'call-hierarchy',
+    'blast-radius',
+    'dead-code',
+    'complexity',
+    'outline',
+    'churn',
+    'hotspots',
+    'cycles',
+    'importance',
+    'coupling',
+    'extractable',
+    'hierarchy',
+    'signal-chains',
+    'layer-violations',
+    'winnow',
+    'ast-patterns',
+    'provenance',
+    'untested',
+    'pr-risk',
+    'coding-context',
+  ]);
 
 function _dispatch(cmd, repoName, fn, deps) {
   if (!repoName) {
@@ -65,8 +63,8 @@ function _wrapAnalysis(toolName, data, repoRow, startTime, format, deps) {
 }
 
 function register(commands, deps) {
-  const { sqlJson, jsonErrNoExit, getDb } = deps;
-  const dispatchDeps = { sqlJson, jsonErrNoExit, getDb };
+  const { sqlJson, jsonErrNoExit, getDb } = deps,
+    dispatchDeps = { sqlJson, jsonErrNoExit, getDb };
 
   commands['import-graph'] = (args) =>
     _dispatch(

@@ -35,8 +35,8 @@ function fileKey(p) {
   if (typeof p !== 'string' || !p) {
     return null;
   }
-  const lower = normalizePathForCompare(p);
-  const base = path.basename(lower);
+  const lower = normalizePathForCompare(p),
+    base = path.basename(lower);
   if (!base) {
     return null;
   }
@@ -80,9 +80,9 @@ function uniqueEditedPaths(editedFiles) {
     if (!entry) {
       continue;
     }
-    const raw = String(entry);
-    const base = path.basename(raw.replace(/\\/g, '/')).toLowerCase();
-    const prev = byBase.get(base);
+    const raw = String(entry),
+      base = path.basename(raw.replace(/\\/g, '/')).toLowerCase(),
+      prev = byBase.get(base);
     if (!prev || raw.length > prev.length) {
       byBase.set(base, raw);
     }

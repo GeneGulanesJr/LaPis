@@ -2,7 +2,25 @@ const IMPORTANT_KEYWORDS =
   /\b(?:error|failed|failure|exception|todo|fixme|warning|deprecated|security|password|token|api\s?key)\b/i;
 
 function compressGeneric({ stdout, stderr }) {
-  const combined = `${stdout}\n${stderr}`.trim();
+  const combined = `${stdout}\n${stderr}`.trim(),
+    lines = combined ? combined.split('\n') : undefined,
+    headLimit = combined ? 120 : undefined,
+    tailLimit = combined ? 120 : undefined,
+    head = combined && !(lines.length <= headLimit + tailLimit) ? lines.slice(0, headLimit) : undefined,
+    tail = combined && !(lines.length <= headLimit + tailLimit) ? lines.slice(-tailLimit) : undefined,
+    important = combined && !(lines.length <= headLimit + tailLimit) ? [] : undefined,
+    omitted =
+      combined && !(lines.length <= headLimit + tailLimit)
+        ? (() => {
+            for (let i = 0; i < lines.length; i++) {
+              if (IMPORTANT_KEYWORDS.test(lines[i])) {
+                important.push(`line ${i + 1}: ${lines[i]}`);
+              }
+            }
+
+            return lines.length - headLimit - tailLimit;
+          })()
+        : undefined;
   if (!combined) {
     return {
       summary: 'No output.',
@@ -10,10 +28,6 @@ function compressGeneric({ stdout, stderr }) {
       omittedLines: 0,
     };
   }
-
-  const lines = combined.split('\n');
-  const headLimit = 120;
-  const tailLimit = 120;
 
   if (lines.length <= headLimit + tailLimit) {
     return {
@@ -23,17 +37,6 @@ function compressGeneric({ stdout, stderr }) {
     };
   }
 
-  const head = lines.slice(0, headLimit);
-  const tail = lines.slice(-tailLimit);
-  const important = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    if (IMPORTANT_KEYWORDS.test(lines[i])) {
-      important.push(`line ${i + 1}: ${lines[i]}`);
-    }
-  }
-
-  const omitted = lines.length - headLimit - tailLimit;
   let output = head.join('\n');
   output += `\n\n... ${omitted} lines omitted ...\n\n`;
 

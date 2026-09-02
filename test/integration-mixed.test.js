@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const fs = require('fs'),
+  path = require('path'),
+  os = require('os');
 
 let parseCode;
 async function getParser() {
@@ -81,21 +81,23 @@ $primary: #333;
 `,
     );
 
-    const jsResult = parser.parseContent('app.js', fs.readFileSync(path.join(tmpDir, 'app.js'), 'utf8'));
-    const cssResult = parser.parseContent('style.css', fs.readFileSync(path.join(tmpDir, 'style.css'), 'utf8'));
-    const scssResult = parser.parseContent('theme.scss', fs.readFileSync(path.join(tmpDir, 'theme.scss'), 'utf8'));
-    const htmlResult = parser.parseContent('index.html', fs.readFileSync(path.join(tmpDir, 'index.html'), 'utf8'));
+    {
+      const jsResult = parser.parseContent('app.js', fs.readFileSync(path.join(tmpDir, 'app.js'), 'utf8')),
+        cssResult = parser.parseContent('style.css', fs.readFileSync(path.join(tmpDir, 'style.css'), 'utf8')),
+        scssResult = parser.parseContent('theme.scss', fs.readFileSync(path.join(tmpDir, 'theme.scss'), 'utf8')),
+        htmlResult = parser.parseContent('index.html', fs.readFileSync(path.join(tmpDir, 'index.html'), 'utf8'));
 
-    expect(jsResult.map((s) => s.kind)).toContain('dynamic_import');
-    expect(cssResult.map((s) => s.kind)).toContain('custom_property');
-    expect(cssResult.map((s) => s.kind)).toContain('selector');
-    expect(cssResult.map((s) => s.kind)).toContain('media_query');
-    expect(scssResult.map((s) => s.kind)).toContain('scss_variable');
-    expect(scssResult.map((s) => s.kind)).toContain('mixin');
-    expect(scssResult.map((s) => s.kind)).toContain('include');
-    expect(scssResult.map((s) => s.kind)).toContain('extend');
-    expect(htmlResult.map((s) => s.kind)).toContain('id');
-    expect(htmlResult.map((s) => s.kind)).toContain('component');
-    expect(htmlResult.map((s) => s.kind)).toContain('script');
+      expect(jsResult.map((s) => s.kind)).toContain('dynamic_import');
+      expect(cssResult.map((s) => s.kind)).toContain('custom_property');
+      expect(cssResult.map((s) => s.kind)).toContain('selector');
+      expect(cssResult.map((s) => s.kind)).toContain('media_query');
+      expect(scssResult.map((s) => s.kind)).toContain('scss_variable');
+      expect(scssResult.map((s) => s.kind)).toContain('mixin');
+      expect(scssResult.map((s) => s.kind)).toContain('include');
+      expect(scssResult.map((s) => s.kind)).toContain('extend');
+      expect(htmlResult.map((s) => s.kind)).toContain('id');
+      expect(htmlResult.map((s) => s.kind)).toContain('component');
+      expect(htmlResult.map((s) => s.kind)).toContain('script');
+    }
   });
 });

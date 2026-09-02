@@ -25,23 +25,23 @@ export function normalizeToolResult(result: unknown, fallbackText = 'No output.'
     };
   }
 
-  const candidate = result as Record<string, unknown>;
-  const content = Array.isArray(candidate.content) ? candidate.content : [];
-  const normalizedContent = content
-    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
-    .map((item) => {
-      if (item.type === 'text') {
-        return { ...item, text: stringifyToolText(item.text) };
+  const candidate = result as Record<string, unknown>,
+    content = Array.isArray(candidate.content) ? candidate.content : [],
+    normalizedContent = content
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item) => {
+        if (item.type === 'text') {
+          return { ...item, text: stringifyToolText(item.text) };
+        }
+        return item;
+      }),
+    details = (() => {
+      if (normalizedContent.length === 0) {
+        normalizedContent.push({ type: 'text', text: fallbackText });
       }
-      return item;
-    });
 
-  if (normalizedContent.length === 0) {
-    normalizedContent.push({ type: 'text', text: fallbackText });
-  }
-
-  const details = candidate.details && typeof candidate.details === 'object' ? candidate.details : {};
-
+      return candidate.details && typeof candidate.details === 'object' ? candidate.details : {};
+    })();
   return {
     ...candidate,
     content: normalizedContent,

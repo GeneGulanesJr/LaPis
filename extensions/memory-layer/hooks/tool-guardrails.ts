@@ -30,46 +30,48 @@ interface IndexResult {
 const activeIndexing = new Map<string, Promise<IndexResult | null>>();
 
 function ensureIndexed(deps: GuardrailsDeps, resolvedCwd: string, projectName: string): Promise<IndexResult | null> {
-  const key = resolvedCwd;
-  const pending = activeIndexing.get(key);
+  const key = resolvedCwd,
+    pending = activeIndexing.get(key);
   if (pending) {
     return pending;
   }
-  const promise = (async (): Promise<IndexResult | null> => {
-    try {
-      const result = await deps.memStreaming('index-repo', { path: resolvedCwd, name: projectName });
-      if (!result) {
-        return null;
+  {
+    const promise = (async (): Promise<IndexResult | null> => {
+      try {
+        const result = await deps.memStreaming('index-repo', { path: resolvedCwd, name: projectName });
+        if (!result) {
+          return null;
+        }
+        if (result.error) {
+          return { ok: false, summary: `Indexing error: ${result.error}` };
+        }
+        deps.invalidateRepoCache();
+        const summary = (result as any).summary || '';
+        return { ok: true, summary };
+      } catch (e) {
+        return { ok: false, summary: `Indexing failed: ${e instanceof Error ? e.message : String(e)}` };
+      } finally {
+        activeIndexing.delete(key);
       }
-      if (result.error) {
-        return { ok: false, summary: `Indexing error: ${result.error}` };
-      }
-      deps.invalidateRepoCache();
-      const summary = (result as any).summary || '';
-      return { ok: true, summary };
-    } catch (e) {
-      return { ok: false, summary: `Indexing failed: ${e instanceof Error ? e.message : String(e)}` };
-    } finally {
-      activeIndexing.delete(key);
-    }
-  })();
-  activeIndexing.set(key, promise);
-  return promise;
+    })();
+    activeIndexing.set(key, promise);
+    return promise;
+  }
 }
 
 export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
   pi.on('tool_call', async (event, _ctx) => {
     // Honor the `tool_guardrails.enabled: false` config toggle
     // (see ~/.pi/memory/config.jsonc). When disabled, the raw grep/find
-    // and unread-file guardrails are skipped entirely so raw repository
-    // search and direct file reads work without the memory-code redirect.
+    // And unread-file guardrails are skipped entirely so raw repository
+    // Search and direct file reads work without the memory-code redirect.
     // Tests and other callers that don't inject getConfig default to enabled.
     if (deps.getConfig?.().tool_guardrails?.enabled === false) {
       return;
     }
 
-    const toolName = event.toolName;
-    const input = event.input as Record<string, unknown>;
+    const toolName = event.toolName,
+      input = event.input as Record<string, unknown>;
 
     if (toolName === 'memory-code') {
       deps.state.lastMemoryToolCall = Date.now();
@@ -90,9 +92,9 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
     if (toolName === 'bash' && typeof input?.command === 'string') {
       const cmd = input.command as string;
       if (RAW_CODE_DISCOVERY_RE.test(cmd)) {
-        const repos = await deps.getKnownRepos();
-        const resolvedCwd = path.resolve(process.cwd());
-        const matchedRepo = repos.find((r) => resolvedCwd.startsWith(path.resolve(r.path)));
+        const repos = await deps.getKnownRepos(),
+          resolvedCwd = path.resolve(process.cwd()),
+          matchedRepo = repos.find((r) => resolvedCwd.startsWith(path.resolve(r.path)));
         if (matchedRepo) {
           // Allow grep/rg/etc. When they are only filtering another command's stdout,
           // Such as `npx oxlint 2>&1 | grep -i unused`.
@@ -101,7 +103,7 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
           }
 
           // Documentation/config lookups scoped to one concrete text file are
-          // targeted reads, not broad source discovery (e.g. AGENTS.md).
+          // Targeted reads, not broad source discovery (e.g. AGENTS.md).
           if (isTargetedTextFileLookup(cmd)) {
             return;
           }
@@ -123,9 +125,9 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
               `• \`memory-code importance --repo ${matchedRepo.name}\` — hotspots & churn`,
           };
         }
-        const projectName = deps.state.currentProject || path.basename(resolvedCwd);
-        const searchHint = CODE_PATH_HINT_RE.test(cmd) ? 'Code search' : 'Raw repository search';
-        const indexResult = await ensureIndexed(deps, resolvedCwd, projectName);
+        const projectName = deps.state.currentProject || path.basename(resolvedCwd),
+          searchHint = CODE_PATH_HINT_RE.test(cmd) ? 'Code search' : 'Raw repository search',
+          indexResult = await ensureIndexed(deps, resolvedCwd, projectName);
         if (indexResult?.ok) {
           return {
             block: true,
@@ -167,27 +169,26 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
         return;
       }
 
-      const absPath = path.resolve(filePath);
-
-      // ponytail: cross-project reads (files outside cwd) bypass the outline guard
-      const cwd = process.cwd();
+      const absPath = path.resolve(filePath),
+        // ponytail: cross-project reads (files outside cwd) bypass the outline guard
+        cwd = process.cwd();
       if (absPath !== cwd && !absPath.startsWith(cwd + path.sep)) {
         return;
       }
 
-      const repos = await deps.getKnownRepos();
-      const matchedRepo = repos.find(
-        (r) =>
-          absPath.toLowerCase().startsWith(`${r.path.toLowerCase()}/`) ||
-          absPath.toLowerCase() === r.path.toLowerCase(),
-      );
+      const repos = await deps.getKnownRepos(),
+        matchedRepo = repos.find(
+          (r) =>
+            absPath.toLowerCase().startsWith(`${r.path.toLowerCase()}/`) ||
+            absPath.toLowerCase() === r.path.toLowerCase(),
+        );
 
       if (!matchedRepo) {
         // Prefer cwd (project root) to match the bash guardrail behavior.
         // Fall back to the file's directory only when the file lives outside cwd.
-        const projectDir = absPath.startsWith(cwd) ? cwd : path.dirname(absPath);
-        const projectName = deps.state.currentProject || path.basename(projectDir);
-        const indexResult = await ensureIndexed(deps, projectDir, projectName);
+        const projectDir = absPath.startsWith(cwd) ? cwd : path.dirname(absPath),
+          projectName = deps.state.currentProject || path.basename(projectDir),
+          indexResult = await ensureIndexed(deps, projectDir, projectName);
         if (indexResult?.ok) {
           return {
             block: true,
@@ -206,25 +207,27 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
         };
       }
 
-      const fileBase = path.basename(filePath).toLowerCase();
-      const relPath = path.relative(matchedRepo.path, absPath).toLowerCase();
-      if (
-        deps.state.exploredFiles.has(fileBase) ||
-        deps.state.exploredFiles.has(relPath) ||
-        deps.state.exploredFiles.has(absPath.toLowerCase())
-      ) {
-        return;
-      }
+      {
+        const fileBase = path.basename(filePath).toLowerCase(),
+          relPath = path.relative(matchedRepo.path, absPath).toLowerCase();
+        if (
+          deps.state.exploredFiles.has(fileBase) ||
+          deps.state.exploredFiles.has(relPath) ||
+          deps.state.exploredFiles.has(absPath.toLowerCase())
+        ) {
+          return;
+        }
 
-      return {
-        block: true,
-        reason:
-          `Use \`memory-code\` first to understand "${path.basename(filePath)}" before reading it:\n` +
-          `• \`memory-code outline --repo ${matchedRepo.name} --file ${relPath || path.basename(filePath)}\` — file structure & symbols\n` +
-          `• \`memory-code callers --repo ${matchedRepo.name} --symbol <name>\` — who calls what\n` +
-          `• \`memory-code deps --repo ${matchedRepo.name}\` — dependency graph\n` +
-          `After reviewing the outline, use \`read\` with \`offset\`/\`limit\` for targeted editing.`,
-      };
+        return {
+          block: true,
+          reason:
+            `Use \`memory-code\` first to understand "${path.basename(filePath)}" before reading it:\n` +
+            `• \`memory-code outline --repo ${matchedRepo.name} --file ${relPath || path.basename(filePath)}\` — file structure & symbols\n` +
+            `• \`memory-code callers --repo ${matchedRepo.name} --symbol <name>\` — who calls what\n` +
+            `• \`memory-code deps --repo ${matchedRepo.name}\` — dependency graph\n` +
+            `After reviewing the outline, use \`read\` with \`offset\`/\`limit\` for targeted editing.`,
+        };
+      }
     }
   });
 
@@ -237,10 +240,9 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
       return;
     }
 
-    const resultText = typeof event.result === 'string' ? event.result : JSON.stringify(event.result);
-
-    // Match relative file paths like "src/foo.ts" or "extensions/memory-layer/hooks/tool-guardrails.ts"
-    const filePaths = resultText.match(/[\w/.-]+\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs)/g) || [];
+    const resultText = typeof event.result === 'string' ? event.result : JSON.stringify(event.result),
+      // Match relative file paths like "src/foo.ts" or "extensions/memory-layer/hooks/tool-guardrails.ts"
+      filePaths = resultText.match(/[\w/.-]+\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs)/g) || [];
     for (const fp of filePaths) {
       deps.state.exploredFiles.add(fp.toLowerCase());
       const basename = fp.split('/').pop();

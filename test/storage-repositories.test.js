@@ -1,7 +1,7 @@
-const { createRepositories } = require('../src/platform/storage/repositories');
-const { createStorageContext } = require('../src/platform/storage');
-const obsCmd = require('../commands/observation');
-const symCmd = require('../commands/symbols');
+const { createRepositories } = require('../src/platform/storage/repositories'),
+  { createStorageContext } = require('../src/platform/storage'),
+  obsCmd = require('../commands/observation'),
+  symCmd = require('../commands/symbols');
 
 describe('platform storage repositories', () => {
   function mockDeps() {
@@ -52,8 +52,8 @@ describe('platform storage repositories', () => {
   });
 
   it('creates a storage context that composes SQL helpers with repositories', () => {
-    const deps = mockDeps();
-    const context = createStorageContext(deps);
+    const deps = mockDeps(),
+      context = createStorageContext(deps);
 
     expect(context.sqlJson).toBe(deps.sqlJson);
     expect(context.repositories.memory.getObservation).toBeTypeOf('function');
@@ -68,8 +68,8 @@ describe('platform storage repositories', () => {
   });
 
   it('keeps code and doc repository writes aligned with current schema columns', () => {
-    const deps = mockDeps();
-    const repositories = createRepositories(deps);
+    const deps = mockDeps(),
+      repositories = createRepositories(deps);
 
     repositories.codeIndex.insertFile({
       repoId: 1,
@@ -98,12 +98,11 @@ describe('platform storage repositories', () => {
 
   it('routes observation commands through the memory repository when supplied', () => {
     const memoryRepository = {
-      getObservation: vi.fn(() => [{ id: 1, title: 'A' }]),
-      getSymbolLinksForMemory: vi.fn(() => [{ symbol_id: 'S', repo: 'r', trust_score: 1 }]),
-      getRecallCountForMemory: vi.fn(() => [{ cnt: 2 }]),
-    };
-
-    const result = obsCmd.get({ memoryRepository, jsonErrNoExit: vi.fn() }, { id: '1' });
+        getObservation: vi.fn(() => [{ id: 1, title: 'A' }]),
+        getSymbolLinksForMemory: vi.fn(() => [{ symbol_id: 'S', repo: 'r', trust_score: 1 }]),
+        getRecallCountForMemory: vi.fn(() => [{ cnt: 2 }]),
+      },
+      result = obsCmd.get({ memoryRepository, jsonErrNoExit: vi.fn() }, { id: '1' });
 
     expect(result.symbols).toHaveLength(1);
     expect(result.recall_count).toBe(2);
@@ -112,13 +111,12 @@ describe('platform storage repositories', () => {
 
   it('routes trust commands through the trust-sync repository when supplied', () => {
     const trustSyncRepository = {
-      linkSymbol: vi.fn(() => ({ ok: true })),
-    };
-
-    const result = symCmd.linkSymbol(
-      { trustSyncRepository, jsonErrNoExit: vi.fn((message) => ({ error: message })) },
-      { 'memory-id': '1', 'symbol-id': 'S', repo: 'repo', trust: '0.8' },
-    );
+        linkSymbol: vi.fn(() => ({ ok: true })),
+      },
+      result = symCmd.linkSymbol(
+        { trustSyncRepository, jsonErrNoExit: vi.fn((message) => ({ error: message })) },
+        { 'memory-id': '1', 'symbol-id': 'S', repo: 'repo', trust: '0.8' },
+      );
 
     expect(result.ok).toBe(true);
     expect(trustSyncRepository.linkSymbol).toHaveBeenCalledWith({

@@ -1,31 +1,30 @@
-const path = require('path');
-const codeParser = require('../../parse-code');
-const { CODE_EXTENSIONS } = require('../../utils');
-
-const LANGUAGE_BY_EXTENSION = Object.freeze({
-  '.js': 'javascript',
-  '.jsx': 'javascript',
-  '.mjs': 'javascript',
-  '.cjs': 'javascript',
-  '.ts': 'typescript',
-  '.mts': 'typescript',
-  '.cts': 'typescript',
-  '.tsx': 'typescript',
-  '.py': 'python',
-  '.pyw': 'python',
-  '.go': 'go',
-  '.rs': 'rust',
-  '.sh': 'bash',
-  '.bash': 'bash',
-  '.json': 'json',
-  '.jsonc': 'json',
-  '.yaml': 'yaml',
-  '.yml': 'yaml',
-  '.html': 'html',
-  '.css': 'css',
-  '.scss': 'scss',
-  '.sql': 'sql',
-});
+const path = require('path'),
+  codeParser = require('../../parse-code'),
+  { CODE_EXTENSIONS } = require('../../utils'),
+  LANGUAGE_BY_EXTENSION = Object.freeze({
+    '.js': 'javascript',
+    '.jsx': 'javascript',
+    '.mjs': 'javascript',
+    '.cjs': 'javascript',
+    '.ts': 'typescript',
+    '.mts': 'typescript',
+    '.cts': 'typescript',
+    '.tsx': 'typescript',
+    '.py': 'python',
+    '.pyw': 'python',
+    '.go': 'go',
+    '.rs': 'rust',
+    '.sh': 'bash',
+    '.bash': 'bash',
+    '.json': 'json',
+    '.jsonc': 'json',
+    '.yaml': 'yaml',
+    '.yml': 'yaml',
+    '.html': 'html',
+    '.css': 'css',
+    '.scss': 'scss',
+    '.sql': 'sql',
+  });
 
 function getLanguageForFile(filePath) {
   return LANGUAGE_BY_EXTENSION[path.extname(filePath).toLowerCase()] || null;

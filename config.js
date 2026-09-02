@@ -1,42 +1,40 @@
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-
-const HOME = process.env.LAPIS_HOME || process.env.HOME || process.env.USERPROFILE || os.homedir();
-const CONFIG_DIR = path.join(HOME, '.pi', 'memory');
-const CONFIG_PATH = path.join(CONFIG_DIR, 'config.jsonc');
-
-const DEFAULTS = {
-  db_path: path.join(HOME, '.pi', 'memory', 'memory.db'),
-  wal_autocheckpoint: 1000,
-  busy_timeout_ms: 30000,
-  busy_retry_max: 5,
-  ranking: {
-    fts_relevance: 0.4,
-    recency: 0.3,
-    trust: 0.15,
-    recall: 0.15,
-  },
-  dedup: {
-    auto_merge_threshold: 0.85,
-    warning_threshold: 0.6,
-  },
-  compact_every_n_sessions: 5,
-  context_limit: 5, // Used by memory-store.js context command — do not remove
-  tier_config_path: path.join(HOME, '.pi', 'memory', 'tier.jsonc'),
-  // Auto-switch `index-repo` to async when file count exceeds this threshold.
-  // Override with the LAPIS_ASYNC_INDEX_THRESHOLD env var or via config.jsonc.
-  async_index_file_threshold: 500,
-  http_api_key: null,
-  output_compression: {
-    enabled: true, // Master toggle — set false to disable auto-compression
-    min_chars: 2000, // Don't compress output shorter than this
-    min_savings_percent: 30, // Don't replace if savings < this %
-  },
-  tool_guardrails: {
-    enabled: true, // Master toggle — set false to disable raw grep/find + unread-file guardrails
-  },
-};
+const path = require('path'),
+  fs = require('fs'),
+  os = require('os'),
+  HOME = process.env.LAPIS_HOME || process.env.HOME || process.env.USERPROFILE || os.homedir(),
+  CONFIG_DIR = path.join(HOME, '.pi', 'memory'),
+  CONFIG_PATH = path.join(CONFIG_DIR, 'config.jsonc'),
+  DEFAULTS = {
+    db_path: path.join(HOME, '.pi', 'memory', 'memory.db'),
+    wal_autocheckpoint: 1000,
+    busy_timeout_ms: 30000,
+    busy_retry_max: 5,
+    ranking: {
+      fts_relevance: 0.4,
+      recency: 0.3,
+      trust: 0.15,
+      recall: 0.15,
+    },
+    dedup: {
+      auto_merge_threshold: 0.85,
+      warning_threshold: 0.6,
+    },
+    compact_every_n_sessions: 5,
+    context_limit: 5, // Used by memory-store.js context command — do not remove
+    tier_config_path: path.join(HOME, '.pi', 'memory', 'tier.jsonc'),
+    // Auto-switch `index-repo` to async when file count exceeds this threshold.
+    // Override with the LAPIS_ASYNC_INDEX_THRESHOLD env var or via config.jsonc.
+    async_index_file_threshold: 500,
+    http_api_key: null,
+    output_compression: {
+      enabled: true, // Master toggle — set false to disable auto-compression
+      min_chars: 2000, // Don't compress output shorter than this
+      min_savings_percent: 30, // Don't replace if savings < this %
+    },
+    tool_guardrails: {
+      enabled: true, // Master toggle — set false to disable raw grep/find + unread-file guardrails
+    },
+  };
 
 function deepMerge(target, source) {
   const result = { ...target };
@@ -59,8 +57,8 @@ function deepMerge(target, source) {
 }
 
 function stripJsoncComments(raw) {
-  let result = '';
-  let i = 0;
+  let result = '',
+    i = 0;
   while (i < raw.length) {
     if (raw[i] === '"') {
       let j = i + 1;
@@ -98,7 +96,7 @@ function expandTilde(p) {
 }
 
 // Apply documented environment-variable overrides. Precedence:
-//   env var > config.jsonc value > DEFAULTS.
+//   Env var > config.jsonc value > DEFAULTS.
 // Add future env overrides here so they all flow through getConfig()'s cache.
 function applyEnvOverrides(config) {
   const raw = process.env.LAPIS_ASYNC_INDEX_THRESHOLD;
@@ -115,10 +113,10 @@ function applyEnvOverrides(config) {
 
 function loadConfig() {
   try {
-    const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
-    const cleaned = stripJsoncComments(raw);
-    const userConfig = JSON.parse(cleaned);
-    const merged = deepMerge(DEFAULTS, userConfig);
+    const raw = fs.readFileSync(CONFIG_PATH, 'utf-8'),
+      cleaned = stripJsoncComments(raw),
+      userConfig = JSON.parse(cleaned),
+      merged = deepMerge(DEFAULTS, userConfig);
     merged.db_path = expandTilde(merged.db_path);
     merged.tier_config_path = expandTilde(merged.tier_config_path);
     applyEnvOverrides(merged);

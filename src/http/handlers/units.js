@@ -2,15 +2,15 @@ const { jsonOk, jsonCreated } = require('../errors');
 
 function createWorkingUnit(repo) {
   return async (req, res, ctx) => {
-    const { description, declaredPaths, declaredModules } = ctx.body;
-    const id = `wu-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const rows = repo.createWorkingUnit({
-      id,
-      milestoneId: ctx.params.milestoneId,
-      description,
-      declaredPaths,
-      declaredModules,
-    });
+    const { description, declaredPaths, declaredModules } = ctx.body,
+      id = `wu-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      rows = repo.createWorkingUnit({
+        id,
+        milestoneId: ctx.params.milestoneId,
+        description,
+        declaredPaths,
+        declaredModules,
+      });
     jsonCreated(
       res,
       rows[0] || {

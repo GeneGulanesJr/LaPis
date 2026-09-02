@@ -3,8 +3,8 @@
 // Modules should receive repositories/helpers from here instead of importing
 // Unrelated SQL or presentation concerns directly.
 
-const db = require('../../../db');
-const { createRepositories } = require('./repositories');
+const db = require('../../../db'),
+  { createRepositories } = require('./repositories');
 
 function createStorageContext(overrides = {}) {
   const deps = {

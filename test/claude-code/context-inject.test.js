@@ -11,15 +11,15 @@ describe('claude-code context-inject', () => {
     const prev = process.env.CLAUDE_PROJECT_DIR;
     process.env.CLAUDE_PROJECT_DIR = '/resolved/project';
     try {
-      const repos = [{ name: 'app', path: '/resolved/project', indexed_at: 'now' }];
-      const assembled = await assembleContextLines({
-        dispatch: async () => EMPTY_CONTEXT,
-        getKnownRepos: () => repos,
-        project: 'app',
-        cwd: '/ignored/subdir',
-        query: null,
-        sessionId: null,
-      });
+      const repos = [{ name: 'app', path: '/resolved/project', indexed_at: 'now' }],
+        assembled = await assembleContextLines({
+          dispatch: async () => EMPTY_CONTEXT,
+          getKnownRepos: () => repos,
+          project: 'app',
+          cwd: '/ignored/subdir',
+          query: null,
+          sessionId: null,
+        });
       expect(assembled?.cwdRepo?.name).toBe('app');
     } finally {
       if (prev === undefined) {

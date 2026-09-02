@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const { RESULT_LIMITS } = require('../../constants');
+const fs = require('fs'),
+  path = require('path'),
+  { RESULT_LIMITS } = require('../../constants');
 
 function searchDocs(db, repoId, query, opts) {
   opts = opts || {};
@@ -23,9 +23,9 @@ function searchDocs(db, repoId, query, opts) {
   try {
     const results = db.prepare(sql).all(...params);
     for (const r of results) {
-      const content = r.content || '';
-      const hasCode = content.includes('```');
-      const codeRatio = (content.match(/```[\s\S]*?```/g) || []).join('').length / Math.max(content.length, 1);
+      const content = r.content || '',
+        hasCode = content.includes('```'),
+        codeRatio = (content.match(/```[\s\S]*?```/g) || []).join('').length / Math.max(content.length, 1);
       let roleScore = 0;
       if (r.role === 'how_to' || r.role === 'tutorial') {
         roleScore = 0.3;
@@ -56,33 +56,34 @@ function getTutorialPath(db, repoId, sectionId) {
     return { error: `Section ${sectionId} not found` };
   }
 
-  const chain = [{ section_id: section.id, title: section.title }];
+  const chain = [{ section_id: section.id, title: section.title }],
+    nextMatch = (section.content || '').match(/[Nn]ext:?\s*\[([^\]]+)\]\(([^)]+)\)/),
+    file = (() => {
+      if (nextMatch) {
+        const targetSection = db
+          .prepare(`
+        SELECT ds.id, ds.title FROM doc_sections ds JOIN doc_files df ON df.id = ds.file_id
+        WHERE df.repo_id = ? AND df.path LIKE ? AND ds.level = ? LIMIT 1
+      `)
+          .get(repoId, `%${nextMatch[2]}%`, section.level);
+        if (targetSection) {
+          chain.push({ section_id: targetSection.id, title: targetSection.title });
+        }
+      }
 
-  const nextMatch = (section.content || '').match(/[Nn]ext:?\s*\[([^\]]+)\]\(([^)]+)\)/);
-  if (nextMatch) {
-    const targetSection = db
-      .prepare(`
-      SELECT ds.id, ds.title FROM doc_sections ds JOIN doc_files df ON df.id = ds.file_id
-      WHERE df.repo_id = ? AND df.path LIKE ? AND ds.level = ? LIMIT 1
-    `)
-      .get(repoId, `%${nextMatch[2]}%`, section.level);
-    if (targetSection) {
-      chain.push({ section_id: targetSection.id, title: targetSection.title });
-    }
-  }
-
-  const file = db.prepare('SELECT path FROM doc_files WHERE id = ?').get(section.file_id);
+      return db.prepare('SELECT path FROM doc_files WHERE id = ?').get(section.file_id);
+    })();
   if (file) {
     const numMatch = file.path.match(/(\d+)-/);
     if (numMatch) {
-      const currentNum = parseInt(numMatch[1]);
-      const files = db.prepare('SELECT path FROM doc_files WHERE repo_id = ? ORDER BY path').all(repoId);
-      const ordered = files
-        .filter((f) => {
-          const m = f.path.match(/(\d+)-/);
-          return m && parseInt(m[1]) > currentNum;
-        })
-        .slice(0, 5);
+      const currentNum = parseInt(numMatch[1]),
+        files = db.prepare('SELECT path FROM doc_files WHERE repo_id = ? ORDER BY path').all(repoId),
+        ordered = files
+          .filter((f) => {
+            const m = f.path.match(/(\d+)-/);
+            return m && parseInt(m[1]) > currentNum;
+          })
+          .slice(0, 5);
       for (const nextFile of ordered) {
         const nextSection = db
           .prepare(
@@ -131,8 +132,10 @@ function getOrphanSections(db, repoId, opts = {}) {
     params = [repoId];
   }
 
-  const orphans = db.prepare(query).all(...params);
-  return { orphans, total: orphans.length };
+  {
+    const orphans = db.prepare(query).all(...params);
+    return { orphans, total: orphans.length };
+  }
 }
 
 function createDbCodeSymbolLookup(db) {
@@ -151,9 +154,12 @@ function createDbCodeSymbolLookup(db) {
 function getDocCoverageReport(symbols, sections) {
   const docNames = new Map();
   for (const s of sections) {
-    const lowerTitle = s.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-    docNames.set(lowerTitle, s);
-    const fnRefs = s.content.match(/\b([a-z_][a-z0-9_]{2,})\s*\(/gi) || [];
+    const lowerTitle = s.title.toLowerCase().replace(/[^a-z0-9]/g, ''),
+      fnRefs = (() => {
+        docNames.set(lowerTitle, s);
+
+        return s.content.match(/\b([a-z_][a-z0-9_]{2,})\s*\(/gi) || [];
+      })();
     for (const ref of fnRefs) {
       const name = ref.replace(/\s*\($/, '').toLowerCase();
       if (!docNames.has(name)) {
@@ -163,41 +169,44 @@ function getDocCoverageReport(symbols, sections) {
   }
 
   let documented = 0;
-  const documented_list = [];
-  const undocumented_list = [];
+  {
+    const documented_list = [],
+      undocumented_list = [],
+      total = (() => {
+        for (const sym of symbols) {
+          const lowerName = sym.name.toLowerCase(),
+            matched = docNames.has(lowerName) || docNames.has(lowerName.replace(/_/g, ''));
+          if (matched) {
+            documented++;
+            documented_list.push(sym);
+          } else {
+            undocumented_list.push(sym);
+          }
+        }
 
-  for (const sym of symbols) {
-    const lowerName = sym.name.toLowerCase();
-    const matched = docNames.has(lowerName) || docNames.has(lowerName.replace(/_/g, ''));
-    if (matched) {
-      documented++;
-      documented_list.push(sym);
-    } else {
-      undocumented_list.push(sym);
-    }
+        return symbols.length;
+      })();
+    return {
+      total_symbols: total,
+      documented,
+      undocumented: undocumented_list.length,
+      coverage_pct: total > 0 ? Math.round((documented / total) * 100) : 0,
+      documented_list: documented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
+      undocumented_list: undocumented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
+    };
   }
-
-  const total = symbols.length;
-  return {
-    total_symbols: total,
-    documented,
-    undocumented: undocumented_list.length,
-    coverage_pct: total > 0 ? Math.round((documented / total) * 100) : 0,
-    documented_list: documented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
-    undocumented_list: undocumented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
-  };
 }
 
 function getDocCoverage(db, repoId, docRepoId, opts = {}) {
-  const codeSymbolLookup = opts.codeSymbolLookup || createDbCodeSymbolLookup(db);
-  const symbols = codeSymbolLookup.listDocumentableSymbols(repoId);
-  const sections = db.prepare('SELECT id, title, content, role FROM doc_sections WHERE repo_id = ?').all(docRepoId);
+  const codeSymbolLookup = opts.codeSymbolLookup || createDbCodeSymbolLookup(db),
+    symbols = codeSymbolLookup.listDocumentableSymbols(repoId),
+    sections = db.prepare('SELECT id, title, content, role FROM doc_sections WHERE repo_id = ?').all(docRepoId);
   return getDocCoverageReport(symbols, sections);
 }
 
 function getDuplicateSections(db, repoId) {
   const duplicates = db
-    .prepare(`
+      .prepare(`
     SELECT
       content_hash,
       COUNT(*) as count,
@@ -210,18 +219,16 @@ function getDuplicateSections(db, repoId) {
     HAVING COUNT(*) > 1
     ORDER BY COUNT(*) DESC
   `)
-    .all(repoId);
-
-  const results = [];
+      .all(repoId),
+    results = [];
   for (const dup of duplicates) {
-    const ids = dup.section_ids.split(',').map(Number);
-    const titles = dup.titles.split('|||');
-    const fileIds = dup.file_ids.split(',').map(Number);
-
-    const sections = [];
+    const ids = dup.section_ids.split(',').map(Number),
+      titles = dup.titles.split('|||'),
+      fileIds = dup.file_ids.split(',').map(Number),
+      sections = [];
     for (let i = 0; i < ids.length; i++) {
-      const fileId = fileIds[i] || fileIds[0];
-      const fileRow = db.prepare('SELECT path FROM doc_files WHERE id = ?').get(fileId);
+      const fileId = fileIds[i] || fileIds[0],
+        fileRow = db.prepare('SELECT path FROM doc_files WHERE id = ?').get(fileId);
       sections.push({ id: ids[i], title: titles[i] || '', file_path: fileRow ? fileRow.path : '' });
     }
 
@@ -237,9 +244,9 @@ function getStalePages(db, repoId) {
     return { error: 'Repo not found' };
   }
 
-  const files = db.prepare('SELECT id, path, mtime, content_hash FROM doc_files WHERE repo_id = ?').all(repoId);
-  const stale = [];
-  const missing = [];
+  const files = db.prepare('SELECT id, path, mtime, content_hash FROM doc_files WHERE repo_id = ?').all(repoId),
+    stale = [],
+    missing = [];
 
   for (const file of files) {
     const fullPath = path.join(repo.path, file.path);

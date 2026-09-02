@@ -1,10 +1,10 @@
-const astPatterns = require('../../ast-patterns');
-const { createCodeIndexReadRepository } = require('./read-model');
-const { runAnalyzer } = require('./analyzer-runner');
+const astPatterns = require('../../ast-patterns'),
+  { createCodeIndexReadRepository } = require('./read-model'),
+  { runAnalyzer } = require('./analyzer-runner');
 
 function analyzeScanAstPatterns(db, repoId, opts = {}) {
-  const codeIndex = createCodeIndexReadRepository(db);
-  const guard = codeIndex.guard();
+  const codeIndex = createCodeIndexReadRepository(db),
+    guard = codeIndex.guard();
   if (guard) {
     return guard;
   }

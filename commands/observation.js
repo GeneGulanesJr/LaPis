@@ -1,8 +1,8 @@
-const obsService = require('../services/observations');
-const obsDA = require('../data-access/observations');
-const dedupService = require('../services/dedup');
-const sessionsService = require('../services/sessions');
-const { parseExpiresIn } = require('../src/memory-domain/ttl');
+const obsService = require('../services/observations'),
+  obsDA = require('../data-access/observations'),
+  dedupService = require('../services/dedup'),
+  sessionsService = require('../services/sessions'),
+  { parseExpiresIn } = require('../src/memory-domain/ttl');
 
 function getMemoryRepository(deps) {
   if (deps.memoryRepository) {
@@ -43,23 +43,29 @@ function save(deps, args) {
 }
 
 function get(deps, args) {
-  const { jsonErrNoExit } = deps;
-  const id = args.id;
+  const { jsonErrNoExit } = deps,
+    id = args.id,
+    memoryRepository = id ? getMemoryRepository(deps) : undefined,
+    rows = id ? memoryRepository.getObservation(id) : undefined,
+    obs = id && !(rows.length === 0) ? rows[0] : undefined,
+    links = id && !(rows.length === 0) ? memoryRepository.getSymbolLinksForMemory(id) : undefined,
+    recallResult =
+      id && !(rows.length === 0)
+        ? (() => {
+            if (links.length > 0) {
+              obs.symbols = links;
+            }
+
+            return memoryRepository.getRecallCountForMemory(id);
+          })()
+        : undefined;
   if (!id) {
     return jsonErrNoExit('Missing --id');
   }
-  const memoryRepository = getMemoryRepository(deps);
-  const rows = memoryRepository.getObservation(id);
   if (rows.length === 0) {
     return { error: 'Observation not found' };
   }
 
-  const obs = rows[0];
-  const links = memoryRepository.getSymbolLinksForMemory(id);
-  if (links.length > 0) {
-    obs.symbols = links;
-  }
-  const recallResult = memoryRepository.getRecallCountForMemory(id);
   obs.recall_count = recallResult[0].cnt;
   obs.versions = memoryRepository.getObservationVersions ? memoryRepository.getObservationVersions(id) : [];
   obs.relations = memoryRepository.getObservationRelations ? memoryRepository.getObservationRelations(id) : [];
@@ -67,15 +73,15 @@ function get(deps, args) {
 }
 
 function update(deps, args) {
-  const { jsonErrNoExit } = deps;
-  const id = args.id;
+  const { jsonErrNoExit } = deps,
+    id = args.id,
+    memoryRepository = id ? getMemoryRepository(deps) : undefined;
   if (!id) {
     return jsonErrNoExit('Missing --id');
   }
-  const memoryRepository = getMemoryRepository(deps);
 
-  let expiresAt;
-  let clearExpiry = false;
+  let expiresAt,
+    clearExpiry = false;
   if (args['clear-expiry'] === 'true' || args['clear-expiry'] === true) {
     clearExpiry = true;
   } else if (args['expires-in']) {
@@ -89,31 +95,33 @@ function update(deps, args) {
     expiresAt = String(args['expires-at']);
   }
 
-  const result = memoryRepository.updateObservation({
-    id,
-    title: args.title,
-    content: args.content,
-    type: args.type,
-    project: args.project,
-    scope: args.scope,
-    topicKey: args['topic-key'],
-    expiresAt,
-    clearExpiry,
-  });
-  if (result === null) {
-    return jsonErrNoExit('Nothing to update');
+  {
+    const result = memoryRepository.updateObservation({
+      id,
+      title: args.title,
+      content: args.content,
+      type: args.type,
+      project: args.project,
+      scope: args.scope,
+      topicKey: args['topic-key'],
+      expiresAt,
+      clearExpiry,
+    });
+    if (result === null) {
+      return jsonErrNoExit('Nothing to update');
+    }
+    return result.length > 0 ? result[0] : { error: 'Observation not found' };
   }
-  return result.length > 0 ? result[0] : { error: 'Observation not found' };
 }
 
 function del(deps, args) {
-  const id = args.id;
-  const hard = args.hard === 'true' || args.hard === true;
+  const id = args.id,
+    hard = args.hard === 'true' || args.hard === true,
+    memoryRepository = id ? getMemoryRepository(deps) : undefined,
+    existing = id ? memoryRepository.getObservation(id) : undefined;
   if (!id) {
     return deps.jsonErrNoExit('Missing --id');
   }
-  const memoryRepository = getMemoryRepository(deps);
-  const existing = memoryRepository.getObservation(id);
   if (!existing || existing.length === 0) {
     return deps.jsonErrNoExit('Observation not found');
   }
@@ -126,9 +134,9 @@ function del(deps, args) {
 }
 
 function timeline(deps, args) {
-  const id = parseInt(args.id);
-  const before = parseInt(args.before || '5', 10);
-  const after = parseInt(args.after || '5', 10);
+  const id = parseInt(args.id),
+    before = parseInt(args.before || '5', 10),
+    after = parseInt(args.after || '5', 10);
   if (isNaN(id)) {
     return deps.jsonErrNoExit('Missing --id');
   }
@@ -141,15 +149,15 @@ function suggestTopicKey(args) {
 }
 
 function savePrompt(deps, args) {
-  const { jsonErrNoExit } = deps;
-  const content = args.content;
-  const project = args.project || null;
-  const sessionId = args['session-id'] || sessionsService.findLatestSession(project);
+  const { jsonErrNoExit } = deps,
+    content = args.content,
+    project = args.project || null,
+    sessionId = args['session-id'] || sessionsService.findLatestSession(project),
+    memoryRepository = content ? getMemoryRepository(deps) : undefined,
+    rows = content ? memoryRepository.insertUserPrompt({ sessionId, content, project }) : undefined;
   if (!content) {
     return jsonErrNoExit('Missing --content');
   }
-  const memoryRepository = getMemoryRepository(deps);
-  const rows = memoryRepository.insertUserPrompt({ sessionId, content, project });
   return { id: rows[0].id, created_at: rows[0].created_at };
 }
 

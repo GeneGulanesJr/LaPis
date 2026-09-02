@@ -1,12 +1,12 @@
-const { CONTEXT } = require('../constants');
-const { context } = require('../src/memory-domain/context');
+const { CONTEXT } = require('../constants'),
+  { context } = require('../src/memory-domain/context');
 
 function mockFn(impl = () => undefined) {
-  const calls = [];
-  const fn = (...args) => {
-    calls.push(args);
-    return impl(...args);
-  };
+  const calls = [],
+    fn = (...args) => {
+      calls.push(args);
+      return impl(...args);
+    };
   fn.mock = { calls };
   return fn;
 }
@@ -75,9 +75,9 @@ describe('CONTEXT.TOKEN_BUDGET constants', () => {
 
 describe('context() with token-budget', () => {
   test('without --token-budget, observations pass through unchanged', () => {
-    const observations = [makeObs(1, 'decision', 100), makeObs(2, 'bugfix', 100)];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject' });
+    const observations = [makeObs(1, 'decision', 100), makeObs(2, 'bugfix', 100)],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject' });
 
     expect(result.observations).toHaveLength(2);
     expect(result.observations[0].content).toBe('x'.repeat(100));
@@ -86,9 +86,9 @@ describe('context() with token-budget', () => {
   });
 
   test('with --token-budget, includes budget stats in result', () => {
-    const observations = [makeObs(1, 'decision', 50), makeObs(2, 'bugfix', 50)];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '500' });
+    const observations = [makeObs(1, 'decision', 50), makeObs(2, 'bugfix', 50)],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '500' });
 
     expect(result.stats.budget_tokens).toBe(500);
     expect(typeof result.stats.budget_used).toBe('number');
@@ -98,15 +98,17 @@ describe('context() with token-budget', () => {
 
   test('truncates content when budget is tight', () => {
     const observations = [
-      makeObs(1, 'discovery', 2000, 'Big discovery'),
-      makeObs(2, 'discovery', 2000, 'Another big one'),
-      makeObs(3, 'learning', 2000, 'Yet another'),
-    ];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '600' });
+        makeObs(1, 'discovery', 2000, 'Big discovery'),
+        makeObs(2, 'discovery', 2000, 'Another big one'),
+        makeObs(3, 'learning', 2000, 'Yet another'),
+      ],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '600' }),
+      truncated = (() => {
+        expect(result.observations.length).toBeLessThanOrEqual(3);
 
-    expect(result.observations.length).toBeLessThanOrEqual(3);
-    const truncated = result.observations.filter((o) => o._truncated);
+        return result.observations.filter((o) => o._truncated);
+      })();
     expect(truncated.length).toBeGreaterThan(0);
     expect(result.stats.truncated_count).toBeGreaterThan(0);
     expect(result.stats.total_count).toBe(3);
@@ -114,13 +116,12 @@ describe('context() with token-budget', () => {
 
   test('never truncates decision type even when over budget', () => {
     const observations = [
-      makeObs(1, 'decision', 5000, 'Critical decision'),
-      makeObs(2, 'discovery', 5000, 'Discovery'),
-    ];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '800' });
-
-    const decision = result.observations.find((o) => o.type === 'decision');
+        makeObs(1, 'decision', 5000, 'Critical decision'),
+        makeObs(2, 'discovery', 5000, 'Discovery'),
+      ],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '800' }),
+      decision = result.observations.find((o) => o.type === 'decision');
     expect(decision).toBeDefined();
     expect(decision.content).toBe('x'.repeat(5000));
     expect(decision._truncated).not.toBe(true);
@@ -128,27 +129,26 @@ describe('context() with token-budget', () => {
 
   test('never truncates architecture type even when over budget', () => {
     const observations = [
-      makeObs(1, 'architecture', 5000, 'Critical architecture'),
-      makeObs(2, 'learning', 5000, 'Learning'),
-    ];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '800' });
-
-    const arch = result.observations.find((o) => o.type === 'architecture');
+        makeObs(1, 'architecture', 5000, 'Critical architecture'),
+        makeObs(2, 'learning', 5000, 'Learning'),
+      ],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '800' }),
+      arch = result.observations.find((o) => o.type === 'architecture');
     expect(arch).toBeDefined();
     expect(arch.content).toBe('x'.repeat(5000));
   });
 
   test('returns headers only when budget is below TOKEN_BUDGET_MIN', () => {
     const observations = [
-      makeObs(1, 'decision', 100, 'First'),
-      makeObs(2, 'bugfix', 100, 'Second'),
-      makeObs(3, 'pattern', 100, 'Third'),
-      makeObs(4, 'discovery', 100, 'Fourth'),
-      makeObs(5, 'learning', 100, 'Fifth'),
-    ];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '400' });
+        makeObs(1, 'decision', 100, 'First'),
+        makeObs(2, 'bugfix', 100, 'Second'),
+        makeObs(3, 'pattern', 100, 'Third'),
+        makeObs(4, 'discovery', 100, 'Fourth'),
+        makeObs(5, 'learning', 100, 'Fifth'),
+      ],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '400' });
 
     expect(result.observations.length).toBeLessThanOrEqual(CONTEXT.HEADERS_ONLY_LIMIT);
     for (const o of result.observations) {
@@ -158,27 +158,27 @@ describe('context() with token-budget', () => {
   });
 
   test('handles zero or invalid budget gracefully (treats as no budget)', () => {
-    const observations = [makeObs(1, 'decision', 100), makeObs(2, 'bugfix', 100)];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '0' });
+    const observations = [makeObs(1, 'decision', 100), makeObs(2, 'bugfix', 100)],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '0' });
 
     expect(result.observations).toHaveLength(2);
     expect(result.stats.budget_tokens).toBeUndefined();
   });
 
   test('handles negative budget as no budget', () => {
-    const observations = [makeObs(1, 'decision', 100)];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '-100' });
+    const observations = [makeObs(1, 'decision', 100)],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '-100' });
 
     expect(result.observations).toHaveLength(1);
     expect(result.stats.budget_tokens).toBeUndefined();
   });
 
   test('stops adding observations when budget is exhausted', () => {
-    const observations = Array.from({ length: 10 }, (_, i) => makeObs(i + 1, 'discovery', 500));
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '700' });
+    const observations = Array.from({ length: 10 }, (_, i) => makeObs(i + 1, 'discovery', 500)),
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '700' });
 
     expect(result.observations.length).toBeLessThan(10);
     expect(result.stats.budget_used).toBeLessThanOrEqual(700);
@@ -186,26 +186,28 @@ describe('context() with token-budget', () => {
 
   test('prefers truncation to dropping entirely', () => {
     const observations = [
-      makeObs(1, 'discovery', 1000, 'Important discovery'),
-      makeObs(2, 'learning', 100, 'Quick learning'),
-    ];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '600' });
+        makeObs(1, 'discovery', 1000, 'Important discovery'),
+        makeObs(2, 'learning', 100, 'Quick learning'),
+      ],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '600' });
 
     expect(result.observations.length).toBe(2);
-    const discovery = result.observations.find((o) => o.id === 1);
-    const learning = result.observations.find((o) => o.id === 2);
-    expect(learning.content).toBe('x'.repeat(100));
-    expect(learning._truncated).not.toBe(true);
+    {
+      const discovery = result.observations.find((o) => o.id === 1),
+        learning = result.observations.find((o) => o.id === 2);
+      expect(learning.content).toBe('x'.repeat(100));
+      expect(learning._truncated).not.toBe(true);
+    }
   });
 
   test('headers-only branch respects budget (no overflow)', () => {
     // With budget=50 and 5 observations, headers should not exceed 50 tokens total
     const observations = Array.from({ length: 5 }, (_, i) =>
-      makeObs(i + 1, 'discovery', 100, `Very Long Title For Memory Number ${i + 1}`),
-    );
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '50' });
+        makeObs(i + 1, 'discovery', 100, `Very Long Title For Memory Number ${i + 1}`),
+      ),
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '50' });
 
     expect(result.stats.budget_used).toBeLessThanOrEqual(50);
     for (const o of result.observations) {
@@ -216,16 +218,18 @@ describe('context() with token-budget', () => {
 
   test('continues processing after successful header fallback', () => {
     // First obs is large (gets truncated to header), second is small (fits fully)
-    const observations = [makeObs(1, 'discovery', 5000, 'Huge discovery'), makeObs(2, 'learning', 10, 'Tiny learning')];
-    const deps = makeDeps(observations);
-    const result = context(deps, { project: 'TestProject', 'token-budget': '600' });
+    const observations = [makeObs(1, 'discovery', 5000, 'Huge discovery'), makeObs(2, 'learning', 10, 'Tiny learning')],
+      deps = makeDeps(observations),
+      result = context(deps, { project: 'TestProject', 'token-budget': '600' }),
+      tiny = (() => {
+        // Both observations should be present
+        expect(result.observations.length).toBe(2);
+        // First should be truncated
+        expect(result.observations.find((o) => o.id === 1)._truncated).toBe(true);
+        // Second should be intact (it fits in remaining budget)
 
-    // Both observations should be present
-    expect(result.observations.length).toBe(2);
-    // First should be truncated
-    expect(result.observations.find((o) => o.id === 1)._truncated).toBe(true);
-    // Second should be intact (it fits in remaining budget)
-    const tiny = result.observations.find((o) => o.id === 2);
+        return result.observations.find((o) => o.id === 2);
+      })();
     expect(tiny.content).toBe('x'.repeat(10));
   });
 });

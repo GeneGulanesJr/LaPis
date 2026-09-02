@@ -37,9 +37,9 @@ function extractHandler(deps) {
 describe('contextLimit extension setting', () => {
   test('uses contextLimit from getSettings instead of default PROMPT_RELEVANT_LIMIT (3)', async () => {
     const deps = buildDeps({
-      getSettings: () => ({ contextLimit: 20 }),
-    });
-    const handler = extractHandler(deps);
+        getSettings: () => ({ contextLimit: 20 }),
+      }),
+      handler = extractHandler(deps);
 
     await handler({ prompt: 'some query' }, { cwd: process.cwd() });
 
@@ -48,9 +48,9 @@ describe('contextLimit extension setting', () => {
 
   test('uses contextLimit from getSettings instead of default PROJECT_SUMMARY_LIMIT (1)', async () => {
     const deps = buildDeps({
-      getSettings: () => ({ contextLimit: 15 }),
-    });
-    const handler = extractHandler(deps);
+        getSettings: () => ({ contextLimit: 15 }),
+      }),
+      handler = extractHandler(deps);
 
     // No prompt → would normally use PROJECT_SUMMARY_LIMIT (1)
     await handler({}, { cwd: process.cwd() });
@@ -60,9 +60,9 @@ describe('contextLimit extension setting', () => {
 
   test('falls back to PROMPT_RELEVANT_LIMIT (3) when getSettings returns no contextLimit', async () => {
     const deps = buildDeps({
-      getSettings: () => ({}),
-    });
-    const handler = extractHandler(deps);
+        getSettings: () => ({}),
+      }),
+      handler = extractHandler(deps);
 
     await handler({ prompt: 'some query' }, { cwd: process.cwd() });
 
@@ -70,8 +70,8 @@ describe('contextLimit extension setting', () => {
   });
 
   test('falls back to PROJECT_SUMMARY_LIMIT (1) when getSettings is not provided', async () => {
-    const deps = buildDeps();
-    const handler = extractHandler(deps);
+    const deps = buildDeps(),
+      handler = extractHandler(deps);
 
     await handler({}, { cwd: process.cwd() });
 
@@ -80,9 +80,9 @@ describe('contextLimit extension setting', () => {
 
   test('ignores contextLimit of 0 and uses default', async () => {
     const deps = buildDeps({
-      getSettings: () => ({ contextLimit: 0 }),
-    });
-    const handler = extractHandler(deps);
+        getSettings: () => ({ contextLimit: 0 }),
+      }),
+      handler = extractHandler(deps);
 
     await handler({ prompt: 'some query' }, { cwd: process.cwd() });
 
@@ -92,9 +92,9 @@ describe('contextLimit extension setting', () => {
 
   test('ignores negative contextLimit and uses default', async () => {
     const deps = buildDeps({
-      getSettings: () => ({ contextLimit: -3 }),
-    });
-    const handler = extractHandler(deps);
+        getSettings: () => ({ contextLimit: -3 }),
+      }),
+      handler = extractHandler(deps);
 
     await handler({}, { cwd: process.cwd() });
 

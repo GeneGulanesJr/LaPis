@@ -77,113 +77,115 @@ export function registerDocTools(pi: ExtensionAPI, deps: DocDeps) {
           'reindex-docs': 'reindex-docs',
         };
         const mode = typeof params.mode === 'string' ? params.mode : '';
+        const cmd = mode ? cmdMap[mode] : undefined;
         if (!mode) {
           return toolTextResult(docHelpText());
         }
 
-        const cmd = cmdMap[mode];
         if (!cmd) {
           return toolTextResult(`Unknown memory-doc mode: ${mode}\n\n${docHelpText()}`, {}, true);
         }
 
-        const validationError = validateDocParams(mode, params);
-        if (validationError) {
-          return toolTextResult(validationError, {}, true);
-        }
+        {
+          const validationError = validateDocParams(mode, params),
+            args = !validationError ? {} : undefined;
+          if (validationError) {
+            return toolTextResult(validationError, {}, true);
+          }
 
-        const args: Record<string, string> = {};
-        if (params.repo) {
-          args.repo = params.repo;
-        }
-        if (params.query) {
-          args.query = params.query;
-        }
-        if (params.file) {
-          args.file = params.file;
-        }
-        if (params.doc_path) {
-          args.path = params.doc_path;
-        }
-        if (params.term) {
-          args.term = params.term;
-        }
-        if (params.section) {
-          args.section = String(params.section);
-        }
-        if (params.level) {
-          args.level = String(params.level);
-        }
-        if (params.role) {
-          args.role = params.role;
-        }
-        if (params.lang) {
-          args.lang = params.lang;
-        }
-        if (params.include_same_doc) {
-          args['include-same-doc'] = 'true';
-        }
-        if (params.doc_repo) {
-          args['doc-repo'] = params.doc_repo;
-        }
-        if (params.path) {
-          args.path = params.path;
-        }
-        if (params.name) {
-          args.name = params.name;
-        }
-        if (params.ignore) {
-          args.ignore = params.ignore;
-        }
+          if (params.repo) {
+            args.repo = params.repo;
+          }
+          if (params.query) {
+            args.query = params.query;
+          }
+          if (params.file) {
+            args.file = params.file;
+          }
+          if (params.doc_path) {
+            args.path = params.doc_path;
+          }
+          if (params.term) {
+            args.term = params.term;
+          }
+          if (params.section) {
+            args.section = String(params.section);
+          }
+          if (params.level) {
+            args.level = String(params.level);
+          }
+          if (params.role) {
+            args.role = params.role;
+          }
+          if (params.lang) {
+            args.lang = params.lang;
+          }
+          if (params.include_same_doc) {
+            args['include-same-doc'] = 'true';
+          }
+          if (params.doc_repo) {
+            args['doc-repo'] = params.doc_repo;
+          }
+          if (params.path) {
+            args.path = params.path;
+          }
+          if (params.name) {
+            args.name = params.name;
+          }
+          if (params.ignore) {
+            args.ignore = params.ignore;
+          }
 
-        if (mode === 'index-docs' || mode === 'reindex-docs') {
+          if (mode === 'index-docs' || mode === 'reindex-docs') {
+            const result = await deps.mem(cmd, args);
+            if (!result) {
+              return toolTextResult('Doc indexing failed or timed out.', {}, true);
+            }
+            if (result.error) {
+              return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
+            }
+            let fmt: string | undefined | null;
+            try {
+              fmt = deps.formatDocResult(mode, result);
+            } catch {
+              fmt = '';
+            }
+            return toolTextResult(fmt || 'Doc indexing completed.', result ?? {});
+          }
+
+          const docRepos = await deps.getKnownDocRepos(),
+            docRepoMatch = docRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
+          if (!docRepoMatch) {
+            const available = docRepos.map((r) => r.name).join(', ') || 'none',
+              cwd = process.cwd();
+            return normalizeToolResult({
+              content: [
+                {
+                  type: 'text',
+                  text: `❌ Doc repo \"${params.repo}\" is not indexed. Available repos: ${available}\n\nTo index these docs, run:\n\`memory-doc index-docs --path ${cwd} --name ${params.repo}\``,
+                },
+              ],
+              details: {},
+              isError: true,
+            });
+          }
+
           const result = await deps.mem(cmd, args);
           if (!result) {
-            return toolTextResult('Doc indexing failed or timed out.', {}, true);
+            return toolTextResult('Doc query failed.', {}, true);
           }
           if (result.error) {
             return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
           }
+
           let fmt: string | undefined | null;
           try {
             fmt = deps.formatDocResult(mode, result);
           } catch {
             fmt = '';
           }
-          return toolTextResult(fmt || 'Doc indexing completed.', result ?? {});
+          return toolTextResult(fmt || `No ${mode} results found.`, result ?? {});
         }
-
-        const docRepos = await deps.getKnownDocRepos();
-        const docRepoMatch = docRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
-        if (!docRepoMatch) {
-          const available = docRepos.map((r) => r.name).join(', ') || 'none';
-          const cwd = process.cwd();
-          return normalizeToolResult({
-            content: [
-              {
-                type: 'text',
-                text: `❌ Doc repo \"${params.repo}\" is not indexed. Available repos: ${available}\n\nTo index these docs, run:\n\`memory-doc index-docs --path ${cwd} --name ${params.repo}\``,
-              },
-            ],
-            details: {},
-            isError: true,
-          });
-        }
-
-        const result = await deps.mem(cmd, args);
-        if (!result) {
-          return toolTextResult('Doc query failed.', {}, true);
-        }
-        if (result.error) {
-          return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
-        }
-
-        let fmt: string | undefined | null;
-        try {
-          fmt = deps.formatDocResult(mode, result);
-        } catch {
-          fmt = '';
-        }
-        return toolTextResult(fmt || `No ${mode} results found.`, result ?? {});
       } catch (err) {
         return toolTextResult(`Unexpected error: ${stringifyToolError(err)}`, {}, true);
       }

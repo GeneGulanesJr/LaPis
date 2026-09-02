@@ -63,11 +63,11 @@ describe('hooks-engine project: findMatchingRepo', () => {
 
   test('does not false-match a sibling that merely shares a path prefix', () => {
     // Regression guard for #227: matching must require the platform separator
-    // after the repo path. The fix switched from a hardcoded "/" to path.sep;
-    // a sibling repo whose name is a textual extension of another's path
+    // After the repo path. The fix switched from a hardcoded "/" to path.sep;
+    // A sibling repo whose name is a textual extension of another's path
     // (/repos/alphabeta vs /repos/alpha) must NOT match. This boundary is the
-    // same one that was broken on Windows, where a hardcoded "/" could not
-    // separate a backslash-styled cwd from its repo.
+    // Same one that was broken on Windows, where a hardcoded "/" could not
+    // Separate a backslash-styled cwd from its repo.
     expect(findMatchingRepo('/repos/alphabeta', repos)).toBeNull();
   });
 

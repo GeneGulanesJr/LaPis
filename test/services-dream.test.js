@@ -1,5 +1,5 @@
-const { runCompact, compact, dream, trustRecovery } = require('../services/dream');
-const dbModule = require('../db');
+const { runCompact, compact, dream, trustRecovery } = require('../services/dream'),
+  dbModule = require('../db');
 
 describe('services/dream: runCompact', () => {
   beforeAll(() => {
@@ -64,11 +64,11 @@ describe('services/dream: trustRecovery', () => {
 describe('services/dream: dream', () => {
   it('should run dream phases and return a report', () => {
     const deps = {
-      sqlJson: vi.fn(() => []),
-      sqlRun: vi.fn(),
-      softDeleteObservation: vi.fn(),
-    };
-    const result = dream(deps);
+        sqlJson: vi.fn(() => []),
+        sqlRun: vi.fn(),
+        softDeleteObservation: vi.fn(),
+      },
+      result = dream(deps);
     expect(result.ok).toBe(true);
     expect(result.phases).toBeDefined();
     expect(result.totalCleaned).toBeDefined();
@@ -77,21 +77,21 @@ describe('services/dream: dream', () => {
 
   it('should supersede duplicate memories in phase 1', () => {
     const supersededRows = [
-      {
-        id: 10,
-        title: 'Duplicate entry',
-        type: 'decision',
-        project: 'proj',
-        newer_id: 20,
-        relation: 'duplicate',
-        confidence: 0.95,
-      },
-    ];
-    const deps = {
-      sqlJson: vi.fn(() => []),
-      sqlRun: vi.fn(),
-      softDeleteObservation: vi.fn(),
-    };
+        {
+          id: 10,
+          title: 'Duplicate entry',
+          type: 'decision',
+          project: 'proj',
+          newer_id: 20,
+          relation: 'duplicate',
+          confidence: 0.95,
+        },
+      ],
+      deps = {
+        sqlJson: vi.fn(() => []),
+        sqlRun: vi.fn(),
+        softDeleteObservation: vi.fn(),
+      };
     let callCount = 0;
     deps.sqlJson = vi.fn(() => {
       callCount++;

@@ -1,5 +1,15 @@
-const path = require('path');
-const { hashContent } = require('../../utils');
+const path = require('path'),
+  { hashContent } = require('../../utils'),
+  ROLE_PATTERNS = [
+    { pattern: /tutorial|getting.?started|quickstart|walkthrough/i, role: 'tutorial' },
+    { pattern: /api|reference|endpoint|method/i, role: 'api' },
+    { pattern: /how.?to|guide|cookbook/i, role: 'how_to' },
+    { pattern: /concept|overview|architecture|design|philosophy/i, role: 'concept' },
+    { pattern: /troubleshoot|debug|fix|common.?error|pitfall/i, role: 'troubleshooting' },
+    { pattern: /changelog|release|history|what.?new/i, role: 'changelog' },
+    { pattern: /faq|q&a|frequently/i, role: 'faq' },
+    { pattern: /example|demo|sample|snippet/i, role: 'example' },
+  ];
 
 function slugify(text) {
   return text
@@ -9,17 +19,6 @@ function slugify(text) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 }
-
-const ROLE_PATTERNS = [
-  { pattern: /tutorial|getting.?started|quickstart|walkthrough/i, role: 'tutorial' },
-  { pattern: /api|reference|endpoint|method/i, role: 'api' },
-  { pattern: /how.?to|guide|cookbook/i, role: 'how_to' },
-  { pattern: /concept|overview|architecture|design|philosophy/i, role: 'concept' },
-  { pattern: /troubleshoot|debug|fix|common.?error|pitfall/i, role: 'troubleshooting' },
-  { pattern: /changelog|release|history|what.?new/i, role: 'changelog' },
-  { pattern: /faq|q&a|frequently/i, role: 'faq' },
-  { pattern: /example|demo|sample|snippet/i, role: 'example' },
-];
 
 function classifyRole(title, content) {
   const text = `${title} ${(content || '').slice(0, 200)}`;
@@ -32,8 +31,8 @@ function classifyRole(title, content) {
 }
 
 function extractTags(content) {
-  const tags = new Set();
-  const re = /(?<!#)#(\w{2,})/g;
+  const tags = new Set(),
+    re = /(?<!#)#(\w{2,})/g;
   let match;
   while ((match = re.exec(content)) !== null) {
     tags.add(match[1].toLowerCase());
@@ -52,14 +51,16 @@ function finalizeSection(section, lines, endLine, lineByteOffsets) {
 }
 
 function parseMarkdownSections(content, filePath) {
-  const sections = [];
-  const lines = content.split('\n');
-  const lineByteOffsets = [0];
+  const sections = [],
+    lines = content.split('\n'),
+    lineByteOffsets = [0];
   for (let l = 0; l < lines.length; l++) {
     lineByteOffsets.push(lineByteOffsets[l] + lines[l].length + 1);
   }
 
-  let i = 0;
+  let i = 0,
+    currentSection = null,
+    hasHeadings = false;
   if (lines[0] && lines[0].trim() === '---') {
     i = 1;
     while (i < lines.length && lines[i].trim() !== '---') {
@@ -68,13 +69,10 @@ function parseMarkdownSections(content, filePath) {
     i++;
   }
 
-  let currentSection = null;
-  let hasHeadings = false;
-
   while (i < lines.length) {
-    const line = lines[i];
-    const atxMatch = line.match(/^(#{1,6})\s+(.+)$/);
-    const setextMatch = i + 1 < lines.length && (lines[i + 1].match(/^={3,}\s*$/) || lines[i + 1].match(/^-{3,}\s*$/));
+    const line = lines[i],
+      atxMatch = line.match(/^(#{1,6})\s+(.+)$/),
+      setextMatch = i + 1 < lines.length && (lines[i + 1].match(/^={3,}\s*$/) || lines[i + 1].match(/^-{3,}\s*$/));
 
     if (atxMatch) {
       hasHeadings = true;

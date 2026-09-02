@@ -8,11 +8,10 @@
  * native module, and the bundled skill. Exits 0 only when all checks pass.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-
-const { readText, topBlockRange } = require('./config-editor');
-const { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
+const fs = require('node:fs'),
+  path = require('node:path'),
+  { readText, topBlockRange } = require('./config-editor'),
+  { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
 
 function checkConfigFile(paths) {
   if (!fs.existsSync(paths.config)) {
@@ -30,13 +29,13 @@ function checkConfigFile(paths) {
 }
 
 function checkMcpConfig(paths, mcpName) {
-  const text = readText(paths.config);
-  const range = topBlockRange(text, 'mcp_servers');
+  const text = readText(paths.config),
+    range = topBlockRange(text, 'mcp_servers'),
+    block = range ? text.split('\n').slice(range.start, range.end).join('\n') : undefined,
+    subRe = range ? new RegExp(`^\\s{2}${mcpName}\\s*:`, 'm') : undefined;
   if (!range) {
     return { ok: false, name: `MCP server "${mcpName}"`, detail: 'no mcp_servers block in config' };
   }
-  const block = text.split('\n').slice(range.start, range.end).join('\n');
-  const subRe = new RegExp(`^\\s{2}${mcpName}\\s*:`, 'm');
   if (!subRe.test(block)) {
     return { ok: false, name: `MCP server "${mcpName}"`, detail: `mcp_servers.${mcpName} entry missing` };
   }
@@ -47,22 +46,24 @@ function checkMcpConfig(paths, mcpName) {
       detail: 'entry looks incomplete (expected memory-store.js + enabled: true)',
     };
   }
-  const envOk = /LAPIS_HOME\s*:/.test(block);
-  return {
-    ok: true,
-    name: `MCP server "${mcpName}"`,
-    detail: `configured${envOk ? ' with LAPIS_HOME pinned' : ' (no LAPIS_HOME env — DB may split across homes)'}`,
-  };
+  {
+    const envOk = /LAPIS_HOME\s*:/.test(block);
+    return {
+      ok: true,
+      name: `MCP server "${mcpName}"`,
+      detail: `configured${envOk ? ' with LAPIS_HOME pinned' : ' (no LAPIS_HOME env — DB may split across homes)'}`,
+    };
+  }
 }
 
 function checkHooksConfig(paths) {
-  const text = readText(paths.config);
-  const command = hookCommand();
-  const missing = [];
+  const text = readText(paths.config),
+    command = hookCommand(),
+    missing = [];
   for (const { event, matcher } of HOOK_EVENTS) {
-    const eventRe = new RegExp(`^\\s{2}${event}\\s*:`, 'm');
-    const hasEvent = eventRe.test(text);
-    const hasItem = text.includes(`command: ${command}`) || text.includes(`command: "${command}"`);
+    const eventRe = new RegExp(`^\\s{2}${event}\\s*:`, 'm'),
+      hasEvent = eventRe.test(text),
+      hasItem = text.includes(`command: ${command}`) || text.includes(`command: "${command}"`);
     if (!hasEvent || !hasItem) {
       missing.push(event);
     }
@@ -91,10 +92,10 @@ function checkAllowlist(paths) {
   } catch {
     return { ok: false, name: 'Hook consent', detail: `${paths.allowlist} missing or corrupt` };
   }
-  const approvals = Array.isArray(data.approvals) ? data.approvals : [];
-  const missing = HOOK_EVENTS.filter(
-    ({ event }) => !approvals.some((a) => a && a.event === event && a.command === command),
-  ).map(({ event }) => event);
+  const approvals = Array.isArray(data.approvals) ? data.approvals : [],
+    missing = HOOK_EVENTS.filter(
+      ({ event }) => !approvals.some((a) => a && a.event === event && a.command === command),
+    ).map(({ event }) => event);
   if (missing.length > 0) {
     return { ok: false, name: 'Hook consent', detail: `not allowlisted: ${missing.join(', ')}` };
   }
@@ -105,12 +106,14 @@ function checkDatabase(io) {
   try {
     const db = require('../../db');
     db.ensureDb();
-    const conn = db.getDb();
-    const row = conn.prepare('SELECT COUNT(*) AS n FROM sqlite_master').get();
-    if (!row || typeof row.n !== 'number') {
-      return { ok: false, name: 'SQLite database', detail: 'schema query failed' };
+    {
+      const conn = db.getDb(),
+        row = conn.prepare('SELECT COUNT(*) AS n FROM sqlite_master').get();
+      if (!row || typeof row.n !== 'number') {
+        return { ok: false, name: 'SQLite database', detail: 'schema query failed' };
+      }
+      return { ok: true, name: 'SQLite database', detail: `reachable at ${db.DB_PATH}` };
     }
-    return { ok: true, name: 'SQLite database', detail: `reachable at ${db.DB_PATH}` };
   } catch (e) {
     return { ok: false, name: 'SQLite database', detail: e instanceof Error ? e.message : String(e) };
   }
@@ -141,25 +144,26 @@ function checkSkill(paths) {
 }
 
 function runDoctor(argv, io = {}) {
-  const flags = parseFlags(argv);
-  const home = resolveHermesHome(flags, io);
-  const paths = hermesPaths(home);
-  const log = io.log || ((l) => console.log(l));
+  const flags = parseFlags(argv),
+    home = resolveHermesHome(flags, io),
+    paths = hermesPaths(home),
+    log = io.log || ((l) => console.log(l)),
+    checks = [
+      checkConfigFile(paths),
+      checkMcpConfig(paths, flags.mcpName),
+      checkHooksConfig(paths),
+      checkAllowlist(paths),
+      checkDatabase(io),
+      checkNativeModule(io),
+      checkSkill(paths),
+    ],
+    ok = (() => {
+      for (const check of checks) {
+        log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
+      }
 
-  const checks = [
-    checkConfigFile(paths),
-    checkMcpConfig(paths, flags.mcpName),
-    checkHooksConfig(paths),
-    checkAllowlist(paths),
-    checkDatabase(io),
-    checkNativeModule(io),
-    checkSkill(paths),
-  ];
-
-  for (const check of checks) {
-    log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
-  }
-  const ok = checks.every((c) => c.ok);
+      return checks.every((c) => c.ok);
+    })();
   log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
   return { ok, checks };
 }

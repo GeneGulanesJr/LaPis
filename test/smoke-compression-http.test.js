@@ -1,11 +1,10 @@
 // HTTP smoke test for the new mission-state compression endpoint
-const http = require('http');
-const { createDb, resetDb, sqlJson, sqlRun } = require('../db');
-const { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
+const http = require('http'),
+  { createDb, resetDb, sqlJson, sqlRun } = require('../db'),
+  { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
 
 describe('POST /missions/:id/compression (HTTP)', () => {
-  let server;
-  let baseUrl;
+  let server, baseUrl;
 
   beforeAll(async () => {
     resetDb();
@@ -35,27 +34,29 @@ describe('POST /missions/:id/compression (HTTP)', () => {
 
   function request(method, path, body) {
     return new Promise((resolve, reject) => {
-      const url = new URL(path, baseUrl);
-      const opts = {
-        method,
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname + url.search,
-        headers: { 'Content-Type': 'application/json' },
-      };
-      const req = http.request(opts, (res) => {
-        let data = '';
-        res.on('data', (chunk) => (data += chunk));
-        res.on('end', () => {
-          try {
-            resolve({ status: res.statusCode, body: data ? JSON.parse(data) : null });
-          } catch (e) {
-            resolve({ status: res.statusCode, body: data });
-          }
+      const url = new URL(path, baseUrl),
+        opts = {
+          method,
+          hostname: url.hostname,
+          port: url.port,
+          path: url.pathname + url.search,
+          headers: { 'Content-Type': 'application/json' },
+        },
+        req = http.request(opts, (res) => {
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => {
+            try {
+              resolve({ status: res.statusCode, body: data ? JSON.parse(data) : null });
+            } catch (e) {
+              resolve({ status: res.statusCode, body: data });
+            }
+          });
         });
-      });
       req.on('error', reject);
-      if (body) req.write(JSON.stringify(body));
+      if (body) {
+        req.write(JSON.stringify(body));
+      }
       req.end();
     });
   }
@@ -66,7 +67,7 @@ describe('POST /missions/:id/compression (HTTP)', () => {
     expect(typeof res.body.summary).toBe('string');
     expect(typeof res.body.tokensSaved).toBe('number');
     expect(res.body.tokensSaved).toBeGreaterThanOrEqual(0);
-    // error is optional; if present, must be a string
+    // Error is optional; if present, must be a string
     if (res.body.error !== undefined) {
       expect(typeof res.body.error).toBe('string');
     }
@@ -89,7 +90,9 @@ describe('POST /missions/:id/compression (HTTP)', () => {
   it('persists the compression run to mission_compression_log', async () => {
     const before = sqlJson('SELECT COUNT(*) AS c FROM mission_compression_log WHERE mission_id = ?', ['m-smoke-1']);
     await request('POST', '/missions/m-smoke-1/compression', { trigger: 'manual' });
-    const after = sqlJson('SELECT COUNT(*) AS c FROM mission_compression_log WHERE mission_id = ?', ['m-smoke-1']);
-    expect(after[0].c).toBe(before[0].c + 1);
+    {
+      const after = sqlJson('SELECT COUNT(*) AS c FROM mission_compression_log WHERE mission_id = ?', ['m-smoke-1']);
+      expect(after[0].c).toBe(before[0].c + 1);
+    }
   });
 });

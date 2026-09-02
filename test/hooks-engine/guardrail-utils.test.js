@@ -84,7 +84,7 @@ describe('hooks-engine guardrail-utils: isTargetedGrepLookup (Grep tool)', () =>
   test('blocks a regex/structural pattern', () => {
     expect(isTargetedGrepLookup({ pattern: 'function\\s+\\w+' })).toBe(false);
     expect(isTargetedGrepLookup({ pattern: 'foo|bar' })).toBe(false);
-    expect(isTargetedGrepLookup({ pattern: 'ctx' })).toBe(false); // too short
+    expect(isTargetedGrepLookup({ pattern: 'ctx' })).toBe(false); // Too short
   });
 
   test('blocks a whitespace phrase (broad text search)', () => {

@@ -1,6 +1,6 @@
 function buildSectionHierarchy(sections) {
-  const stack = [];
-  const result = [];
+  const stack = [],
+    result = [];
   for (let idx = 0; idx < sections.length; idx++) {
     const sec = sections[idx];
     while (stack.length > 0 && stack[stack.length - 1].level >= sec.level) {
@@ -13,11 +13,14 @@ function buildSectionHierarchy(sections) {
 }
 
 function buildOutlineTree(sections) {
-  const byId = new Map();
-  for (const s of sections) {
-    byId.set(s.id, { ...s, children: [] });
-  }
-  const roots = [];
+  const byId = new Map(),
+    roots = (() => {
+      for (const s of sections) {
+        byId.set(s.id, { ...s, children: [] });
+      }
+
+      return [];
+    })();
   for (const s of sections) {
     const node = byId.get(s.id);
     if (s.parent_id && byId.has(s.parent_id)) {
@@ -35,10 +38,12 @@ function getDocOutline(db, repoId, filePath) {
     if (!file) {
       return { error: `Doc file not found: ${filePath}` };
     }
-    const sections = db
-      .prepare('SELECT id, title, level, parent_id, role FROM doc_sections WHERE file_id = ? ORDER BY byte_start')
-      .all(file.id);
-    return buildOutlineTree(sections);
+    {
+      const sections = db
+        .prepare('SELECT id, title, level, parent_id, role FROM doc_sections WHERE file_id = ? ORDER BY byte_start')
+        .all(file.id);
+      return buildOutlineTree(sections);
+    }
   }
   const files = db
     .prepare(`

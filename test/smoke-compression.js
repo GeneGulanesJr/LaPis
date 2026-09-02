@@ -2,25 +2,23 @@
  * Smoke test: simulates Pi's ExtensionAPI to verify the hook wires up correctly.
  * Run with: npx tsx test/smoke-compression.js
  */
-const { registerOutputCompression } = require('../extensions/memory-layer/hooks/output-compression.js');
-
-// ---- Minimal ExtensionAPI mock ----
-const handlers = {};
-const mockPi = {
-  on: (event, handler) => {
-    handlers[event] = handler;
+const { registerOutputCompression } = require('../extensions/memory-layer/hooks/output-compression.js'),
+  // ---- Minimal ExtensionAPI mock ----
+  handlers = {},
+  mockPi = {
+    on: (event, handler) => {
+      handlers[event] = handler;
+    },
   },
-};
-
-// ---- Minimal state ----
-const state = {
-  compressionStats: {
-    totalRuns: 0,
-    totalOriginalTokens: 0,
-    totalCompressedTokens: 0,
-    totalSavedTokens: 0,
-  },
-};
+  // ---- Minimal state ----
+  state = {
+    compressionStats: {
+      totalRuns: 0,
+      totalOriginalTokens: 0,
+      totalCompressedTokens: 0,
+      totalSavedTokens: 0,
+    },
+  };
 
 // ---- Minimal getConfig ----
 function getConfig() {
@@ -35,8 +33,8 @@ function getConfig() {
 async function runSmokeTest() {
   console.log('🔥 Output Compression Hook — Smoke Test\n');
 
-  let passed = 0;
-  let failed = 0;
+  let passed = 0,
+    failed = 0;
 
   function assert(condition, label) {
     if (condition) {
@@ -65,81 +63,98 @@ async function runSmokeTest() {
 
   // 3. Non-bash tool — should be skipped
   console.log('\n3. Non-bash tool (should be skipped)...');
-  const readResult = await handler(
+  {
+    const readResult = await handler(
+      {
+        type: 'tool_result',
+        toolName: 'read',
+        toolCallId: 'call-1',
+        input: { path: '/foo.ts' },
+        content: [{ type: 'text', text: 'file contents' }],
+        details: undefined,
+        isError: false,
+      },
+      {},
+    );
+    assert(readResult === undefined, 'Non-bash tool returned undefined (correct)');
+
+    // 4. Short bash output — should be skipped
+    console.log('\n4. Short bash output (should be skipped)...');
     {
-      type: 'tool_result',
-      toolName: 'read',
-      toolCallId: 'call-1',
-      input: { path: '/foo.ts' },
-      content: [{ type: 'text', text: 'file contents' }],
-      details: undefined,
-      isError: false,
-    },
-    {},
-  );
-  assert(readResult === undefined, 'Non-bash tool returned undefined (correct)');
+      const shortResult = await handler(
+        {
+          type: 'tool_result',
+          toolName: 'bash',
+          toolCallId: 'call-2',
+          input: { command: 'echo hi' },
+          content: [{ type: 'text', text: 'hello world' }],
+          details: undefined,
+          isError: false,
+        },
+        {},
+      );
+      assert(shortResult === undefined, 'Short output returned undefined (correct)');
 
-  // 4. Short bash output — should be skipped
-  console.log('\n4. Short bash output (should be skipped)...');
-  const shortResult = await handler(
-    {
-      type: 'tool_result',
-      toolName: 'bash',
-      toolCallId: 'call-2',
-      input: { command: 'echo hi' },
-      content: [{ type: 'text', text: 'hello world' }],
-      details: undefined,
-      isError: false,
-    },
-    {},
-  );
-  assert(shortResult === undefined, 'Short output returned undefined (correct)');
+      // 5. Large bash output — should be compressed
+      console.log('\n5. Large bash output (should be compressed)...');
+      {
+        const largeOutput = 'Test output line\n'.repeat(500),
+          largeResult = await handler(
+            {
+              type: 'tool_result',
+              toolName: 'bash',
+              toolCallId: 'call-3',
+              input: { command: 'npm test' },
+              content: [{ type: 'text', text: largeOutput }],
+              details: undefined,
+              isError: false,
+            },
+            {},
+          ),
+          config = (() => {
+            assert(largeResult !== undefined, 'Large output returned a result (correct)');
+            assert(
+              largeResult.content && largeResult.content[0] && largeResult.content[0].text,
+              'Result has content with text',
+            );
+            assert(
+              largeResult.content[0].text.startsWith('[Output compressed:'),
+              'Result starts with compression prefix',
+            );
+            assert(
+              largeResult.content[0].text.length < largeOutput.length,
+              `Output was compressed (${largeResult.content[0].text.length} < ${largeOutput.length})`,
+            );
 
-  // 5. Large bash output — should be compressed
-  console.log('\n5. Large bash output (should be compressed)...');
-  const largeOutput = 'Test output line\n'.repeat(500);
-  const largeResult = await handler(
-    {
-      type: 'tool_result',
-      toolName: 'bash',
-      toolCallId: 'call-3',
-      input: { command: 'npm test' },
-      content: [{ type: 'text', text: largeOutput }],
-      details: undefined,
-      isError: false,
-    },
-    {},
-  );
-  assert(largeResult !== undefined, 'Large output returned a result (correct)');
-  assert(largeResult.content && largeResult.content[0] && largeResult.content[0].text, 'Result has content with text');
-  assert(largeResult.content[0].text.startsWith('[Output compressed:'), 'Result starts with compression prefix');
-  assert(
-    largeResult.content[0].text.length < largeOutput.length,
-    `Output was compressed (${largeResult.content[0].text.length} < ${largeOutput.length})`,
-  );
+            // 6. Stats were updated
+            console.log('\n6. Checking compression stats...');
+            assert(state.compressionStats.totalRuns === 1, `totalRuns === 1 (got ${state.compressionStats.totalRuns})`);
+            assert(state.compressionStats.totalOriginalTokens > 0, 'totalOriginalTokens > 0');
+            assert(state.compressionStats.totalSavedTokens > 0, 'totalSavedTokens > 0');
 
-  // 6. Stats were updated
-  console.log('\n6. Checking compression stats...');
-  assert(state.compressionStats.totalRuns === 1, `totalRuns === 1 (got ${state.compressionStats.totalRuns})`);
-  assert(state.compressionStats.totalOriginalTokens > 0, 'totalOriginalTokens > 0');
-  assert(state.compressionStats.totalSavedTokens > 0, 'totalSavedTokens > 0');
+            // 7. Config defaults
+            console.log('\n7. Checking config defaults...');
 
-  // 7. Config defaults
-  console.log('\n7. Checking config defaults...');
-  const config = getConfig();
-  assert(config.output_compression !== undefined, 'output_compression key exists in config');
-  assert(config.output_compression?.enabled === true, 'output_compression.enabled defaults to true');
-  assert(config.output_compression?.min_chars === 2000, 'output_compression.min_chars defaults to 2000');
-  assert(
-    config.output_compression?.min_savings_percent === 30,
-    'output_compression.min_savings_percent defaults to 30',
-  );
+            return getConfig();
+          })();
+        assert(config.output_compression !== undefined, 'output_compression key exists in config');
+        assert(config.output_compression?.enabled === true, 'output_compression.enabled defaults to true');
+        assert(config.output_compression?.min_chars === 2000, 'output_compression.min_chars defaults to 2000');
+        assert(
+          config.output_compression?.min_savings_percent === 30,
+          'output_compression.min_savings_percent defaults to 30',
+        );
 
-  // Summary
-  console.log(`\n${'='.repeat(40)}`);
-  console.log(`Results: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
-  console.log('\n🎉 All smoke tests passed!\n');
+        // Summary
+        console.log(`\n${'='.repeat(40)}`);
+        console.log(`Results: ${passed} passed, ${failed} failed`);
+        if (failed > 0) {
+          process.exit(1);
+        }
+        console.log('\n🎉 All smoke tests passed!\n');
+      }
+    }
+  }
 }
 
 runSmokeTest().catch((e) => {

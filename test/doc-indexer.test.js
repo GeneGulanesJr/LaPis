@@ -1,19 +1,18 @@
 // Integration tests for doc-indexer (v5)
-const { execSync } = require('child_process');
-const path = require('path');
-
-const STORE = path.resolve(__dirname, '..', 'memory-store.js');
-const DOC_REPO = 'pi-docs';
-const DOC_PATH = path.resolve(__dirname, '..', 'docs');
+const { execSync } = require('child_process'),
+  path = require('path'),
+  STORE = path.resolve(__dirname, '..', 'memory-store.js'),
+  DOC_REPO = 'pi-docs',
+  DOC_PATH = path.resolve(__dirname, '..', 'docs');
 
 function run(cmd) {
   try {
     const out = execSync(`node "${STORE}" ${cmd}`, {
-      encoding: 'utf8',
-      timeout: 15000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    const result = JSON.parse(out.trim());
+        encoding: 'utf8',
+        timeout: 15000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }),
+      result = JSON.parse(out.trim());
     return result.data || result;
   } catch (e) {
     if (e.stdout?.trim()) {

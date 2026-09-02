@@ -5,22 +5,13 @@ import { MEMORY_SCRIPT, MemResult, getTimeout } from '../state';
 
 export type { MemResult };
 
-let _inProcessDispatch: ((cmd: string, args: Record<string, string>) => Promise<MemResult | null>) | null = null;
-
-// In-process dispatch can fail for reasons unrelated to correctness (e.g. the
-// host runtime can't dlopen better-sqlite3). When that happens we fall back to
-// a child process — but we should only surface the failure ONCE per session,
-// not on every preflight/coding-context call. The real cause is reported via
-// openDb()'s improved error message (see db.js).
-let _inProcessFailureReported = false;
-function reportInProcessFailure(cmd: string, msg: string, kind: 'load' | 'dispatch' | 'streaming') {
-  if (_inProcessFailureReported) {
-    return;
-  }
-  _inProcessFailureReported = true;
-  const verb = kind === 'load' ? 'load in-process gateway' : `run ${cmd} in-process`;
-  console.error(`[memory-layer] failed to ${verb}, falling back to child process (this message will not repeat):`, msg);
-}
+let _inProcessDispatch: ((cmd: string, args: Record<string, string>) => Promise<MemResult | null>) | null = null,
+  // In-process dispatch can fail for reasons unrelated to correctness (e.g. the
+  // host runtime can't dlopen better-sqlite3). When that happens we fall back to
+  // a child process — but we should only surface the failure ONCE per session,
+  // not on every preflight/coding-context call. The real cause is reported via
+  // openDb()'s improved error message (see db.js).
+  _inProcessFailureReported = false;
 
 const MAIN_THREAD_BLOCKING_COMMANDS = new Set([
   'index-repo',
@@ -86,23 +77,23 @@ async function memViaChildProcess(
   }
   try {
     const out = await new Promise<string>((resolve, reject) => {
-      const timeout = getTimeout(cmd);
-      const child = execFile(
-        'node',
-        [MEMORY_SCRIPT, ...argList],
-        {
-          encoding: 'utf8',
-          timeout,
-          maxBuffer: 10 * 1024 * 1024,
-        },
-        (err, stdout) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(stdout.trim());
-          }
-        },
-      );
+      const timeout = getTimeout(cmd),
+        child = execFile(
+          'node',
+          [MEMORY_SCRIPT, ...argList],
+          {
+            encoding: 'utf8',
+            timeout,
+            maxBuffer: 10 * 1024 * 1024,
+          },
+          (err, stdout) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(stdout.trim());
+            }
+          },
+        );
       child.on('error', reject);
     });
     return out ? JSON.parse(out) : null;
@@ -165,9 +156,9 @@ export async function memStreaming(
   const dispatch = await getInProcessDispatch();
   // Main-thread blocking commands must always use the child-process path
   // (spawn). The in-process dispatch runs better-sqlite3 synchronously on the
-  // main thread, which freezes Pi's TUI (spinner stops, stdin becomes
-  // unresponsive) when the DB is large. The child-process path is non-blocking
-  // and streams progress via stderr.
+  // Main thread, which freezes Pi's TUI (spinner stops, stdin becomes
+  // Unresponsive) when the DB is large. The child-process path is non-blocking
+  // And streams progress via stderr.
   if (dispatch && !MAIN_THREAD_BLOCKING_COMMANDS.has(cmd)) {
     try {
       const stringArgs: Record<string, string> = {};
@@ -185,87 +176,99 @@ export async function memStreaming(
       reportInProcessFailure(cmd, msg, 'streaming');
     }
   }
-  const argList: string[] = [cmd, '--progress'];
-  for (const [k, v] of Object.entries(args)) {
-    if (v === undefined || v === null || v === '') {
-      // oxlint-disable-next-line no-continue
-      continue;
-    }
-    argList.push(`--${k}`);
-    argList.push(String(v));
-  }
-  const timeout = getTimeout(cmd);
+  const argList: string[] = [cmd, '--progress'],
+    timeout = (() => {
+      for (const [k, v] of Object.entries(args)) {
+        if (v === undefined || v === null || v === '') {
+          // oxlint-disable-next-line no-continue
+          continue;
+        }
+        argList.push(`--${k}`);
+        argList.push(String(v));
+      }
 
+      return getTimeout(cmd);
+    })();
   try {
     return await new Promise<MemResult | null>((resolve, reject) => {
       const child = spawn('node', [MEMORY_SCRIPT, ...argList], {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
-      let stdout = '';
-      let timer: ReturnType<typeof setTimeout> | null = null;
-      const resetTimer = () => {
-        if (timer) {
-          clearTimeout(timer);
-        }
-        timer = setTimeout(() => {
-          child.kill();
-          reject(new Error(`${cmd} timed out after ${timeout}ms without output`));
-        }, timeout + 5000);
-      };
-      resetTimer();
-
-      child.stdout.on('data', (chunk: Buffer) => {
-        stdout += chunk.toString('utf8');
+      let stdout = '',
+        timer: ReturnType<typeof setTimeout> | null = null;
+      {
+        const resetTimer = () => {
+          if (timer) {
+            clearTimeout(timer);
+          }
+          timer = setTimeout(() => {
+            child.kill();
+            reject(new Error(`${cmd} timed out after ${timeout}ms without output`));
+          }, timeout + 5000);
+        };
         resetTimer();
-      });
 
-      if (onProgress) {
-        const rl = createInterface({ input: child.stderr! });
-        rl.on('line', (line: string) => {
+        child.stdout.on('data', (chunk: Buffer) => {
+          stdout += chunk.toString('utf8');
           resetTimer();
-          try {
-            const parsed = JSON.parse(line);
-            if (parsed.progress) {
-              const phase = parsed.phase || '';
-              const message = parsed.message || phase;
-              const filesDone = parsed.files_done ?? '';
-              const filesTotal = parsed.files_total ?? '';
-              const symbols = parsed.symbols ?? '';
-              let statusText = message;
-              if (filesTotal) {
-                statusText = `${message} (${filesDone}/${filesTotal} files, ${symbols} symbols)`;
+        });
+
+        if (onProgress) {
+          const rl = createInterface({ input: child.stderr! });
+          rl.on('line', (line: string) => {
+            resetTimer();
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.progress) {
+                const phase = parsed.phase || '',
+                  message = parsed.message || phase,
+                  filesDone = parsed.files_done ?? '',
+                  filesTotal = parsed.files_total ?? '',
+                  symbols = parsed.symbols ?? '';
+                let statusText = message;
+                if (filesTotal) {
+                  statusText = `${message} (${filesDone}/${filesTotal} files, ${symbols} symbols)`;
+                }
+                onProgress(statusText);
               }
-              onProgress(statusText);
-            }
-          } catch {}
+            } catch {}
+          });
+        }
+
+        child.on('close', (code) => {
+          if (timer) {
+            clearTimeout(timer);
+          }
+          if (code !== 0 && !stdout.trim()) {
+            reject(new Error(`${cmd} exited with code ${code}`));
+            return;
+          }
+          try {
+            const result = stdout.trim() ? JSON.parse(stdout.trim()) : null;
+            resolve(result);
+          } catch {
+            reject(new Error(`${cmd} returned invalid JSON`));
+          }
+        });
+
+        child.on('error', (err) => {
+          if (timer) {
+            clearTimeout(timer);
+          }
+          reject(err);
         });
       }
-
-      child.on('close', (code) => {
-        if (timer) {
-          clearTimeout(timer);
-        }
-        if (code !== 0 && !stdout.trim()) {
-          reject(new Error(`${cmd} exited with code ${code}`));
-          return;
-        }
-        try {
-          const result = stdout.trim() ? JSON.parse(stdout.trim()) : null;
-          resolve(result);
-        } catch {
-          reject(new Error(`${cmd} returned invalid JSON`));
-        }
-      });
-
-      child.on('error', (err) => {
-        if (timer) {
-          clearTimeout(timer);
-        }
-        reject(err);
-      });
     });
   } catch {
     return mem(cmd, args);
   }
+}
+function reportInProcessFailure(cmd: string, msg: string, kind: 'load' | 'dispatch' | 'streaming') {
+  if (_inProcessFailureReported) {
+    return;
+  }
+  _inProcessFailureReported = true;
+  const verb = kind === 'load' ? 'load in-process gateway' : `run ${cmd} in-process`;
+  console.error(`[memory-layer] failed to ${verb}, falling back to child process (this message will not repeat):`, msg);
 }

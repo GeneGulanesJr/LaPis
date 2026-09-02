@@ -1,9 +1,8 @@
-const path = require('path');
-const fs = require('fs');
-const codeParser = require('../parse-code');
-const { extractImportBindings } = require('../src/code-analysis');
-
-const TMP_DIR = path.join('/tmp', 'accuracy-tests');
+const path = require('path'),
+  fs = require('fs'),
+  codeParser = require('../parse-code'),
+  { extractImportBindings } = require('../src/code-analysis'),
+  TMP_DIR = path.join('/tmp', 'accuracy-tests');
 
 function writeTmp(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -41,27 +40,33 @@ function foo() {
 `,
     );
     try {
-      const callees = codeParser.extractCallees(tmpFile);
-      const objCall = callees.find((c) => c.callee === 'method');
-      expect(objCall).toBeDefined();
-      expect(objCall.receiver).toBe('obj');
-      expect(objCall.full_path).toBe('obj.method');
-      expect(objCall.is_method).toBe(true);
+      const callees = codeParser.extractCallees(tmpFile),
+        objCall = callees.find((c) => c.callee === 'method'),
+        thisCall = (() => {
+          expect(objCall).toBeDefined();
+          expect(objCall.receiver).toBe('obj');
+          expect(objCall.full_path).toBe('obj.method');
+          expect(objCall.is_method).toBe(true);
 
-      const thisCall = callees.find((c) => c.callee === 'selfMethod');
+          return callees.find((c) => c.callee === 'selfMethod');
+        })();
       expect(thisCall).toBeDefined();
       expect(thisCall.receiver).toBe('this');
       expect(thisCall.full_path).toBe('this.selfMethod');
 
-      const superCall = callees.find((c) => c.callee === 'parentMethod');
-      expect(superCall).toBeDefined();
-      expect(superCall.receiver).toBe('super');
-      expect(superCall.full_path).toBe('super.parentMethod');
+      {
+        const superCall = callees.find((c) => c.callee === 'parentMethod'),
+          plainCall = (() => {
+            expect(superCall).toBeDefined();
+            expect(superCall.receiver).toBe('super');
+            expect(superCall.full_path).toBe('super.parentMethod');
 
-      const plainCall = callees.find((c) => c.callee === 'plainCall');
-      expect(plainCall).toBeDefined();
-      expect(plainCall.receiver).toBeNull();
-      expect(plainCall.is_method).toBe(false);
+            return callees.find((c) => c.callee === 'plainCall');
+          })();
+        expect(plainCall).toBeDefined();
+        expect(plainCall.receiver).toBeNull();
+        expect(plainCall.is_method).toBe(false);
+      }
     } finally {
       cleanupTmp([tmpFile]);
     }
@@ -78,12 +83,14 @@ function foo() {
 `,
     );
     try {
-      const callees = codeParser.extractCallees(tmpFile);
-      const prepareCall = callees.find((c) => c.callee === 'prepare');
-      expect(prepareCall).toBeDefined();
-      expect(prepareCall.receiver).toBe('db');
+      const callees = codeParser.extractCallees(tmpFile),
+        prepareCall = callees.find((c) => c.callee === 'prepare'),
+        runCall = (() => {
+          expect(prepareCall).toBeDefined();
+          expect(prepareCall.receiver).toBe('db');
 
-      const runCall = callees.find((c) => c.callee === 'run');
+          return callees.find((c) => c.callee === 'run');
+        })();
       expect(runCall).toBeDefined();
     } finally {
       cleanupTmp([tmpFile]);
@@ -103,8 +110,8 @@ function foo() {
 `,
     );
     try {
-      const callees = codeParser.extractCallees(tmpFile);
-      const names = callees.map((c) => c.callee);
+      const callees = codeParser.extractCallees(tmpFile),
+        names = callees.map((c) => c.callee);
       expect(names).toContain('bar');
       expect(names).toContain('baz');
       expect(names).toContain('ClassName');
@@ -123,8 +130,8 @@ function foo() {
 
 describe('accuracy: extractImportBindings', () => {
   it('should parse default imports', () => {
-    const content = `import foo from './utils';`;
-    const bindings = extractImportBindings(content);
+    const content = `import foo from './utils';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(1);
     expect(bindings[0].localName).toBe('foo');
     expect(bindings[0].originalName).toBe('default');
@@ -132,8 +139,8 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse named imports', () => {
-    const content = `import { foo, bar } from './utils';`;
-    const bindings = extractImportBindings(content);
+    const content = `import { foo, bar } from './utils';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(2);
     expect(bindings[0].localName).toBe('foo');
     expect(bindings[0].originalName).toBe('foo');
@@ -142,8 +149,8 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse aliased imports (import { foo as bar })', () => {
-    const content = `import { parse as parseExpr, validate as check } from './parser';`;
-    const bindings = extractImportBindings(content);
+    const content = `import { parse as parseExpr, validate as check } from './parser';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(2);
     expect(bindings[0].localName).toBe('parseExpr');
     expect(bindings[0].originalName).toBe('parse');
@@ -153,8 +160,8 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse mixed default + named imports', () => {
-    const content = `import React, { useState, useEffect } from 'react';`;
-    const bindings = extractImportBindings(content);
+    const content = `import React, { useState, useEffect } from 'react';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(3);
     expect(bindings[0].localName).toBe('React');
     expect(bindings[0].originalName).toBe('default');
@@ -164,16 +171,16 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse namespace imports (* as)', () => {
-    const content = `import * as utils from './utils';`;
-    const bindings = extractImportBindings(content);
+    const content = `import * as utils from './utils';`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(1);
     expect(bindings[0].localName).toBe('utils');
     expect(bindings[0].originalName).toBe('*');
   });
 
   it('should parse require() destructuring with aliases', () => {
-    const content = `const { parse: parseExpr, validate } = require('./parser');`;
-    const bindings = extractImportBindings(content);
+    const content = `const { parse: parseExpr, validate } = require('./parser');`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(2);
     expect(bindings[0].localName).toBe('parseExpr');
     expect(bindings[0].originalName).toBe('parse');
@@ -182,28 +189,31 @@ describe('accuracy: extractImportBindings', () => {
   });
 
   it('should parse require() whole module', () => {
-    const content = `const utils = require('./utils');`;
-    const bindings = extractImportBindings(content);
+    const content = `const utils = require('./utils');`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(1);
     expect(bindings[0].localName).toBe('utils');
     expect(bindings[0].originalName).toBe('*');
   });
 
   it('should return empty for files with no imports', () => {
-    const content = `function foo() { return 1; }`;
-    const bindings = extractImportBindings(content);
+    const content = `function foo() { return 1; }`,
+      bindings = extractImportBindings(content);
     expect(bindings.length).toBe(0);
   });
 
   it('should handle multiple imports across lines', () => {
     const content = [
-      `import { foo } from './a';`,
-      `import { bar as baz } from './b';`,
-      `import defVal from './c';`,
-    ].join('\n');
-    const bindings = extractImportBindings(content);
-    expect(bindings.length).toBe(3);
-    const localNames = bindings.map((b) => b.localName);
+        `import { foo } from './a';`,
+        `import { bar as baz } from './b';`,
+        `import defVal from './c';`,
+      ].join('\n'),
+      bindings = extractImportBindings(content),
+      localNames = (() => {
+        expect(bindings.length).toBe(3);
+
+        return bindings.map((b) => b.localName);
+      })();
     expect(localNames).toContain('foo');
     expect(localNames).toContain('baz');
     expect(localNames).toContain('defVal');
@@ -211,13 +221,12 @@ describe('accuracy: extractImportBindings', () => {
 });
 
 describe('accuracy: end-to-end cross-file resolution', () => {
-  const Database = require('better-sqlite3');
-  const codeAnalysis = require('../src/code-analysis');
-  const TEST_DB_PATH = path.join(TMP_DIR, 'accuracy-test.db');
-  const TEST_REPO_DIR = path.join(TMP_DIR, 'test-repo');
-
-  const files = {
-    'utils.js': `
+  const Database = require('better-sqlite3'),
+    codeAnalysis = require('../src/code-analysis'),
+    TEST_DB_PATH = path.join(TMP_DIR, 'accuracy-test.db'),
+    TEST_REPO_DIR = path.join(TMP_DIR, 'test-repo'),
+    files = {
+      'utils.js': `
 function helper() {
   return 42;
 }
@@ -226,13 +235,13 @@ function processItem(item) {
 }
 module.exports = { helper, processItem };
 `,
-    'parser.js': `
+      'parser.js': `
 function parse(input) {
   return JSON.parse(input);
 }
 module.exports = { parse };
 `,
-    'consumer.js': `
+      'consumer.js': `
 const { helper: getHelp, processItem } = require('./utils');
 const { parse } = require('./parser');
 
@@ -242,7 +251,7 @@ function doWork() {
   parse('{}');
 }
 `,
-    'classes.js': `
+      'classes.js': `
 class Base {
   init() {
     return 'base';
@@ -256,10 +265,9 @@ class Child extends Base {
   }
 }
 `,
-  };
+    };
 
-  let db;
-  let repoId;
+  let db, repoId;
 
   beforeAll(async () => {
     fs.mkdirSync(TEST_REPO_DIR, { recursive: true });
@@ -274,47 +282,50 @@ class Child extends Base {
     const schemaSql = fs.readFileSync(path.resolve(__dirname, '..', 'schema.sql'), 'utf-8');
     db.exec(schemaSql);
 
-    const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)');
-    const info = insertRepo.run('AccuracyTestRepo', TEST_REPO_DIR);
-    repoId = info.lastInsertRowid;
+    {
+      const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)'),
+        info = insertRepo.run('AccuracyTestRepo', TEST_REPO_DIR);
+      repoId = info.lastInsertRowid;
 
-    const insertFile = db.prepare(
-      'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
-    );
-    const insertSymbol = db.prepare(
-      `INSERT INTO code_symbols (repo_id, file_id, name, kind, language, file_path, signature, qualified_name, start_line, end_line, start_byte, end_byte, parent_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
+      {
+        const insertFile = db.prepare(
+            'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+          ),
+          insertSymbol = db.prepare(
+            `INSERT INTO code_symbols (repo_id, file_id, name, kind, language, file_path, signature, qualified_name, start_line, end_line, start_byte, end_byte, parent_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          );
 
-    await codeParser.init();
+        await codeParser.init();
 
-    for (const [name, content] of Object.entries(files)) {
-      const filePath = path.join(TEST_REPO_DIR, name);
-      const hash = require('crypto').createHash('md5').update(content).digest('hex');
-      const fileInfo = insertFile.run(repoId, filePath, 'javascript', content, hash);
-      const fileId = fileInfo.lastInsertRowid;
+        for (const [name, content] of Object.entries(files)) {
+          const filePath = path.join(TEST_REPO_DIR, name),
+            hash = require('crypto').createHash('md5').update(content).digest('hex'),
+            fileInfo = insertFile.run(repoId, filePath, 'javascript', content, hash),
+            fileId = fileInfo.lastInsertRowid,
+            symbols = codeParser.parseFile(filePath);
+          for (const sym of symbols) {
+            insertSymbol.run(
+              repoId,
+              fileId,
+              sym.name,
+              sym.kind,
+              sym.language,
+              sym.file,
+              sym.signature,
+              sym.qualified_name,
+              sym.start_line,
+              sym.end_line,
+              sym.start_byte,
+              sym.end_byte,
+              sym.parent_name || '',
+            );
+          }
+        }
 
-      const symbols = codeParser.parseFile(filePath);
-      for (const sym of symbols) {
-        insertSymbol.run(
-          repoId,
-          fileId,
-          sym.name,
-          sym.kind,
-          sym.language,
-          sym.file,
-          sym.signature,
-          sym.qualified_name,
-          sym.start_line,
-          sym.end_line,
-          sym.start_byte,
-          sym.end_byte,
-          sym.parent_name || '',
-        );
+        codeAnalysis.buildImportGraph(db, repoId);
+        codeAnalysis.buildCallGraph(db, repoId);
       }
     }
-
-    codeAnalysis.buildImportGraph(db, repoId);
-    codeAnalysis.buildCallGraph(db, repoId);
   });
 
   afterAll(() => {
@@ -333,33 +344,37 @@ class Child extends Base {
 
   it('should resolve aliased import getHelp → helper in utils.js', () => {
     const result = codeAnalysis.getCallHierarchy(db, repoId, {
-      symbol: 'doWork',
-      direction: 'callees',
-      depth: 1,
-    });
+        symbol: 'doWork',
+        direction: 'callees',
+        depth: 1,
+      }),
+      resolvedCallees = (() => {
+        expect(result.error).toBeUndefined();
+        expect(result.callees).toBeDefined();
+        expect(Array.isArray(result.callees)).toBe(true);
 
-    expect(result.error).toBeUndefined();
-    expect(result.callees).toBeDefined();
-    expect(Array.isArray(result.callees)).toBe(true);
-
-    const resolvedCallees = result.callees.filter((c) => c.callee_symbol_id !== null);
+        return result.callees.filter((c) => c.callee_symbol_id !== null);
+      })();
     expect(resolvedCallees.length).toBeGreaterThan(0);
   });
 
   it('should resolve this.init() in Child.setup to Base.init', () => {
     const result = codeAnalysis.getCallHierarchy(db, repoId, {
-      symbol: 'setup',
-      direction: 'callees',
-      depth: 1,
-    });
+        symbol: 'setup',
+        direction: 'callees',
+        depth: 1,
+      }),
+      initCalls = (() => {
+        expect(result.error).toBeUndefined();
+        expect(result.callees).toBeDefined();
 
-    expect(result.error).toBeUndefined();
-    expect(result.callees).toBeDefined();
+        return result.callees.filter((c) => c.callee_name === 'init');
+      })(),
+      resolvedInit = (() => {
+        expect(initCalls.length).toBeGreaterThan(0);
 
-    const initCalls = result.callees.filter((c) => c.callee_name === 'init');
-    expect(initCalls.length).toBeGreaterThan(0);
-
-    const resolvedInit = initCalls.find((c) => c.callee_symbol_id !== null);
+        return initCalls.find((c) => c.callee_symbol_id !== null);
+      })();
     if (resolvedInit) {
       expect(resolvedInit.confidence).toBeGreaterThanOrEqual(0.9);
     }
@@ -404,9 +419,9 @@ class Child extends Base {
 
   it('should track qualified names for class methods', () => {
     const symbols = db
-      .prepare('SELECT name, qualified_name, parent_name FROM code_symbols WHERE repo_id = ?')
-      .all(repoId);
-    const initMethod = symbols.find((s) => s.name === 'init' && s.parent_name === 'Base');
+        .prepare('SELECT name, qualified_name, parent_name FROM code_symbols WHERE repo_id = ?')
+        .all(repoId),
+      initMethod = symbols.find((s) => s.name === 'init' && s.parent_name === 'Base');
     expect(initMethod).toBeDefined();
     expect(initMethod.qualified_name).toBe('Base.init');
   });

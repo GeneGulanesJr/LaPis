@@ -1,12 +1,11 @@
 // Test coverage for standardized error patterns (Issue #34)
 // And test isolation / atomic migrations (Issues #35, #36)
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
-
-const dbModule = require('../db');
-const { MemoryError } = dbModule;
-const { resetConfigCache } = require('../config');
+const path = require('path'),
+  os = require('os'),
+  fs = require('fs'),
+  dbModule = require('../db'),
+  { MemoryError } = dbModule,
+  { resetConfigCache } = require('../config');
 
 describe('Error patterns and DB isolation', () => {
   beforeAll(() => {
@@ -78,8 +77,8 @@ describe('Error patterns and DB isolation', () => {
     });
 
     it('createDb should create isolated DB with custom path', () => {
-      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-createdb-${Date.now()}.db`);
-      const result = dbModule.createDb({ db_path: tmpPath });
+      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-createdb-${Date.now()}.db`),
+        result = dbModule.createDb({ db_path: tmpPath });
       expect(result.ok).toBe(true);
       expect(result.engine).toMatch(/better-sqlite3/);
 
@@ -101,10 +100,9 @@ describe('Error patterns and DB isolation', () => {
     });
 
     it('createDb should not corrupt the global singleton', () => {
-      const globalPath = dbModule.DB_PATH;
-      const globalEngine = dbModule.getEngine();
-
-      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-isolation-${Date.now()}.db`);
+      const globalPath = dbModule.DB_PATH,
+        globalEngine = dbModule.getEngine(),
+        tmpPath = path.join(os.tmpdir(), `pi-mem-test-isolation-${Date.now()}.db`);
       dbModule.createDb({ db_path: tmpPath });
 
       // After createDb, _db points to the temp DB and config is overridden
@@ -131,10 +129,12 @@ describe('Error patterns and DB isolation', () => {
 
   describe('db.js — atomic migrations (Issue #35)', () => {
     it('should report migration status when up-to-date', () => {
-      const result = dbModule.ensureDb();
-      expect(result.ok).toBe(true);
+      const result = dbModule.ensureDb(),
+        rows = (() => {
+          expect(result.ok).toBe(true);
 
-      const rows = dbModule.sqlJson('PRAGMA user_version');
+          return dbModule.sqlJson('PRAGMA user_version');
+        })();
       expect(rows[0].user_version).toBeGreaterThanOrEqual(6);
     });
 
@@ -172,8 +172,8 @@ describe('Error patterns and DB isolation', () => {
   describe('Consistent error return pattern (Issue #34)', () => {
     it('jsonErrNoExit returns { error } objects consistently', () => {
       // All library functions that return errors should use this pattern
-      const err1 = dbModule.jsonErrNoExit('Missing --id');
-      const err2 = dbModule.jsonErrNoExit('Something went wrong');
+      const err1 = dbModule.jsonErrNoExit('Missing --id'),
+        err2 = dbModule.jsonErrNoExit('Something went wrong');
       expect(err1).toEqual({ error: 'Missing --id' });
       expect(err2).toEqual({ error: 'Something went wrong' });
       // Both have the same shape: { error: string }

@@ -8,8 +8,8 @@
  * chain (path prefix → knownProjects up-tree → basename).
  */
 
-const path = require('node:path');
-const { resolveCwd, resolveProjectKey } = require('../hooks-engine/project');
+const path = require('node:path'),
+  { resolveCwd, resolveProjectKey } = require('../hooks-engine/project');
 
 function loadReposAndProjects(getKnownRepos, getKnownProjects) {
   return {
@@ -22,8 +22,8 @@ function loadReposAndProjects(getKnownRepos, getKnownProjects) {
  * @returns {{ resolvedCwd: string, repos: object[], knownProjects: string[], project: string }}
  */
 function resolveProjectForCwd(cwdHint, getKnownRepos, getKnownProjects) {
-  const resolvedCwd = path.resolve(resolveCwd(cwdHint));
-  const { repos, knownProjects } = loadReposAndProjects(getKnownRepos, getKnownProjects);
+  const resolvedCwd = path.resolve(resolveCwd(cwdHint)),
+    { repos, knownProjects } = loadReposAndProjects(getKnownRepos, getKnownProjects);
   return {
     resolvedCwd,
     repos,

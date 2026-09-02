@@ -99,8 +99,8 @@ describe('constants.js', () => {
 
   describe('CONTEXT', () => {
     it('should have RELEVANCE_WEIGHTS that sum to 1.0', () => {
-      const weights = constants.CONTEXT.RELEVANCE_WEIGHTS;
-      const sum = Object.values(weights).reduce((a, b) => a + b, 0);
+      const weights = constants.CONTEXT.RELEVANCE_WEIGHTS,
+        sum = Object.values(weights).reduce((a, b) => a + b, 0);
       expect(sum).toBeCloseTo(1.0, 2);
     });
 
@@ -126,8 +126,8 @@ describe('constants.js', () => {
 
   describe('PR_RISK', () => {
     it('should have WEIGHTS that sum to 1.0', () => {
-      const weights = constants.PR_RISK.WEIGHTS;
-      const sum = Object.values(weights).reduce((a, b) => a + b, 0);
+      const weights = constants.PR_RISK.WEIGHTS,
+        sum = Object.values(weights).reduce((a, b) => a + b, 0);
       expect(sum).toBeCloseTo(1.0, 2);
     });
 

@@ -12,8 +12,8 @@ function makeMutate(stateStore, claudeSessionId) {
     return (mutator) => stateStore.mutateState(claudeSessionId, mutator);
   }
   return async (mutator) => {
-    const state = stateStore.loadState(claudeSessionId);
-    const result = await mutator(state);
+    const state = stateStore.loadState(claudeSessionId),
+      result = await mutator(state);
     stateStore.saveState(claudeSessionId, state);
     return result;
   };

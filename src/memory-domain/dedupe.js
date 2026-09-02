@@ -1,17 +1,17 @@
-const { DEDUP, RESULT_LIMITS } = require('../../constants');
-const { getConfig } = require('../../config');
+const { DEDUP, RESULT_LIMITS } = require('../../constants'),
+  { getConfig } = require('../../config');
 
 function trigramOverlap(a, b) {
   const trigrams = (s) => {
-    const t = new Set();
-    const lower = s.toLowerCase().replace(/[^a-z0-9]/g, '');
-    for (let i = 0; i <= lower.length - 3; i++) {
-      t.add(lower.slice(i, i + 3));
-    }
-    return t;
-  };
-  const ta = trigrams(a);
-  const tb = trigrams(b);
+      const t = new Set(),
+        lower = s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (let i = 0; i <= lower.length - 3; i++) {
+        t.add(lower.slice(i, i + 3));
+      }
+      return t;
+    },
+    ta = trigrams(a),
+    tb = trigrams(b);
   if (ta.size === 0 && tb.size === 0) {
     return 1.0;
   }
@@ -28,14 +28,15 @@ function trigramOverlap(a, b) {
 }
 
 function checkDuplicate(deps, title, type, project, topicKey) {
-  const { sqlJson } = deps;
+  const { sqlJson } = deps,
+    params = [type];
   let q = `
     SELECT id, title, topic_key, created_at
     FROM observations
     WHERE type = ? AND deleted_at IS NULL
       AND (expires_at IS NULL OR expires_at > datetime('now'))
   `;
-  const params = [type];
+
   if (project) {
     q += ' AND project = ?';
     params.push(project);
@@ -47,29 +48,30 @@ function checkDuplicate(deps, title, type, project, topicKey) {
     q += ' ORDER BY created_at DESC';
   }
   q += ` LIMIT ${RESULT_LIMITS.DEDUP_CANDIDATES}`;
-  const candidates = sqlJson(q, params);
-
-  const duplicates = [];
-  const warningThreshold = getConfig().dedup.warning_threshold;
-  for (const c of candidates) {
-    const score = trigramOverlap(title, c.title);
-    if (score >= warningThreshold) {
-      duplicates.push({
-        id: c.id,
-        title: c.title,
-        similarity: Math.round(score * 100) / 100,
-        created_at: c.created_at,
-      });
+  {
+    const candidates = sqlJson(q, params),
+      duplicates = [],
+      warningThreshold = getConfig().dedup.warning_threshold;
+    for (const c of candidates) {
+      const score = trigramOverlap(title, c.title);
+      if (score >= warningThreshold) {
+        duplicates.push({
+          id: c.id,
+          title: c.title,
+          similarity: Math.round(score * 100) / 100,
+          created_at: c.created_at,
+        });
+      }
     }
+    return { potential_duplicates: duplicates };
   }
-  return { potential_duplicates: duplicates };
 }
 
 function markDuplicate(deps, args) {
-  const { sqlRun, softDeleteObservation } = deps;
-  const source = parseInt(args.source);
-  const target = parseInt(args.target);
-  const confidence = parseFloat(args.confidence || String(DEDUP.MARK_DUP_DEFAULT_CONFIDENCE));
+  const { sqlRun, softDeleteObservation } = deps,
+    source = parseInt(args.source),
+    target = parseInt(args.target),
+    confidence = parseFloat(args.confidence || String(DEDUP.MARK_DUP_DEFAULT_CONFIDENCE));
   if (!source || !target) {
     return { error: 'Missing --source and --target' };
   }

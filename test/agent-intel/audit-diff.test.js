@@ -1,8 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -23,8 +22,8 @@ function writeTmpRepo(repoPath, files) {
 }
 
 describe('audit-diff command', () => {
-  const repoName = `test-audit-diff-${Date.now()}`;
-  const tmpRepo = path.join('/tmp', repoName);
+  const repoName = `test-audit-diff-${Date.now()}`,
+    tmpRepo = path.join('/tmp', repoName);
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {
@@ -56,15 +55,17 @@ function savePreferences(userId, prefs) {
 
   it('audits a diff for violations', () => {
     // Add a new file that may be considered duplicate
-    const newFile = path.join(tmpRepo, 'src', 'notification-prefs.js');
-    fs.writeFileSync(
-      newFile,
-      `function getNotificationPreferences(userId) {
-  return db.query("SELECT * FROM prefs WHERE user_id = ?", [userId]);
-}`,
-    );
+    const newFile = path.join(tmpRepo, 'src', 'notification-prefs.js'),
+      result = (() => {
+        fs.writeFileSync(
+          newFile,
+          `function getNotificationPreferences(userId) {
+    return db.query("SELECT * FROM prefs WHERE user_id = ?", [userId]);
+  }`,
+        );
 
-    const result = run(`audit-diff --repo ${repoName} --files src/notification-prefs.js`);
+        return run(`audit-diff --repo ${repoName} --files src/notification-prefs.js`);
+      })();
     expect(result.error).toBeUndefined();
     expect(result).toHaveProperty('violations');
     expect(result).toHaveProperty('risk');
@@ -78,10 +79,12 @@ function savePreferences(userId, prefs) {
   });
 
   it('reports low risk for unrelated changes', () => {
-    const newFile = path.join(tmpRepo, 'src', 'utils.js');
-    fs.writeFileSync(newFile, `function formatDate(d) { return d.toISOString().split('T')[0]; }`);
+    const newFile = path.join(tmpRepo, 'src', 'utils.js'),
+      result = (() => {
+        fs.writeFileSync(newFile, `function formatDate(d) { return d.toISOString().split('T')[0]; }`);
 
-    const result = run(`audit-diff --repo ${repoName} --files src/utils.js`);
+        return run(`audit-diff --repo ${repoName} --files src/utils.js`);
+      })();
     expect(result.error).toBeUndefined();
     expect(result.files_checked).toBe(1);
 

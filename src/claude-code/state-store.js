@@ -21,27 +21,24 @@
  * gracefully instead of cross-contaminating state.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-
-const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
-const DEFAULT_DIR = path.join(HOME, '.pi', 'memory', 'claude-sessions');
-const DEFAULT_TTL_HOURS = 24;
-
-// Lock tuning for mutateState (#228). A crashed holder leaves a lockfile; it is
-// broken once older than LOCK_STALE_MS so a wedged lock never permanently
-// blocks the fast path.
-const LOCK_TIMEOUT_MS = 5000;
-const LOCK_POLL_MS = 25;
-const LOCK_STALE_MS = 10_000;
-
-// Placeholders that String(...) of a missing session_id collapses to; refusing
-// them prevents every keyless session sharing one file (#224).
-const PLACEHOLDER_KEYS = new Set(['undefined', 'null', 'nan', '', '_', '__', '___']);
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  HOME = process.env.HOME || process.env.USERPROFILE || os.homedir(),
+  DEFAULT_DIR = path.join(HOME, '.pi', 'memory', 'claude-sessions'),
+  DEFAULT_TTL_HOURS = 24,
+  // Lock tuning for mutateState (#228). A crashed holder leaves a lockfile; it is
+  // broken once older than LOCK_STALE_MS so a wedged lock never permanently
+  // blocks the fast path.
+  LOCK_TIMEOUT_MS = 5000,
+  LOCK_POLL_MS = 25,
+  LOCK_STALE_MS = 10_000,
+  // Placeholders that String(...) of a missing session_id collapses to; refusing
+  // them prevents every keyless session sharing one file (#224).
+  PLACEHOLDER_KEYS = new Set(['undefined', 'null', 'nan', '', '_', '__', '___']);
 
 // Field set mirrors extensions/memory-layer/state.ts (session-relevant subset;
-// caches like cachedRepos/compressionStats are intentionally excluded).
+// Caches like cachedRepos/compressionStats are intentionally excluded).
 function defaultState() {
   return {
     sessionId: null,
@@ -74,11 +71,11 @@ function sanitizeKey(sessionId) {
   if (typeof sessionId !== 'string' && typeof sessionId !== 'number') {
     return null;
   }
-  const raw = String(sessionId).trim();
+  const raw = String(sessionId).trim(),
+    safe = raw ? raw.replace(/[^\w.-]/g, '_') : undefined;
   if (!raw) {
     return null;
   }
-  const safe = raw.replace(/[^\w.-]/g, '_');
   if (!safe || PLACEHOLDER_KEYS.has(safe.toLowerCase()) || /^_+$/.test(safe)) {
     return null;
   }
@@ -95,8 +92,8 @@ function statePath(sessionId, opts) {
 
 /** Resolve the configurable stale-session TTL (hours). #233 */
 function defaultTtlHours() {
-  const raw = process.env.LAPIS_SESSION_TTL_HOURS;
-  const n = Number(raw);
+  const raw = process.env.LAPIS_SESSION_TTL_HOURS,
+    n = Number(raw);
   if (Number.isFinite(n) && n > 0) {
     return n;
   }
@@ -117,14 +114,13 @@ function loadState(sessionId, opts) {
 }
 
 function readStateFile(filePath) {
-  let raw;
+  let raw, parsed;
   try {
     raw = fs.readFileSync(filePath, 'utf8');
   } catch {
     return defaultState();
   }
 
-  let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch {
@@ -154,9 +150,12 @@ function saveState(sessionId, state, opts) {
 }
 
 function atomicWrite(filePath, state) {
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  const dir = path.dirname(filePath),
+    tmpPath = (() => {
+      fs.mkdirSync(dir, { recursive: true });
+
+      return `${filePath}.${process.pid}.tmp`;
+    })();
   fs.writeFileSync(tmpPath, JSON.stringify(state, null, 0), 'utf8');
   fs.renameSync(tmpPath, filePath);
 }
@@ -187,30 +186,32 @@ function clearState(sessionId, opts) {
  * @returns the mutator's return value.
  */
 async function mutateState(sessionId, mutator, opts) {
-  const filePath = statePath(sessionId, opts);
+  const filePath = statePath(sessionId, opts),
+    dir = filePath ? path.dirname(filePath) : undefined;
   if (!filePath) {
     return mutator(defaultState());
   }
-  const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
-  const lockPath = `${filePath}.lock`;
-  const acquired = await acquireLock(lockPath, opts);
-  try {
-    const state = readStateFile(filePath);
-    const result = await mutator(state);
-    atomicWrite(filePath, state);
-    return result;
-  } finally {
-    if (acquired) {
-      releaseLock(lockPath);
+  {
+    const lockPath = `${filePath}.lock`,
+      acquired = await acquireLock(lockPath, opts);
+    try {
+      const state = readStateFile(filePath),
+        result = await mutator(state);
+      atomicWrite(filePath, state);
+      return result;
+    } finally {
+      if (acquired) {
+        releaseLock(lockPath);
+      }
     }
   }
 }
 
 async function acquireLock(lockPath, opts = {}) {
-  const timeoutMs = opts.lockTimeoutMs ?? LOCK_TIMEOUT_MS;
-  const pollMs = opts.lockPollMs ?? LOCK_POLL_MS;
-  const deadline = Date.now() + timeoutMs;
+  const timeoutMs = opts.lockTimeoutMs ?? LOCK_TIMEOUT_MS,
+    pollMs = opts.lockPollMs ?? LOCK_POLL_MS,
+    deadline = Date.now() + timeoutMs;
   for (;;) {
     try {
       const fd = fs.openSync(lockPath, 'wx');
@@ -230,7 +231,7 @@ async function acquireLock(lockPath, opts = {}) {
           continue;
         }
       } catch {
-        // ignore; retry
+        // Ignore; retry
       }
     }
     if (Date.now() >= deadline) {
@@ -261,31 +262,34 @@ function sweepStaleSessions(maxAgeHours, opts) {
 
 function sweepSessions(maxAgeHours, opts) {
   const dir = resolveDir(opts);
-  let entries;
+  let entries,
+    swept = 0;
   try {
     entries = fs.readdirSync(dir);
   } catch {
     return { swept: 0 };
   }
 
-  const cutoff = Date.now() - maxAgeHours * 3600 * 1000;
-  let swept = 0;
-  for (const entry of entries) {
-    if (!entry.endsWith('.json')) {
-      continue;
-    }
-    const full = path.join(dir, entry);
-    try {
-      const stat = fs.statSync(full);
-      if (stat.mtimeMs < cutoff) {
-        fs.unlinkSync(full);
-        swept++;
+  {
+    const cutoff = Date.now() - maxAgeHours * 3600 * 1000;
+
+    for (const entry of entries) {
+      if (!entry.endsWith('.json')) {
+        continue;
       }
-    } catch {
-      // Skip unreadable / already-removed files.
+      const full = path.join(dir, entry);
+      try {
+        const stat = fs.statSync(full);
+        if (stat.mtimeMs < cutoff) {
+          fs.unlinkSync(full);
+          swept++;
+        }
+      } catch {
+        // Skip unreadable / already-removed files.
+      }
     }
+    return { swept };
   }
-  return { swept };
 }
 
 /**
@@ -310,8 +314,8 @@ function runGc(argv, io = {}) {
       throw new Error(`Unknown flag: ${args[i]}`);
     }
   }
-  const result = sweepSessions(maxAgeHours, io);
-  const dir = resolveDir(io);
+  const result = sweepSessions(maxAgeHours, io),
+    dir = resolveDir(io);
   log(`Swept ${result.swept} stale session state file(s) older than ${maxAgeHours}h from ${dir}.`);
   return { ...result, maxAgeHours, dir };
 }

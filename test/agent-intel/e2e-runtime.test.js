@@ -1,8 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
 
 function run(cmd, timeout = 45000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -28,9 +27,9 @@ function writeCoverage(coveragePath, data) {
 }
 
 describe('runtime reality e2e', () => {
-  const repoName = `test-e2e-runtime-${Date.now()}`;
-  const tmpRepo = path.join('/tmp', repoName);
-  const coveragePath = path.join(tmpRepo, 'coverage', 'coverage-final.json');
+  const repoName = `test-e2e-runtime-${Date.now()}`,
+    tmpRepo = path.join('/tmp', repoName),
+    coveragePath = path.join(tmpRepo, 'coverage', 'coverage-final.json');
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {
@@ -51,7 +50,7 @@ export function batchProcess(items) {
       [`${tmpRepo}/src/critical.js`]: {
         path: `${tmpRepo}/src/critical.js`,
         fnMap: { 0: { name: 'processPayment', line: 1 } },
-        f: { 0: 15000 }, // hot
+        f: { 0: 15000 }, // Hot
       },
     });
 
@@ -90,22 +89,26 @@ export function batchProcess(items) {
 
   it('stale-flags command works', () => {
     // Add stale flag to repo
-    const flagFile = path.join(tmpRepo, 'src', 'flags.js');
-    fs.writeFileSync(flagFile, `if (process.env.FEATURE_OLD_CODE === 'enabled') { legacy(); }`);
-    run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
+    const flagFile = path.join(tmpRepo, 'src', 'flags.js'),
+      result = (() => {
+        fs.writeFileSync(flagFile, `if (process.env.FEATURE_OLD_CODE === 'enabled') { legacy(); }`);
+        run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
 
-    const result = run(`stale-flags --repo ${repoName}`);
+        return run(`stale-flags --repo ${repoName}`);
+      })();
     expect(result.stale_flags.length).toBeGreaterThanOrEqual(1);
 
     fs.unlinkSync(flagFile);
   });
 
   it('hot-symbols and cold-symbols commands work', () => {
-    const hotResult = run(`hot-symbols --repo ${repoName}`);
-    expect(hotResult.error).toBeUndefined();
-    expect(hotResult.hot_symbols.some((s) => s.function_name === 'processPayment')).toBe(true);
+    const hotResult = run(`hot-symbols --repo ${repoName}`),
+      coldResult = (() => {
+        expect(hotResult.error).toBeUndefined();
+        expect(hotResult.hot_symbols.some((s) => s.function_name === 'processPayment')).toBe(true);
 
-    const coldResult = run(`cold-symbols --repo ${repoName}`);
+        return run(`cold-symbols --repo ${repoName}`);
+      })();
     expect(coldResult.error).toBeUndefined();
   });
 });

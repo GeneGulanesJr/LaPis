@@ -35,14 +35,14 @@ describe('repo-cache', () => {
         fs.writeFileSync(srcFile, 'console.log("hello")');
 
         // Indexed 2 hours ago
-        const indexedAt = new Date(Date.now() - 7200000).toISOString();
-        const repo = {
-          name: 'test-stale',
-          path: tmpDir,
-          indexed_at: indexedAt,
-          file_count: 1,
-          symbol_count: 1,
-        };
+        const indexedAt = new Date(Date.now() - 7200000).toISOString(),
+          repo = {
+            name: 'test-stale',
+            path: tmpDir,
+            indexed_at: indexedAt,
+            file_count: 1,
+            symbol_count: 1,
+          };
 
         // File was just modified (newer than indexed_at + 1hr threshold)
         expect(isRepoStale(repo)).toBe(true);
@@ -58,14 +58,14 @@ describe('repo-cache', () => {
         fs.writeFileSync(srcFile, 'console.log("hello")');
 
         // Indexed just now
-        const indexedAt = new Date().toISOString();
-        const repo = {
-          name: 'test-fresh',
-          path: tmpDir,
-          indexed_at: indexedAt,
-          file_count: 1,
-          symbol_count: 1,
-        };
+        const indexedAt = new Date().toISOString(),
+          repo = {
+            name: 'test-fresh',
+            path: tmpDir,
+            indexed_at: indexedAt,
+            file_count: 1,
+            symbol_count: 1,
+          };
 
         expect(isRepoStale(repo)).toBe(false);
       } finally {

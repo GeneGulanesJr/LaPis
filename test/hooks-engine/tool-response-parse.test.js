@@ -54,7 +54,7 @@ describe('hooks-engine tool-response-parse: parseSearchResultIds', () => {
   });
 
   test('handles the real MCP shape: JSON inside a content block', () => {
-    // src/mcp/translate-result.js JSON-stringifies dispatch results, and Claude
+    // Src/mcp/translate-result.js JSON-stringifies dispatch results, and Claude
     // Code wraps them as { content: [{ type:'text', text }] }.
     const tr = { content: [{ type: 'text', text: JSON.stringify({ results: [{ id: 11 }, { id: 22 }] }) }] };
     expect(parseSearchResultIds(tr)).toEqual([11, 22]);

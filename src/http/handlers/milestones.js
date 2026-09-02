@@ -2,9 +2,9 @@ const { jsonOk, jsonCreated } = require('../errors');
 
 function createMilestone(repo) {
   return async (req, res, ctx) => {
-    const { title, description, orderIndex } = ctx.body;
-    const id = `ms-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const rows = repo.createMilestone({ id, missionId: ctx.params.missionId, title, description, orderIndex });
+    const { title, description, orderIndex } = ctx.body,
+      id = `ms-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      rows = repo.createMilestone({ id, missionId: ctx.params.missionId, title, description, orderIndex });
     jsonCreated(
       res,
       rows[0] || { id, missionId: ctx.params.missionId, title, description, orderIndex, status: 'planned' },

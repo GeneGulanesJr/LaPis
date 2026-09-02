@@ -2,10 +2,10 @@ const { jsonOk, jsonCreated } = require('../errors');
 
 function createContract(repo) {
   return async (req, res, ctx) => {
-    const content = ctx.body.content || ctx.body;
-    const id = `vc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const rows = repo.createContract({ id, milestoneId: ctx.params.milestoneId, version: 1, content });
-    const row = rows[0] || { id, milestoneId: ctx.params.milestoneId, version: 1, content };
+    const content = ctx.body.content || ctx.body,
+      id = `vc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      rows = repo.createContract({ id, milestoneId: ctx.params.milestoneId, version: 1, content }),
+      row = rows[0] || { id, milestoneId: ctx.params.milestoneId, version: 1, content };
     jsonCreated(res, {
       ...row,
       supersedes: row.supersedes || null,
@@ -18,10 +18,10 @@ function createContract(repo) {
 
 function supersedeContract(repo) {
   return async (req, res, ctx) => {
-    const { newContract, rescopeEvent } = ctx.body;
-    const id = `vc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const rows = repo.supersedeContract({ oldId: ctx.params.oldId, newId: id, newContract, rescopeEvent });
-    const row = rows[0] || { id, version: 2, content: newContract };
+    const { newContract, rescopeEvent } = ctx.body,
+      id = `vc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      rows = repo.supersedeContract({ oldId: ctx.params.oldId, newId: id, newContract, rescopeEvent }),
+      row = rows[0] || { id, version: 2, content: newContract };
     jsonCreated(res, {
       ...row,
       supersedes: row.supersedes || null,

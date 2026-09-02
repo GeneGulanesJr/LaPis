@@ -1,10 +1,10 @@
 function listWorkspaces(deps) {
-  const { sqlJson } = deps;
-  // Sort un-archived workspaces first, then most-recently-active first.
-  // `w.archived_at IS NULL` evaluates to 0/1; sorting it DESC puts NULLs
-  // (un-archived) before non-NULL (archived) without relying on the
-  // SQLite-3.30+ `NULLS FIRST` clause — works on any SQLite engine.
-  const workspaces = sqlJson(`
+  const { sqlJson } = deps,
+    // Sort un-archived workspaces first, then most-recently-active first.
+    // `w.archived_at IS NULL` evaluates to 0/1; sorting it DESC puts NULLs
+    // (un-archived) before non-NULL (archived) without relying on the
+    // SQLite-3.30+ `NULLS FIRST` clause — works on any SQLite engine.
+    workspaces = sqlJson(`
     SELECT w.id, w.name, w.created_at, w.archived_at,
            COUNT(CASE WHEN o.deleted_at IS NULL AND o.type != 'skill' THEN 1 END) as memory_count,
            MAX(o.created_at) as last_active
@@ -35,17 +35,19 @@ function archiveWorkspace(deps, name) {
   if (!name) {
     return { error: 'Missing --name' };
   }
-  const existing = sqlJson('SELECT id FROM workspaces WHERE name = ? AND archived_at IS NULL', [name]);
-  if (existing.length === 0) {
-    return { error: `Workspace not found or already archived: ${name}` };
+  {
+    const existing = sqlJson('SELECT id FROM workspaces WHERE name = ? AND archived_at IS NULL', [name]);
+    if (existing.length === 0) {
+      return { error: `Workspace not found or already archived: ${name}` };
+    }
+    sqlRun("UPDATE workspaces SET archived_at = datetime('now') WHERE id = ?", [existing[0].id]);
+    return { success: true, workspace: name, archived: true };
   }
-  sqlRun("UPDATE workspaces SET archived_at = datetime('now') WHERE id = ?", [existing[0].id]);
-  return { success: true, workspace: name, archived: true };
 }
 
 function listProjects(deps) {
-  const { sqlJson } = deps;
-  const rows = sqlJson(`
+  const { sqlJson } = deps,
+    rows = sqlJson(`
     SELECT project, COUNT(*) as memory_count,
            MAX(created_at) as last_active
     FROM observations

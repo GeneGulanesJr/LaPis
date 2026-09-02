@@ -1,7 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const { parseChangedPathsInput } = require('../src/code-index/incremental-indexer');
+const path = require('path'),
+  fs = require('fs'),
+  os = require('os'),
+  { parseChangedPathsInput } = require('../src/code-index/incremental-indexer');
 
 describe('parseChangedPathsInput rejected paths', () => {
   let repoRoot;
@@ -16,12 +16,15 @@ describe('parseChangedPathsInput rejected paths', () => {
   });
 
   it('returns rejected paths for entries outside the repo', () => {
-    const outside = path.join(os.tmpdir(), 'outside.js');
-    fs.writeFileSync(outside, 'export const nope = 1;');
-    const delta = parseChangedPathsInput(
-      JSON.stringify([{ path: 'inside.js' }, { path: outside }, { path: 123 }]),
-      repoRoot,
-    );
+    const outside = path.join(os.tmpdir(), 'outside.js'),
+      delta = (() => {
+        fs.writeFileSync(outside, 'export const nope = 1;');
+
+        return parseChangedPathsInput(
+          JSON.stringify([{ path: 'inside.js' }, { path: outside }, { path: 123 }]),
+          repoRoot,
+        );
+      })();
     expect(delta.changed).toHaveLength(1);
     expect(delta.rejected).toHaveLength(2);
     expect(delta.rejected.some((r) => r.reason === 'outside_repo')).toBe(true);

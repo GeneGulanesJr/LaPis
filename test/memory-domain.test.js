@@ -1,18 +1,8 @@
-const memoryDomain = require('../src/memory-domain');
-const { rankObservations } = require('../src/memory-domain/search');
-const { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall');
-const { trigramOverlap } = require('../src/memory-domain/dedupe');
-
-const expectedModules = [
-  'observations',
-  'search',
-  'context',
-  'sessions',
-  'recall',
-  'dedupe',
-  'compaction',
-  'workspaces',
-];
+const memoryDomain = require('../src/memory-domain'),
+  { rankObservations } = require('../src/memory-domain/search'),
+  { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall'),
+  { trigramOverlap } = require('../src/memory-domain/dedupe'),
+  expectedModules = ['observations', 'search', 'context', 'sessions', 'recall', 'dedupe', 'compaction', 'workspaces'];
 
 describe('src/memory-domain boundary', () => {
   it('exports the declarative memory and session domain modules', () => {
@@ -22,79 +12,79 @@ describe('src/memory-domain boundary', () => {
   });
 
   it('keeps ranking behavior in the search domain', () => {
-    const createdAt = new Date().toISOString().replace('Z', '');
-    const ranked = rankObservations(
-      [
-        {
-          id: 1,
-          title: 'Session summary',
-          type: 'session_summary',
-          created_at: createdAt,
-          trust_score: 0.5,
-          recall_count: 0,
-          rank: 0,
-        },
-        {
-          id: 2,
-          title: 'Important decision',
-          type: 'decision',
-          created_at: createdAt,
-          trust_score: 0.5,
-          recall_count: 3,
-          rank: 0,
-        },
-      ],
-      'decision',
-    );
+    const createdAt = new Date().toISOString().replace('Z', ''),
+      ranked = rankObservations(
+        [
+          {
+            id: 1,
+            title: 'Session summary',
+            type: 'session_summary',
+            created_at: createdAt,
+            trust_score: 0.5,
+            recall_count: 0,
+            rank: 0,
+          },
+          {
+            id: 2,
+            title: 'Important decision',
+            type: 'decision',
+            created_at: createdAt,
+            trust_score: 0.5,
+            recall_count: 3,
+            rank: 0,
+          },
+        ],
+        'decision',
+      );
 
     expect(ranked[0].id).toBe(2);
     expect(ranked[0]._score).toBeGreaterThan(ranked[1]._score);
   });
 
   it('ranking: FTS rank is used when present (not zero/null)', () => {
-    const ts = new Date().toISOString().replace('Z', '');
-    const rows = [
-      { id: 1, title: 'alpha', type: 'observation', created_at: ts, trust_score: 0.5, recall_count: 0, rank: -2.0 },
-      { id: 2, title: 'beta', type: 'observation', created_at: ts, trust_score: 0.5, recall_count: 0, rank: -0.5 },
-    ];
-    const ranked = rankObservations(rows, 'alpha');
+    const ts = new Date().toISOString().replace('Z', ''),
+      rows = [
+        { id: 1, title: 'alpha', type: 'observation', created_at: ts, trust_score: 0.5, recall_count: 0, rank: -2.0 },
+        { id: 2, title: 'beta', type: 'observation', created_at: ts, trust_score: 0.5, recall_count: 0, rank: -0.5 },
+      ],
+      ranked = rankObservations(rows, 'alpha');
     // Higher FTS score (lower rank) → higher composite score
     expect(ranked[0].id).toBe(1);
     expect(ranked[0]._score).toBeGreaterThan(ranked[1]._score);
   });
 
   it('ranking: trust_score defaults when null/undefined', () => {
-    const ts = new Date().toISOString().replace('Z', '');
-    const rows = [
-      { id: 1, title: 'a', type: 'observation', created_at: ts, trust_score: null, recall_count: 0, rank: -1 },
-      { id: 2, title: 'b', type: 'observation', created_at: ts, trust_score: undefined, recall_count: 0, rank: -1 },
-    ];
-    const ranked = rankObservations(rows, 'a');
+    const ts = new Date().toISOString().replace('Z', ''),
+      rows = [
+        { id: 1, title: 'a', type: 'observation', created_at: ts, trust_score: null, recall_count: 0, rank: -1 },
+        { id: 2, title: 'b', type: 'observation', created_at: ts, trust_score: undefined, recall_count: 0, rank: -1 },
+      ],
+      ranked = rankObservations(rows, 'a');
     // Both should have same trust → same score
     expect(ranked[0]._score).toBeCloseTo(ranked[1]._score, 5);
   });
 
   it('ranking: recall_count and useful_count affect scoring', () => {
-    const ts = new Date().toISOString().replace('Z', '');
-    const base = { title: 'test', type: 'observation', created_at: ts, trust_score: 0.5, rank: -1 };
-    const ranked = rankObservations(
-      [
-        { ...base, id: 1, recall_count: 10, useful_count: 8 },
-        { ...base, id: 2, recall_count: 1, useful_count: 0 },
-      ],
-      'test',
-    );
+    const ts = new Date().toISOString().replace('Z', ''),
+      base = { title: 'test', type: 'observation', created_at: ts, trust_score: 0.5, rank: -1 },
+      ranked = rankObservations(
+        [
+          { ...base, id: 1, recall_count: 10, useful_count: 8 },
+          { ...base, id: 2, recall_count: 1, useful_count: 0 },
+        ],
+        'test',
+      );
     // Higher recall + usefulness → higher score
     expect(ranked[0].id).toBe(1);
     expect(ranked[0]._score).toBeGreaterThan(ranked[1]._score);
   });
 
   it('centralizes recall logging helpers', () => {
-    const sqlRun = vi.fn();
-    const result = insertRecallLog({ sqlRun }, [
-      { memoryId: 1, sessionId: '10', query: 'alpha' },
-      { memoryId: 2, sessionId: '10', query: 'beta' },
-    ]);
+    const sqlRun = vi.fn(),
+      result = insertRecallLog({ sqlRun }, [
+        { memoryId: 1, sessionId: '10', query: 'alpha' },
+        { memoryId: 2, sessionId: '10', query: 'beta' },
+      ]);
 
     expect(result.inserted).toBe(2);
     expect(sqlRun).toHaveBeenCalledWith(expect.stringContaining('INSERT OR IGNORE INTO recall_log'), [
@@ -162,6 +152,6 @@ describe('src/memory-domain boundary', () => {
     const sim = trigramOverlap('test one', 'test two');
     expect(sim).toBeGreaterThan(0);
     expect(sim).toBeLessThan(1);
-    expect(sim).toBeCloseTo(0.4, 1); // shared trigrams / max(a, b) trigrams
+    expect(sim).toBeCloseTo(0.4, 1); // Shared trigrams / max(a, b) trigrams
   });
 });

@@ -5,8 +5,8 @@ const { TRUST_DELTA } = require('../constants');
  * @returns {{ ok:boolean, memoryId, symbolId, repo, trustScore }}
  */
 function linkSymbol(deps, { memoryId, symbolId, repo, trust }) {
-  const { sqlRun } = deps;
-  const symVal = symbolId || '__unlinked__';
+  const { sqlRun } = deps,
+    symVal = symbolId || '__unlinked__';
   sqlRun('INSERT OR REPLACE INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)', [
     memoryId,
     symVal,
@@ -42,13 +42,16 @@ function insertSymbolLink(deps, { memoryId, symbolId, repo, trustScore }) {
  * @returns {number|null} the new `trust_score`, or `null` if no link exists.
  */
 function adjustTrust(deps, { memoryId, delta, reason }) {
-  const { sqlRun, sqlJson } = deps;
-  sqlRun('UPDATE symbol_links SET trust_score = MIN(1.0, MAX(0.0, trust_score + ?)) WHERE memory_id = ?', [
-    delta,
-    memoryId,
-  ]);
-  sqlRun('INSERT INTO trust_adjustments (memory_id, reason, delta) VALUES (?, ?, ?)', [memoryId, reason, delta]);
-  const updated = sqlJson('SELECT trust_score FROM symbol_links WHERE memory_id = ? LIMIT 1', [memoryId]);
+  const { sqlRun, sqlJson } = deps,
+    updated = (() => {
+      sqlRun('UPDATE symbol_links SET trust_score = MIN(1.0, MAX(0.0, trust_score + ?)) WHERE memory_id = ?', [
+        delta,
+        memoryId,
+      ]);
+      sqlRun('INSERT INTO trust_adjustments (memory_id, reason, delta) VALUES (?, ?, ?)', [memoryId, reason, delta]);
+
+      return sqlJson('SELECT trust_score FROM symbol_links WHERE memory_id = ? LIMIT 1', [memoryId]);
+    })();
   return updated.length > 0 ? updated[0].trust_score : null;
 }
 
@@ -119,7 +122,8 @@ function getSymbolsForMemory(deps, memoryId) {
 }
 
 function getSymbolCluster(deps, { symbolId, repo }) {
-  const { sqlJson } = deps;
+  const { sqlJson } = deps,
+    params = [symbolId];
   let q = `
     SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
            sl.trust_score
@@ -128,7 +132,7 @@ function getSymbolCluster(deps, { symbolId, repo }) {
     WHERE sl.symbol_id = ?
       AND o.deleted_at IS NULL
   `;
-  const params = [symbolId];
+
   if (repo) {
     q += ' AND sl.repo = ?';
     params.push(repo);
@@ -138,8 +142,8 @@ function getSymbolCluster(deps, { symbolId, repo }) {
 }
 
 function getRelatedMemories(deps, { memoryId, symbolIds, _limit }) {
-  const { sqlJson } = deps;
-  const placeholders = symbolIds.map(() => '?').join(',');
+  const { sqlJson } = deps,
+    placeholders = symbolIds.map(() => '?').join(',');
   return sqlJson(
     `SELECT sl.symbol_id, o.id, o.title, o.type, o.project, o.created_at
      FROM observations o

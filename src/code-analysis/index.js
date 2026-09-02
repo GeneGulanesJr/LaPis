@@ -3,16 +3,16 @@
 // Quality, git-aware, and risk analysis. Depends on code-index repositories and
 // Git metrics; must not depend on Pi extension state or memory CRUD internals.
 
-const graph = require('./graph');
-const impact = require('./impact');
-const quality = require('./quality');
-const gitMetrics = require('./git-metrics');
-const astPatternAnalyzers = require('./ast-patterns');
-const risk = require('./risk');
-const queryWinnow = require('./query-winnow');
-const codingContext = require('./coding-context');
-const legacy = require('./legacy-core');
-const readModel = require('./read-model');
+const graph = require('./graph'),
+  impact = require('./impact'),
+  quality = require('./quality'),
+  gitMetrics = require('./git-metrics'),
+  astPatternAnalyzers = require('./ast-patterns'),
+  risk = require('./risk'),
+  queryWinnow = require('./query-winnow'),
+  codingContext = require('./coding-context'),
+  legacy = require('./legacy-core'),
+  readModel = require('./read-model');
 
 module.exports = {
   ...graph,

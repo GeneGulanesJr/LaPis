@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * hooks-engine: guardrail-utils
+ * Hooks-engine: guardrail-utils
  *
  * Consolidated guardrail primitives. Promotes
  * extensions/memory-layer/hooks/guardrail-utils.js (already pure JS) and pulls in
@@ -10,311 +10,309 @@
 
 // --- from hooks/guardrail-utils.js ---
 
-const MIN_SYMBOL_LENGTH = 4;
-const QUOTED_PATTERN_RE = /(?:['"])([^'"]+)(?:['"])/g;
-const SEARCH_COMMAND_RE = /\b(grep|rg|ag|ack|find)\b/;
-const FILTER_COMMAND_RE = /^\s*(grep|rg|ag|ack)\b/;
-const SIMPLE_LIMIT_PIPE_RE = /^\s*(?:head|tail)\b/;
-const EXCLUSION_FILTER_RE = /^\s*(?:grep|rg|ag|ack)\b[\s\S]*?(?:^|\s)(?:-v|--invert-match)\b/;
-const TEXT_FILE_PATH_RE =
-  /(?:^|\s)(?:\.{0,2}\/|\/)?[^\s'*?\"']+\.(?:md|mdx|txt|json|jsonl|yaml|yml|toml|ini|cfg|conf|csv|log)(?:\s|$)/i;
-const CODE_FILE_PATH_RE = /(?:^|\s)(?:\.{0,2}\/|\/)?[^\s'"]+\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)(?:\s|$)/;
-
-function splitPipeline(cmd) {
-  const stages = [];
-  let current = '';
-  let quote = null;
-
-  for (let i = 0; i < cmd.length; i++) {
-    const ch = cmd[i];
-    const prev = i > 0 ? cmd[i - 1] : '';
-
-    if ((ch === '"' || ch === "'") && prev !== '\\') {
-      quote = quote === ch ? null : quote || ch;
-    }
-
-    if (ch === '|' && !quote) {
-      stages.push(current.trim());
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-
-  stages.push(current.trim());
-  return stages.filter(Boolean);
-}
-
-function isPipedOutputFilter(cmd) {
-  const stages = splitPipeline(cmd);
-  if (stages.length < 2) {
-    return false;
-  }
-
-  const [sourceStage, ...filterStages] = stages;
-  if (SEARCH_COMMAND_RE.test(sourceStage)) {
-    return false;
-  }
-
-  return filterStages.some((stage) => FILTER_COMMAND_RE.test(stage));
-}
-
-function isTargetedTextFileLookup(cmd) {
-  if (/\bfind\b/i.test(cmd) || !/\b(grep|rg|ag|ack)\b/i.test(cmd)) {
-    return false;
-  }
-
-  const stages = splitPipeline(cmd);
-  if (
-    stages.length > 1 &&
-    stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
-  ) {
-    return false;
-  }
-
-  return TEXT_FILE_PATH_RE.test(cmd);
-}
-
-function isTargetedSymbolLookup(cmd) {
-  if (/\bfind\b/.test(cmd)) {
-    return false;
-  }
-
-  if (!/\b(grep|rg|ag|ack)\b/.test(cmd)) {
-    return false;
-  }
-
-  const stages = splitPipeline(cmd);
-  if (
-    stages.length > 1 &&
-    stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
-  ) {
-    return false;
-  }
-
-  let pattern = null;
-  let hasQuotedPattern = false;
-  let m;
-  // Reset the module-level /g flag's lastIndex. The original (hooks/guardrail-utils.js)
-  // reused QUOTED_PATTERN_RE across calls without resetting; because the loop below
-  // `break`s on the first non-glob candidate, lastIndex was left stale and a later
-  // call could start scanning mid-string. Resetting here makes the function
-  // deterministic across calls (intentional deviation from the original, which had
-  // this latent stateful-regex bug; covered by test/tool-guardrails.test.js parity).
-  QUOTED_PATTERN_RE.lastIndex = 0;
-  while ((m = QUOTED_PATTERN_RE.exec(cmd)) !== null) {
-    const candidate = m[1];
-    if (!/^[*?]/.test(candidate)) {
-      hasQuotedPattern = true;
-    }
-    if (!/[*?]/.test(candidate)) {
-      pattern = candidate;
-      break;
-    }
-  }
-
-  if (hasQuotedPattern && CODE_FILE_PATH_RE.test(cmd)) {
-    return true;
-  }
-
-  if (!pattern) {
-    return false;
-  }
-
-  if (pattern.length < MIN_SYMBOL_LENGTH) {
-    return false;
-  }
-
-  if (/[.*+?|^$()\[\]{}\\]/.test(pattern)) {
-    return false;
-  }
-
-  if (pattern.includes('|')) {
-    return false;
-  }
-
-  return true;
-}
+const MIN_SYMBOL_LENGTH = 4,
+  QUOTED_PATTERN_RE = /(?:['"])([^'"]+)(?:['"])/g,
+  SEARCH_COMMAND_RE = /\b(grep|rg|ag|ack|find)\b/,
+  FILTER_COMMAND_RE = /^\s*(grep|rg|ag|ack)\b/,
+  SIMPLE_LIMIT_PIPE_RE = /^\s*(?:head|tail)\b/,
+  EXCLUSION_FILTER_RE = /^\s*(?:grep|rg|ag|ack)\b[\s\S]*?(?:^|\s)(?:-v|--invert-match)\b/,
+  TEXT_FILE_PATH_RE =
+    /(?:^|\s)(?:\.{0,2}\/|\/)?[^\s'*?\"']+\.(?:md|mdx|txt|json|jsonl|yaml|yml|toml|ini|cfg|conf|csv|log)(?:\s|$)/i,
+  CODE_FILE_PATH_RE = /(?:^|\s)(?:\.{0,2}\/|\/)?[^\s'"]+\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)(?:\s|$)/;
 
 // --- from tool-guardrails.ts:9-53 ---
 
-const CONFIG_FILENAMES = new Set([
-  'package.json',
-  'package-lock.json',
-  'tsconfig.json',
-  'tsconfig.build.json',
-  'tsconfig.node.json',
-  'vitest.config.ts',
-  'vitest.config.mjs',
-  'vitest.config.js',
-  'jest.config.ts',
-  'jest.config.js',
-  'eslint.config.js',
-  'eslint.config.mjs',
-  'eslint.config.ts',
-  '.eslintrc',
-  '.eslintrc.js',
-  '.eslintrc.json',
-  '.eslintrc.yml',
-  '.prettierrc',
-  '.prettierrc.js',
-  '.prettierrc.json',
-  'tailwind.config.ts',
-  'tailwind.config.js',
-  'next.config.js',
-  'next.config.ts',
-  'next.config.mjs',
-  'vite.config.ts',
-  'vite.config.js',
-  'webpack.config.js',
-  'rollup.config.js',
-  'babel.config.js',
-  'babel.config.json',
-  '.babelrc',
-  'composer.json',
-  'Cargo.toml',
-  'go.mod',
-  'go.sum',
-  'pyproject.toml',
-  'setup.py',
-  'requirements.txt',
-]);
+{
+  const CONFIG_FILENAMES = new Set([
+      'package.json',
+      'package-lock.json',
+      'tsconfig.json',
+      'tsconfig.build.json',
+      'tsconfig.node.json',
+      'vitest.config.ts',
+      'vitest.config.mjs',
+      'vitest.config.js',
+      'jest.config.ts',
+      'jest.config.js',
+      'eslint.config.js',
+      'eslint.config.mjs',
+      'eslint.config.ts',
+      '.eslintrc',
+      '.eslintrc.js',
+      '.eslintrc.json',
+      '.eslintrc.yml',
+      '.prettierrc',
+      '.prettierrc.js',
+      '.prettierrc.json',
+      'tailwind.config.ts',
+      'tailwind.config.js',
+      'next.config.js',
+      'next.config.ts',
+      'next.config.mjs',
+      'vite.config.ts',
+      'vite.config.js',
+      'webpack.config.js',
+      'rollup.config.js',
+      'babel.config.js',
+      'babel.config.json',
+      '.babelrc',
+      'composer.json',
+      'Cargo.toml',
+      'go.mod',
+      'go.sum',
+      'pyproject.toml',
+      'setup.py',
+      'requirements.txt',
+    ]),
+    RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i,
+    CODE_PATH_HINT_RE =
+      /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java)\b|(^|\s)(src|lib|app|test|tests|extensions|commands|data-access|services)\b/i,
+    // --- native-tool search guardrails (Claude Code Grep / Glob) ---
+    //
+    // Claude Code's agent is *instructed* to prefer the Grep (ripgrep) and Glob
+    // tools over bash grep/find, so the PRIMARY code-search guardrail lives on
+    // those native tools rather than Bash. These helpers classify a Grep/Glob
+    // tool_input as "targeted" (allow) vs "broad" (deny + memory-code guidance),
+    // keeping parity with the Bash isTargetedSymbolLookup logic above.
 
-const RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i;
-const CODE_PATH_HINT_RE =
-  /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java)\b|(^|\s)(src|lib|app|test|tests|extensions|commands|data-access|services)\b/i;
+    // Regex metacharacters that mark a Grep pattern as a broad/structural search
+    // rather than a single-symbol lookup. Mirrors the check in
+    // isTargetedSymbolLookup so Grep and Bash gate identically.
+    GREP_METACHAR_RE = /[.*+?|^$()[\]{}\\]/,
+    // Single source of truth for the set of code file extensions. Both the
+    // "specific code file" classifier (below) and the bridge's harvest regex
+    // (src/claude-code/handlers/post-tool-use.js CODE_PATH_RE) build from this so
+    // they never drift (#230).
+    CODE_EXTENSIONS = [
+      'cjs',
+      'cts',
+      'js',
+      'jsx',
+      'mjs',
+      'mts',
+      'ts',
+      'tsx',
+      'py',
+      'pyi',
+      'go',
+      'rs',
+      'java',
+      'kt',
+      'rb',
+      'c',
+      'h',
+      'cpp',
+      'hpp',
+      'cs',
+      'scala',
+      'swift',
+      'php',
+    ],
+    SPECIFIC_CODE_FILE_RE = new RegExp(`\\.(${CODE_EXTENSIONS.join('|')})$`, 'i');
 
-// --- native-tool search guardrails (Claude Code Grep / Glob) ---
-//
-// Claude Code's agent is *instructed* to prefer the Grep (ripgrep) and Glob
-// tools over bash grep/find, so the PRIMARY code-search guardrail lives on
-// those native tools rather than Bash. These helpers classify a Grep/Glob
-// tool_input as "targeted" (allow) vs "broad" (deny + memory-code guidance),
-// keeping parity with the Bash isTargetedSymbolLookup logic above.
+  /**
+   * True when a path points at a single concrete code file (not a directory,
+   * not a glob). A Grep scoped to one file is always allowed — it is the
+   * ripgrep equivalent of reading a targeted slice.
+   */
+  function isSpecificCodeFilePath(p) {
+    if (typeof p !== 'string' || !p) {
+      return false;
+    }
+    if (p.includes('*') || p.includes('?')) {
+      return false;
+    }
+    return SPECIFIC_CODE_FILE_RE.test(p.trim());
+  }
 
-// Regex metacharacters that mark a Grep pattern as a broad/structural search
-// rather than a single-symbol lookup. Mirrors the check in
-// isTargetedSymbolLookup so Grep and Bash gate identically.
-const GREP_METACHAR_RE = /[.*+?|^$()[\]{}\\]/;
+  /**
+   * Adapt isTargetedSymbolLookup to the Grep tool's structured input. A Grep is
+   * "targeted" (allowed) when it is scoped to a single code file OR its pattern
+   * is a plain single symbol (length >= MIN_SYMBOL_LENGTH, no regex metachars,
+   * no whitespace, no alternation). Everything else is a broad scan best served
+   * by `memory-code search`.
+   *
+   * @param {{pattern?: string, path?: string}} toolInput
+   * @returns {boolean}
+   */
+  function isTargetedGrepLookup(toolInput = {}) {
+    const { pattern } = toolInput,
+      p = toolInput.path;
 
-// Single source of truth for the set of code file extensions. Both the
-// "specific code file" classifier (below) and the bridge's harvest regex
-// (src/claude-code/handlers/post-tool-use.js CODE_PATH_RE) build from this so
-// they never drift (#230).
-const CODE_EXTENSIONS = [
-  'cjs',
-  'cts',
-  'js',
-  'jsx',
-  'mjs',
-  'mts',
-  'ts',
-  'tsx',
-  'py',
-  'pyi',
-  'go',
-  'rs',
-  'java',
-  'kt',
-  'rb',
-  'c',
-  'h',
-  'cpp',
-  'hpp',
-  'cs',
-  'scala',
-  'swift',
-  'php',
-];
-const SPECIFIC_CODE_FILE_RE = new RegExp(`\\.(${CODE_EXTENSIONS.join('|')})$`, 'i');
+    if (isSpecificCodeFilePath(p)) {
+      return true;
+    }
 
-/**
- * True when a path points at a single concrete code file (not a directory,
- * not a glob). A Grep scoped to one file is always allowed — it is the
- * ripgrep equivalent of reading a targeted slice.
- */
-function isSpecificCodeFilePath(p) {
-  if (typeof p !== 'string' || !p) {
+    if (typeof pattern !== 'string' || !pattern) {
+      return false;
+    }
+    {
+      const trimmed = pattern.trim();
+      if (trimmed.length < MIN_SYMBOL_LENGTH) {
+        return false;
+      }
+      if (/\s/.test(trimmed)) {
+        return false;
+      }
+      if (GREP_METACHAR_RE.test(trimmed)) {
+        return false;
+      }
+      return true;
+    }
+  }
+
+  /**
+   * True for a Glob pattern that discovers code broadly across the whole repo
+   * (bare `**`, `**` + `/*`, or a top-level recursive code glob like
+   * `**` followed by `/*.ts`, with no intermediate directory scoping).
+   * Scoped globs with an intermediate directory (e.g. `src` prefix, or
+   * a `handlers` subdirectory segment) are NOT broad — they are allowed.
+   *
+   * @param {string} pattern
+   * @returns {boolean}
+   */
+  function isBroadGlob(pattern) {
+    if (typeof pattern !== 'string') {
+      return false;
+    }
+    const p = pattern.trim();
+    if (!p) {
+      return false;
+    }
+    if (p === '**' || p === '**/*' || p === '*' || p === '**/**') {
+      return true;
+    }
+    if (p.startsWith('**/') && SPECIFIC_CODE_FILE_RE.test(p) && p.indexOf('/', 3) === -1) {
+      // E.g. **/*.ts — recursive, unscoped code discovery.
+      return true;
+    }
     return false;
   }
-  if (p.includes('*') || p.includes('?')) {
-    return false;
+
+  module.exports = {
+    splitPipeline,
+    isPipedOutputFilter,
+    isTargetedSymbolLookup,
+    isTargetedTextFileLookup,
+    isSpecificCodeFilePath,
+    isTargetedGrepLookup,
+    isBroadGlob,
+    CONFIG_FILENAMES,
+    CODE_EXTENSIONS,
+    RAW_CODE_DISCOVERY_RE,
+    CODE_PATH_HINT_RE,
+    MIN_SYMBOL_LENGTH,
+  };
+  function splitPipeline(cmd) {
+    const stages = [];
+    let current = '',
+      quote = null;
+
+    for (let i = 0; i < cmd.length; i++) {
+      const ch = cmd[i],
+        prev = i > 0 ? cmd[i - 1] : '';
+
+      if ((ch === '"' || ch === "'") && prev !== '\\') {
+        quote = quote === ch ? null : quote || ch;
+      }
+
+      if (ch === '|' && !quote) {
+        stages.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+
+    stages.push(current.trim());
+    return stages.filter(Boolean);
   }
-  return SPECIFIC_CODE_FILE_RE.test(p.trim());
-}
+  function isPipedOutputFilter(cmd) {
+    const stages = splitPipeline(cmd),
+      [sourceStage, ...filterStages] = stages;
+    if (stages.length < 2) {
+      return false;
+    }
 
-/**
- * Adapt isTargetedSymbolLookup to the Grep tool's structured input. A Grep is
- * "targeted" (allowed) when it is scoped to a single code file OR its pattern
- * is a plain single symbol (length >= MIN_SYMBOL_LENGTH, no regex metachars,
- * no whitespace, no alternation). Everything else is a broad scan best served
- * by `memory-code search`.
- *
- * @param {{pattern?: string, path?: string}} toolInput
- * @returns {boolean}
- */
-function isTargetedGrepLookup(toolInput = {}) {
-  const { pattern } = toolInput;
-  const p = toolInput.path;
+    if (SEARCH_COMMAND_RE.test(sourceStage)) {
+      return false;
+    }
 
-  if (isSpecificCodeFilePath(p)) {
+    return filterStages.some((stage) => FILTER_COMMAND_RE.test(stage));
+  }
+  function isTargetedTextFileLookup(cmd) {
+    if (/\bfind\b/i.test(cmd) || !/\b(grep|rg|ag|ack)\b/i.test(cmd)) {
+      return false;
+    }
+
+    const stages = splitPipeline(cmd);
+    if (
+      stages.length > 1 &&
+      stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
+    ) {
+      return false;
+    }
+
+    return TEXT_FILE_PATH_RE.test(cmd);
+  }
+  function isTargetedSymbolLookup(cmd) {
+    if (/\bfind\b/.test(cmd)) {
+      return false;
+    }
+
+    if (!/\b(grep|rg|ag|ack)\b/.test(cmd)) {
+      return false;
+    }
+
+    const stages = splitPipeline(cmd);
+    if (
+      stages.length > 1 &&
+      stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
+    ) {
+      return false;
+    }
+
+    let pattern = null,
+      hasQuotedPattern = false,
+      m;
+    // Reset the module-level /g flag's lastIndex. The original (hooks/guardrail-utils.js)
+    // Reused QUOTED_PATTERN_RE across calls without resetting; because the loop below
+    // `break`s on the first non-glob candidate, lastIndex was left stale and a later
+    // Call could start scanning mid-string. Resetting here makes the function
+    // Deterministic across calls (intentional deviation from the original, which had
+    // This latent stateful-regex bug; covered by test/tool-guardrails.test.js parity).
+    QUOTED_PATTERN_RE.lastIndex = 0;
+    while ((m = QUOTED_PATTERN_RE.exec(cmd)) !== null) {
+      const candidate = m[1];
+      if (!/^[*?]/.test(candidate)) {
+        hasQuotedPattern = true;
+      }
+      if (!/[*?]/.test(candidate)) {
+        pattern = candidate;
+        break;
+      }
+    }
+
+    if (hasQuotedPattern && CODE_FILE_PATH_RE.test(cmd)) {
+      return true;
+    }
+
+    if (!pattern) {
+      return false;
+    }
+
+    if (pattern.length < MIN_SYMBOL_LENGTH) {
+      return false;
+    }
+
+    if (/[.*+?|^$()\[\]{}\\]/.test(pattern)) {
+      return false;
+    }
+
+    if (pattern.includes('|')) {
+      return false;
+    }
+
     return true;
   }
-
-  if (typeof pattern !== 'string' || !pattern) {
-    return false;
-  }
-  const trimmed = pattern.trim();
-  if (trimmed.length < MIN_SYMBOL_LENGTH) {
-    return false;
-  }
-  if (/\s/.test(trimmed)) {
-    return false;
-  }
-  if (GREP_METACHAR_RE.test(trimmed)) {
-    return false;
-  }
-  return true;
 }
-
-/**
- * True for a Glob pattern that discovers code broadly across the whole repo
- * (bare `**`, `**` + `/*`, or a top-level recursive code glob like `**​/*.ts`
- * with no intermediate directory scoping). Scoped globs such as
- * `src/**​/*.ts` or `**​/handlers/*.js` are NOT broad — they are allowed.
- *
- * @param {string} pattern
- * @returns {boolean}
- */
-function isBroadGlob(pattern) {
-  if (typeof pattern !== 'string') {
-    return false;
-  }
-  const p = pattern.trim();
-  if (!p) {
-    return false;
-  }
-  if (p === '**' || p === '**/*' || p === '*' || p === '**/**') {
-    return true;
-  }
-  if (p.startsWith('**/') && SPECIFIC_CODE_FILE_RE.test(p) && p.indexOf('/', 3) === -1) {
-    // e.g. **/*.ts — recursive, unscoped code discovery.
-    return true;
-  }
-  return false;
-}
-
-module.exports = {
-  splitPipeline,
-  isPipedOutputFilter,
-  isTargetedSymbolLookup,
-  isTargetedTextFileLookup,
-  isSpecificCodeFilePath,
-  isTargetedGrepLookup,
-  isBroadGlob,
-  CONFIG_FILENAMES,
-  CODE_EXTENSIONS,
-  RAW_CODE_DISCOVERY_RE,
-  CODE_PATH_HINT_RE,
-  MIN_SYMBOL_LENGTH,
-};

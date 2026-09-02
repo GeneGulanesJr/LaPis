@@ -1,7 +1,7 @@
-const searchService = require('../services/search');
-const contextService = require('../services/context');
-const dedupService = require('../services/dedup');
-const obsDA = require('../data-access/observations');
+const searchService = require('../services/search'),
+  contextService = require('../services/context'),
+  dedupService = require('../services/dedup'),
+  obsDA = require('../data-access/observations');
 
 function search(deps, args) {
   return searchService.search(

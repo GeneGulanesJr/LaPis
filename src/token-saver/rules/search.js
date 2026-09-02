@@ -1,8 +1,11 @@
-const MAX_MATCHES_PER_FILE = 10;
-const MAX_FILES = 30;
+const MAX_MATCHES_PER_FILE = 10,
+  MAX_FILES = 30;
 
 function compressSearchOutput({ stdout, stderr, commandArgs }) {
-  const combined = `${stdout}\n${stderr}`.trim();
+  const combined = `${stdout}\n${stderr}`.trim(),
+    lines = combined ? combined.split('\n') : undefined,
+    fileMap = combined ? {} : undefined,
+    headerLines = [];
   if (!combined) {
     return {
       summary: 'No matches.',
@@ -11,10 +14,8 @@ function compressSearchOutput({ stdout, stderr, commandArgs }) {
     };
   }
 
-  const lines = combined.split('\n');
-  const fileMap = {};
-  let totalMatches = 0;
-  const headerLines = [];
+  let totalMatches = 0,
+    output = '';
 
   for (const line of lines) {
     const match = line.match(/^(?<file>.+?):(?<lineNum>\d+):(?<text>.*)$/);
@@ -32,42 +33,47 @@ function compressSearchOutput({ stdout, stderr, commandArgs }) {
     }
   }
 
-  const files = Object.keys(fileMap);
-  const isTruncated = files.length > MAX_FILES;
-  const shownFiles = files.slice(0, MAX_FILES);
+  {
+    const files = Object.keys(fileMap),
+      isTruncated = files.length > MAX_FILES,
+      shownFiles = files.slice(0, MAX_FILES),
+      searchTerm = commandArgs.join(' '),
+      omitted = (() => {
+        if (searchTerm) {
+          output += `Search results for "${searchTerm}":\n`;
+        }
+        output += `Total matches: ${totalMatches} across ${files.length} files\n\n`;
 
-  let output = '';
-  const searchTerm = commandArgs.join(' ');
-  if (searchTerm) {
-    output += `Search results for "${searchTerm}":\n`;
-  }
-  output += `Total matches: ${totalMatches} across ${files.length} files\n\n`;
+        if (shownFiles.length > 0) {
+          output += 'Top files:\n';
+          for (const file of shownFiles) {
+            output += `${file}\n`;
+            for (const m of fileMap[file]) {
+              output += `- L${m.lineNum}: ${m.text}\n`;
+            }
+          }
+        }
 
-  if (shownFiles.length > 0) {
-    output += 'Top files:\n';
-    for (const file of shownFiles) {
-      output += `${file}\n`;
-      for (const m of fileMap[file]) {
-        output += `- L${m.lineNum}: ${m.text}\n`;
+        if (isTruncated) {
+          output += `\n... ${files.length - MAX_FILES} more files with matches not shown`;
+        }
+
+        return Math.max(0, totalMatches - shownFiles.reduce((sum, f) => sum + fileMap[f].length, 0));
+      })();
+
+    {
+      let summary = `${totalMatches} match(es) across ${files.length} file(s).`;
+      if (omitted > 0) {
+        summary += ` ${omitted} matches truncated.`;
       }
+
+      return {
+        summary,
+        importantOutput: output.trim(),
+        omittedLines: omitted,
+      };
     }
   }
-
-  if (isTruncated) {
-    output += `\n... ${files.length - MAX_FILES} more files with matches not shown`;
-  }
-
-  const omitted = Math.max(0, totalMatches - shownFiles.reduce((sum, f) => sum + fileMap[f].length, 0));
-  let summary = `${totalMatches} match(es) across ${files.length} file(s).`;
-  if (omitted > 0) {
-    summary += ` ${omitted} matches truncated.`;
-  }
-
-  return {
-    summary,
-    importantOutput: output.trim(),
-    omittedLines: omitted,
-  };
 }
 
 module.exports = { compressSearchOutput };

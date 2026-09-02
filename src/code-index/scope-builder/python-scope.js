@@ -26,28 +26,34 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
 
       // ── Function declarations ──────────────────────────────
       case 'function_definition': {
-        const nameNode = node.childForFieldName('name');
-        if (nameNode) {
-          addBinding(bindings, {
-            name: nameNode.text,
-            kind: 'declaration',
-            origin: 'local',
-            sourceModule: null,
-            sourceName: null,
-            lineStart: node.startPosition.row + 1,
-            lineEnd: node.endPosition.row + 1,
-            scopeDepth,
-            byteStart: node.startIndex,
-            byteEnd: node.endIndex,
-          });
-        }
-        // Parameters
-        const params = node.childForFieldName('parameters');
-        if (params) {
-          extractPyParameters(params, scopeDepth + 1);
-        }
-        // Walk body at deeper scope
-        const body = node.childForFieldName('body');
+        const nameNode = node.childForFieldName('name'),
+          params = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
+            // Parameters
+
+            return node.childForFieldName('parameters');
+          })(),
+          body = (() => {
+            if (params) {
+              extractPyParameters(params, scopeDepth + 1);
+            }
+            // Walk body at deeper scope
+
+            return node.childForFieldName('body');
+          })();
         if (body) {
           walkChildren(body, scopeDepth + 1);
         }
@@ -56,27 +62,33 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
 
       // ── Class declarations ─────────────────────────────────
       case 'class_definition': {
-        const nameNode = node.childForFieldName('name');
-        if (nameNode) {
-          addBinding(bindings, {
-            name: nameNode.text,
-            kind: 'declaration',
-            origin: 'local',
-            sourceModule: null,
-            sourceName: null,
-            lineStart: node.startPosition.row + 1,
-            lineEnd: node.endPosition.row + 1,
-            scopeDepth,
-            byteStart: node.startIndex,
-            byteEnd: node.endIndex,
-          });
-        }
-        // Decorators
-        const decorator = node.childForFieldName('decorator');
-        if (decorator) {
-          handleDecorator(decorator, bindings, scopeDepth);
-        }
-        const body = node.childForFieldName('body');
+        const nameNode = node.childForFieldName('name'),
+          decorator = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
+            // Decorators
+
+            return node.childForFieldName('decorator');
+          })(),
+          body = (() => {
+            if (decorator) {
+              handleDecorator(decorator, bindings, scopeDepth);
+            }
+
+            return node.childForFieldName('body');
+          })();
         if (body) {
           walkChildren(body, scopeDepth + 1);
         }
@@ -115,16 +127,16 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
   }
 
   function handleImportStatement(node) {
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1;
     // Import foo, bar
     // Import foo as baz
     let child = node.firstChild;
     while (child) {
       if (child.type === 'dotted_name' || child.type === 'aliased_import') {
         if (child.type === 'aliased_import') {
-          const nameNode = child.childForFieldName('alias') || findLastIdentifier(child);
-          const origNode = child.childForFieldName('name') || child.firstChild;
+          const nameNode = child.childForFieldName('alias') || findLastIdentifier(child),
+            origNode = child.childForFieldName('name') || child.firstChild;
           if (nameNode) {
             addBinding(bindings, {
               name: nameNode.text,
@@ -159,16 +171,15 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
   }
 
   function handleFromImportStatement(node) {
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
-
-    // Find module name: from foo.bar import baz
-    const moduleNode = node.childForFieldName('module_name');
-    const modulePath = moduleNode ? moduleNode.text : null;
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1,
+      // Find module name: from foo.bar import baz
+      moduleNode = node.childForFieldName('module_name'),
+      modulePath = moduleNode ? moduleNode.text : null,
+      isPackage = modulePath ? !modulePath.startsWith('.') : undefined;
     if (!modulePath) {
       return;
     }
-    const isPackage = !modulePath.startsWith('.');
 
     // Find imported names
     let child = node.firstChild;
@@ -204,8 +215,8 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
           });
         }
       } else if (child.type === 'aliased_import') {
-        const aliasNode = child.childForFieldName('alias') || findLastIdentifier(child);
-        const nameNode = child.childForFieldName('name') || child.firstChild;
+        const aliasNode = child.childForFieldName('alias') || findLastIdentifier(child),
+          nameNode = child.childForFieldName('name') || child.firstChild;
         if (aliasNode) {
           addBinding(bindings, {
             name: aliasNode.text,
@@ -238,8 +249,8 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
               byteEnd: importChild.endIndex,
             });
           } else if (importChild.type === 'aliased_import') {
-            const aliasNode = importChild.childForFieldName('alias') || findLastIdentifier(importChild);
-            const nameNode = importChild.childForFieldName('name') || importChild.firstChild;
+            const aliasNode = importChild.childForFieldName('alias') || findLastIdentifier(importChild),
+              nameNode = importChild.childForFieldName('name') || importChild.firstChild;
             if (aliasNode) {
               addBinding(bindings, {
                 name: aliasNode.text,
@@ -264,8 +275,8 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
 
   function handleDecorator(node, scopeDepth) {
     // @some_decorator
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1;
     let child = node.firstChild;
     while (child) {
       if (child.type === 'identifier' || child.type === 'attribute') {
@@ -359,8 +370,8 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
   }
 
   function findLastIdentifier(node) {
-    let last = null;
-    let child = node.firstChild;
+    let last = null,
+      child = node.firstChild;
     while (child) {
       if (child.type === 'identifier') {
         last = child;

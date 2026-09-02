@@ -12,19 +12,19 @@ function matchRoute(method, pathname, routes) {
 }
 
 function matchPath(pattern, pathname) {
-  const patternParts = pattern.split('/');
-  const pathParts = pathname.split('/');
+  const patternParts = pattern.split('/'),
+    pathParts = pathname.split('/'),
+    params = !(patternParts.length !== pathParts.length) ? {} : undefined;
   if (patternParts.length !== pathParts.length) {
     return null;
   }
-  const params = {};
   for (let i = 0; i < patternParts.length; i++) {
     if (patternParts[i].startsWith(':')) {
       try {
         params[patternParts[i].slice(1)] = decodeURIComponent(pathParts[i]);
       } catch {
         // Malformed percent-encoding (e.g. %ZZ) — treat as no match so the
-        // caller surfaces a clean 404 instead of an unhandled URIError.
+        // Caller surfaces a clean 404 instead of an unhandled URIError.
         return null;
       }
     } else if (patternParts[i] !== pathParts[i]) {

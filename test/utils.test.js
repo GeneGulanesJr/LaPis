@@ -1,7 +1,7 @@
-const utils = require('../utils');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const utils = require('../utils'),
+  fs = require('fs'),
+  path = require('path'),
+  os = require('os');
 
 describe('utils.js', () => {
   describe('requireNativeDb', () => {
@@ -17,26 +17,26 @@ describe('utils.js', () => {
     });
 
     it('should return null for valid db handle', () => {
-      const db = { prepare: vi.fn() };
-      const result = utils.requireNativeDb(db, 'feature-x');
+      const db = { prepare: vi.fn() },
+        result = utils.requireNativeDb(db, 'feature-x');
       expect(result).toBeNull();
     });
   });
 
   describe('withDb', () => {
     it('should return error when db is null', () => {
-      const fn = vi.fn();
-      const guarded = utils.withDb(fn, 'my-feature');
-      const result = guarded(null, 'arg1');
+      const fn = vi.fn(),
+        guarded = utils.withDb(fn, 'my-feature'),
+        result = guarded(null, 'arg1');
       expect(result).toEqual({ error: expect.stringContaining('my-feature') });
       expect(fn).not.toHaveBeenCalled();
     });
 
     it('should call the wrapped function with valid db', () => {
-      const fn = vi.fn(() => 'result');
-      const guarded = utils.withDb(fn, 'my-feature');
-      const db = { prepare: vi.fn() };
-      const result = guarded(db, 'arg1', 'arg2');
+      const fn = vi.fn(() => 'result'),
+        guarded = utils.withDb(fn, 'my-feature'),
+        db = { prepare: vi.fn() },
+        result = guarded(db, 'arg1', 'arg2');
       expect(result).toBe('result');
       expect(fn).toHaveBeenCalledWith(db, 'arg1', 'arg2');
     });
@@ -49,14 +49,14 @@ describe('utils.js', () => {
     });
 
     it('should produce consistent hashes for identical content', () => {
-      const hash1 = utils.hashContent('test content');
-      const hash2 = utils.hashContent('test content');
+      const hash1 = utils.hashContent('test content'),
+        hash2 = utils.hashContent('test content');
       expect(hash1).toBe(hash2);
     });
 
     it('should produce different hashes for different content', () => {
-      const hash1 = utils.hashContent('content A');
-      const hash2 = utils.hashContent('content B');
+      const hash1 = utils.hashContent('content A'),
+        hash2 = utils.hashContent('content B');
       expect(hash1).not.toBe(hash2);
     });
 
@@ -103,9 +103,12 @@ describe('utils.js', () => {
     });
 
     it('should find code files in src but skip node_modules', () => {
-      const files = utils.walkDirForCode(tmpDir);
-      expect(files.length).toBe(3);
-      const basenames = files.map((f) => path.basename(f)).sort();
+      const files = utils.walkDirForCode(tmpDir),
+        basenames = (() => {
+          expect(files.length).toBe(3);
+
+          return files.map((f) => path.basename(f)).sort();
+        })();
       expect(basenames).toEqual(['app.ts', 'index.js', 'style.css']);
     });
 
@@ -117,12 +120,15 @@ describe('utils.js', () => {
     });
 
     it('should find .py, .go, .rs files', () => {
-      const pyDir = path.join(tmpDir, 'scripts');
-      fs.mkdirSync(pyDir, { recursive: true });
-      fs.writeFileSync(path.join(pyDir, 'run.py'), 'print("hi")');
-      fs.writeFileSync(path.join(pyDir, 'main.go'), 'package main');
-      fs.writeFileSync(path.join(pyDir, 'lib.rs'), 'fn main(){}');
-      const files = utils.walkDirForCode(tmpDir);
+      const pyDir = path.join(tmpDir, 'scripts'),
+        files = (() => {
+          fs.mkdirSync(pyDir, { recursive: true });
+          fs.writeFileSync(path.join(pyDir, 'run.py'), 'print("hi")');
+          fs.writeFileSync(path.join(pyDir, 'main.go'), 'package main');
+          fs.writeFileSync(path.join(pyDir, 'lib.rs'), 'fn main(){}');
+
+          return utils.walkDirForCode(tmpDir);
+        })();
       expect(files.length).toBeGreaterThanOrEqual(3);
     });
   });
@@ -149,8 +155,8 @@ describe('utils.js', () => {
     });
 
     it('should respect ignore glob', () => {
-      const files = utils.walkDirForDocs(tmpDir, 'docs/guide*');
-      const basenames = files.map((f) => path.basename(f));
+      const files = utils.walkDirForDocs(tmpDir, 'docs/guide*'),
+        basenames = files.map((f) => path.basename(f));
       expect(basenames).not.toContain('guide.md');
     });
   });

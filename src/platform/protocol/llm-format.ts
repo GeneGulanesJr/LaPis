@@ -15,34 +15,36 @@ function formatCodeResult(mode: string, result: any): string {
       return `**Code search:** ${results.length} result${results.length === 1 ? '' : 's'} for ${result.query ?? 'query'}\n${results
         .slice(0, 10)
         .map((r: any, i: number) => {
-          const file = r.file ?? r.file_path ?? '?';
-          const symbol = r.symbol ?? r.symbol_name ?? r.qualified_name ?? r.name ?? '?';
-          const line = r.line ?? r.start_line ?? '?';
-          const signature = r.signature ? ` — ${String(r.signature).slice(0, 90)}` : '';
-          const snippet = r.snippet ? `\n    ${String(r.snippet).replace(/\s+/g, ' ').slice(0, 140)}` : '';
+          const file = r.file ?? r.file_path ?? '?',
+            symbol = r.symbol ?? r.symbol_name ?? r.qualified_name ?? r.name ?? '?',
+            line = r.line ?? r.start_line ?? '?',
+            signature = r.signature ? ` — ${String(r.signature).slice(0, 90)}` : '',
+            snippet = r.snippet ? `\n    ${String(r.snippet).replace(/\s+/g, ' ').slice(0, 140)}` : '';
           return `  ${i + 1}. ${symbol} (${file}:${line})${signature}${snippet}`;
         })
         .join('\n')}`;
     }
     case 'callers':
     case 'callees': {
-      const items = result.callers || result.callees || [];
-      const dir = mode === 'callers' ? 'Callers of' : 'Callees from';
-      const lines = items.map((c: any) => `  [depth ${c.depth ?? '?'}] ${c.name ?? '?'} (${c.file_path ?? '?'})`);
+      const items = result.callers || result.callees || [],
+        dir = mode === 'callers' ? 'Callers of' : 'Callees from',
+        lines = items.map((c: any) => `  [depth ${c.depth ?? '?'}] ${c.name ?? '?'} (${c.file_path ?? '?'})`);
       return `**${dir} ${result.symbol ?? '?'}:**\n${lines.length ? lines.join('\n') : '(none found)'}`;
     }
     case 'blast-radius': {
-      const aFiles = result.affected_files || [];
-      const isNewFormat = result.seed_file !== undefined || (aFiles.length > 0 && aFiles[0].reachability !== undefined);
+      const aFiles = result.affected_files || [],
+        isNewFormat = result.seed_file !== undefined || (aFiles.length > 0 && aFiles[0].reachability !== undefined),
+        callers = result.callers || [],
+        importers = result.file_importers || [];
       if (isNewFormat) {
-        const aSyms = result.affected_symbols || [];
-        const lines: string[] = [
-          `**Blast radius of ${result.symbol ?? result.seed_file ?? '?'}** (${result.seed_file ?? '?'})`,
-          `Affected files: ${aFiles.length} (by reachability)`,
-        ];
+        const aSyms = result.affected_symbols || [],
+          lines: string[] = [
+            `**Blast radius of ${result.symbol ?? result.seed_file ?? '?'}** (${result.seed_file ?? '?'})`,
+            `Affected files: ${aFiles.length} (by reachability)`,
+          ];
         for (const f of aFiles.slice(0, 15)) {
-          const score = (f.reachability ?? 0).toFixed(2);
-          const signals = (f.signals || []).join(', ');
+          const score = (f.reachability ?? 0).toFixed(2),
+            signals = (f.signals || []).join(', ');
           lines.push(`  [${score}] ${f.path ?? '?'} — via ${signals}`);
         }
         if (aSyms.length > 0) {
@@ -55,8 +57,7 @@ function formatCodeResult(mode: string, result: any): string {
         }
         return lines.join('\n');
       }
-      const callers = result.callers || [];
-      const importers = result.file_importers || [];
+
       return [
         `**Blast radius of ${result.symbol ?? '?'}** (${result.file ?? '?'})`,
         `Affected files: ${aFiles.length}`,
@@ -71,8 +72,8 @@ function formatCodeResult(mode: string, result: any): string {
         .join('\n');
     }
     case 'dead-code': {
-      const deadFiles = result.dead_files || [];
-      const deadSyms = result.dead_symbols || [];
+      const deadFiles = result.dead_files || [],
+        deadSyms = result.dead_symbols || [];
       return [
         `**Dead code analysis** — ${deadFiles.length} dead files, ${deadSyms.length} dead symbols`,
         deadFiles.length ? `Dead files:\n${deadFiles.map((f: any) => `  ${f.path ?? '?'}`).join('\n')}` : '',
@@ -89,8 +90,8 @@ function formatCodeResult(mode: string, result: any): string {
     }
     case 'complexity': {
       if (Array.isArray(result)) {
-        const high = result.filter((r: any) => r.assessment === 'high');
-        const med = result.filter((r: any) => r.assessment === 'medium');
+        const high = result.filter((r: any) => r.assessment === 'high'),
+          med = result.filter((r: any) => r.assessment === 'medium');
         return [
           `**Complexity:** ${result.length} functions — ${high.length} high, ${med.length} medium, ${result.length - high.length - med.length} low`,
           ...high
@@ -105,9 +106,9 @@ function formatCodeResult(mode: string, result: any): string {
       return `**${result.name ?? '?'}** (${safePop(result.file_path)}): cyclomatic=${result.cyclomatic ?? '?'} nesting=${result.nesting_depth ?? '?'} params=${result.param_count ?? '?'} lines=${result.lines_of_code ?? '?'} — ${result.assessment ?? '?'}`;
     }
     case 'deps': {
-      const edges = result.edges || [];
-      const down = result.downstream || [];
-      const up = result.upstream || [];
+      const edges = result.edges || [],
+        down = result.downstream || [],
+        up = result.upstream || [];
       if (down.length || up.length) {
         return [
           down.length
@@ -137,27 +138,27 @@ function formatCodeResult(mode: string, result: any): string {
           .join('\n');
       }
       if (outline.directory) {
-        const files = (outline.files || []).slice(0, 25).map((file: string) => `  ${file}`);
-        const suffix = outline.truncated
-          ? `\n  ... ${Math.max(0, (outline.total_files || 0) - files.length)} more files`
-          : '';
+        const files = (outline.files || []).slice(0, 25).map((file: string) => `  ${file}`),
+          suffix = outline.truncated
+            ? `\n  ... ${Math.max(0, (outline.total_files || 0) - files.length)} more files`
+            : '';
         return `**Directory outline** ${outline.file ?? ''}: ${outline.total_files ?? files.length} files\n${files.join('\n')}${suffix}\nRefine --file to a specific file for symbols.`;
       }
       if (outline.classes) {
         const lines = outline.classes.map((c: any) => {
-          const methods = (c.methods || [])
-            .map(
-              (m: any) =>
-                `    ${m.assessment ? `[${m.assessment}] ` : ''}${m.kind ?? '?'} ${m.name ?? '?'}${m.signature ? `: ${m.signature.slice(0, 60)}` : ''}`,
-            )
-            .join('\n');
-          return `  📦 ${c.name ?? '?'}\n${methods}`;
-        });
-        const standalone = (outline.standalone || []).map(
-          (s: any) =>
-            `  ${s.assessment ? `[${s.assessment}] ` : ''}${s.kind ?? '?'} ${s.name ?? '?'}${s.signature ? `: ${s.signature.slice(0, 60)}` : ''}`,
-        );
-        const body = [...lines, ...standalone].join('\n');
+            const methods = (c.methods || [])
+              .map(
+                (m: any) =>
+                  `    ${m.assessment ? `[${m.assessment}] ` : ''}${m.kind ?? '?'} ${m.name ?? '?'}${m.signature ? `: ${m.signature.slice(0, 60)}` : ''}`,
+              )
+              .join('\n');
+            return `  📦 ${c.name ?? '?'}\n${methods}`;
+          }),
+          standalone = (outline.standalone || []).map(
+            (s: any) =>
+              `  ${s.assessment ? `[${s.assessment}] ` : ''}${s.kind ?? '?'} ${s.name ?? '?'}${s.signature ? `: ${s.signature.slice(0, 60)}` : ''}`,
+          ),
+          body = [...lines, ...standalone].join('\n');
         return body ? `**File outline**\n${body}` : `No symbols found in ${outline.file ?? 'file'}.`;
       }
       return JSON.stringify(outline, null, 2);
@@ -253,8 +254,8 @@ function formatCodeResult(mode: string, result: any): string {
       }
       return result.chains
         .map((c: any) => {
-          const gw = c.gateway || c;
-          const label = gw.method ? `${gw.method} ${gw.path ?? ''}` : (gw.name ?? '?');
+          const gw = c.gateway || c,
+            label = gw.method ? `${gw.method} ${gw.path ?? ''}` : (gw.name ?? '?');
           return `▶ **${label}** (${gw.kind ?? '?'})\n${(c.chain || [])
             .map((s: any, i: number) => `${'  '.repeat(i + 1)}→ ${s.name ?? '?'} (${s.kind || 'fn'})`)
             .join('\n')}`;
@@ -282,8 +283,8 @@ function formatCodeResult(mode: string, result: any): string {
       if (result.error) {
         return `Error: ${result.error}`;
       }
-      const target = result.target || {};
-      const summary = result.summary || {};
+      const target = result.target || {},
+        summary = result.summary || {};
       let targetLabel = 'target';
       if (target.symbol) {
         targetLabel = `${target.symbol} (${target.file ?? '?'})`;
@@ -328,14 +329,14 @@ function formatCodeResult(mode: string, result: any): string {
       return lines.join('\n');
     }
     case 'preflight': {
-      const code = result.likely_existing_code || [];
-      const memories = result.similar_past_tasks || [];
-      const warnings = result.duplicate_warnings || [];
-      const files = result.related_files || [];
-      const lines = [
-        `**Preflight:** ${result.task_summary ?? 'task'} — risk: ${result.risk ?? 'unknown'} | duplicate risk: ${result.duplicate_risk ?? 'unknown'}`,
-        `Recommended: ${result.recommended_action ?? 'Review relevant context before editing.'}`,
-      ];
+      const code = result.likely_existing_code || [],
+        memories = result.similar_past_tasks || [],
+        warnings = result.duplicate_warnings || [],
+        files = result.related_files || [],
+        lines = [
+          `**Preflight:** ${result.task_summary ?? 'task'} — risk: ${result.risk ?? 'unknown'} | duplicate risk: ${result.duplicate_risk ?? 'unknown'}`,
+          `Recommended: ${result.recommended_action ?? 'Review relevant context before editing.'}`,
+        ];
       if (warnings.length) {
         lines.push('', 'Duplicate warnings:');
         for (const w of warnings.slice(0, 5)) {
@@ -398,14 +399,16 @@ function formatCodeResult(mode: string, result: any): string {
       if (result.error) {
         return `Error: ${result.error}`;
       }
-      const reindexSymbols = result.symbol_count || 0;
-      const reindexExtracted = result.symbols_extracted ?? null;
-      const reindexUnchanged = result.files_unchanged === result.file_count;
+      const reindexSymbols = result.symbol_count || 0,
+        reindexExtracted = result.symbols_extracted ?? null,
+        reindexUnchanged = result.files_unchanged === result.file_count;
       if (reindexUnchanged) {
         return `✅ Repo "${result.name || result.repo}" already up-to-date: ${result.file_count || 0} files, ${reindexSymbols} symbols (no changes since last index)`;
       }
-      const extractedNote = reindexExtracted !== null ? ` (${reindexExtracted} new)` : '';
-      return `✅ Repo "${result.name || result.repo}" reindexed: ${result.file_count || 0} files, ${reindexSymbols} symbols${extractedNote} (${result.mode || 'incremental'})`;
+      {
+        const extractedNote = reindexExtracted !== null ? ` (${reindexExtracted} new)` : '';
+        return `✅ Repo "${result.name || result.repo}" reindexed: ${result.file_count || 0} files, ${reindexSymbols} symbols${extractedNote} (${result.mode || 'incremental'})`;
+      }
     }
     case 'index-docs': {
       if (result.error) {
@@ -420,14 +423,14 @@ function formatCodeResult(mode: string, result: any): string {
       return `✅ Doc repo "${result.name || result.repo}" reindexed: ${result.section_count || 0} sections (${result.mode || 'full'})`;
     }
     case 'health': {
-      const diagnostics = result.diagnostics || {};
-      const lines = [
-        `# Index Health: ${result.repo}`,
-        '',
-        `Score: ${result.health_score}`,
-        `Indexed: ${result.indexed_files} files, ${result.indexed_symbols} symbols`,
-        `Fresh: ${result.stale ? 'no' : 'yes'}`,
-      ];
+      const diagnostics = result.diagnostics || {},
+        lines = [
+          `# Index Health: ${result.repo}`,
+          '',
+          `Score: ${result.health_score}`,
+          `Indexed: ${result.indexed_files} files, ${result.indexed_symbols} symbols`,
+          `Fresh: ${result.stale ? 'no' : 'yes'}`,
+        ];
       if (result.scan) {
         const delta = result.scan.indexed_file_delta;
         lines.push(
@@ -458,10 +461,10 @@ function formatCodeResult(mode: string, result: any): string {
         .join('\n\n')}`;
     }
     case 'audit-diff': {
-      const violations = result.violations || [];
-      const lines = [
-        `**Audit diff** — risk: ${result.risk || '?'} (score ${result.risk_score ?? '?'}), files checked: ${result.files_checked ?? 0}`,
-      ];
+      const violations = result.violations || [],
+        lines = [
+          `**Audit diff** — risk: ${result.risk || '?'} (score ${result.risk_score ?? '?'}), files checked: ${result.files_checked ?? 0}`,
+        ];
       if (!violations.length) {
         lines.push('', 'No violations found.');
         return lines.join('\n');
@@ -473,9 +476,9 @@ function formatCodeResult(mode: string, result: any): string {
       return lines.join('\n');
     }
     case 'enrich-symbols': {
-      const total = result.total_symbols ?? 0;
-      const enriched = result.enriched_count ?? 0;
-      const skipped = result.skipped_count ?? 0;
+      const total = result.total_symbols ?? 0,
+        enriched = result.enriched_count ?? 0,
+        skipped = result.skipped_count ?? 0;
       if (result.error) {
         return `Error: ${result.error}`;
       }

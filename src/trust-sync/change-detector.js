@@ -1,14 +1,14 @@
-const fs = require('fs');
-const path = require('path');
-const { execFileSync } = require('child_process');
+const fs = require('fs'),
+  path = require('path'),
+  { execFileSync } = require('child_process');
 
 /**
  * Map git-relative paths to absolute paths stored in the code index.
  * Includes realpath variants so symlinked repo roots still match indexed rows.
  */
 function resolveIndexedFilePaths(repoPath, gitPaths) {
-  const root = path.resolve(repoPath);
-  const resolved = new Set();
+  const root = path.resolve(repoPath),
+    resolved = new Set();
   for (const entry of gitPaths) {
     if (!entry || typeof entry !== 'string') {
       // oxlint-disable-next-line no-continue
@@ -39,15 +39,17 @@ function parseGitDiffNameStatus(output) {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    const parts = trimmed.split('\t');
-    const status = parts[0];
-    if (status.startsWith('R') && parts[1] && parts[2]) {
-      changed.add(parts[1]);
-      changed.add(parts[2]);
-    } else if (status.startsWith('D') && parts[1]) {
-      changed.add(parts[1]);
-    } else if (parts[1]) {
-      changed.add(parts[1]);
+    {
+      const parts = trimmed.split('\t'),
+        status = parts[0];
+      if (status.startsWith('R') && parts[1] && parts[2]) {
+        changed.add(parts[1]);
+        changed.add(parts[2]);
+      } else if (status.startsWith('D') && parts[1]) {
+        changed.add(parts[1]);
+      } else if (parts[1]) {
+        changed.add(parts[1]);
+      }
     }
   }
   return [...changed];
@@ -76,17 +78,17 @@ function updateHeadCommit(deps, repoId, headCommit) {
  * Uses git diff + the built-in code index (zero external dependencies).
  */
 function detectChangedSymbols(deps, repoName) {
-  const { sqlJson, sqlRun, jsonErrNoExit } = deps;
-
-  // Look up the indexed repo
-  const repoRow = sqlJson('SELECT id, path, head_commit FROM code_repos WHERE name = ?', [repoName]);
+  const { sqlJson, sqlRun, jsonErrNoExit } = deps,
+    // Look up the indexed repo
+    repoRow = sqlJson('SELECT id, path, head_commit FROM code_repos WHERE name = ?', [repoName]);
   if (!repoRow || repoRow.length === 0) {
     return { error: jsonErrNoExit(`Repo not found: ${repoName}. Index it first with index-repo.`) };
   }
   const { id: repoId, path: repoPath, head_commit: storedHead } = repoRow[0];
 
   // Get current HEAD commit
-  let currentHead = null;
+  let currentHead = null,
+    changedFiles = [];
   try {
     currentHead = execFileSync('git', ['rev-parse', 'HEAD'], {
       cwd: repoPath,
@@ -126,15 +128,15 @@ function detectChangedSymbols(deps, repoName) {
   const baseCommit = storedHead;
 
   // Get changed files via git diff (name-status captures renames and deletes).
-  let changedFiles = [];
+
   try {
-    const diffRange = `${baseCommit}..HEAD`;
-    const output = execFileSync('git', ['diff', '--name-status', diffRange], {
-      cwd: repoPath,
-      encoding: 'utf-8',
-      timeout: 10000,
-      maxBuffer: 10 * 1024 * 1024,
-    });
+    const diffRange = `${baseCommit}..HEAD`,
+      output = execFileSync('git', ['diff', '--name-status', diffRange], {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        timeout: 10000,
+        maxBuffer: 10 * 1024 * 1024,
+      });
     changedFiles = parseGitDiffNameStatus(output);
   } catch {
     return { error: jsonErrNoExit('Failed to run git diff to determine changed files') };
@@ -155,8 +157,8 @@ function detectChangedSymbols(deps, repoName) {
 
   // Build set of changed symbol names from the code index.
   // Git reports repo-relative paths; the index stores absolute file paths.
-  const indexedPaths = resolveIndexedFilePaths(repoPath, changedFiles);
-  const changedSet = new Set();
+  const indexedPaths = resolveIndexedFilePaths(repoPath, changedFiles),
+    changedSet = new Set();
   if (indexedPaths.length === 0) {
     return {
       ok: true,
@@ -168,28 +170,30 @@ function detectChangedSymbols(deps, repoName) {
       changedSet,
     };
   }
-  const placeholders = indexedPaths.map(() => '?').join(',');
-  const changedSymbols = sqlJson(
-    `SELECT DISTINCT name, qualified_name FROM code_symbols
+  {
+    const placeholders = indexedPaths.map(() => '?').join(','),
+      changedSymbols = sqlJson(
+        `SELECT DISTINCT name, qualified_name FROM code_symbols
      WHERE repo_id = ? AND file_path IN (${placeholders})`,
-    [repoId, ...indexedPaths],
-  );
-  for (const sym of changedSymbols) {
-    changedSet.add(sym.name);
-    if (sym.qualified_name && sym.qualified_name !== sym.name) {
-      changedSet.add(sym.qualified_name);
+        [repoId, ...indexedPaths],
+      );
+    for (const sym of changedSymbols) {
+      changedSet.add(sym.name);
+      if (sym.qualified_name && sym.qualified_name !== sym.name) {
+        changedSet.add(sym.qualified_name);
+      }
     }
-  }
 
-  return {
-    ok: true,
-    repo: repoName,
-    old_head: storedHead,
-    new_head: currentHead,
-    changed_files: changedFiles.length,
-    changed_symbols: changedSet.size,
-    changedSet,
-  };
+    return {
+      ok: true,
+      repo: repoName,
+      old_head: storedHead,
+      new_head: currentHead,
+      changed_files: changedFiles.length,
+      changed_symbols: changedSet.size,
+      changedSet,
+    };
+  }
 }
 
 // --- Legacy functions (kept for backward compat with existing tests) ---
@@ -242,8 +246,8 @@ function collectChangedSymbols(changedData) {
  * @deprecated Use detectChangedSymbols() instead. Kept for test compatibility.
  */
 function parseChangedSymbolsJson(args, jsonErrNoExit) {
-  const repo = args.repo;
-  const changedJson = args['changed-symbols-json'] || args['changed-symbols'];
+  const repo = args.repo,
+    changedJson = args['changed-symbols-json'] || args['changed-symbols'];
   if (!repo || !changedJson) {
     return { error: jsonErrNoExit('Missing --repo and --changed-symbols-json') };
   }

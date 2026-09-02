@@ -1,9 +1,8 @@
 // Test coverage for db.js database layer
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-
-const dbModule = require('../db');
+const fs = require('fs'),
+  path = require('path'),
+  os = require('os'),
+  dbModule = require('../db');
 
 describe('db.js (database layer)', () => {
   beforeAll(() => {
@@ -26,9 +25,12 @@ describe('db.js (database layer)', () => {
     });
 
     it('should create memory.db in the correct path', () => {
-      const dbPath = dbModule.DB_PATH;
-      expect(fs.existsSync(dbPath)).toBe(true);
-      const stat = fs.statSync(dbPath);
+      const dbPath = dbModule.DB_PATH,
+        stat = (() => {
+          expect(fs.existsSync(dbPath)).toBe(true);
+
+          return fs.statSync(dbPath);
+        })();
       expect(stat.size).toBeGreaterThan(0);
     });
   });
@@ -42,8 +44,8 @@ describe('db.js (database layer)', () => {
     });
 
     it('ensureDb() should be idempotent', () => {
-      const r1 = dbModule.ensureDb();
-      const r2 = dbModule.ensureDb();
+      const r1 = dbModule.ensureDb(),
+        r2 = dbModule.ensureDb();
       expect(r1.ok).toBe(true);
       expect(r2.ok).toBe(true);
       expect(r1.db).toBe(r2.db);
@@ -60,10 +62,13 @@ describe('db.js (database layer)', () => {
     });
 
     it('runMigrations should not throw on version 5 schema', () => {
-      const db = dbModule.getDb();
-      // Force version to 5
-      db.exec('PRAGMA user_version = 5');
-      const result = dbModule.ensureDb();
+      const db = dbModule.getDb(),
+        result = (() => {
+          // Force version to 5
+          db.exec('PRAGMA user_version = 5');
+
+          return dbModule.ensureDb();
+        })();
       expect(result.ok).toBe(true);
     });
   });
@@ -139,8 +144,8 @@ describe('db.js (database layer)', () => {
     });
 
     it('createDb should open a database at custom path', () => {
-      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-${Date.now()}.db`);
-      const result = dbModule.createDb({ db_path: tmpPath });
+      const tmpPath = path.join(os.tmpdir(), `pi-mem-test-${Date.now()}.db`),
+        result = dbModule.createDb({ db_path: tmpPath });
       expect(result.ok).toBe(true);
       // Cleanup
       dbModule.resetDb();
@@ -153,9 +158,11 @@ describe('db.js (database layer)', () => {
       try {
         fs.unlinkSync(`${tmpPath}-shm`);
       } catch {}
-      const { resetConfigCache } = require('../config');
-      resetConfigCache();
-      dbModule.ensureDb();
+      {
+        const { resetConfigCache } = require('../config');
+        resetConfigCache();
+        dbModule.ensureDb();
+      }
     });
   });
 

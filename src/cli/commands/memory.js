@@ -1,29 +1,28 @@
-const obsCmd = require('../../../commands/observation');
-const searchCmd = require('../../../commands/search');
-const codeSearchService = require('../../../services/code-search');
-
-const USAGE = {
-  save: '--title <title> --content <content> [--type TYPE] [--project NAME] [--scope SCOPE] [--topic-key KEY] [--force] [--expires-in DUR] [--session-id ID]',
-  get: '--id ID',
-  update:
-    '--id ID [--title T] [--content C] [--type T] [--project P] [--scope S] [--topic-key K] [--expires-in DUR] [--expires-at TS] [--clear-expiry]',
-  delete: '--id ID [--hard]',
-  timeline: '--id ID [--before N] [--after N]',
-  search: '--query <text> [--project NAME] [--type TYPE] [--scope SCOPE] [--limit N]',
-  context:
-    '--query <text> [--project NAME] [--limit N] [--token-budget N] [--session-id ID] [--topic-key KEY] [--deep] [--all-projects]',
-  'suggest-topic-key': '[--title T] [--content C]',
-  'save-prompt': '--content <text> [--project NAME] [--session-id ID]',
-  'capture-passive': '--content <text>',
-  stats: '',
-  'check-dup': '--title T [--type TYPE] [--project NAME] [--topic-key KEY]',
-  'mark-dup': '--source ID --target ID [--confidence N]',
-  'log-negative-recall': '--entries <json-array>',
-};
+const obsCmd = require('../../../commands/observation'),
+  searchCmd = require('../../../commands/search'),
+  codeSearchService = require('../../../services/code-search'),
+  USAGE = {
+    save: '--title <title> --content <content> [--type TYPE] [--project NAME] [--scope SCOPE] [--topic-key KEY] [--force] [--expires-in DUR] [--session-id ID]',
+    get: '--id ID',
+    update:
+      '--id ID [--title T] [--content C] [--type T] [--project P] [--scope S] [--topic-key K] [--expires-in DUR] [--expires-at TS] [--clear-expiry]',
+    delete: '--id ID [--hard]',
+    timeline: '--id ID [--before N] [--after N]',
+    search: '--query <text> [--project NAME] [--type TYPE] [--scope SCOPE] [--limit N]',
+    context:
+      '--query <text> [--project NAME] [--limit N] [--token-budget N] [--session-id ID] [--topic-key KEY] [--deep] [--all-projects]',
+    'suggest-topic-key': '[--title T] [--content C]',
+    'save-prompt': '--content <text> [--project NAME] [--session-id ID]',
+    'capture-passive': '--content <text>',
+    stats: '',
+    'check-dup': '--title T [--type TYPE] [--project NAME] [--topic-key KEY]',
+    'mark-dup': '--source ID --target ID [--confidence N]',
+    'log-negative-recall': '--entries <json-array>',
+  };
 
 function register(commands, deps) {
-  const { sqlJson, sqlRun, sqlRaw, jsonErrNoExit, repositories } = deps;
-  const memoryRepository = repositories && repositories.memory;
+  const { sqlJson, sqlRun, sqlRaw, jsonErrNoExit, repositories } = deps,
+    memoryRepository = repositories && repositories.memory;
 
   commands.save = (args) => obsCmd.save({ sqlJson, sqlRun, sqlRaw, jsonErrNoExit, memoryRepository }, args);
   commands.search = (args) =>

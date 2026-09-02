@@ -1,15 +1,15 @@
 'use strict';
 
 /**
- * hooks-engine: preflight-assembly
+ * Hooks-engine: preflight-assembly
  *
  * Pure preflight/coding-context block assembly extracted from
  * extensions/memory-layer/hooks/context-injection.ts. Imports extractFilePaths
  * from context-builder (shared helper).
  */
 
-const { CONTEXT } = require('../../constants');
-const { extractFilePaths } = require('./context-builder');
+const { CONTEXT } = require('../../constants'),
+  { extractFilePaths } = require('./context-builder');
 
 function iconForRisk(risk) {
   if (risk === 'high') {
@@ -22,12 +22,12 @@ function iconForRisk(risk) {
 }
 
 function appendPreflightBlock(lines, result) {
-  const code = result.likely_existing_code || [];
-  const warnings = result.duplicate_warnings || [];
-  const risk = result.risk;
-  const action = result.recommended_action;
-  const relatedFiles = result.related_files || [];
-  const maxFiles = CONTEXT.PREFLIGHT_RELATED_FILES || 3;
+  const code = result.likely_existing_code || [],
+    warnings = result.duplicate_warnings || [],
+    risk = result.risk,
+    action = result.recommended_action,
+    relatedFiles = result.related_files || [],
+    maxFiles = CONTEXT.PREFLIGHT_RELATED_FILES || 3;
 
   if (code.length === 0 && warnings.length === 0 && risk === 'low') {
     return;
@@ -75,27 +75,29 @@ function extractExplicitSymbol(prompt) {
     return codeSymbol[1];
   }
 
-  const callSymbol = prompt.match(/\b([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\s*\(/);
-  if (callSymbol) {
-    return callSymbol[1];
-  }
+  {
+    const callSymbol = prompt.match(/\b([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\s*\(/);
+    if (callSymbol) {
+      return callSymbol[1];
+    }
 
-  return null;
+    return null;
+  }
 }
 
 function chooseCodingContextTarget(prompt, preflightResult) {
-  const promptFiles = extractFilePaths(prompt || '');
+  const promptFiles = extractFilePaths(prompt || ''),
+    explicitSymbol = !(promptFiles.length > 0) ? extractExplicitSymbol(prompt) : undefined;
   if (promptFiles.length > 0) {
     return { file: promptFiles[0] };
   }
 
-  const explicitSymbol = extractExplicitSymbol(prompt);
   if (explicitSymbol) {
     return { symbol: explicitSymbol };
   }
 
-  const code = preflightResult?.likely_existing_code || [];
-  const firstCode = code.find((item) => item.symbol || item.file);
+  const code = preflightResult?.likely_existing_code || [],
+    firstCode = code.find((item) => item.symbol || item.file);
   if (firstCode?.symbol) {
     return firstCode.file ? { symbol: firstCode.symbol, file: firstCode.file } : { symbol: firstCode.symbol };
   }
@@ -118,11 +120,11 @@ function appendCodingContextBlock(lines, result) {
     return;
   }
 
-  const target = result.target || {};
-  const summary = result.summary || {};
-  const relatedFiles = result.related_files || [];
-  const likelyTests = result.likely_tests || [];
-  const maxFiles = CONTEXT.PREFLIGHT_RELATED_FILES || 3;
+  const target = result.target || {},
+    summary = result.summary || {},
+    relatedFiles = result.related_files || [],
+    likelyTests = result.likely_tests || [],
+    maxFiles = CONTEXT.PREFLIGHT_RELATED_FILES || 3;
 
   if (!target.symbol && !target.file && relatedFiles.length === 0 && likelyTests.length === 0) {
     return;
@@ -139,9 +141,9 @@ function appendCodingContextBlock(lines, result) {
   }
 
   if (summary.risk || summary.review_bar) {
-    const risk = summary.risk || 'unknown';
-    const review = summary.review_bar || 'unknown';
-    const affected = typeof summary.affected_files === 'number' ? ` | affected files: ${summary.affected_files}` : '';
+    const risk = summary.risk || 'unknown',
+      review = summary.review_bar || 'unknown',
+      affected = typeof summary.affected_files === 'number' ? ` | affected files: ${summary.affected_files}` : '';
     lines.push(`Risk: **${risk}** | review: **${review}**${affected}`);
   }
 

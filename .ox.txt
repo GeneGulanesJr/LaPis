@@ -1,0 +1,1186 @@
+scripts/cleanup-sessions.js:76:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+scripts/cleanup-sessions.js:81:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+scripts/cleanup-sessions.js:104:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+scripts/cleanup-sessions.js:86:9: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+scripts/cleanup-sessions.js:100:9: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+scripts/cleanup-sessions.js:106:9: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/token-saver/rules/test-output.js:24:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/token-saver/rules/test-output.js:68:6: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/token-saver/rules/test-output.js:96:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/token-saver/rules/test-output.js:97:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+scripts/postinstall-helpers.js:78:11: error eslint(no-shadow): 'destSize' is already declared in the upper scope. help: Consider renaming 'destSize' to avoid shadowing the variable from the outer scope.
+src/token-saver/rules/search.js:17:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/token-saver/rules/search.js:83:7: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/token-saver/rules/search.js:84:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/token-saver/rules/search.js:108:6: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/token-saver/rules/list-output.js:75:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/token-saver/rules/list-output.js:76:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/token-saver/rules/logs.js:43:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/token-saver/rules/logs.js:51:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+.codemod-onevar.js:36:6: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+.codemod-onevar.js:43:33: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+.codemod-onevar.js:49:33: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+.codemod-onevar.js:59:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+.codemod-onevar.js:11:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+.codemod-onevar.js:40:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+.codemod-onevar.js:9:27: warning eslint(curly): Expected { after 'if' condition. help: Replace `break;` with `{break;}`.
+.codemod-onevar.js:13:25: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+.codemod-onevar.js:13:31: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+.codemod-onevar.js:16:15: warning eslint(curly): Expected { after 'if' condition. help: Replace `continue;` with `{continue;}`.
+.codemod-onevar.js:16:15: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+.codemod-onevar.js:19:15: warning eslint(no-implicit-coercion): Unexpected implicit coercion to number help: Use `Number(value)` instead
+.codemod-onevar.js:28:19: warning eslint(curly): Expected { after 'if' condition. help: Replace `continue;` with `{continue;}`.
+.codemod-onevar.js:28:19: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+.codemod-onevar.js:30:23: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 5 unnamed groups.
+.codemod-onevar.js:30:28: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 5 unnamed groups.
+.codemod-onevar.js:30:42: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 5 unnamed groups.
+.codemod-onevar.js:30:48: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 5 unnamed groups.
+.codemod-onevar.js:30:52: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 5 unnamed groups.
+.codemod-onevar.js:33:12: warning eslint(curly): Expected { after 'if' condition. help: Replace `continue;` with `{continue;}`.
+.codemod-onevar.js:33:12: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+.codemod-onevar.js:38:113: warning eslint(curly): Expected { after 'while' condition. help: Replace `p--;` with `{p--;}`.
+.codemod-onevar.js:38:79: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+.codemod-onevar.js:39:18: warning eslint(curly): Expected { after 'if' condition. help: Replace `continue;` with `{continue;}`.
+.codemod-onevar.js:39:18: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+.codemod-onevar.js:40:41: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+.codemod-onevar.js:40:47: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+.codemod-onevar.js:40:52: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+.codemod-onevar.js:43:23: warning eslint(curly): Expected { after 'if' condition. help: Replace `continue;` with `{continue;}`.
+.codemod-onevar.js:43:23: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+.codemod-onevar.js:49:23: warning eslint(curly): Expected { after 'if' condition. help: Replace `continue;` with `{continue;}`.
+.codemod-onevar.js:49:23: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+.codemod-onevar.js:54:25: warning eslint(curly): Expected { after 'if' condition. help: Replace `continue;` with `{continue;}`.
+.codemod-onevar.js:54:25: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+.codemod-onevar.js:57:40: warning eslint(curly): Expected { after 'if' condition. help: Replace `continue;` with `{continue;}`.
+.codemod-onevar.js:57:27: warning eslint(prefer-template): Unexpected string concatenation. help: Use template literals instead of string concatenation.
+.codemod-onevar.js:57:40: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+.codemod-onevar.js:58:57: warning eslint(curly): Expected { after 'if' condition. help: Replace `continue;` with `{continue;}`.
+.codemod-onevar.js:58:16: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+.codemod-onevar.js:58:57: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+.codemod-onevar.js:60:19: warning eslint(prefer-template): Unexpected string concatenation. help: Use template literals instead of string concatenation.
+.codemod-onevar.js:61:23: warning eslint(curly): Expected { after 'if' condition. help: Replace `lines2[p] = stripped + ',';` with `{lines2[p] = stripped + ',';}`.
+.codemod-onevar.js:61:35: warning eslint(prefer-template): Unexpected string concatenation. help: Use template literals instead of string concatenation.
+.codemod-onevar.js:62:23: warning eslint(prefer-template): Unexpected string concatenation. help: Use template literals instead of string concatenation.
+.codemod-onevar.js:67:22: warning eslint(curly): Expected { after 'if' condition. help: Replace `break;` with `{break;}`.
+extensions/memory-layer/host/project-detector.ts:12:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/host/project-detector.ts:26:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/host/project-detector.ts:50:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/host/project-detector.ts:132:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+extensions/memory-layer/host/project-detector.ts:133:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/host/project-detector.ts:68:11: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/token-saver/rules/git-diff.js:24:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/token-saver/rules/git-diff.js:25:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/token-saver/rules/git-diff.js:87:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/token-saver/rules/git-diff.js:117:6: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/http/routes.js:4:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/http/handlers/dispatch.js:24:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/host/memory-client.ts:10:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+extensions/memory-layer/host/memory-client.ts:11:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+extensions/memory-layer/host/memory-client.ts:12:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+extensions/memory-layer/host/memory-client.ts:13:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+extensions/memory-layer/host/memory-client.ts:187:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/host/memory-client.ts:208:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/handoffs.js:23:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/handoffs.js:45:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/state.ts:10:20: warning eslint(no-unused-vars): Interface 'MemResult' is declared but never used. help: Consider removing this declaration.
+extensions/memory-layer/state.ts:14:20: warning eslint(no-unused-vars): Interface 'RepoInfo' is declared but never used. help: Consider removing this declaration.
+extensions/memory-layer/state.ts:22:20: warning eslint(no-unused-vars): Interface 'DocRepoInfo' is declared but never used. help: Consider removing this declaration.
+extensions/memory-layer/state.ts:66:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/state.ts:108:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/state.ts:109:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/state.ts:110:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/state.ts:111:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/state.ts:113:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/health.js:4:27: warning eslint(no-unused-vars): Parameter 'ctx' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/http/handlers/findings.js:32:24: warning eslint(no-unused-vars): Variable 'actorId' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/http/handlers/findings.js:32:33: warning eslint(no-unused-vars): Variable 'actorContext' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/http/handlers/code-index.js:15:20: warning eslint(no-unused-vars): Parameter 'deps' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/http/handlers/code-index.js:30:22: warning eslint(no-unused-vars): Parameter 'deps' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/http/handlers/code-index.js:43:32: warning eslint(no-unused-vars): Parameter 'deps' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/http/handlers/code-index.js:73:26: warning eslint(no-unused-vars): Parameter 'deps' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/http/handlers/code-index.js:166:24: warning eslint(no-unused-vars): Parameter 'deps' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/http/handlers/code-index.js:245:27: warning eslint(no-unused-vars): Parameter 'deps' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/http/handlers/code-index.js:37:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/code-index.js:50:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/code-index.js:99:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/code-index.js:192:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/code-index.js:234:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/code-index.js:270:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/compression.js:23:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/handlers/compression.js:32:5: warning eslint(one-var): Combine this with the previous 'let' statement.
+extensions/memory-layer/tools/memory-tools.ts:637:20: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+extensions/memory-layer/tools/memory-tools.ts:171:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/memory-tools.ts:244:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/memory-tools.ts:364:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/memory-tools.ts:501:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/memory-tools.ts:606:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/memory-tools.ts:262:21: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+extensions/memory-layer/tools/memory-tools.ts:288:22: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+extensions/memory-layer/tools/memory-tools.ts:614:13: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+extensions/memory-layer/tools/memory-tools.ts:616:17: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+extensions/memory-layer/tools/memory-tools.ts:618:19: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+src/http/handlers/broadcasts.js:34:24: warning eslint(no-unused-vars): Variable 'actorId' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/http/auth.js:50:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/http/auth.js:52:47: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+extensions/memory-layer/tools/doc-tools.ts:89:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/doc-tools.ts:155:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/doc-tools.ts:172:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/doc-tools.ts:62:7: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (??=).
+src/http/server.js:27:7: warning eslint(one-var): Combine this with the previous 'let' statement.
+extensions/memory-layer/tools/code-tools.ts:127:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/code-tools.ts:142:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/code-tools.ts:250:11: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/code-tools.ts:271:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/code-tools.ts:287:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/code-tools.ts:314:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/tools/code-tools.ts:87:7: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (??=).
+src/claude-code/file-keys.js:81:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+extensions/memory-layer/tools/render.ts:18:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/trust-sync.ts:4:1: warning eslint(sort-imports): Imports should be sorted alphabetically.
+extensions/memory-layer/hooks/output-compression.ts:63:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+extensions/memory-layer/hooks/output-compression.ts:4:34: warning eslint(no-duplicate-imports): '@earendil-works/pi-coding-agent' import is duplicated help: Merge the duplicated import into a single import statement
+extensions/memory-layer/hooks/output-compression.ts:41:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/output-compression.ts:58:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/output-compression.ts:108:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/session-lifecycle.ts:87:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/passive-capture.ts:59:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/passive-capture.ts:3:1: warning eslint(sort-imports): Expected 'Multiple' syntax before 'Single' syntax.
+extensions/memory-layer/hooks/passive-capture.ts:5:1: warning eslint(sort-imports): Imports should be sorted alphabetically.
+extensions/memory-layer/hooks/passive-capture.ts:8:1: warning eslint(sort-imports): Imports should be sorted alphabetically.
+extensions/memory-layer/hooks/passive-capture.ts:9:1: warning eslint(sort-imports): Expected 'Multiple' syntax before 'Single' syntax.
+extensions/memory-layer/hooks/tool-guardrails.ts:171:9: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+extensions/memory-layer/hooks/tool-guardrails.ts:38:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/tool-guardrails.ts:48:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/tool-guardrails.ts:126:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/tool-guardrails.ts:161:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/tool-guardrails.ts:170:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/tool-guardrails.ts:177:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/tool-guardrails.ts:208:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/tool-guardrails.ts:241:47: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/claude-code/install.js:737:5: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/claude-code/install.js:738:5: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/claude-code/install.js:346:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/install.js:284:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/claude-code/install.js:290:9: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+extensions/memory-layer/hooks/context-injection.ts:71:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/context-injection.ts:86:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/context-injection.ts:106:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/context-injection.ts:141:6: warning eslint(one-var): Combine this with the previous 'let' statement.
+extensions/memory-layer/hooks/context-injection.ts:145:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/hooks/context-injection.ts:6:1: warning eslint(sort-imports): Imports should be sorted alphabetically.
+extensions/memory-layer/hooks/context-injection.ts:9:1: warning eslint(sort-imports): Expected 'Multiple' syntax before 'Single' syntax.
+extensions/memory-layer/hooks/context-injection.ts:15:1: warning eslint(sort-imports): Imports should be sorted alphabetically.
+src/claude-code/daemon.js:240:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/daemon.js:251:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/daemon.js:169:19: warning eslint(no-await-in-loop): Unexpected `await` inside a loop. help: Collect all promises into an array and use `Promise.all()` to run them in parallel, rather than awaiting each one sequentially inside the loop.
+src/claude-code/daemon.js:176:5: warning eslint(no-await-in-loop): Unexpected `await` inside a loop. help: Collect all promises into an array and use `Promise.all()` to run them in parallel, rather than awaiting each one sequentially inside the loop.
+src/claude-code/daemon.js:290:5: warning eslint(no-await-in-loop): Unexpected `await` inside a loop. help: Collect all promises into an array and use `Promise.all()` to run them in parallel, rather than awaiting each one sequentially inside the loop.
+src/claude-code/hooks-engine/transcript-reader.js:118:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+extensions/memory-layer/commands/dashboard.ts:3:1: warning eslint(sort-imports): Imports should be sorted alphabetically.
+extensions/memory-layer/commands/dashboard.ts:5:1: warning eslint(sort-imports): Imports should be sorted alphabetically.
+extensions/memory-layer/commands/dashboard.ts:22:15: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/claude-code/handlers/pre-tool-use.js:82:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/pre-tool-use.js:90:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/pre-tool-use.js:98:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/pre-tool-use.js:108:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/pre-tool-use.js:166:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/pre-tool-use.js:178:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/pre-tool-use.js:195:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/pre-tool-use.js:220:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/user-prompt-submit.js:16:7: warning eslint(no-unused-vars): Variable 'path' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/claude-code/handlers/user-prompt-submit.js:106:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/user-prompt-submit.js:120:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/user-prompt-submit.js:143:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/session-start.js:40:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/session-start.js:91:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/smoke-cli.js:17:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/smoke-cli.js:119:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/smoke-cli.js:235:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/post-tool-use.js:39:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/claude-code/handlers/post-tool-use.js:40:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/claude-code/handlers/post-tool-use.js:41:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/claude-code/handlers/post-tool-use.js:109:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/post-tool-use.js:133:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/post-tool-use.js:151:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/postinstall-helpers.test.js:133:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/postinstall-helpers.test.js:155:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/stop.js:131:9: warning eslint(no-unused-vars): Variable 'cwd' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/claude-code/handlers/stop.js:201:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/handlers/stop.js:217:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/state-store.js:31:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/claude-code/state-store.js:32:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/claude-code/state-store.js:37:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/claude-code/state-store.js:124:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/claude-code/state-store.js:196:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/state-store.js:271:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/state-store.js:272:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/claude-code/state-store.js:298:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/state-store.js:230:11: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/claude-code/state-store.js:239:5: warning eslint(no-await-in-loop): Unexpected `await` inside a loop. help: Collect all promises into an array and use `Promise.all()` to run them in parallel, rather than awaiting each one sequentially inside the loop.
+src/claude-code/state-store.js:275:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+test/async-code-index.test.js:32:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/hooks.js:99:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/hooks.js:112:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/hooks.js:142:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/claude-code/hooks.js:95:5: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (||=).
+src/claude-code/hooks.js:137:7: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (||=).
+src/claude-code/dispatch-client.js:56:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/dispatch-client.js:95:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/context-inject.js:38:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/context-inject.js:80:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/doctor.js:142:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/doctor.js:156:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/doctor.js:217:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/doctor.js:34:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/claude-code/doctor.js:61:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/claude-code/doctor.js:85:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/claude-code/doctor.js:204:11: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/claude-code/tool-map.js:41:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/claude-code/tool-map.js:62:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/claude-code/tool-map.js:42:40: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/compression/mission-state.js:66:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/compression/mission-state.js:112:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/compression/mission-state.js:57:13: warning eslint(prefer-template): Unexpected string concatenation. help: Use template literals instead of string concatenation.
+test/correctness-review-fixes-2.test.js:150:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/correctness-review-fixes-2.test.js:242:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/correctness-review-fixes-2.test.js:74:37: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-index/job-queue.js:12:30: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/code-index/job-queue.js:43:18: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/code-index/job-queue.js:74:16: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/code-index/job-queue.js:94:14: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/code-index/job-queue.js:100:14: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+test/edge-cases.test.js:116:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/context-injection.test.js:230:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/context-injection.test.js:290:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/context-injection.test.js:4:1: warning eslint(sort-imports): Expected 'Multiple' syntax before 'Single' syntax.
+test/hooks-engine/prompt-classifiers.test.js:3:3: warning eslint(no-unused-vars): Variable 'contentToText' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+test/gateway-dispatch.test.js:81:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/gateway-dispatch.test.js:82:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/gateway-dispatch.test.js:63:7: warning eslint(no-unused-vars): Variable 'mockGetDashboard' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/code-index/incremental-indexer.js:77:14: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/code-index/incremental-indexer.js:228:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:675:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:808:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-index/incremental-indexer.js:810:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:847:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:974:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1038:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1055:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1132:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1152:6: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-index/incremental-indexer.js:1175:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1236:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1264:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1288:6: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-index/incremental-indexer.js:1292:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1332:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1486:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1563:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1636:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/incremental-indexer.js:1656:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scanner.js:40:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-index/scanner.js:47:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-index/scanner.js:6:21: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 4 unnamed groups.
+src/code-index/scanner.js:6:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 4 unnamed groups.
+src/code-index/scanner.js:6:36: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 4 unnamed groups.
+src/code-index/scanner.js:6:85: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 4 unnamed groups.
+src/code-index/scanner.js:8:6: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-index/scanner.js:8:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+test/code-index-modules.test.js:290:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/code-index-modules.test.js:341:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/index-worker.js:24:12: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/code-index/index-worker.js:67:18: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/code-index/index-worker.js:90:16: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/code-index/index-worker.js:102:14: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/code-index/index-worker.js:112:14: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/code-index/index-worker.js:44:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/index-worker.js:78:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/index-worker.js:79:5: warning eslint(one-var): Combine this with the previous 'let' statement.
+test/services-dream.test.js:103:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/symbol-extractor.js:52:19: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-index/symbol-extractor.js:52:26: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+test/scripts-cleanup-sessions.test.js:7:28: warning eslint(no-unused-vars): Parameter 'params' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+test/scripts-cleanup-sessions.test.js:49:28: warning eslint(no-unused-vars): Parameter 'params' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+test/scripts-cleanup-sessions.test.js:105:28: warning eslint(no-unused-vars): Parameter 'params' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+test/scripts-cleanup-sessions.test.js:181:28: warning eslint(no-unused-vars): Parameter 'params' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/code-index/worker-pool.js:96:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/code-audit-fixes.test.js:17:12: warning eslint(no-unused-vars): Function 'request' is declared but never used. help: Consider removing this declaration.
+test/code-audit-fixes.test.js:142:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-builder/go-scope.js:46:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-builder/go-scope.js:78:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-builder/js-ts-scope.js:264:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-builder/js-ts-scope.js:343:13: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-builder/js-ts-scope.js:445:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-builder/sql-scope.js:74:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-builder/html-scope.js:182:52: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-index/scope-builder/html-scope.js:201:38: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-index/scope-builder/html-scope.js:220:41: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-index/path-guards.js:26:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+test/http-server.test.js:425:5: warning eslint(one-var): Combine this with the previous 'let' statement.
+test/http-server.test.js:444:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/http-server.test.js:480:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/http-server.test.js:500:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/http-server.test.js:504:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/http-server.test.js:514:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/http-server.test.js:749:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-resolver.js:58:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-resolver.js:68:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-index/scope-resolver.js:89:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/scope-resolver.js:492:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/source-retrieval.js:26:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/source-retrieval.js:121:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/source-retrieval.js:175:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/source-retrieval.js:189:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-index/source-retrieval.js:195:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/source-retrieval.js:225:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/source-retrieval.js:251:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/source-retrieval.js:49:17: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-index/source-retrieval.js:49:24: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-index/repo-lock.js:97:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/repos.js:19:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/repos.js:110:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/repos.js:121:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/repos.js:132:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-index/repos.js:146:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/compaction-dream-stats.test.js:92:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/dupes.js:23:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/dupes.js:53:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/dupes.js:79:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/dupes.js:161:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/dupes.js:177:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/dupes.js:195:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/dupes.js:85:9: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/agent-intel/dupes.js:95:13: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/agent-intel/dupes.js:121:9: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/agent-intel/dupes.js:131:13: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/agent-intel/dupes.js:154:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/agent-intel/dupes.js:158:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/agent-intel/dupes.js:195:18: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+src/agent-intel/preflight.js:284:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/preflight.js:299:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/preflight.js:345:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/agent-intel/preflight.js:396:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/preflight.js:38:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/agent-intel/preflight.js:38:25: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/agent-intel/preflight.js:42:10: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/preflight.js:397:5: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+src/agent-intel/preflight.js:398:9: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+test/mcp-tools-catalog.test.js:37:49: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/mcp-tools-catalog.test.js:57:81: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/mcp-tools-catalog.test.js:77:80: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/mcp-tools-catalog.test.js:98:60: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/mcp-tools-catalog.test.js:109:17: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+test/mcp-tools-catalog.test.js:109:42: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+test/mcp-tools-catalog.test.js:122:59: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/mcp-tools-catalog.test.js:133:17: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+test/mcp-tools-catalog.test.js:133:42: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/agent-intel/audit-diff.js:27:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/audit-diff.js:54:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/audit-diff.js:79:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/audit-diff.js:101:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/audit-diff.js:239:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/audit-diff.js:93:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/runtime-ingest.js:5:7: warning eslint(no-unused-vars): Variable 'path' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/agent-intel/runtime-ingest.js:45:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/agent-intel/blast.js:22:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/blast.js:139:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/blast.js:140:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/agent-intel/blast.js:160:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/blast.js:156:12: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+test/services-search.test.js:144:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/symbol-enrichment.js:129:36: warning eslint(no-unused-vars): Parameter 'opts' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/agent-intel/symbol-enrichment.js:135:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/symbol-enrichment.js:149:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/symbol-enrichment.js:30:51: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:31:64: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:32:51: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:33:45: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:34:54: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:35:52: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:36:56: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:37:41: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:39:69: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:63:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:78:98: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/agent-intel/symbol-enrichment.js:93:78: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/html-extractor.test.js:21:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:61:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:72:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:90:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:102:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:114:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:125:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:137:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:149:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:160:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/html-extractor.test.js:198:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/agent-intel/stale-flags.js:20:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/agent-intel/stale-flags.js:77:12: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/agent-intel/stale-flags.js:77:25: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/agent-intel/stale-flags.js:147:42: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/read-model.js:25:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/response-meta.test.js:21:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/response-meta.test.js:33:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/response-meta.test.js:49:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/response-meta.test.js:62:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/job-store.test.js:4:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/job-store.test.js:5:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/code-analysis/coding-context.js:20:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coding-context.js:25:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coding-context.js:33:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coding-context.js:75:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coding-context.js:138:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coding-context.js:200:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coding-context.js:331:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coding-context.js:357:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/signal-chains-impl.js:19:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:32:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:62:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:73:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:178:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:190:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:196:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:212:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:215:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:223:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:227:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:283:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:305:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:324:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/signal-chains-impl.js:63:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/signal-chains-impl.js:63:66: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/signal-chains-impl.js:64:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/signal-chains-impl.js:64:33: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/signal-chains-impl.js:66:71: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/incremental-derived.test.js:59:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/incremental-derived.test.js:197:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/incremental-derived.test.js:110:12: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (||=).
+test/incremental-derived.test.js:120:12: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (||=).
+test/incremental-derived.test.js:130:12: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (||=).
+src/code-analysis/relation-builder.js:19:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/relation-builder.js:61:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/relation-builder.js:104:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/relation-builder.js:122:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/relation-builder.js:177:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/relation-builder.js:196:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/relation-builder.js:219:42: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/relation-builder.js:224:45: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/relation-builder.js:238:43: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/propagation-impl.js:39:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/propagation-impl.js:66:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/index-repo-comprehensive.test.js:41:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/index-repo-comprehensive.test.js:384:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/correctness-review-fixes-3.test.js:86:9: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/correctness-review-fixes-3.test.js:31:38: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/correctness-review-fixes-3.test.js:48:38: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/risk-impl.js:37:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/risk-impl.js:70:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/risk-impl.js:114:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/risk-impl.js:183:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/risk-impl.js:203:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/risk-impl.js:220:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/risk-impl.js:284:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/risk-impl.js:312:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/risk-impl.js:324:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/risk-impl.js:327:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/risk-impl.js:330:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/risk-impl.js:348:7: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/risk-impl.js:316:36: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/risk-impl.js:316:56: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/coupling-impl.js:48:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coupling-impl.js:147:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coupling-impl.js:192:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coupling-impl.js:209:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/coupling-impl.js:279:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:15:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:147:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:203:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:298:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:307:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:374:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:376:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/call-graph-impl.js:410:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:425:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:432:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:497:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:531:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:566:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/call-graph-impl.js:385:12: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/call-graph-impl.js:386:12: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/call-graph-impl.js:387:18: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/cochange-builder.js:90:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/cochange-builder.js:95:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/repo-cache.test.js:38:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/repo-cache.test.js:61:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:38:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:86:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:107:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:144:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:240:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:252:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:299:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:350:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:377:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:387:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:430:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:439:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:479:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:501:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:544:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:588:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:652:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:716:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/import-graph-impl.js:722:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/import-graph-impl.js:38:97: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/import-graph-impl.js:39:73: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/import-graph-impl.js:40:37: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/import-graph-impl.js:41:36: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/import-graph-impl.js:72:31: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:72:50: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:79:41: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:79:60: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:86:49: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+src/code-analysis/import-graph-impl.js:86:67: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+src/code-analysis/import-graph-impl.js:86:90: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+src/code-analysis/import-graph-impl.js:96:41: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:96:54: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:107:51: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:107:74: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:114:41: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:114:54: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:137:42: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:137:73: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:145:31: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:145:66: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:153:41: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/import-graph-impl.js:153:53: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/code-analysis/dead-code-impl.js:32:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/dead-code-impl.js:51:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/dead-code-impl.js:93:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/dead-code-impl.js:259:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:26:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:51:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:77:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:114:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:139:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:274:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:327:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:410:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:419:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:475:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:482:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:483:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/incremental-builders.js:485:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:508:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:514:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:520:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:598:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:608:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:633:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:656:6: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/incremental-builders.js:785:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/incremental-builders.js:789:5: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/incremental-builders.js:70:9: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/code-analysis/incremental-builders.js:75:9: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/code-analysis/incremental-builders.js:453:12: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/incremental-builders.js:454:12: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/incremental-builders.js:455:18: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/incremental-builders.js:467:11: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/code-analysis/incremental-builders.js:471:11: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/code-analysis/incremental-builders.js:554:15: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/code-analysis/incremental-builders.js:559:17: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/code-analysis/incremental-builders.js:564:17: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/code-analysis/incremental-builders.js:624:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/code-analysis/incremental-builders.js:629:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/code-analysis/incremental-builders.js:785:61: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/code-analysis/complexity-impl.js:34:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/code-analysis/complexity-impl.js:18:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/complexity-impl.js:46:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/complexity-impl.js:64:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/complexity-impl.js:265:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/complexity-impl.js:269:5: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/code-analysis/complexity-impl.js:315:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/code-analysis/complexity-impl.js:265:61: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/doc-index/html-parser.js:134:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/html-parser.js:157:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/html-parser.js:117:13: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+src/doc-index/html-parser.js:117:20: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+src/doc-index/html-parser.js:117:28: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+src/doc-index/html-parser.js:130:44: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/doc-index/html-parser.js:134:38: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/doc-index/html-parser.js:143:34: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/doc-index/html-parser.js:149:12: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/doc-index/html-parser.js:157:95: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/doc-index/html-parser.js:172:35: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/html-parser.js:172:54: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/links.js:14:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/links.js:118:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/links.js:161:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/links.js:167:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/links.js:6:13: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/links.js:6:25: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/markdown-parser.js:13:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/markdown-parser.js:36:18: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/doc-index/markdown-parser.js:90:31: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/markdown-parser.js:90:42: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/repos.js:68:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/repos.js:175:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/sections.js:41:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/glossary.js:3:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/glossary.js:3:42: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/analytics.js:59:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/analytics.js:136:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/analytics.js:171:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/analytics.js:246:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/doc-index/analytics.js:6:3: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (||=).
+src/doc-index/analytics.js:60:62: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/analytics.js:60:74: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/doc-index/analytics.js:78:39: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/doc-index/analytics.js:84:37: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/doc-index/analytics.js:161:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/cli/gateway.js:103:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:27:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:44:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:66:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:88:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:105:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:109:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:119:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:123:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:135:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/agent-intel.js:154:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/docs.js:48:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/cli/commands/docs.js:52:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hooks-engine/git-trust.js:8:53: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/mutation-killers.test.js:1056:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/mutation-killers.test.js:1184:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/mutation-killers.test.js:1476:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/mutation-killers.test.js:1484:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/mutation-killers.test.js:1993:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/mutation-killers.test.js:2422:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/mutation-killers.test.js:3269:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/mutation-killers.test.js:3690:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/mutation-killers.test.js:16:9: warning eslint(no-unused-vars): Variable 'insertRecallLog' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+test/mutation-killers.test.js:19:27: warning eslint(no-unused-vars): Variable 'TIME_WINDOWS' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+test/mutation-killers.test.js:1363:7: warning eslint(no-unused-vars): Variable 'r' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+test/mutation-killers.test.js:1475:11: warning eslint(no-unused-vars): Variable 'r' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+test/mutation-killers.test.js:2351:7: warning eslint(no-unused-vars): Variable 'ranking' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+test/mutation-killers.test.js:3177:9: warning eslint(no-unused-vars): Variable 'n' is assigned a value but never used. Unused variables should start with a '_'. help: Did you mean to use this variable?
+test/mutation-killers.test.js:3499:11: warning eslint(no-unused-vars): Variable 'sqlJson' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+test/mutation-killers.test.js:399:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:413:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:506:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:558:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:565:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:684:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:807:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:811:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1101:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1198:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1249:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1252:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1259:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1261:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1270:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1278:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1280:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1288:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1316:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1323:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1434:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1461:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1470:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1523:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1554:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1647:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1687:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1696:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1703:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1710:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1712:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1733:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1775:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1806:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1833:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:1929:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2017:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2031:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2040:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2096:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2119:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2131:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2142:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2160:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2200:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2208:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2226:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2233:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2240:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2249:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2256:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2506:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2513:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2522:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2530:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2573:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2602:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2690:5: warning eslint(one-var): Combine this with the previous 'const' statement. help: Combine variable declarations
+test/mutation-killers.test.js:2729:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2737:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2744:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2751:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2762:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2773:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2829:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2875:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2905:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2935:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2965:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:2995:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3025:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3055:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3085:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3115:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3132:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3172:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3187:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3223:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3234:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3244:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3255:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3263:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3292:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3300:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3307:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3314:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3323:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3330:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3339:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3416:5: warning eslint(one-var): Combine this with the previous 'const' statement. help: Combine variable declarations
+test/mutation-killers.test.js:3463:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3528:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3540:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3794:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mutation-killers.test.js:3825:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hooks-engine/pattern-matcher.js:11:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/hooks-engine/pattern-matcher.js:11:46: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/hooks-engine/pattern-matcher.js:12:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/pattern-matcher.js:13:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/hooks-engine/pattern-matcher.js:13:20: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/hooks-engine/pattern-matcher.js:16:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/pattern-matcher.js:17:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/pattern-matcher.js:21:17: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/pattern-matcher.js:27:17: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/pattern-matcher.js:33:17: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/pattern-matcher.js:38:17: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/pattern-matcher.js:40:17: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/context-builder.js:45:45: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/context-builder.js:49:19: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/context-builder.js:69:29: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/guardrail-utils.js:188:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/hooks-engine/guardrail-utils.js:189:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/hooks-engine/guardrail-utils.js:190:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/hooks-engine/guardrail-utils.js:191:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/hooks-engine/guardrail-utils.js:194:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/hooks-engine/guardrail-utils.js:195:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/hooks-engine/guardrail-utils.js:200:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/hooks-engine/guardrail-utils.js:141:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hooks-engine/guardrail-utils.js:264:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hooks-engine/guardrail-utils.js:14:32: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/guardrail-utils.js:15:26: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/guardrail-utils.js:16:28: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/guardrail-utils.js:63:36: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/guardrail-utils.js:83:11: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/guardrail-utils.js:182:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/guardrail-utils.js:184:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+src/hooks-engine/guardrail-utils.js:184:48: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+src/hooks-engine/guardrail-utils.js:184:54: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+test/token-budget.test.js:195:5: warning eslint(no-unused-vars): Variable 'discovery' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/hooks-engine/project.js:67:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/hooks-engine/project.js:71:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/hooks-engine/tool-response-parse.js:163:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hooks-engine/tool-response-parse.js:27:29: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/tool-response-parse.js:28:18: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/prompt-classifiers.js:116:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hooks-engine/prompt-classifiers.js:97:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/prompt-classifiers.js:112:9: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/prompt-classifiers.js:117:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/prompt-classifiers.js:118:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/prompt-classifiers.js:119:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/prompt-classifiers.js:120:8: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/compression-mission-state.test.js:6:16: warning eslint(no-unused-vars): Parameter 'params' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/hooks-engine/preflight-assembly.js:78:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hooks-engine/preflight-assembly.js:97:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hooks-engine/preflight-assembly.js:73:37: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hooks-engine/preflight-assembly.js:78:38: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+ast-patterns.js:89:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+ast-patterns.js:419:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+ast-patterns.js:89:25: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+ast-patterns.js:162:25: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+ast-patterns.js:162:32: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+ast-patterns.js:184:33: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+ast-patterns.js:208:40: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+ast-patterns.js:237:26: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/smoke-compression-http.test.js:51:22: warning eslint(no-unused-vars): Catch parameter 'e' is caught but never used. help: Consider handling this error.
+test/smoke-compression-http.test.js:93:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+git-analysis.js:183:15: error eslint(no-shadow): 'result' is already declared in the upper scope. help: Consider renaming 'result' to avoid shadowing the variable from the outer scope.
+git-analysis.js:105:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+git-analysis.js:333:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+git-analysis.js:367:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+git-analysis.js:375:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+git-analysis.js:428:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+git-analysis.js:433:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+git-analysis.js:435:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+git-analysis.js:447:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+git-analysis.js:455:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+git-analysis.js:71:3: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (||=).
+git-analysis.js:72:3: warning eslint(logical-assignment-operators): Assignment (=) can be replaced with operator assignment (||=).
+git-analysis.js:414:19: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+services/recovery.js:10:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/tool-hooks.test.js:38:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/tool-hooks.test.js:338:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/tool-hooks.test.js:414:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/tool-hooks.test.js:479:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+postinstall.js:61:11: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+postinstall.js:78:15: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+postinstall.js:116:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+postinstall.js:135:11: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+postinstall.js:138:11: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+utils.js:53:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+utils.js:161:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+data-access/observations.js:97:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+data-access/observations.js:97:25: warning eslint(no-nested-ternary): Do not nest ternary expressions. help: Refactor nested ternary expressions into if-else statements for better readability.
+data-access/dashboard.js:32:12: warning eslint(no-unused-vars): Catch parameter '_e' is caught but never used. help: Consider handling this error.
+data-access/dashboard.js:87:12: warning eslint(no-unused-vars): Catch parameter '_e' is caught but never used. help: Consider handling this error.
+data-access/dashboard.js:37:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+data-access/dashboard.js:77:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+data-access/dashboard.js:92:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+data-access/symbols.js:134:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/recall-feedback.test.js:5:26: warning eslint(no-unused-vars): Variable 'getRecallCount' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+test/recall-feedback.test.js:5:42: warning eslint(no-unused-vars): Variable 'recallScore' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+test/claude-code/install.test.js:150:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:166:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:173:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:187:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:223:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:247:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:262:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:348:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:387:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:477:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:496:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:510:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:522:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:542:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:602:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:629:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:638:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:667:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:779:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:815:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/install.test.js:239:8: warning eslint(no-template-curly-in-string): Template placeholders will not interpolate in regular strings help: Did you mean to use a template string literal?
+test/claude-code/install.test.js:251:36: warning eslint(no-template-curly-in-string): Template placeholders will not interpolate in regular strings help: Did you mean to use a template string literal?
+test/claude-code/dispatch-client.test.js:175:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/dispatch-client.test.js:194:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/context-injection-prompt.test.js:69:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/context-injection-prompt.test.js:122:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/context-injection-prompt.test.js:176:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/context-injection-prompt.test.js:233:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/context-injection-prompt.test.js:280:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/context-injection-prompt.test.js:340:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:420:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/claude-code/handlers.test.js:423:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/claude-code/handlers.test.js:48:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:114:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:140:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:419:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:431:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:483:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:567:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:622:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:657:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:746:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:791:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/claude-code/handlers.test.js:125:7: warning eslint(no-await-in-loop): Unexpected `await` inside a loop. help: Collect all promises into an array and use `Promise.all()` to run them in parallel, rather than awaiting each one sequentially inside the loop.
+test/claude-code/hooks.test.js:47:31: warning eslint(no-unused-vars): Parameter 'args' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+test/always-async-indexing.test.js:28:22: warning eslint(no-unused-vars): Catch parameter 'e' is caught but never used. help: Consider handling this error.
+test/integration-mixed.test.js:84:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/http/dispatch-route.test.js:95:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/memory-client-dispatch.test.ts:66:44: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/smoke-compression.js:66:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/smoke-compression.js:82:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/smoke-compression.js:98:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/passive-capture-patterns.test.js:6:10: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+test/passive-capture-patterns.test.js:6:97: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+test/passive-capture-patterns.test.js:11:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+test/passive-capture-patterns.test.js:11:69: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+test/passive-capture-patterns.test.js:15:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/passive-capture-patterns.test.js:17:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/passive-capture-patterns.test.js:22:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/hermes/install.test.js:102:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/hermes/install.test.js:133:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/hermes/install.test.js:144:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/hermes/install.test.js:159:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/hermes/install.test.js:212:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/hermes/install.test.js:240:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/hermes/install.test.js:249:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/hermes/install.test.js:267:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/hermes/install.test.js:273:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/hermes/install.test.js:300:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/review-fixes.test.js:248:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/review-fixes.test.js:251:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/output-compression.test.ts:94:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/output-compression.test.ts:101:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/output-compression.test.ts:109:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/output-compression.test.ts:125:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/output-compression.test.ts:156:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/output-compression.test.ts:164:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/output-compression.test.ts:179:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/output-compression.test.ts:189:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/dynamic-callees.test.js:57:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/services-context.test.js:208:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mcp-server.test.js:211:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mcp-server.test.js:218:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mcp-server.test.js:235:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mcp-server.test.js:240:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mcp-server.test.js:245:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mcp-server.test.js:263:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/mcp-server.test.js:357:5: warning eslint(one-var): Combine this with the previous 'let' statement.
+test/import-boundaries.test.js:45:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+test/parse-code.test.js:53:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/parse-code.test.js:74:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/parse-code.test.js:87:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/parse-code.test.js:101:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/parse-code.test.js:115:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/parse-code.test.js:152:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/parse-code.test.js:175:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+test/code-audit-medium-fixes.test.js:235:7: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+test/code-audit-medium-fixes.test.js:104:53: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:32:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:60:1: warning eslint(one-var): Combine this with the previous 'let' statement.
+parse-code.js:64:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:88:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:210:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:272:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:406:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:490:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:583:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:599:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:725:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:848:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:951:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1024:15: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1040:15: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1113:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1372:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1554:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1575:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1603:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1662:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1707:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1708:7: warning eslint(one-var): Combine this with the previous 'let' statement.
+parse-code.js:1713:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:1749:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:2113:11: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:2160:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:2618:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+parse-code.js:95:11: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+parse-code.js:409:75: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+parse-code.js:409:113: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+parse-code.js:409:139: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 3 unnamed groups.
+parse-code.js:421:47: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:430:46: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:431:25: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:442:59: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:443:50: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:444:46: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:445:48: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:460:58: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:462:99: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:466:78: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:469:55: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:470:37: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:504:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:738:9: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1022:17: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+parse-code.js:1605:56: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1609:97: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1613:70: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1617:76: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1620:53: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1621:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1623:48: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1626:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1627:23: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1628:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:1629:35: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2160:34: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2161:37: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2162:29: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2163:24: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2164:25: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2165:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2166:34: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2167:32: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2168:42: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2224:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+parse-code.js:2229:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+parse-code.js:2298:39: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2299:32: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2311:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+parse-code.js:2323:15: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+parse-code.js:2323:20: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+cli.js:71:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+cli.js:111:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+cli.js:264:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+db.js:25:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+db.js:270:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+db.js:355:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+db.js:517:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/bench-pi-paired.js:471:10: warning eslint(no-unused-vars): Function 'printTableHeader' is declared but never used. help: Consider removing this declaration.
+bench/bench-pi-paired.js:276:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/bench-pi-paired.js:365:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/bench-pi-paired.js:436:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/bench-pi-paired.js:453:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/bench-pi-paired.js:606:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/bench-pi-paired.js:620:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/trust-sync/change-detector.js:79:20: warning eslint(no-unused-vars): Variable 'sqlRun' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/trust-sync/change-detector.js:42:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/trust-sync/change-detector.js:125:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/trust-sync/change-detector.js:128:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/trust-sync/change-detector.js:157:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/trust-sync/change-detector.js:170:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/trust-sync/change-detector.js:257:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/trust-sync/related-memory.js:22:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/trust-sync/related-memory.js:40:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/bench-helper.js:42:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/trust-sync/symbol-links.js:166:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/graders/check-trajectory.js:41:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/graders/check-trajectory.js:44:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+bench/realworld/graders/check-trajectory.js:80:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.ts:3:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.ts:4:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.ts:5:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.ts:6:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.ts:7:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.ts:8:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.ts:9:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.ts:10:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/graders/check-diff.js:27:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/graders/check-diff.js:33:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+bench/realworld/graders/check-diff.js:41:34: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+bench/realworld/graders/check-diff.js:42:34: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+bench/realworld/graders/check-constraints.js:23:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/graders/check-constraints.js:48:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/graders/run-tests.js:18:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.js:142:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.js:225:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/envelope.js:369:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:3:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:4:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:5:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:6:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:7:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:8:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:9:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:10:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:11:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:12:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/compact-format.ts:13:8: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/bench-pi-realworld.js:183:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/bench-pi-realworld.js:460:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/bench-pi-realworld.js:471:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/bench-pi-realworld.js:474:5: warning eslint(one-var): Combine this with the previous 'let' statement.
+bench/realworld/bench-pi-realworld.js:756:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+bench/realworld/bench-pi-realworld.js:808:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/llm-format.ts:321:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/protocol/llm-format.ts:435:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+commands/code-impl.js:24:12: warning eslint(no-unused-vars): Catch parameter '_' is caught but never used. help: Consider handling this error.
+src/platform/protocol/compact-format.js:457:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+commands/observation.js:96:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+commands/observation.js:139:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/platform/storage/repositories/aurex.js:385:9: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/doctor.js:12:7: warning eslint(no-unused-vars): Variable 'path' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/hermes/doctor.js:104:24: warning eslint(no-unused-vars): Parameter 'io' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/hermes/doctor.js:127:28: warning eslint(no-unused-vars): Parameter 'io' is declared but never used. Unused parameters should start with a '_'. help: Consider removing this parameter.
+src/hermes/doctor.js:50:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/doctor.js:94:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/config-editor.js:20:7: warning eslint(no-unused-vars): Variable 'os' is declared but never used. Unused variables should start with a '_'. help: Consider removing this declaration.
+src/hermes/config-editor.js:118:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/config-editor.js:124:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/hermes/config-editor.js:158:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/hermes/config-editor.js:214:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/hermes/config-editor.js:224:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/config-editor.js:291:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/hermes/config-editor.js:298:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/config-editor.js:299:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/hermes/config-editor.js:317:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/config-editor.js:52:29: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/hermes/config-editor.js:127:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/hermes/config-editor.js:161:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/hermes/install.js:39:3: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/hermes/uninstall.js:42:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:93:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:101:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:110:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:120:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:148:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:160:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:225:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:260:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:285:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/hermes/hook.js:329:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/context.js:35:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/context.js:85:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/context.js:187:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/context.js:198:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/memory-domain/context.js:220:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/context.js:280:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/context.js:292:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/sessions.js:122:14: warning eslint(no-unused-vars): Catch parameter '_e' is caught but never used. help: Consider handling this error.
+src/memory-domain/sessions.js:20:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/sessions.js:63:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/sessions.js:108:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/sessions.js:110:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/memory-domain/sessions.js:131:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/sessions.js:155:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:124:5: warning eslint(capitalized-comments): Comments should not begin with a lowercase letter help: Change the first letter of the comment to uppercase
+src/memory-domain/compaction.js:122:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:159:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:221:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:288:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:298:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/memory-domain/compaction.js:314:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:324:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/memory-domain/compaction.js:360:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:367:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/memory-domain/compaction.js:383:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:391:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/memory-domain/compaction.js:398:5: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:420:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/compaction.js:230:44: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/memory-domain/compaction.js:289:32: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/memory-domain/compaction.js:290:34: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/memory-domain/compaction.js:395:7: warning eslint(no-continue): Unexpected use of `continue` statement. help: Do not use the `continue` statement.
+src/memory-domain/search.js:60:7: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/memory-domain/search.js:68:7: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/search.js:292:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/search.js:331:3: warning eslint(one-var): Combine this with the previous 'let' statement.
+src/memory-domain/search.js:355:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/search.js:372:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/search.js:380:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/search.js:215:37: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/memory-domain/dedupe.js:38:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/ttl.js:18:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/ttl.js:6:30: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/memory-domain/ttl.js:6:38: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 2 unnamed groups.
+src/memory-domain/observations.js:31:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/observations.js:77:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/observations.js:88:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/observations.js:93:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/observations.js:108:6: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/memory-domain/observations.js:88:57: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/memory-domain/observations.js:94:45: warning eslint(prefer-named-capture-group): Capture group should be named. help: Use a named capture group like "(?<name>...)" — this regex has 1 unnamed group.
+src/memory-domain/workspaces.js:38:3: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/mcp/tools.js:133:1: warning eslint(one-var): Combine this with the previous 'const' statement.
+src/mcp/tools.js:375:7: warning eslint(one-var): Combine this with the previous 'const' statement.

@@ -1,9 +1,9 @@
 // Regression tests for code-audit findings (#1-#8). Each sub-describe covers
-// one verified bug fix. Run via: npm test -- code-audit-fixes
+// One verified bug fix. Run via: npm test -- code-audit-fixes
 
-const http = require('http');
-const { matchRoute } = require('../src/http/routes');
-const { createHttpServer } = require('../src/http/server');
+const http = require('http'),
+  { matchRoute } = require('../src/http/routes'),
+  { createHttpServer } = require('../src/http/server');
 
 // ── #1 + #2: HTTP server must not crash on malformed URL / percent-encoding ──
 
@@ -34,7 +34,7 @@ describe('code-audit: HTTP URL + route parsing hardening', () => {
   });
 
   it('matchRoute returns null on malformed percent-encoding instead of throwing', () => {
-    // decodeURIComponent('%ZZ') throws URIError if unguarded.
+    // DecodeURIComponent('%ZZ') throws URIError if unguarded.
     expect(() =>
       matchRoute('GET', '/bad/%ZZ', [{ method: 'GET', pattern: '/bad/:x', handler: () => {} }]),
     ).not.toThrow();
@@ -44,21 +44,20 @@ describe('code-audit: HTTP URL + route parsing hardening', () => {
   it('server responds 400 (not hang/crash) on request with missing Host header', async () => {
     server = createHttpServer({ repositories: { aurex: {} }, dispatch: () => ({}) });
     await listen(server);
-    const { port } = server.address();
-
-    // Craft a raw request with no Host header. The server now defaults to
-    // 'localhost' instead of throwing on `http://undefined`.
-    const res = await new Promise((resolve, reject) => {
-      const socket = require('net').connect(port, '127.0.0.1', () => {
-        socket.end('GET /health HTTP/1.0\r\n\r\n');
+    const { port } = server.address(),
+      // Craft a raw request with no Host header. The server now defaults to
+      // 'localhost' instead of throwing on `http://undefined`.
+      res = await new Promise((resolve, reject) => {
+        const socket = require('net').connect(port, '127.0.0.1', () => {
+          socket.end('GET /health HTTP/1.0\r\n\r\n');
+        });
+        let raw = '';
+        socket.on('data', (c) => (raw += c));
+        socket.on('end', () => resolve(raw));
+        socket.on('error', reject);
       });
-      let raw = '';
-      socket.on('data', (c) => (raw += c));
-      socket.on('end', () => resolve(raw));
-      socket.on('error', reject);
-    });
     // Should be a valid HTTP response (some status code), not a hung socket
-    // or a process crash from `new URL(req.url, 'http://undefined')`.
+    // Or a process crash from `new URL(req.url, 'http://undefined')`.
     expect(res).toMatch(/^HTTP\/1\.\d \d{3}/);
   }, 5000);
 });
@@ -70,18 +69,18 @@ describe('code-audit: rankObservations NaN guard', () => {
 
   it('produces finite scores when created_at is empty/invalid', () => {
     const rows = [
-      { id: 1, title: 'bad date', type: 'decision', created_at: '', trust_score: 0.5, recall_count: 0, rank: 0 },
-      {
-        id: 2,
-        title: 'garbage date',
-        type: 'decision',
-        created_at: 'not-a-date',
-        trust_score: 0.5,
-        recall_count: 0,
-        rank: 0,
-      },
-    ];
-    const ranked = rankObservations(rows, 'test');
+        { id: 1, title: 'bad date', type: 'decision', created_at: '', trust_score: 0.5, recall_count: 0, rank: 0 },
+        {
+          id: 2,
+          title: 'garbage date',
+          type: 'decision',
+          created_at: 'not-a-date',
+          trust_score: 0.5,
+          recall_count: 0,
+          rank: 0,
+        },
+      ],
+      ranked = rankObservations(rows, 'test');
     for (const r of ranked) {
       expect(Number.isFinite(r._score)).toBe(true);
     }
@@ -93,22 +92,24 @@ describe('code-audit: rankObservations NaN guard', () => {
 describe('code-audit: complexity else-if not double-counted', () => {
   it('counts else-if once, not twice (real DECISION_PATTERNS)', () => {
     // Exercise the shipped DECISION_PATTERNS, not a local copy, so a future
-    // edit to the module is caught by this regression test.
-    const { DECISION_PATTERNS } = require('../src/code-analysis/complexity-impl');
-    const count = (body) => {
-      let c = 1;
-      for (const p of DECISION_PATTERNS) {
-        p.lastIndex = 0;
-        const m = body.match(p);
-        if (m) c += m.length;
-      }
-      return c;
-    };
+    // Edit to the module is caught by this regression test.
+    const { DECISION_PATTERNS } = require('../src/code-analysis/complexity-impl'),
+      count = (body) => {
+        let c = 1;
+        for (const p of DECISION_PATTERNS) {
+          p.lastIndex = 0;
+          const m = body.match(p);
+          if (m) {
+            c += m.length;
+          }
+        }
+        return c;
+      };
     // `else if` → base 1 + 1 (if) + 1 (else if) = 3
     expect(count('if (a) {} else if (b) {}')).toBe(3);
-    // multiple spaces between else and if still handled
+    // Multiple spaces between else and if still handled
     expect(count('if (a) {} else  if (b) {}')).toBe(3);
-    // two independent ifs → base 1 + 2 = 3
+    // Two independent ifs → base 1 + 2 = 3
     expect(count('if (a) { if (b) {} }')).toBe(3);
   });
 });
@@ -118,7 +119,7 @@ describe('code-audit: complexity else-if not double-counted', () => {
 describe('code-audit: dead usedFallback field removed', () => {
   it('rebuildDerivedIncremental result no longer carries usedFallback', () => {
     // Source-level check: the field was always-false dead code. Verify the
-    // shipped module no longer references it.
+    // Shipped module no longer references it.
     const src = require('fs').readFileSync(require.resolve('../src/code-index/incremental-indexer'), 'utf8');
     expect(src).not.toContain('usedFallback');
   });
@@ -128,19 +129,20 @@ describe('code-audit: dead usedFallback field removed', () => {
 
 describe('code-audit: settings getSetting non-JSON guard', () => {
   it('returns raw string when stored value is not valid JSON', async () => {
-    const sqlJson = () => [{ value: 'not-json' }];
-    const { getSetting } = require('../src/http/handlers/settings');
-    const handler = getSetting(sqlJson);
-
-    const res = {
-      writeHead: vi.fn(),
-      end: vi.fn(),
-    };
+    const sqlJson = () => [{ value: 'not-json' }],
+      { getSetting } = require('../src/http/handlers/settings'),
+      handler = getSetting(sqlJson),
+      res = {
+        writeHead: vi.fn(),
+        end: vi.fn(),
+      };
 
     await handler({ method: 'GET' }, res, { params: { key: 'x' } });
     expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
-    const payload = JSON.parse(res.end.mock.calls[0][0]);
-    // Non-JSON stored value falls back to raw string instead of throwing.
-    expect(payload.value).toBe('not-json');
+    {
+      const payload = JSON.parse(res.end.mock.calls[0][0]);
+      // Non-JSON stored value falls back to raw string instead of throwing.
+      expect(payload.value).toBe('not-json');
+    }
   });
 });

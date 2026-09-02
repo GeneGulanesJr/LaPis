@@ -1,8 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
 
 function run(cmd, timeout = 45000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -23,8 +22,8 @@ function writeTmpRepo(repoPath, files) {
 }
 
 describe('coding consistency loop — e2e', () => {
-  const repoName = `test-e2e-loop-${Date.now()}`;
-  const tmpRepo = path.join('/tmp', repoName);
+  const repoName = `test-e2e-loop-${Date.now()}`,
+    tmpRepo = path.join('/tmp', repoName);
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {
@@ -74,20 +73,22 @@ function loadTemplate(name) {
   });
 
   it('audit-diff detects symbols in changed files', () => {
-    const dupFile = path.join(tmpRepo, 'src', 'email-service.js');
-    fs.writeFileSync(
-      dupFile,
-      `
-function sendVerificationEmail(userId, token) {
-  const tpl = getTemplate('verify');
-  const user = findUser(userId);
-  return sendMail(user.email, tpl.render({ token }));
-}`,
-    );
-    // Re-index to pick up the new file
-    run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
+    const dupFile = path.join(tmpRepo, 'src', 'email-service.js'),
+      result = (() => {
+        fs.writeFileSync(
+          dupFile,
+          `
+  function sendVerificationEmail(userId, token) {
+    const tpl = getTemplate('verify');
+    const user = findUser(userId);
+    return sendMail(user.email, tpl.render({ token }));
+  }`,
+        );
+        // Re-index to pick up the new file
+        run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
 
-    const result = run(`audit-diff --repo ${repoName} --files src/email-service.js --task "send verification email"`);
+        return run(`audit-diff --repo ${repoName} --files src/email-service.js --task "send verification email"`);
+      })();
     expect(result.error).toBeUndefined();
     expect(result).toHaveProperty('violations');
     expect(result.files_checked).toBe(1);

@@ -12,9 +12,9 @@
  * are skipped, never thrown.
  */
 
-const fs = require('node:fs');
-const readline = require('node:readline');
-const { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
+const fs = require('node:fs'),
+  readline = require('node:readline'),
+  { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
 
 /**
  * Parse a single transcript line into an entry object, or null if it isn't a
@@ -45,9 +45,9 @@ function parseTranscriptLine(line) {
  */
 function classifyEntry(entry, acc) {
   // Claude Code transcript entries are typically { type: 'user'|'assistant',
-  // message: { role, content } } but may also carry role at the top level.
-  const message = entry.message || null;
-  const role = message?.role || entry.role;
+  // Message: { role, content } } but may also carry role at the top level.
+  const message = entry.message || null,
+    role = message?.role || entry.role;
   if (!role) {
     return;
   }
@@ -115,14 +115,16 @@ async function readTranscriptStream(transcriptPath) {
     return acc;
   }
 
-  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-  for await (const line of rl) {
-    const entry = parseTranscriptLine(line);
-    if (entry) {
-      classifyEntry(entry, acc);
+  {
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    for await (const line of rl) {
+      const entry = parseTranscriptLine(line);
+      if (entry) {
+        classifyEntry(entry, acc);
+      }
     }
+    return acc;
   }
-  return acc;
 }
 
 module.exports = { readTranscript, readTranscriptStream, parseTranscriptLine, classifyEntry };

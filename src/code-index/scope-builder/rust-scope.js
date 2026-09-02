@@ -21,26 +21,32 @@ function buildRustScopeBindings(tree, _source, _filePath) {
 
       // ── Function declarations ──────────────────────────────
       case 'function_item': {
-        const nameNode = node.childForFieldName('name');
-        if (nameNode) {
-          addBinding(bindings, {
-            name: nameNode.text,
-            kind: 'declaration',
-            origin: 'local',
-            sourceModule: null,
-            sourceName: null,
-            lineStart: node.startPosition.row + 1,
-            lineEnd: node.endPosition.row + 1,
-            scopeDepth,
-            byteStart: node.startIndex,
-            byteEnd: node.endIndex,
-          });
-        }
-        const params = node.childForFieldName('parameters');
-        if (params) {
-          extractRustParameters(params, scopeDepth + 1);
-        }
-        const body = node.childForFieldName('body');
+        const nameNode = node.childForFieldName('name'),
+          params = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
+
+            return node.childForFieldName('parameters');
+          })(),
+          body = (() => {
+            if (params) {
+              extractRustParameters(params, scopeDepth + 1);
+            }
+
+            return node.childForFieldName('body');
+          })();
         if (body) {
           walkChildren(body, scopeDepth + 1);
         }
@@ -119,12 +125,11 @@ function buildRustScopeBindings(tree, _source, _filePath) {
   }
 
   function handleUseDeclaration(node) {
-    const lineNum = node.startPosition.row + 1;
-    const endLine = node.endPosition.row + 1;
-
-    // Use foo::bar::baz
-    // Use foo::bar::{Baz, Qux}
-    const arg = node.childForFieldName('argument');
+    const lineNum = node.startPosition.row + 1,
+      endLine = node.endPosition.row + 1,
+      // Use foo::bar::baz
+      // Use foo::bar::{Baz, Qux}
+      arg = node.childForFieldName('argument');
     if (!arg) {
       return;
     }
@@ -143,11 +148,10 @@ function buildRustScopeBindings(tree, _source, _filePath) {
         child = child.nextSibling;
       }
     } else if (node.type === 'scoped_identifier' || node.type === 'identifier') {
-      const fullPath = node.text;
-      const isInternal =
-        fullPath.startsWith('crate::') || fullPath.startsWith('self::') || fullPath.startsWith('super::');
-      const parts = fullPath.split('::');
-      const lastName = parts[parts.length - 1];
+      const fullPath = node.text,
+        isInternal = fullPath.startsWith('crate::') || fullPath.startsWith('self::') || fullPath.startsWith('super::'),
+        parts = fullPath.split('::'),
+        lastName = parts[parts.length - 1];
 
       addBinding(bindings, {
         name: lastName,
@@ -177,11 +181,11 @@ function buildRustScopeBindings(tree, _source, _filePath) {
       });
     } else if (node.type === 'use_as_clause') {
       // Use foo::bar as baz
-      const aliasNode = node.childForFieldName('alias');
-      const nameNode = node.childForFieldName('name') || node.firstChild;
+      const aliasNode = node.childForFieldName('alias'),
+        nameNode = node.childForFieldName('name') || node.firstChild;
       if (aliasNode) {
-        const path = nameNode ? nameNode.text : '';
-        const isInternal = path.startsWith('crate::') || path.startsWith('self::') || path.startsWith('super::');
+        const path = nameNode ? nameNode.text : '',
+          isInternal = path.startsWith('crate::') || path.startsWith('self::') || path.startsWith('super::');
         addBinding(bindings, {
           name: aliasNode.text,
           kind: 'use',

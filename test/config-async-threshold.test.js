@@ -1,5 +1,5 @@
 // Tests that LAPIS_ASYNC_INDEX_THRESHOLD overrides async_index_file_threshold,
-// closing the gap where the env var was documented but never read.
+// Closing the gap where the env var was documented but never read.
 const { applyEnvOverrides, DEFAULTS, loadConfig } = require('../config');
 
 describe('LAPIS_ASYNC_INDEX_THRESHOLD env override', () => {
@@ -37,8 +37,8 @@ describe('LAPIS_ASYNC_INDEX_THRESHOLD env override', () => {
   });
 
   it('flows through loadConfig() (env > jsonc > default)', () => {
-    // loadConfig falls back to DEFAULTS when no config.jsonc is present in the
-    // test environment; the env override must still apply to that fallback.
+    // LoadConfig falls back to DEFAULTS when no config.jsonc is present in the
+    // Test environment; the env override must still apply to that fallback.
     process.env.LAPIS_ASYNC_INDEX_THRESHOLD = '13';
     const cfg = loadConfig();
     expect(cfg.async_index_file_threshold).toBe(13);

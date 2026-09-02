@@ -9,19 +9,18 @@
  * daemon URL for clients is LAPIS_DAEMON_URL or derived from the lockfile.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const http = require('node:http');
-const { spawn } = require('node:child_process');
-
-const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir();
-const DEFAULT_LOCKFILE = path.join(HOME, '.pi', 'memory', 'claude-daemon.json');
-const DEFAULT_HOST = '127.0.0.1';
-const DEFAULT_PORT = 9100;
-const HEALTH_POLL_MS = 100;
-const HEALTH_TIMEOUT_MS = 15_000;
-const STOP_GRACE_MS = 5_000;
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  http = require('node:http'),
+  { spawn } = require('node:child_process'),
+  HOME = process.env.HOME || process.env.USERPROFILE || os.homedir(),
+  DEFAULT_LOCKFILE = path.join(HOME, '.pi', 'memory', 'claude-daemon.json'),
+  DEFAULT_HOST = '127.0.0.1',
+  DEFAULT_PORT = 9100,
+  HEALTH_POLL_MS = 100,
+  HEALTH_TIMEOUT_MS = 15_000,
+  STOP_GRACE_MS = 5_000;
 
 function defaultLockfilePath() {
   return process.env.LAPIS_DAEMON_LOCKFILE || DEFAULT_LOCKFILE;
@@ -29,11 +28,11 @@ function defaultLockfilePath() {
 
 function parseStartFlags(argv) {
   const flags = {
-    port: DEFAULT_PORT,
-    host: DEFAULT_HOST,
-    detached: false,
-  };
-  const args = Array.isArray(argv) ? argv : [];
+      port: DEFAULT_PORT,
+      host: DEFAULT_HOST,
+      detached: false,
+    },
+    args = Array.isArray(argv) ? argv : [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--detached') {
@@ -121,12 +120,12 @@ function daemonUrlFromLock(info) {
  *   2. lockfile with a live pid
  */
 function resolveDaemonUrl(opts = {}) {
-  const envUrl = process.env.LAPIS_DAEMON_URL;
+  const envUrl = process.env.LAPIS_DAEMON_URL,
+    lockfilePath = !envUrl ? opts.lockfilePath || defaultLockfilePath() : undefined,
+    info = !envUrl ? readLockfile(lockfilePath) : undefined;
   if (envUrl) {
     return envUrl.replace(/\/$/, '');
   }
-  const lockfilePath = opts.lockfilePath || defaultLockfilePath();
-  const info = readLockfile(lockfilePath);
   if (!info) {
     return null;
   }
@@ -162,9 +161,9 @@ function httpGet(urlPath, { host, port }) {
 }
 
 async function waitForHealth(host, port, opts = {}) {
-  const timeoutMs = opts.timeoutMs ?? HEALTH_TIMEOUT_MS;
-  const pollMs = opts.pollMs ?? HEALTH_POLL_MS;
-  const deadline = Date.now() + timeoutMs;
+  const timeoutMs = opts.timeoutMs ?? HEALTH_TIMEOUT_MS,
+    pollMs = opts.pollMs ?? HEALTH_POLL_MS,
+    deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
       const res = await httpGet('/health', { host, port });
@@ -172,7 +171,7 @@ async function waitForHealth(host, port, opts = {}) {
         return true;
       }
     } catch {
-      // keep polling
+      // Keep polling
     }
     await new Promise((r) => setTimeout(r, pollMs));
   }
@@ -193,19 +192,18 @@ function spawnDetachedServe({ host, port }) {
 }
 
 async function runStart(argv, io = {}) {
-  const flags = parseStartFlags(argv);
-  const lockfilePath = io.lockfilePath || defaultLockfilePath();
-  const log = io.log || ((line) => process.stdout.write(`${line}\n`));
-
-  const existing = readLockfile(lockfilePath);
+  const flags = parseStartFlags(argv),
+    lockfilePath = io.lockfilePath || defaultLockfilePath(),
+    log = io.log || ((line) => process.stdout.write(`${line}\n`)),
+    existing = readLockfile(lockfilePath);
   if (existing?.pid && isProcessAlive(existing.pid)) {
-    const portMismatch = Number.isFinite(existing.port) && existing.port !== flags.port;
-    const hostMismatch = Boolean(existing.host) && existing.host !== flags.host;
+    const portMismatch = Number.isFinite(existing.port) && existing.port !== flags.port,
+      hostMismatch = Boolean(existing.host) && existing.host !== flags.host;
     if (portMismatch || hostMismatch) {
       // The lockfile is the source of truth; the install `--daemon-port` flag
-      // cannot relocate a running daemon. Warn loudly and keep the existing one
-      // rather than silently dropping the flag or disrupting other sessions
-      // sharing this daemon (#232).
+      // Cannot relocate a running daemon. Warn loudly and keep the existing one
+      // Rather than silently dropping the flag or disrupting other sessions
+      // Sharing this daemon (#232).
       log(
         `⚠ LaPis daemon already running (pid ${existing.pid}) on http://${existing.host}:${existing.port},` +
           ` but http://${flags.host}:${flags.port} was requested.`,
@@ -227,10 +225,10 @@ async function runStart(argv, io = {}) {
   }
 
   if (flags.detached) {
-    const spawnFn = io.spawnDetachedServe || spawnDetachedServe;
-    const waitFn = io.waitForHealth || waitForHealth;
-    const stopFn = io.stopProcess || stopProcess;
-    const child = spawnFn(flags);
+    const spawnFn = io.spawnDetachedServe || spawnDetachedServe,
+      waitFn = io.waitForHealth || waitForHealth,
+      stopFn = io.stopProcess || stopProcess,
+      child = spawnFn(flags);
     try {
       await waitFn(flags.host, flags.port, io);
     } catch (e) {
@@ -251,24 +249,28 @@ async function runStart(argv, io = {}) {
   }
 
   const info = {
-    pid: process.pid,
-    port: flags.port,
-    host: flags.host,
-    startedAt: new Date().toISOString(),
-  };
-  writeLockfile(info, lockfilePath);
+      pid: process.pid,
+      port: flags.port,
+      host: flags.host,
+      startedAt: new Date().toISOString(),
+    },
+    cleanup = (() => {
+      writeLockfile(info, lockfilePath);
 
-  const cleanup = () => {
-    removeLockfile(lockfilePath);
-  };
+      return () => {
+        removeLockfile(lockfilePath);
+      };
+    })();
   process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
   process.on('exit', cleanup);
 
-  const { startHttpServer } = require('../http/server');
-  log(`LaPis daemon listening on http://${flags.host}:${flags.port}`);
-  await startHttpServer({ host: flags.host, port: flags.port });
-  return info;
+  {
+    const { startHttpServer } = require('../http/server');
+    log(`LaPis daemon listening on http://${flags.host}:${flags.port}`);
+    await startHttpServer({ host: flags.host, port: flags.port });
+    return info;
+  }
 }
 
 async function stopProcess(pid, opts = {}) {
@@ -280,8 +282,8 @@ async function stopProcess(pid, opts = {}) {
   } catch {
     return false;
   }
-  const graceMs = opts.graceMs ?? STOP_GRACE_MS;
-  const deadline = Date.now() + graceMs;
+  const graceMs = opts.graceMs ?? STOP_GRACE_MS,
+    deadline = Date.now() + graceMs;
   while (Date.now() < deadline) {
     if (!isProcessAlive(pid)) {
       return true;
@@ -291,15 +293,15 @@ async function stopProcess(pid, opts = {}) {
   try {
     process.kill(pid, 'SIGKILL');
   } catch {
-    // already gone
+    // Already gone
   }
   return !isProcessAlive(pid);
 }
 
 async function runStop(_argv, io = {}) {
-  const lockfilePath = io.lockfilePath || defaultLockfilePath();
-  const log = io.log || ((line) => process.stdout.write(`${line}\n`));
-  const info = readLockfile(lockfilePath);
+  const lockfilePath = io.lockfilePath || defaultLockfilePath(),
+    log = io.log || ((line) => process.stdout.write(`${line}\n`)),
+    info = readLockfile(lockfilePath);
   if (!info) {
     log('LaPis daemon is not running (no lockfile).');
     return { stopped: false };

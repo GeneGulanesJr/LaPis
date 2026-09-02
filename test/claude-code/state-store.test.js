@@ -1,7 +1,7 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const stateStore = require('../../src/claude-code/state-store');
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  stateStore = require('../../src/claude-code/state-store');
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-state-'));
@@ -30,24 +30,27 @@ describe('claude-code state-store', () => {
 
   test('saveState round-trips all fields', () => {
     const state = {
-      ...stateStore.defaultState(),
-      sessionId: 42,
-      currentProject: 'myproj',
-      projectSessionCount: 3,
-      memoriesSavedThisSession: 7,
-      editedFiles: ['a.js', 'b.ts'],
-      exploredFiles: ['c.js'],
-      turnCount: 5,
-      dreamTriggeredThisSession: false,
-      lastMemoryToolCall: 1000,
-      callsSinceLastMemory: 2,
-      lastAutoDecisionSave: 2000,
-      hasInjectedContext: true,
-      pendingRecallFeedback: [[11, { sessionId: 42, query: 'q' }]],
-      nativeChecked: true,
-    };
-    stateStore.saveState('s1', state, { dir });
-    const loaded = stateStore.loadState('s1', { dir });
+        ...stateStore.defaultState(),
+        sessionId: 42,
+        currentProject: 'myproj',
+        projectSessionCount: 3,
+        memoriesSavedThisSession: 7,
+        editedFiles: ['a.js', 'b.ts'],
+        exploredFiles: ['c.js'],
+        turnCount: 5,
+        dreamTriggeredThisSession: false,
+        lastMemoryToolCall: 1000,
+        callsSinceLastMemory: 2,
+        lastAutoDecisionSave: 2000,
+        hasInjectedContext: true,
+        pendingRecallFeedback: [[11, { sessionId: 42, query: 'q' }]],
+        nativeChecked: true,
+      },
+      loaded = (() => {
+        stateStore.saveState('s1', state, { dir });
+
+        return stateStore.loadState('s1', { dir });
+      })();
     expect(loaded.sessionId).toBe(42);
     expect(loaded.editedFiles).toEqual(['a.js', 'b.ts']);
     expect(loaded.pendingRecallFeedback).toEqual([[11, { sessionId: 42, query: 'q' }]]);
@@ -86,16 +89,21 @@ describe('claude-code state-store', () => {
   });
 
   test('sweepStaleSessions removes files older than the threshold', () => {
-    const fresh = { ...stateStore.defaultState(), sessionId: 1 };
-    const stale = { ...stateStore.defaultState(), sessionId: 2 };
-    stateStore.saveState('fresh', fresh, { dir });
-    stateStore.saveState('stale', stale, { dir });
+    const fresh = { ...stateStore.defaultState(), sessionId: 1 },
+      stale = { ...stateStore.defaultState(), sessionId: 2 },
+      oldTime = (() => {
+        stateStore.saveState('fresh', fresh, { dir });
+        stateStore.saveState('stale', stale, { dir });
 
-    // Backdate the stale file by 25h.
-    const oldTime = new Date(Date.now() - 25 * 3600 * 1000).getTime() / 1000;
-    fs.utimesSync(path.join(dir, 'stale.json'), oldTime, oldTime);
+        // Backdate the stale file by 25h.
 
-    const result = stateStore.sweepStaleSessions(24, { dir });
+        return new Date(Date.now() - 25 * 3600 * 1000).getTime() / 1000;
+      })(),
+      result = (() => {
+        fs.utimesSync(path.join(dir, 'stale.json'), oldTime, oldTime);
+
+        return stateStore.sweepStaleSessions(24, { dir });
+      })();
     expect(result.swept).toBe(1);
     expect(fs.existsSync(path.join(dir, 'stale.json'))).toBe(false);
     expect(fs.existsSync(path.join(dir, 'fresh.json'))).toBe(true);
@@ -217,9 +225,12 @@ describe('claude-code state-store: locked mutateState', () => {
 
   test('mutateState proceeds unlocked when the lock cannot be acquired', async () => {
     stateStore.saveState('m4', { ...stateStore.defaultState(), memoriesSavedThisSession: 0 }, { dir });
-    const lockPath = path.join(dir, 'm4.lock');
-    fs.writeFileSync(lockPath, '99999', 'utf8');
-    const now = Date.now();
+    const lockPath = path.join(dir, 'm4.lock'),
+      now = (() => {
+        fs.writeFileSync(lockPath, '99999', 'utf8');
+
+        return Date.now();
+      })();
     fs.utimesSync(lockPath, now / 1000, now / 1000);
 
     await stateStore.mutateState(
@@ -272,8 +283,8 @@ describe('claude-code state-store: TTL + gc', () => {
     stateStore.saveState('b', stateStore.defaultState(), { dir });
     const oldTime = new Date(Date.now() - 100 * 3600 * 1000).getTime() / 1000;
     fs.utimesSync(path.join(dir, 'b.json'), oldTime, oldTime);
-    const lines = [];
-    const result = stateStore.runGc(['--max-age-hours', '50'], { dir, log: (l) => lines.push(l) });
+    const lines = [],
+      result = stateStore.runGc(['--max-age-hours', '50'], { dir, log: (l) => lines.push(l) });
     expect(result.swept).toBe(1);
     expect(result.maxAgeHours).toBe(50);
     expect(lines.join('\n')).toContain('Swept 1');

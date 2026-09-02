@@ -18,19 +18,19 @@
  *     user-scope mcpServers in ~/.claude.json.
  */
 
-const fs = require('node:fs');
-const {
-  parseFlags,
-  stripLapisHooks,
-  removeAutoAllow,
-  isLapisMcpEntry,
-  readJson,
-  writeJson,
-  writeJsonOrRemove,
-  removeClaudeMdBlock,
-  resolveIo,
-  configPaths,
-} = require('./install');
+const fs = require('node:fs'),
+  {
+    parseFlags,
+    stripLapisHooks,
+    removeAutoAllow,
+    isLapisMcpEntry,
+    readJson,
+    writeJson,
+    writeJsonOrRemove,
+    removeClaudeMdBlock,
+    resolveIo,
+    configPaths,
+  } = require('./install');
 
 /**
  * Strip LaPis hooks + auto-allow rules for every removed server name from one
@@ -40,8 +40,8 @@ function cleanSettingsFile(filePath, mcpNames) {
   if (!fs.existsSync(filePath)) {
     return false;
   }
-  const settings = readJson(filePath);
-  const before = JSON.stringify(settings);
+  const settings = readJson(filePath),
+    before = JSON.stringify(settings);
   stripLapisHooks(settings);
   if (settings.hooks && typeof settings.hooks === 'object' && Object.keys(settings.hooks).length === 0) {
     delete settings.hooks;
@@ -82,8 +82,8 @@ function cleanProjectMcp(filePath) {
   if (!fs.existsSync(filePath)) {
     return [];
   }
-  const config = readJson(filePath);
-  const removed = removeLapisServers(config.mcpServers);
+  const config = readJson(filePath),
+    removed = removeLapisServers(config.mcpServers);
   if (removed.length === 0) {
     return [];
   }
@@ -103,8 +103,8 @@ function cleanClaudeJson(filePath, { user, projectKey }) {
   if (!fs.existsSync(filePath)) {
     return [];
   }
-  const config = readJson(filePath);
-  const removed = [];
+  const config = readJson(filePath),
+    removed = [];
   if (user) {
     const names = removeLapisServers(config.mcpServers);
     removed.push(...names);
@@ -113,8 +113,8 @@ function cleanClaudeJson(filePath, { user, projectKey }) {
     }
   }
   if (projectKey && config.projects && typeof config.projects === 'object') {
-    const project = config.projects[projectKey];
-    const names = project ? removeLapisServers(project.mcpServers) : [];
+    const project = config.projects[projectKey],
+      names = project ? removeLapisServers(project.mcpServers) : [];
     removed.push(...names);
     if (names.length > 0) {
       if (Object.keys(project.mcpServers).length === 0) {
@@ -142,16 +142,16 @@ function cleanClaudeJson(filePath, { user, projectKey }) {
  * @returns {{ cleaned: string[] }}
  */
 async function runUninstall(argv, io) {
-  const flags = parseFlags(argv);
-  const { home, cwd, log } = resolveIo(io);
-  const paths = configPaths({ home, cwd });
-  const cleaned = [];
+  const flags = parseFlags(argv),
+    { home, cwd, log } = resolveIo(io),
+    paths = configPaths({ home, cwd }),
+    cleaned = [];
 
   // Best-effort: stop a daemon left by `install --daemon` so hooks don't keep
   // POSTing to a server whose config we just removed.
   try {
-    const { readLockfile, runStop, defaultLockfilePath } = require('./daemon');
-    const lockfilePath = io?.lockfilePath || defaultLockfilePath();
+    const { readLockfile, runStop, defaultLockfilePath } = require('./daemon'),
+      lockfilePath = io?.lockfilePath || defaultLockfilePath();
     if (readLockfile(lockfilePath)) {
       await runStop([], { ...io, lockfilePath, log: () => {} });
     }
@@ -162,11 +162,14 @@ async function runUninstall(argv, io) {
   if (flags.global) {
     // MCP first so auto-allow cleanup covers whatever names were removed
     // (an install renamed via --mcp-name is still fully reversed).
-    const removedNames = cleanClaudeJson(paths.claudeJson, { user: true });
-    if (removedNames.length > 0) {
-      cleaned.push(paths.claudeJson);
-    }
-    const mcpNames = [...new Set([flags.mcpName, ...removedNames])];
+    const removedNames = cleanClaudeJson(paths.claudeJson, { user: true }),
+      mcpNames = (() => {
+        if (removedNames.length > 0) {
+          cleaned.push(paths.claudeJson);
+        }
+
+        return [...new Set([flags.mcpName, ...removedNames])];
+      })();
     if (cleanSettingsFile(paths.userSettings, mcpNames)) {
       cleaned.push(paths.userSettings);
     }
@@ -174,15 +177,21 @@ async function runUninstall(argv, io) {
       cleaned.push(paths.userClaudeMd);
     }
   } else {
-    const removedNames = cleanProjectMcp(paths.projectMcp);
-    if (removedNames.length > 0) {
-      cleaned.push(paths.projectMcp);
-    }
-    const removedLocal = cleanClaudeJson(paths.claudeJson, { projectKey: cwd });
-    if (removedLocal.length > 0) {
-      cleaned.push(paths.claudeJson);
-    }
-    const mcpNames = [...new Set([flags.mcpName, ...removedNames, ...removedLocal])];
+    const removedNames = cleanProjectMcp(paths.projectMcp),
+      removedLocal = (() => {
+        if (removedNames.length > 0) {
+          cleaned.push(paths.projectMcp);
+        }
+
+        return cleanClaudeJson(paths.claudeJson, { projectKey: cwd });
+      })(),
+      mcpNames = (() => {
+        if (removedLocal.length > 0) {
+          cleaned.push(paths.claudeJson);
+        }
+
+        return [...new Set([flags.mcpName, ...removedNames, ...removedLocal])];
+      })();
     if (cleanSettingsFile(paths.projectSettings, mcpNames)) {
       cleaned.push(paths.projectSettings);
     }

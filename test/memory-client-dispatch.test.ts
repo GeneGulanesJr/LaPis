@@ -17,16 +17,16 @@ import path from 'node:path';
 describe('memory-client in-process dispatch', () => {
   it('gateway.js exists at the corrected relative path from host/', () => {
     // Path: host/memory-client.ts → ../../../src/cli/gateway.js
-    const hostDir = path.resolve(import.meta.dirname, '../extensions/memory-layer/host');
-    const correct = path.resolve(hostDir, '../../../src/cli/gateway.js');
-    const wrong = path.resolve(hostDir, '../../src/cli/gateway.js');
+    const hostDir = path.resolve(import.meta.dirname, '../extensions/memory-layer/host'),
+      correct = path.resolve(hostDir, '../../../src/cli/gateway.js'),
+      wrong = path.resolve(hostDir, '../../src/cli/gateway.js');
     expect(existsSync(correct)).toBe(true);
     expect(existsSync(wrong)).toBe(false);
   });
 
   it('source uses the corrected require path (no MODULE_NOT_FOUND at runtime)', () => {
-    const memoryClientPath = path.resolve(import.meta.dirname, '../extensions/memory-layer/host/memory-client.ts');
-    const source = readFileSync(memoryClientPath, 'utf8');
+    const memoryClientPath = path.resolve(import.meta.dirname, '../extensions/memory-layer/host/memory-client.ts'),
+      source = readFileSync(memoryClientPath, 'utf8');
 
     // Must NOT use the broken 2-up path.
     expect(source).not.toMatch(/require\(['"]\.\.\/\.\.\/src\/cli\/gateway['"]\)/);
@@ -37,11 +37,10 @@ describe('memory-client in-process dispatch', () => {
   it('source does NOT have a silent empty catch around the gateway require', () => {
     // Defensive: the previous bug had a bare `catch {}` that swallowed the
     // Require error, making path issues invisible. Ensure we log the failure.
-    const memoryClientPath = path.resolve(import.meta.dirname, '../extensions/memory-layer/host/memory-client.ts');
-    const source = readFileSync(memoryClientPath, 'utf8');
-
-    // Look for the require + catch block specifically.
-    const requireMatch = source.match(/require\(['"]\.\.\/\.\.\/\.\.\/src\/cli\/gateway['"]\)/);
+    const memoryClientPath = path.resolve(import.meta.dirname, '../extensions/memory-layer/host/memory-client.ts'),
+      source = readFileSync(memoryClientPath, 'utf8'),
+      // Look for the require + catch block specifically.
+      requireMatch = source.match(/require\(['"]\.\.\/\.\.\/\.\.\/src\/cli\/gateway['"]\)/);
     expect(requireMatch).not.toBeNull();
 
     // The catch block surrounding the require must reference a logging call
@@ -49,18 +48,22 @@ describe('memory-client in-process dispatch', () => {
     // Allow either:
     //   } catch (e: unknown) { ... console.error ... }
     //   } catch { ... console.error ... }
-    const blockAfterRequire = source.slice(requireMatch!.index!);
-    // Find the next `catch` keyword after the require.
-    const catchMatch = blockAfterRequire.match(/catch\s*(\(|\{)/);
-    expect(catchMatch).not.toBeNull();
-    // Extract a window after the catch and look for a logging call. Accept
-    // either a direct console.error or a call to the reportInProcessFailure()
-    // helper (which wraps console.error and de-dupes the message). The
-    // invariant is: the catch must NOT silently swallow the require error.
-    const catchIdx = requireMatch!.index! + catchMatch!.index!;
-    const catchWindow = source.slice(catchIdx, catchIdx + 400);
-    expect(catchWindow).toMatch(/console\.error|reportInProcessFailure/);
-    // And it must NOT be a bare `catch {}` immediately followed by a closing brace.
-    expect(catchWindow).not.toMatch(/^catch\s*\{\s*\}/);
+    {
+      const blockAfterRequire = source.slice(requireMatch!.index!),
+        // Find the next `catch` keyword after the require.
+        catchMatch = blockAfterRequire.match(/catch\s*(\(|\{)/);
+      expect(catchMatch).not.toBeNull();
+      // Extract a window after the catch and look for a logging call. Accept
+      // Either a direct console.error or a call to the reportInProcessFailure()
+      // Helper (which wraps console.error and de-dupes the message). The
+      // Invariant is: the catch must NOT silently swallow the require error.
+      {
+        const catchIdx = requireMatch!.index! + catchMatch!.index!,
+          catchWindow = source.slice(catchIdx, catchIdx + 400);
+        expect(catchWindow).toMatch(/console\.error|reportInProcessFailure/);
+        // And it must NOT be a bare `catch {}` immediately followed by a closing brace.
+        expect(catchWindow).not.toMatch(/^catch\s*\{\s*\}/);
+      }
+    }
   });
 });

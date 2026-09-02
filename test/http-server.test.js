@@ -1,5 +1,5 @@
-const { createDb, resetDb, sqlJson, sqlRun } = require('../db');
-const { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
+const { createDb, resetDb, sqlJson, sqlRun } = require('../db'),
+  { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
 
 describe('Aurex HTTP Server', () => {
   beforeAll(() => {
@@ -234,9 +234,12 @@ describe('Aurex HTTP Server', () => {
     });
 
     it('increments retry counter on a milestone', () => {
-      const result = repo.incrementRetry('ms1');
-      expect(result.retries).toBe(1);
-      const result2 = repo.incrementRetry('ms1');
+      const result = repo.incrementRetry('ms1'),
+        result2 = (() => {
+          expect(result.retries).toBe(1);
+
+          return repo.incrementRetry('ms1');
+        })();
       expect(result2.retries).toBe(2);
     });
 
@@ -249,24 +252,26 @@ describe('Aurex HTTP Server', () => {
 
     it('creates a mission todo ledger and todo items with audit events', () => {
       const ledger = repo.createMissionLedger({
-        missionId: 'm1',
-        missionTitle: 'Todo mission',
-        sourceMission: 'Implement todo ledger',
-        plannerSummary: 'Add storage and API',
-        acceptanceCriteria: ['ledger can be read'],
-      })[0];
-      expect(ledger.missionId).toBe('m1');
-      expect(ledger.status).toBe('planning');
+          missionId: 'm1',
+          missionTitle: 'Todo mission',
+          sourceMission: 'Implement todo ledger',
+          plannerSummary: 'Add storage and API',
+          acceptanceCriteria: ['ledger can be read'],
+        })[0],
+        todo = (() => {
+          expect(ledger.missionId).toBe('m1');
+          expect(ledger.status).toBe('planning');
 
-      const todo = repo.createTodo('m1', {
-        id: 'todo-1',
-        title: 'Add todo storage',
-        status: 'ready',
-        type: 'implementation',
-        goal: 'Persist todos',
-        likelyFiles: ['src/platform/storage/repositories/aurex.js'],
-        lapisContextQuery: 'todo ledger storage repository tests',
-      })[0];
+          return repo.createTodo('m1', {
+            id: 'todo-1',
+            title: 'Add todo storage',
+            status: 'ready',
+            type: 'implementation',
+            goal: 'Persist todos',
+            likelyFiles: ['src/platform/storage/repositories/aurex.js'],
+            lapisContextQuery: 'todo ledger storage repository tests',
+          })[0];
+        })();
       expect(todo.id).toBe('todo-1');
       expect(repo.listTodosByMission('m1').length).toBe(1);
       expect(repo.listMissionEvents('m1').some((e) => e.eventType === 'ledger_created')).toBe(true);
@@ -293,8 +298,7 @@ describe('Aurex HTTP Server', () => {
   const http = require('http');
 
   describe('HTTP server framework', () => {
-    let server;
-    let baseUrl;
+    let server, baseUrl;
 
     beforeAll(async () => {
       const { createHttpServer } = require('../src/http/server');
@@ -307,25 +311,25 @@ describe('Aurex HTTP Server', () => {
 
     function request(method, path, body) {
       return new Promise((resolve, reject) => {
-        const url = new URL(path, baseUrl);
-        const opts = {
-          method,
-          hostname: url.hostname,
-          port: url.port,
-          path: url.pathname + url.search,
-          headers: { 'Content-Type': 'application/json' },
-        };
-        const req = http.request(opts, (res) => {
-          let data = '';
-          res.on('data', (chunk) => (data += chunk));
-          res.on('end', () => {
-            try {
-              resolve({ status: res.statusCode, body: JSON.parse(data) });
-            } catch {
-              resolve({ status: res.statusCode, body: data });
-            }
+        const url = new URL(path, baseUrl),
+          opts = {
+            method,
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname + url.search,
+            headers: { 'Content-Type': 'application/json' },
+          },
+          req = http.request(opts, (res) => {
+            let data = '';
+            res.on('data', (chunk) => (data += chunk));
+            res.on('end', () => {
+              try {
+                resolve({ status: res.statusCode, body: JSON.parse(data) });
+              } catch {
+                resolve({ status: res.statusCode, body: data });
+              }
+            });
           });
-        });
         req.on('error', reject);
         if (body) {
           req.write(JSON.stringify(body));
@@ -348,25 +352,25 @@ describe('Aurex HTTP Server', () => {
 
     it('returns 400 for invalid JSON body', async () => {
       const res = await new Promise((resolve, reject) => {
-        const url = new URL('/missions', baseUrl);
-        const opts = {
-          method: 'POST',
-          hostname: url.hostname,
-          port: url.port,
-          path: url.pathname,
-          headers: { 'Content-Type': 'application/json' },
-        };
-        const req = http.request(opts, (msg) => {
-          let data = '';
-          msg.on('data', (chunk) => (data += chunk));
-          msg.on('end', () => {
-            try {
-              resolve({ status: msg.statusCode, body: JSON.parse(data) });
-            } catch {
-              resolve({ status: msg.statusCode, body: data });
-            }
+        const url = new URL('/missions', baseUrl),
+          opts = {
+            method: 'POST',
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname,
+            headers: { 'Content-Type': 'application/json' },
+          },
+          req = http.request(opts, (msg) => {
+            let data = '';
+            msg.on('data', (chunk) => (data += chunk));
+            msg.on('end', () => {
+              try {
+                resolve({ status: msg.statusCode, body: JSON.parse(data) });
+              } catch {
+                resolve({ status: msg.statusCode, body: data });
+              }
+            });
           });
-        });
         req.on('error', reject);
         req.write('{invalid json');
         req.end();
@@ -377,38 +381,36 @@ describe('Aurex HTTP Server', () => {
   });
 
   describe('HTTP server E2E — Aurex endpoints', () => {
-    let server;
-    let baseUrl;
-    let req;
+    let server, baseUrl, req, missionId, milestoneId, unitId, contractId, todoId;
 
     beforeAll(async () => {
-      const { createHttpServer } = require('../src/http/server');
-      const aurex = createAurexRepository({ sqlJson, sqlRun });
+      const { createHttpServer } = require('../src/http/server'),
+        aurex = createAurexRepository({ sqlJson, sqlRun });
       server = createHttpServer({ repositories: { aurex }, sqlJson, sqlRun });
       await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
       baseUrl = `http://127.0.0.1:${server.address().port}`;
 
       req = (method, path, body) =>
         new Promise((resolve, reject) => {
-          const url = new URL(path, baseUrl);
-          const opts = {
-            method,
-            hostname: url.hostname,
-            port: url.port,
-            path: url.pathname + url.search,
-            headers: { 'Content-Type': 'application/json' },
-          };
-          const httpReq = http.request(opts, (res) => {
-            let data = '';
-            res.on('data', (chunk) => (data += chunk));
-            res.on('end', () => {
-              try {
-                resolve({ status: res.statusCode, body: JSON.parse(data) });
-              } catch {
-                resolve({ status: res.statusCode, body: data });
-              }
+          const url = new URL(path, baseUrl),
+            opts = {
+              method,
+              hostname: url.hostname,
+              port: url.port,
+              path: url.pathname + url.search,
+              headers: { 'Content-Type': 'application/json' },
+            },
+            httpReq = http.request(opts, (res) => {
+              let data = '';
+              res.on('data', (chunk) => (data += chunk));
+              res.on('end', () => {
+                try {
+                  resolve({ status: res.statusCode, body: JSON.parse(data) });
+                } catch {
+                  resolve({ status: res.statusCode, body: data });
+                }
+              });
             });
-          });
           httpReq.on('error', reject);
           if (body) {
             httpReq.write(JSON.stringify(body));
@@ -418,12 +420,6 @@ describe('Aurex HTTP Server', () => {
     });
 
     afterAll(() => new Promise((resolve) => server.close(resolve)));
-
-    let missionId;
-    let milestoneId;
-    let unitId;
-    let contractId;
-    let todoId;
 
     it('creates a mission', async () => {
       const res = await req('POST', '/missions', { description: 'E2E mission', config: { modelHints: {} } });
@@ -442,8 +438,10 @@ describe('Aurex HTTP Server', () => {
     it('updates mission status', async () => {
       const res = await req('PATCH', `/missions/${missionId}/status`, { status: 'running' });
       expect(res.status).toBe(200);
-      const updated = await req('GET', `/missions/${missionId}`);
-      expect(updated.body.status).toBe('running');
+      {
+        const updated = await req('GET', `/missions/${missionId}`);
+        expect(updated.body.status).toBe('running');
+      }
     });
 
     it('creates a todo ledger for a mission', async () => {
@@ -478,9 +476,11 @@ describe('Aurex HTTP Server', () => {
       expect(res.body.status).toBe('ready');
       todoId = res.body.id;
 
-      const list = await req('GET', `/missions/${missionId}/todos`);
-      expect(list.status).toBe(200);
-      expect(list.body.some((todo) => todo.id === todoId)).toBe(true);
+      {
+        const list = await req('GET', `/missions/${missionId}/todos`);
+        expect(list.status).toBe(200);
+        expect(list.body.some((todo) => todo.id === todoId)).toBe(true);
+      }
     });
 
     it('rejects unsafe todo status transitions over HTTP', async () => {
@@ -498,13 +498,17 @@ describe('Aurex HTTP Server', () => {
       expect(evidence.status).toBe(200);
       expect(evidence.body.evidence.changedFiles).toContain('src/http/handlers/todos.js');
 
-      const note = await req('POST', `/todos/${todoId}/notes`, { note: 'Evidence captured' });
-      expect(note.status).toBe(200);
-      expect(note.body.evidence.notes).toContain('Evidence captured');
+      {
+        const note = await req('POST', `/todos/${todoId}/notes`, { note: 'Evidence captured' });
+        expect(note.status).toBe(200);
+        expect(note.body.evidence.notes).toContain('Evidence captured');
 
-      const implemented = await req('PATCH', `/todos/${todoId}/status`, { status: 'implemented' });
-      expect(implemented.status).toBe(200);
-      expect(implemented.body.status).toBe('implemented');
+        {
+          const implemented = await req('PATCH', `/todos/${todoId}/status`, { status: 'implemented' });
+          expect(implemented.status).toBe(200);
+          expect(implemented.body.status).toBe('implemented');
+        }
+      }
     });
 
     it('returns todo context query and focused context', async () => {
@@ -512,10 +516,12 @@ describe('Aurex HTTP Server', () => {
       expect(query.status).toBe(200);
       expect(query.body.lapisContextQuery).toBe('todo ledger HTTP handler tests');
 
-      const context = await req('GET', `/todos/${todoId}/context`);
-      expect(context.status).toBe(200);
-      expect(context.body.query).toBe('todo ledger HTTP handler tests');
-      expect(Array.isArray(context.body.context)).toBe(true);
+      {
+        const context = await req('GET', `/todos/${todoId}/context`);
+        expect(context.status).toBe(200);
+        expect(context.body.query).toBe('todo ledger HTTP handler tests');
+        expect(Array.isArray(context.body.context)).toBe(true);
+      }
     });
 
     it('records todo audit events', async () => {
@@ -769,42 +775,51 @@ describe('Aurex HTTP Server', () => {
 
   describe('HTTP server safety defaults', () => {
     it('warns when host is 0.0.0.0', async () => {
-      const logs = [];
-      const origLog = console.log;
-      const origWarn = console.warn;
-      console.log = (...args) => logs.push(args.join(' '));
-      console.warn = (...args) => logs.push(args.join(' '));
+      const logs = [],
+        origLog = console.log,
+        origWarn = console.warn,
+        host = (() => {
+          console.log = (...args) => logs.push(args.join(' '));
+          console.warn = (...args) => logs.push(args.join(' '));
 
-      // Simulate the warning logic from startHttpServer
-      const host = '0.0.0.0';
-      if (host === '0.0.0.0') {
-        console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
-        console.log('[lapis serve] Use only on trusted networks or behind a proxy.');
-      }
+          // Simulate the warning logic from startHttpServer
 
-      console.log = origLog;
-      console.warn = origWarn;
+          return '0.0.0.0';
+        })(),
+        hasWarning = (() => {
+          if (host === '0.0.0.0') {
+            console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
+            console.log('[lapis serve] Use only on trusted networks or behind a proxy.');
+          }
 
-      const hasWarning = logs.some((l) => l.includes('WARNING') && l.includes('0.0.0.0'));
+          console.log = origLog;
+          console.warn = origWarn;
+
+          return logs.some((l) => l.includes('WARNING') && l.includes('0.0.0.0'));
+        })();
       expect(hasWarning).toBe(true);
     });
 
     it('does not warn when host is 127.0.0.1', async () => {
-      const logs = [];
-      const origLog = console.log;
-      const origWarn = console.warn;
-      console.log = (...args) => logs.push(args.join(' '));
-      console.warn = (...args) => logs.push(args.join(' '));
+      const logs = [],
+        origLog = console.log,
+        origWarn = console.warn,
+        host = (() => {
+          console.log = (...args) => logs.push(args.join(' '));
+          console.warn = (...args) => logs.push(args.join(' '));
 
-      const host = '127.0.0.1';
-      if (host === '0.0.0.0') {
-        console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
-      }
+          return '127.0.0.1';
+        })(),
+        hasWarning = (() => {
+          if (host === '0.0.0.0') {
+            console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
+          }
 
-      console.log = origLog;
-      console.warn = origWarn;
+          console.log = origLog;
+          console.warn = origWarn;
 
-      const hasWarning = logs.some((l) => l.includes('WARNING'));
+          return logs.some((l) => l.includes('WARNING'));
+        })();
       expect(hasWarning).toBe(false);
     });
 
@@ -816,8 +831,7 @@ describe('Aurex HTTP Server', () => {
   });
 
   describe('Checkpoints', () => {
-    let repo;
-    let missionId;
+    let repo, missionId;
 
     beforeAll(() => {
       repo = createAurexRepository({ sqlJson, sqlRun });
@@ -845,55 +859,85 @@ describe('Aurex HTTP Server', () => {
     });
 
     it('gets a checkpoint by id', () => {
-      const id = `cp-get-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      repo.createCheckpoint({ id, missionId, trigger: 'unclassifiable_error', milestoneId: 'ms-2', summary: 'Test' });
-      const rows = repo.getCheckpoint(id);
+      const id = `cp-get-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        rows = (() => {
+          repo.createCheckpoint({
+            id,
+            missionId,
+            trigger: 'unclassifiable_error',
+            milestoneId: 'ms-2',
+            summary: 'Test',
+          });
+
+          return repo.getCheckpoint(id);
+        })();
       expect(rows.length).toBe(1);
       expect(rows[0].id).toBe(id);
     });
 
     it('resolves a checkpoint', () => {
-      const id = `cp-resolve-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-3', summary: 'Test' });
-      const rows = repo.resolveCheckpoint(id, 'approve', undefined, undefined);
+      const id = `cp-resolve-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        rows = (() => {
+          repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-3', summary: 'Test' });
+
+          return repo.resolveCheckpoint(id, 'approve', undefined, undefined);
+        })();
       expect(rows[0].status).toBe('resolved');
       expect(rows[0].decision).toBe('approve');
     });
 
     it('persists rescopeGuidance when resolving a checkpoint', () => {
-      const id = `cp-rescope-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      repo.createCheckpoint({
-        id,
-        missionId,
-        trigger: 'rescope_limit',
-        milestoneId: 'ms-rg',
-        summary: 'Re-plan needed',
-      });
-      const rows = repo.resolveCheckpoint(id, 'approve', undefined, undefined, 'try a different module split');
+      const id = `cp-rescope-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        rows = (() => {
+          repo.createCheckpoint({
+            id,
+            missionId,
+            trigger: 'rescope_limit',
+            milestoneId: 'ms-rg',
+            summary: 'Re-plan needed',
+          });
+
+          return repo.resolveCheckpoint(id, 'approve', undefined, undefined, 'try a different module split');
+        })();
       expect(rows[0].status).toBe('resolved');
       expect(rows[0].decision).toBe('approve');
       expect(rows[0].rescope_guidance).toBe('try a different module split');
     });
 
     it('returns null rescopeGuidance when the user approves without re-planning', () => {
-      const id = `cp-norescope-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      repo.createCheckpoint({ id, missionId, trigger: 'milestone_complete', milestoneId: 'ms-nr', summary: 'Done' });
-      const rows = repo.resolveCheckpoint(id, 'approve', undefined, undefined);
+      const id = `cp-norescope-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        rows = (() => {
+          repo.createCheckpoint({
+            id,
+            missionId,
+            trigger: 'milestone_complete',
+            milestoneId: 'ms-nr',
+            summary: 'Done',
+          });
+
+          return repo.resolveCheckpoint(id, 'approve', undefined, undefined);
+        })();
       expect(rows[0].rescope_guidance).toBeNull();
     });
 
     it('resolving an already-resolved checkpoint is idempotent', () => {
-      const id = `cp-idem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-4', summary: 'Test' });
-      repo.resolveCheckpoint(id, 'approve');
-      const rows = repo.resolveCheckpoint(id, 'reject');
+      const id = `cp-idem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        rows = (() => {
+          repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-4', summary: 'Test' });
+          repo.resolveCheckpoint(id, 'approve');
+
+          return repo.resolveCheckpoint(id, 'reject');
+        })();
       expect(rows[0].decision).toBe('approve');
     });
 
     it('gets pending checkpoints for a mission', () => {
-      const id = `cp-pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-5', summary: 'Pending' });
-      const rows = repo.getPendingCheckpoints(missionId);
+      const id = `cp-pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        rows = (() => {
+          repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-5', summary: 'Pending' });
+
+          return repo.getPendingCheckpoints(missionId);
+        })();
       expect(rows.length).toBeGreaterThanOrEqual(1);
       expect(rows.every((r) => r.status === 'pending')).toBe(true);
     });

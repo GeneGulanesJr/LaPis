@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-const path = require('path');
-const { execSync } = require('child_process');
-const { BENCHMARK_TOOLS, formatBytes, pad, runCli, isRepoIndexed, findSymbolWithCallers } = require('./bench-helper');
-const wf = require('../src/platform/protocol/compact-format');
+const path = require('path'),
+  { execSync } = require('child_process'),
+  { BENCHMARK_TOOLS, formatBytes, pad, runCli, isRepoIndexed, findSymbolWithCallers } = require('./bench-helper'),
+  wf = require('../src/platform/protocol/compact-format');
 
 // ══════════════════════════════════════════════════════════
 // CLI ARGS
@@ -11,9 +11,9 @@ const wf = require('../src/platform/protocol/compact-format');
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  let repoPath = null;
-  let repoName = null;
-  let forceReindex = false;
+  let repoPath = null,
+    repoName = null,
+    forceReindex = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--repo-path' && i + 1 < args.length) {
@@ -53,8 +53,8 @@ function estimateRowCount(data, toolName) {
     case 'getHotspots':
       return (d.hotspots || d.files || []).length;
     case 'getDeadCode': {
-      const syms = (d.dead_symbols || []).length;
-      const files = (d.dead_files || []).length;
+      const syms = (d.dead_symbols || []).length,
+        files = (d.dead_files || []).length;
       return syms + files;
     }
     case 'getCouplingMetrics':
@@ -82,8 +82,8 @@ async function main() {
   const { repoPath, repoName, forceReindex } = parseArgs();
   printHeader(repoName, repoPath);
   ensureRepoIndexed(repoPath, repoName, forceReindex);
-  const callSymbol = findCallSymbol(repoName);
-  const results = runBenchmarks(repoName, callSymbol);
+  const callSymbol = findCallSymbol(repoName),
+    results = runBenchmarks(repoName, callSymbol);
   printResults(results);
 }
 
@@ -117,11 +117,11 @@ function _removeExistingRepo(repoName) {
 
 function _doIndexRepo(repoPath, repoName) {
   const indexResult = execSync(`node memory-store.js index-repo --path "${repoPath}" --name "${repoName}"`, {
-    cwd: path.resolve(__dirname, '..'),
-    encoding: 'utf-8',
-    timeout: 120000,
-  });
-  const idx = JSON.parse(indexResult.trim());
+      cwd: path.resolve(__dirname, '..'),
+      encoding: 'utf-8',
+      timeout: 120000,
+    }),
+    idx = JSON.parse(indexResult.trim());
   if (idx.error) {
     console.error(`  Index error: ${idx.error}`);
     process.exit(1);
@@ -174,13 +174,13 @@ function _runToolCli(repoName, tool, extraFlags) {
 }
 
 function _computeCompactStats(toolData, tool) {
-  const payload = unwrap(toolData);
-  const rawBytes = JSON.stringify(payload).length;
-  const rawTokens = wf.estimateTokens(payload);
-  const compacted = wf.compactResponse(payload);
-  const compactBytes = JSON.stringify(compacted).length;
-  const compactTokens = wf.estimateTokens(compacted);
-  const savingsPct = rawBytes > 0 ? Math.round((1 - compactBytes / rawBytes) * 100) : 0;
+  const payload = unwrap(toolData),
+    rawBytes = JSON.stringify(payload).length,
+    rawTokens = wf.estimateTokens(payload),
+    compacted = wf.compactResponse(payload),
+    compactBytes = JSON.stringify(compacted).length,
+    compactTokens = wf.estimateTokens(compacted),
+    savingsPct = rawBytes > 0 ? Math.round((1 - compactBytes / rawBytes) * 100) : 0;
   return { tool: tool.name, rawBytes, rawTokens, compactBytes, compactTokens, savingsPct };
 }
 
@@ -232,12 +232,14 @@ function _printSummary(totalRaw, totalCompact, totalRows) {
       pad(totalCompact, 12) +
       ('-' + overallPct + '%').padStart(8),
   );
-  const savedBytes = totalRaw - totalCompact;
-  const savedTokens = Math.round(savedBytes / 3.5);
-  console.log(`\n✓ Benchmark complete.`);
-  console.log(`  Total raw:     ${formatBytes(totalRaw)} (${totalRaw}B)`);
-  console.log(`  Total compact: ${formatBytes(totalCompact)} (${totalCompact}B)`);
-  console.log(`  Saved:         ${formatBytes(savedBytes)} (~${savedTokens} tokens, -${overallPct}%)`);
+  {
+    const savedBytes = totalRaw - totalCompact,
+      savedTokens = Math.round(savedBytes / 3.5);
+    console.log(`\n✓ Benchmark complete.`);
+    console.log(`  Total raw:     ${formatBytes(totalRaw)} (${totalRaw}B)`);
+    console.log(`  Total compact: ${formatBytes(totalCompact)} (${totalCompact}B)`);
+    console.log(`  Saved:         ${formatBytes(savedBytes)} (~${savedTokens} tokens, -${overallPct}%)`);
+  }
 }
 
 main().catch((e) => {

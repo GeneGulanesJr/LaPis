@@ -1,7 +1,6 @@
-const { buildAnalysisEnvelope } = require('./envelope');
-const wireFormat = require('./compact-format');
-
-const DEFAULT_STRIP_FIELDS = ['symbol_id', 'id'];
+const { buildAnalysisEnvelope } = require('./envelope'),
+  wireFormat = require('./compact-format'),
+  DEFAULT_STRIP_FIELDS = ['symbol_id', 'id'];
 
 function compactAnalysis(data, opts = {}) {
   return wireFormat.compactResponse(data, { stripFields: opts.stripFields || DEFAULT_STRIP_FIELDS });

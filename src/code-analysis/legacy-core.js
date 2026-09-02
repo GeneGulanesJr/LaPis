@@ -14,17 +14,17 @@
  * This file preserves the original public API for backward compatibility.
  */
 
-const _importGraph = require('./import-graph-impl');
-const _coupling = require('./coupling-impl');
-const _callGraph = require('./call-graph-impl');
-const _deadCode = require('./dead-code-impl');
-const _complexity = require('./complexity-impl');
-const _signalChains = require('./signal-chains-impl');
-const _risk = require('./risk-impl');
-const _builders = require('./incremental-builders');
-const _relationBuilder = require('./relation-builder');
-const _cochangeBuilder = require('./cochange-builder');
-const _propagation = require('./propagation-impl');
+const _importGraph = require('./import-graph-impl'),
+  _coupling = require('./coupling-impl'),
+  _callGraph = require('./call-graph-impl'),
+  _deadCode = require('./dead-code-impl'),
+  _complexity = require('./complexity-impl'),
+  _signalChains = require('./signal-chains-impl'),
+  _risk = require('./risk-impl'),
+  _builders = require('./incremental-builders'),
+  _relationBuilder = require('./relation-builder'),
+  _cochangeBuilder = require('./cochange-builder'),
+  _propagation = require('./propagation-impl');
 
 module.exports = {
   // Import graph

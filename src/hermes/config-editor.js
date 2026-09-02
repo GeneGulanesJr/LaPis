@@ -15,11 +15,10 @@
  * read-modify-write without holding locks.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-
-const TOP_KEY_RE = /^[A-Za-z0-9_.-]+\s*:/;
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  TOP_KEY_RE = /^[A-Za-z0-9_.-]+\s*:/;
 
 function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -81,33 +80,35 @@ function insertAt(ls, range) {
  * (rendered at indent + 2). Other sibling sub-blocks are preserved.
  */
 function upsertSubBlock(text, topKey, subKey, bodyLines, indent = 2) {
-  let ls = splitLines(text);
-  let range = topBlockRange(joinLines(ls), topKey);
+  const ls = splitLines(text),
+    range = topBlockRange(joinLines(ls), topKey);
   if (!range) {
     const block = [
-      `${topKey}:`,
-      `${' '.repeat(indent)}${subKey}:`,
-      ...bodyLines.map((l) => ' '.repeat(indent + 2) + l),
-    ];
-    const sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
+        `${topKey}:`,
+        `${' '.repeat(indent)}${subKey}:`,
+        ...bodyLines.map((l) => ' '.repeat(indent + 2) + l),
+      ],
+      sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
     return squashBlankLines(joinLines([...ls, ...sep, ...block, '']));
   }
-  const pad = ' '.repeat(indent);
-  const subRe = new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`);
-  let subStart = -1;
+  const pad = ' '.repeat(indent),
+    subRe = new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`),
+    block = [`${pad}${subKey}:`, ...bodyLines.map((l) => ' '.repeat(indent + 2) + l)];
+  let subStart = -1,
+    subEnd = range.end;
   for (let i = range.start + 1; i < range.end; i++) {
     if (subRe.test(ls[i])) {
       subStart = i;
       break;
     }
   }
-  const block = [`${pad}${subKey}:`, ...bodyLines.map((l) => ' '.repeat(indent + 2) + l)];
+
   if (subStart === -1) {
     const at = insertAt(ls, range);
     ls.splice(at, 0, ...block);
     return squashBlankLines(joinLines(ls));
   }
-  let subEnd = range.end;
+
   for (let i = subStart + 1; i < range.end; i++) {
     if (ls[i].trim() === '') {
       continue;
@@ -124,14 +125,15 @@ function upsertSubBlock(text, topKey, subKey, bodyLines, indent = 2) {
 
 /** Remove a `subKey:` block at `indent` inside top-level `topKey`. */
 function removeSubBlock(text, topKey, subKey, indent = 2) {
-  const ls = splitLines(text);
-  const range = topBlockRange(text, topKey);
+  const ls = splitLines(text),
+    range = topBlockRange(text, topKey),
+    pad = range ? ' '.repeat(indent) : undefined,
+    subRe = range ? new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`) : undefined;
   if (!range) {
     return text;
   }
-  const pad = ' '.repeat(indent);
-  const subRe = new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`);
-  let subStart = -1;
+  let subStart = -1,
+    subEnd = range.end;
   for (let i = range.start + 1; i < range.end; i++) {
     if (subRe.test(ls[i])) {
       subStart = i;
@@ -141,7 +143,7 @@ function removeSubBlock(text, topKey, subKey, indent = 2) {
   if (subStart === -1) {
     return text;
   }
-  let subEnd = range.end;
+
   for (let i = subStart + 1; i < range.end; i++) {
     if (ls[i].trim() === '') {
       continue;
@@ -167,11 +169,11 @@ function isEmptyLineForPrune(line) {
 
 /** True when a top-level block has no content (only blank/bare-key lines). */
 function topBlockEmpty(text, key) {
-  const range = topBlockRange(text, key);
+  const range = topBlockRange(text, key),
+    lines = range ? splitLines(text).slice(range.start + 1, range.end) : undefined;
   if (!range) {
     return false;
   }
-  const lines = splitLines(text).slice(range.start + 1, range.end);
   return lines.every(isEmptyLineForPrune);
 }
 
@@ -180,14 +182,15 @@ function topBlockEmpty(text, key) {
  * (only blank lines or deeper bare-key headers with nothing after them).
  */
 function removeEmptySubBlock(text, topKey, subKey, indent = 2) {
-  const ls = splitLines(text);
-  const range = topBlockRange(text, topKey);
+  const ls = splitLines(text),
+    range = topBlockRange(text, topKey),
+    pad = range ? ' '.repeat(indent) : undefined,
+    subRe = range ? new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`) : undefined;
   if (!range) {
     return text;
   }
-  const pad = ' '.repeat(indent);
-  const subRe = new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`);
-  let subStart = -1;
+  let subStart = -1,
+    subEnd = range.end;
   for (let i = range.start + 1; i < range.end; i++) {
     if (subRe.test(ls[i])) {
       subStart = i;
@@ -197,7 +200,7 @@ function removeEmptySubBlock(text, topKey, subKey, indent = 2) {
   if (subStart === -1) {
     return text;
   }
-  let subEnd = range.end;
+
   for (let i = subStart + 1; i < range.end; i++) {
     if (/^ {0,2}[A-Za-z0-9_.-]+\s*:/.test(ls[i]) && ls[i].trim() !== '') {
       const ind = ls[i].match(/^ */)[0].length;
@@ -207,21 +210,23 @@ function removeEmptySubBlock(text, topKey, subKey, indent = 2) {
       }
     }
   }
-  const content = ls.slice(subStart + 1, subEnd);
-  if (!content.every(isEmptyLineForPrune)) {
-    return text;
+  {
+    const content = ls.slice(subStart + 1, subEnd);
+    if (!content.every(isEmptyLineForPrune)) {
+      return text;
+    }
+    ls.splice(subStart, subEnd - subStart);
+    return squashBlankLines(joinLines(ls));
   }
-  ls.splice(subStart, subEnd - subStart);
-  return squashBlankLines(joinLines(ls));
 }
 
 /** Remove a top-level block and its body. */
 function removeTopLevelBlock(text, key) {
-  const range = topBlockRange(text, key);
+  const range = topBlockRange(text, key),
+    ls = range ? splitLines(text) : undefined;
   if (!range) {
     return text;
   }
-  const ls = splitLines(text);
   ls.splice(range.start, range.end - range.start);
   return squashBlankLines(joinLines(ls));
 }
@@ -233,12 +238,12 @@ function removeTopLevelBlock(text, key) {
  * relative to the item (rendered at indent 4). Other items are preserved.
  */
 function upsertListItem(text, topKey, subKey, itemLines, marker) {
-  let ls = splitLines(removeListItems(text, topKey, subKey, marker));
-  const range = topBlockRange(joinLines(ls), topKey);
-  const items = itemLines.map((l) => '    ' + l);
+  const ls = splitLines(removeListItems(text, topKey, subKey, marker)),
+    range = topBlockRange(joinLines(ls), topKey),
+    items = itemLines.map((l) => `    ${l}`);
   if (!range) {
-    const block = [`${topKey}:`, `  ${subKey}:`, ...items];
-    const sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
+    const block = [`${topKey}:`, `  ${subKey}:`, ...items],
+      sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
     return squashBlankLines(joinLines([...ls, ...sep, ...block, '']));
   }
   let subStart = -1;
@@ -259,12 +264,14 @@ function upsertListItem(text, topKey, subKey, itemLines, marker) {
 
 /** Remove every dash-list item under `topKey.subKey` containing `marker`. */
 function removeListItems(text, topKey, subKey, marker) {
-  const ls = splitLines(text);
-  const range = topBlockRange(text, topKey);
+  const ls = splitLines(text),
+    range = topBlockRange(text, topKey),
+    kept = [];
   if (!range) {
     return text;
   }
-  let subStart = -1;
+  let subStart = -1,
+    subEnd = range.end;
   for (let i = range.start + 1; i < range.end; i++) {
     if (/^  [A-Za-z0-9_.-]+\s*:/.test(ls[i]) && ls[i].trim().startsWith(`${subKey}:`)) {
       subStart = i;
@@ -274,14 +281,14 @@ function removeListItems(text, topKey, subKey, marker) {
   if (subStart === -1) {
     return text;
   }
-  let subEnd = range.end;
+
   for (let i = subStart + 1; i < range.end; i++) {
     if (/^  [A-Za-z0-9_.-]+\s*:/.test(ls[i])) {
       subEnd = i;
       break;
     }
   }
-  const kept = [];
+
   let i = subStart + 1;
   while (i < subEnd) {
     if (/^    - /.test(ls[i])) {
@@ -306,23 +313,24 @@ function removeListItems(text, topKey, subKey, marker) {
 
 /** Upsert a top-level scalar line `key: value`. */
 function upsertScalar(text, key, value) {
-  const ls = splitLines(text);
-  const re = new RegExp(`^${escapeRegExp(key)}\\s*:`);
+  const ls = splitLines(text),
+    re = new RegExp(`^${escapeRegExp(key)}\\s*:`),
+    sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
   for (let i = 0; i < ls.length; i++) {
     if (re.test(ls[i])) {
       ls[i] = `${key}: ${value}`;
       return joinLines(ls);
     }
   }
-  const sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
+
   return squashBlankLines(joinLines([...ls, ...sep, `${key}: ${value}`]));
 }
 
 /** Remove a top-level scalar line. */
 function removeScalar(text, key) {
-  const ls = splitLines(text);
-  const re = new RegExp(`^${escapeRegExp(key)}\\s*:`);
-  const out = ls.filter((l) => !re.test(l));
+  const ls = splitLines(text),
+    re = new RegExp(`^${escapeRegExp(key)}\\s*:`),
+    out = ls.filter((l) => !re.test(l));
   return squashBlankLines(joinLines(out));
 }
 

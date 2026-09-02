@@ -1,8 +1,8 @@
-// test/hermes/state-store.test.js
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { loadState, saveState, statePath } = require('../../src/hermes/state-store');
+// Test/hermes/state-store.test.js
+const fs = require('node:fs'),
+  os = require('node:os'),
+  path = require('node:path'),
+  { loadState, saveState, statePath } = require('../../src/hermes/state-store');
 
 describe('hermes state-store', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hermes-state-'));
@@ -27,7 +27,7 @@ describe('hermes state-store', () => {
   test('missing/placeholder session id → defaults, no file written', () => {
     for (const bad of [undefined, null, '', 'None', 'none']) {
       expect(loadState(dir, bad)).toEqual({});
-      saveState(dir, bad, { lapisSessionId: 1 }); // must not throw or write
+      saveState(dir, bad, { lapisSessionId: 1 }); // Must not throw or write
     }
     expect(fs.readdirSync(dir)).toHaveLength(0);
   });

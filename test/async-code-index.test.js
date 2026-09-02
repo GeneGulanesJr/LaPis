@@ -1,9 +1,9 @@
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
+const path = require('path'),
+  fs = require('fs'),
+  os = require('os');
 
 // Integration test: spawn the real worker, point it at a tiny on-disk repo,
-// and verify the job completes via the index_jobs ledger.
+// And verify the job completes via the index_jobs ledger.
 describe('async code indexing', () => {
   let tmpDir;
   beforeAll(() => {
@@ -15,20 +15,24 @@ describe('async code indexing', () => {
   afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
   it('runs indexRepository via the async path and finishes a small repo', async () => {
-    const dbModule = require('../db');
-    dbModule.createDb({ memoryPath: ':memory:' });
-    const deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
-    const jobStore = require('../src/code-index/job-store');
-    const jobId = jobStore.createJob(deps, { repoName: 'tmprepo', mode: 'full', filesTotal: 0 });
+    const dbModule = require('../db'),
+      deps = (() => {
+        dbModule.createDb({ memoryPath: ':memory:' });
 
-    const { createJobQueue } = require('../src/code-index/job-queue');
-    const queue = createJobQueue({ jobStore, deps });
-    const handle = queue.startJob(jobId, { repoName: 'tmprepo', repoPath: tmpDir, mode: 'full' });
+        return { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
+      })(),
+      jobStore = require('../src/code-index/job-store'),
+      jobId = jobStore.createJob(deps, { repoName: 'tmprepo', mode: 'full', filesTotal: 0 }),
+      { createJobQueue } = require('../src/code-index/job-queue'),
+      queue = createJobQueue({ jobStore, deps }),
+      handle = queue.startJob(jobId, { repoName: 'tmprepo', repoPath: tmpDir, mode: 'full' });
 
     await new Promise((resolve) => handle.worker.on('exit', resolve));
-    const job = jobStore.getJob(deps, jobId);
-    expect(job.status).toBe('completed');
-    expect(job.files_done).toBeGreaterThanOrEqual(2);
+    {
+      const job = jobStore.getJob(deps, jobId);
+      expect(job.status).toBe('completed');
+      expect(job.files_done).toBeGreaterThanOrEqual(2);
+    }
   }, 60000);
 });
 
@@ -43,10 +47,10 @@ describe('index-repo-async wrapper', () => {
   it('returns immediately with a jobId and filesTotal without waiting for completion', async () => {
     const dbModule = require('../db');
     dbModule.createDb({ memoryPath: ':memory:' });
-    const codeCmd = require('../commands/code-impl');
-    const t0 = Date.now();
-    const result = await codeCmd.indexRepoAsync({ path: tmpDir, name: 'tmp-cmd', mode: 'full' });
-    const elapsed = Date.now() - t0;
+    const codeCmd = require('../commands/code-impl'),
+      t0 = Date.now(),
+      result = await codeCmd.indexRepoAsync({ path: tmpDir, name: 'tmp-cmd', mode: 'full' }),
+      elapsed = Date.now() - t0;
     expect(result.jobId).toBeGreaterThan(0);
     expect(result.status).toBe('running');
     expect(result.filesTotal).toBeGreaterThanOrEqual(1);
@@ -59,9 +63,9 @@ describe('indexStatus wrapper', () => {
   it('returns the job record for a given id', () => {
     const dbModule = require('../db');
     dbModule.createDb({ memoryPath: ':memory:' });
-    const codeCmd = require('../commands/code-impl');
-    const created = codeCmd.indexRepoAsync({ path: '.', name: 'status-test', mode: 'full' });
-    // indexRepoAsync is async; wait for the jobId
+    const codeCmd = require('../commands/code-impl'),
+      created = codeCmd.indexRepoAsync({ path: '.', name: 'status-test', mode: 'full' });
+    // IndexRepoAsync is async; wait for the jobId
     return created.then((r) => {
       const status = codeCmd.indexStatus({ job: String(r.jobId) });
       expect(status).toBeDefined();
@@ -85,8 +89,8 @@ describe('indexRepo auto-switch', () => {
   it('auto-routes to the async path when file count exceeds threshold', async () => {
     const dbModule = require('../db');
     dbModule.createDb({ memoryPath: ':memory:' });
-    const codeCmd = require('../commands/code-impl');
-    const result = await codeCmd.indexRepo({ path: bigTmp, name: 'big-repo' });
+    const codeCmd = require('../commands/code-impl'),
+      result = await codeCmd.indexRepo({ path: bigTmp, name: 'big-repo' });
     // Async path returns { jobId, status: 'running', filesTotal }
     expect(result.jobId).toBeGreaterThan(0);
     expect(result.status).toBe('running');
@@ -96,8 +100,8 @@ describe('indexRepo auto-switch', () => {
   it('--async flag forces async regardless of file count', async () => {
     const dbModule = require('../db');
     dbModule.createDb({ memoryPath: ':memory:' });
-    const codeCmd = require('../commands/code-impl');
-    const result = await codeCmd.indexRepo({ path: '.', name: 'small', async: 'true' });
+    const codeCmd = require('../commands/code-impl'),
+      result = await codeCmd.indexRepo({ path: '.', name: 'small', async: 'true' });
     expect(result.jobId).toBeGreaterThan(0);
   });
 });

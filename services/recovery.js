@@ -1,9 +1,8 @@
 const { TIME_WINDOWS } = require('../constants');
 
 function autoRecoverInternal(deps, sessionId) {
-  const { sqlJson, sqlRun } = deps;
-
-  const session = sqlJson('SELECT * FROM session_log WHERE id = ?', [parseInt(sessionId)]);
+  const { sqlJson, sqlRun } = deps,
+    session = sqlJson('SELECT * FROM session_log WHERE id = ?', [parseInt(sessionId)]);
   if (session.length === 0) {
     return null;
   }
@@ -23,28 +22,32 @@ function autoRecoverInternal(deps, sessionId) {
     return null;
   }
 
-  const types = {};
-  for (const o of obs) {
-    if (!types[o.type]) {
-      types[o.type] = [];
-    }
-    types[o.type].push(o.title);
-  }
+  const types = {},
+    lines = (() => {
+      for (const o of obs) {
+        if (!types[o.type]) {
+          types[o.type] = [];
+        }
+        types[o.type].push(o.title);
+      }
 
-  const lines = ['## Auto-Recovered Session Summary', ''];
-  lines.push(`**Session:** ${sessionId}`);
-  lines.push(`**Started:** ${session[0].started_at}`);
-  lines.push(`**Observations:** ${obs.length}`);
-  lines.push('');
-  for (const [type, titles] of Object.entries(types)) {
-    lines.push(`### ${type}`);
-    for (const t of titles) {
-      lines.push(`- ${t}`);
-    }
-    lines.push('');
-  }
-  const summary = lines.join('\n');
+      return ['## Auto-Recovered Session Summary', ''];
+    })(),
+    summary = (() => {
+      lines.push(`**Session:** ${sessionId}`);
+      lines.push(`**Started:** ${session[0].started_at}`);
+      lines.push(`**Observations:** ${obs.length}`);
+      lines.push('');
+      for (const [type, titles] of Object.entries(types)) {
+        lines.push(`### ${type}`);
+        for (const t of titles) {
+          lines.push(`- ${t}`);
+        }
+        lines.push('');
+      }
 
+      return lines.join('\n');
+    })();
   sqlJson(
     `
     INSERT INTO observations (session_id, type, title, content, project, scope)
@@ -64,12 +67,12 @@ function autoRecoverInternal(deps, sessionId) {
 }
 
 function autoRecover(deps, args) {
-  const { jsonErrNoExit } = deps;
-  const sessionId = args.session;
+  const { jsonErrNoExit } = deps,
+    sessionId = args.session,
+    result = sessionId ? autoRecoverInternal(deps, sessionId) : undefined;
   if (!sessionId) {
     return jsonErrNoExit('Missing --session');
   }
-  const result = autoRecoverInternal(deps, sessionId);
   if (!result) {
     return { status: 'nothing_to_recover' };
   }
@@ -77,15 +80,14 @@ function autoRecover(deps, args) {
 }
 
 function recoverOrphans(deps) {
-  const { sqlJson, softDeleteObservation } = deps;
-
-  const orphans = sqlJson('SELECT id, project FROM session_log WHERE ended_at IS NULL ORDER BY started_at DESC');
+  const { sqlJson, softDeleteObservation } = deps,
+    orphans = sqlJson('SELECT id, project FROM session_log WHERE ended_at IS NULL ORDER BY started_at DESC'),
+    recovered = !(orphans.length === 0) ? [] : undefined,
+    allObservations = !(orphans.length === 0) ? [] : undefined;
   if (orphans.length === 0) {
     return { recovered: [], total: 0 };
   }
 
-  const recovered = [];
-  const allObservations = [];
   for (const o of orphans) {
     const r = autoRecoverInternal(deps, String(o.id));
     if (r) {
@@ -105,20 +107,24 @@ function recoverOrphans(deps) {
     );
 
     if (recentSummaries.length > 1) {
-      const lines = ['## Consolidated Recovery Summary', ''];
-      lines.push(`**Sessions recovered:** ${recentSummaries.length}`);
-      lines.push(`**Total observations:** ${allObservations.reduce((a, b) => a + b, 0)}`);
-      lines.push('');
+      const lines = ['## Consolidated Recovery Summary', ''],
+        projects = (() => {
+          lines.push(`**Sessions recovered:** ${recentSummaries.length}`);
+          lines.push(`**Total observations:** ${allObservations.reduce((a, b) => a + b, 0)}`);
+          lines.push('');
 
-      const projects = [...new Set(recovered)];
-      lines.push(`**Projects:** ${projects.join(', ')}`);
-      lines.push('');
+          return [...new Set(recovered)];
+        })(),
+        consolidatedContent = (() => {
+          lines.push(`**Projects:** ${projects.join(', ')}`);
+          lines.push('');
 
-      for (const s of recentSummaries) {
-        softDeleteObservation(s.id);
-      }
+          for (const s of recentSummaries) {
+            softDeleteObservation(s.id);
+          }
 
-      const consolidatedContent = lines.join('\n');
+          return lines.join('\n');
+        })();
       sqlJson(
         `INSERT INTO observations (session_id, type, title, content, project, scope)
          VALUES (?, 'session_summary', 'Consolidated Recovery Summary', ?, ?, 'project')

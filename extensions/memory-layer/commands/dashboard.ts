@@ -32,9 +32,7 @@ export function registerDashboardCommand(pi: ExtensionAPI) {
           }
         }
       }
-      await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-        return createDashboardComponent(data, theme, tui, done);
-      });
+      await ctx.ui.custom<void>((tui, theme, _keybindings, done) => createDashboardComponent(data, theme, tui, done));
     },
   });
 }

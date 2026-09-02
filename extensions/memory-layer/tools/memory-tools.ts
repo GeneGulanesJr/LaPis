@@ -71,8 +71,9 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
                 type: 'text',
                 text:
                   `✅ Memory saved [#${result.id}] ${result.title}\n` +
-                  `🔄 Auto-merged: superseded older [#${result.superseded_id}] "${result.superseded_title ?? ''}" (${sim}% similar)` +
-                  (result.expires_at ? `\n⏰ Expires: ${result.expires_at}` : ''),
+                  `🔄 Auto-merged: superseded older [#${result.superseded_id}] "${result.superseded_title ?? ''}" (${sim}% similar)${
+                    result.expires_at ? `\n⏰ Expires: ${result.expires_at}` : ''
+                  }`,
               },
             ],
             details: result ?? {},
@@ -97,9 +98,7 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           content: [
             {
               type: 'text',
-              text:
-                `✅ Memory saved: [#${result.id}] ${result.title}` +
-                (result.expires_at ? `\n⏰ Expires: ${result.expires_at}` : ''),
+              text: `✅ Memory saved: [#${result.id}] ${result.title}${result.expires_at ? `\n⏰ Expires: ${result.expires_at}` : ''}`,
             },
           ],
           details: result ?? {},
@@ -170,10 +169,10 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
         }
 
         const lines = results.map((r: any) => {
-          const score = r._score ? ` (${r._score.toFixed(2)})` : '';
-          const trust = r.trust_score != null && r.trust_score < 0.5 ? ' ⚠️' : '';
-          const supersedes = (r._relations || []).filter((rel: any) => rel.relation === 'supersedes');
-          const relationNote = supersedes.length > 0 ? ` ⚡ superseded by #${supersedes[0].source_id}` : '';
+          const score = r._score ? ` (${r._score.toFixed(2)})` : '',
+            trust = r.trust_score != null && r.trust_score < 0.5 ? ' ⚠️' : '',
+            supersedes = (r._relations || []).filter((rel: any) => rel.relation === 'supersedes'),
+            relationNote = supersedes.length > 0 ? ` ⚡ superseded by #${supersedes[0].source_id}` : '';
           return `- [#${r.id}] [${r.type}] ${r.title}${score}${trust}${relationNote}${r.snippet ? `\n  ${r.snippet}` : ''}`;
         });
 
@@ -207,11 +206,11 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const result = await deps.mem('get', { id: String(params.id) });
+        const result = await deps.mem('get', { id: String(params.id) }),
+          id = !(!result || result.error) ? parseInt(String(params.id), 10) : undefined;
         if (!result || result.error) {
           return { content: [{ type: 'text', text: `Memory #${params.id} not found.` }], details: {}, isError: true };
         }
-        const id = parseInt(String(params.id), 10);
         if (deps.state.pendingRecallFeedback?.has(id)) {
           deps.state.pendingRecallFeedback.delete(id);
         }
@@ -243,44 +242,50 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           };
         }
         const lines = [
-          `## #${result.id} — ${result.title}`,
-          `Type: ${result.type} | Scope: ${result.scope} | Project: ${result.project}`,
-          '',
-          result.content,
-        ];
-        if (result.expires_at) {
-          const expMs = Date.parse(String(result.expires_at).replace(' ', 'T') + 'Z');
-          if (Number.isFinite(expMs)) {
-            const msLeft = expMs - Date.now();
-            if (msLeft <= 0) {
-              lines.push('', `⏰ Status: EXPIRED (${result.expires_at})`);
-            } else {
-              const days = Math.floor(msLeft / 86400000);
-              const hours = Math.floor((msLeft % 86400000) / 3600000);
-              const countdown =
-                days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h` : `${Math.floor(msLeft / 60000)}m`;
-              const icon = days < 3 ? '⏰' : '🕒';
-              lines.push('', `${icon} Expires: ${result.expires_at} (in ${countdown})`);
+            `## #${result.id} — ${result.title}`,
+            `Type: ${result.type} | Scope: ${result.scope} | Project: ${result.project}`,
+            '',
+            result.content,
+          ],
+          versions = (() => {
+            if (result.expires_at) {
+              const expMs = Date.parse(`${String(result.expires_at).replace(' ', 'T')}Z`);
+              if (Number.isFinite(expMs)) {
+                const msLeft = expMs - Date.now();
+                if (msLeft <= 0) {
+                  lines.push('', `⏰ Status: EXPIRED (${result.expires_at})`);
+                } else {
+                  const days = Math.floor(msLeft / 86400000),
+                    hours = Math.floor((msLeft % 86400000) / 3600000),
+                    countdown =
+                      days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h` : `${Math.floor(msLeft / 60000)}m`,
+                    icon = days < 3 ? '⏰' : '🕒';
+                  lines.push('', `${icon} Expires: ${result.expires_at} (in ${countdown})`);
+                }
+              } else {
+                lines.push('', `⏰ Expires: ${result.expires_at}`);
+              }
             }
-          } else {
-            lines.push('', `⏰ Expires: ${result.expires_at}`);
-          }
-        }
-        const versions = (result.versions as any[]) || [];
-        if (versions.length > 0) {
-          lines.push('', '## Edit History');
-          for (const v of versions) {
-            lines.push(`- **${v.field}** changed (${v.created_at}):`);
-            lines.push(`  from: ${String(v.old_value).slice(0, 100)}`);
-            lines.push(`  to:   ${String(v.new_value).slice(0, 100)}`);
-          }
-        }
-        const relations = (result.relations as any[]) || [];
+
+            return (result.versions as any[]) || [];
+          })(),
+          relations = (() => {
+            if (versions.length > 0) {
+              lines.push('', '## Edit History');
+              for (const v of versions) {
+                lines.push(`- **${v.field}** changed (${v.created_at}):`);
+                lines.push(`  from: ${String(v.old_value).slice(0, 100)}`);
+                lines.push(`  to:   ${String(v.new_value).slice(0, 100)}`);
+              }
+            }
+
+            return (result.relations as any[]) || [];
+          })();
         if (relations.length > 0) {
           lines.push('', '## Relations');
           for (const rel of relations) {
-            const otherId = rel.source_id === parseInt(String(params.id), 10) ? rel.target_id : rel.source_id;
-            const icon = rel.relation === 'supersedes' ? '⚡' : rel.relation === 'duplicate' ? '📋' : '🔗';
+            const otherId = rel.source_id === parseInt(String(params.id), 10) ? rel.target_id : rel.source_id,
+              icon = rel.relation === 'supersedes' ? '⚡' : rel.relation === 'duplicate' ? '📋' : '🔗';
             lines.push(`- ${icon} ${rel.relation} → #${otherId} (confidence: ${(rel.confidence * 100).toFixed(0)}%)`);
           }
         }
@@ -426,18 +431,21 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
-        const result = await deps.mem('related', { id: String(params.id) });
+        const result = await deps.mem('related', { id: String(params.id) }),
+          related = result ? (result.related as any[]) || [] : undefined,
+          lines =
+            result && !(related.length === 0)
+              ? related.flatMap((r: any) => [
+                  `### ${r.symbol}`,
+                  ...(r.memories || []).map((m: any) => `- [#${m.id}] [${m.type}] ${m.title}`),
+                ])
+              : undefined;
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to find related memories.' }], details: {}, isError: true };
         }
-        const related = (result.related as any[]) || [];
         if (related.length === 0) {
           return { content: [{ type: 'text', text: 'No related memories found.' }], details: result ?? {} };
         }
-        const lines = related.flatMap((r: any) => [
-          `### ${r.symbol}`,
-          ...(r.memories || []).map((m: any) => `- [#${m.id}] [${m.type}] ${m.title}`),
-        ]);
         return {
           content: [{ type: 'text', text: `Related memories for #${params.id}:\n${lines.join('\n')}` }],
           details: result ?? {},
@@ -471,21 +479,21 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
             isError: true,
           };
         }
-        const tokenBudget = params['token-budget'] || 2000;
-        const result = await deps.mem('context', {
-          project: deps.state.currentProject,
-          query: params.query,
-          limit: '50',
-          'token-budget': String(tokenBudget),
-          deep: params.deep ? 'true' : 'false',
-          ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
-        });
+        const tokenBudget = params['token-budget'] || 2000,
+          result = await deps.mem('context', {
+            project: deps.state.currentProject,
+            query: params.query,
+            limit: '50',
+            'token-budget': String(tokenBudget),
+            deep: params.deep ? 'true' : 'false',
+            ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
+          }),
+          observations = result ? (result.observations as any[]) || [] : undefined;
 
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to load context.' }], details: {}, isError: true };
         }
 
-        const observations = (result.observations as any[]) || [];
         if (observations.length === 0) {
           return {
             content: [{ type: 'text', text: `No memories found for topic "${params.query}".` }],
@@ -494,15 +502,14 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
         }
 
         const lines = observations.map((o: any) => {
-          const trust = deps.trustIcon(o.trust_score);
-          const trunc = o._truncated ? '…' : '';
-          return `- [#${o.id}] [${o.type}] ${o.title}${trust}${trunc}`;
-        });
-
-        const totalMemories = result.stats?.total_memories ?? observations.length;
-        const budgetStats = result.stats?.budget_tokens
-          ? `\n📊 Budget: ${result.stats.budget_used}/${result.stats.budget_tokens} tokens used | ${observations.length} memories${result.stats.truncated_count > 0 ? ` (${result.stats.truncated_count} truncated)` : ''}`
-          : '';
+            const trust = deps.trustIcon(o.trust_score),
+              trunc = o._truncated ? '…' : '';
+            return `- [#${o.id}] [${o.type}] ${o.title}${trust}${trunc}`;
+          }),
+          totalMemories = result.stats?.total_memories ?? observations.length,
+          budgetStats = result.stats?.budget_tokens
+            ? `\n📊 Budget: ${result.stats.budget_used}/${result.stats.budget_tokens} tokens used | ${observations.length} memories${result.stats.truncated_count > 0 ? ` (${result.stats.truncated_count} truncated)` : ''}`
+            : '';
         return {
           content: [
             {
@@ -533,8 +540,9 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
         const result = await deps.mem('sync-code-trust', {
-          repo: params.repo,
-        });
+            repo: params.repo,
+          }),
+          lines = result && !result.message ? [] : undefined;
 
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to sync trust scores.' }], details: {}, isError: true };
@@ -547,7 +555,6 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           };
         }
 
-        const lines: string[] = [];
         if ((result.adjusted as any[])?.length) {
           lines.push(`### ⚠️ Trust reduced (symbols changed): ${result.adjusted.length}`);
           (result.adjusted as any[]).forEach((a: any) => {
@@ -599,39 +606,47 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
             isError: true,
           };
         }
-        const job = result as any;
-        const total = Number(job.files_total) || 0;
-        const done = Number(job.files_done) || 0;
-        const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
-        const filled = Math.max(0, Math.min(20, Math.floor(pct / 5)));
-        const bar = '█'.repeat(filled).padEnd(20, '░');
-        const lines: string[] = [];
-        const statusIcon =
-          job.status === 'running'
-            ? '⏳'
-            : job.status === 'completed'
-              ? '✅'
-              : job.status === 'error'
-                ? '❌'
-                : job.status === 'cancelled'
-                  ? '🚫'
-                  : '❔';
+        const job = result as any,
+          total = Number(job.files_total) || 0,
+          done = Number(job.files_done) || 0,
+          pct = total > 0 ? Math.floor((done / total) * 100) : 0,
+          filled = Math.max(0, Math.min(20, Math.floor(pct / 5))),
+          bar = '█'.repeat(filled).padEnd(20, '░'),
+          lines: string[] = [],
+          statusIcon =
+            job.status === 'running'
+              ? '⏳'
+              : job.status === 'completed'
+                ? '✅'
+                : job.status === 'error'
+                  ? '❌'
+                  : job.status === 'cancelled'
+                    ? '🚫'
+                    : '❔';
         lines.push(`${statusIcon} Index job #${job.id} (${job.repo_name}) — ${job.status}`);
         lines.push(`[${bar}] ${pct}% (${done}/${total})`);
-        if (job.current_file) lines.push(`Current: ${job.current_file}`);
+        if (job.current_file) {
+          lines.push(`Current: ${job.current_file}`);
+        }
         if (job.language_breakdown && job.language_breakdown !== '{}') {
           try {
-            const bd = JSON.parse(job.language_breakdown);
-            const top = Object.entries(bd)
-              .sort((a, b) => (b[1] as number) - (a[1] as number))
-              .slice(0, 5);
-            if (top.length) lines.push(`Languages: ${top.map(([l, n]) => `${l}=${n}`).join(', ')}`);
+            const bd = JSON.parse(job.language_breakdown),
+              top = Object.entries(bd)
+                .sort((a, b) => (b[1] as number) - (a[1] as number))
+                .slice(0, 5);
+            if (top.length) {
+              lines.push(`Languages: ${top.map(([l, n]) => `${l}=${n}`).join(', ')}`);
+            }
           } catch (_) {
-            /* malformed JSON, skip */
+            /* Malformed JSON, skip */
           }
         }
-        if (job.completed_at) lines.push(`Completed: ${job.completed_at}`);
-        if (job.error) lines.push(`Error: ${job.error}`);
+        if (job.completed_at) {
+          lines.push(`Completed: ${job.completed_at}`);
+        }
+        if (job.error) {
+          lines.push(`Error: ${job.error}`);
+        }
         return {
           content: [{ type: 'text', text: lines.join('\n') }],
           details: job,

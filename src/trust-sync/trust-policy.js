@@ -8,13 +8,15 @@ function symbolMatchesChange(symbolId, changedSymbol) {
   if (symbolId === changedSymbol) {
     return true;
   }
-  const symbol = String(symbolId ?? '');
-  const changed = String(changedSymbol ?? '');
+  const symbol = String(symbolId ?? ''),
+    changed = String(changedSymbol ?? ''),
+    boundaryPattern = !(!symbol || !changed)
+      ? new RegExp(`(^|[^A-Za-z0-9_$])${escapeRegExp(changed)}($|[^A-Za-z0-9_$])`)
+      : undefined;
   if (!symbol || !changed) {
     return false;
   }
 
-  const boundaryPattern = new RegExp(`(^|[^A-Za-z0-9_$])${escapeRegExp(changed)}($|[^A-Za-z0-9_$])`);
   return boundaryPattern.test(symbol);
 }
 
@@ -36,8 +38,8 @@ function evaluateTrustSync(links, changedSet) {
 
   for (const link of links) {
     if (isChangedLink(link, changedSet)) {
-      const delta = TRUST_DELTA.SYMBOL_CHANGED;
-      const newTrust = clampTrust(link.trust_score + delta);
+      const delta = TRUST_DELTA.SYMBOL_CHANGED,
+        newTrust = clampTrust(link.trust_score + delta);
       result.adjusted.push({
         memory_id: link.memory_id,
         symbol_id: link.symbol_id,
@@ -46,8 +48,8 @@ function evaluateTrustSync(links, changedSet) {
       });
       result.operations.push({ link, newTrust, delta, reason: 'symbol_changed' });
     } else if (link.trust_score < TRUST_DELTA.MAX_SURVIVED) {
-      const delta = TRUST_DELTA.SURVIVED_UNCHANGED;
-      const newTrust = clampTrust(link.trust_score + delta);
+      const delta = TRUST_DELTA.SURVIVED_UNCHANGED,
+        newTrust = clampTrust(link.trust_score + delta);
       result.survived.push({
         memory_id: link.memory_id,
         symbol_id: link.symbol_id,

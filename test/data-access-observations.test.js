@@ -19,17 +19,20 @@ function mockDeps() {
 describe('data-access/observations', () => {
   describe('insertObservation', () => {
     it('should insert an observation and return result', () => {
-      const deps = mockDeps();
-      deps.sqlJson.mockReturnValue([{ id: 1, created_at: '2024-01-01' }]);
-      const result = insertObservation(deps, {
-        sessionId: '1',
-        type: 'decision',
-        title: 'Test',
-        content: 'Content',
-        project: 'proj',
-        scope: 'project',
-        topicKey: null,
-      });
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ id: 1, created_at: '2024-01-01' }]);
+
+          return insertObservation(deps, {
+            sessionId: '1',
+            type: 'decision',
+            title: 'Test',
+            content: 'Content',
+            project: 'proj',
+            scope: 'project',
+            topicKey: null,
+          });
+        })();
       expect(deps.sqlJson).toHaveBeenCalledTimes(1);
       expect(result[0].id).toBe(1);
     });
@@ -56,9 +59,12 @@ describe('data-access/observations', () => {
 
   describe('getObservation', () => {
     it('should query observation by id', () => {
-      const deps = mockDeps();
-      deps.sqlJson.mockReturnValue([{ id: 5, title: 'Test' }]);
-      const result = getObservation(deps, 5);
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ id: 5, title: 'Test' }]);
+
+          return getObservation(deps, 5);
+        })();
       expect(deps.sqlJson).toHaveBeenCalledWith(expect.stringContaining('FROM observations WHERE id = ?'), [5]);
       expect(result[0].id).toBe(5);
     });
@@ -66,16 +72,19 @@ describe('data-access/observations', () => {
 
   describe('updateObservation', () => {
     it('should update title and return updated row', () => {
-      const deps = mockDeps();
-      deps.sqlJson.mockReturnValue([{ id: 1, title: 'Updated' }]);
-      const result = updateObservation(deps, { id: 1, title: 'Updated' });
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ id: 1, title: 'Updated' }]);
+
+          return updateObservation(deps, { id: 1, title: 'Updated' });
+        })();
       expect(deps.sqlRun).toHaveBeenCalled();
       expect(result[0].title).toBe('Updated');
     });
 
     it('should return null if no fields to update', () => {
-      const deps = mockDeps();
-      const result = updateObservation(deps, { id: 1 });
+      const deps = mockDeps(),
+        result = updateObservation(deps, { id: 1 });
       expect(result).toBeNull();
     });
   });
@@ -100,13 +109,16 @@ describe('data-access/observations', () => {
 
   describe('getObservationStats', () => {
     it('should return stats counts', () => {
-      const deps = mockDeps();
-      deps.sqlJson
-        .mockReturnValueOnce([{ cnt: 10 }])
-        .mockReturnValueOnce([{ cnt: 5 }])
-        .mockReturnValueOnce([{ cnt: 3 }])
-        .mockReturnValueOnce([{ cnt: 2 }]);
-      const result = getObservationStats(deps);
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlJson
+            .mockReturnValueOnce([{ cnt: 10 }])
+            .mockReturnValueOnce([{ cnt: 5 }])
+            .mockReturnValueOnce([{ cnt: 3 }])
+            .mockReturnValueOnce([{ cnt: 2 }]);
+
+          return getObservationStats(deps);
+        })();
       expect(result.total_observations).toBe(10);
       expect(result.total_prompts).toBe(5);
       expect(result.total_sessions).toBe(3);

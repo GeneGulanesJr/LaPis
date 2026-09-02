@@ -1,7 +1,7 @@
-const { resolveRepoScopedPath } = require('../src/code-index/path-guards');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
+const { resolveRepoScopedPath } = require('../src/code-index/path-guards'),
+  path = require('path'),
+  fs = require('fs'),
+  os = require('os');
 
 describe('code-index path guards', () => {
   let tmpRoot;
@@ -25,8 +25,8 @@ describe('code-index path guards', () => {
   });
 
   it('rejects paths that escape the repo', () => {
-    const outside = path.join(os.tmpdir(), 'outside-secret.env');
-    const rejections = [];
+    const outside = path.join(os.tmpdir(), 'outside-secret.env'),
+      rejections = [];
     expect(resolveRepoScopedPath(tmpRoot, outside, rejections)).toBeNull();
     expect(resolveRepoScopedPath(tmpRoot, '../outside-secret.env', rejections)).toBeNull();
     expect(rejections.some((r) => r.reason === 'outside_repo')).toBe(true);

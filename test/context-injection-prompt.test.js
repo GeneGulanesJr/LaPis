@@ -46,24 +46,24 @@ describe('context injection prompt extraction', () => {
   test('source-authoritative prompts bypass memory facts but keep code lookup guidance', async () => {
     let handler;
     const pi = {
-      on: vi.fn((_eventName, callback) => {
-        handler = callback;
-      }),
-    };
-    const deps = {
-      state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
-      mem: vi.fn(),
-      getKnownRepos: vi.fn().mockResolvedValue([
-        {
-          name: 'PiMemoryExtension',
-          path: process.cwd(),
-          file_count: 292,
-          symbol_count: 6913,
-          indexed_at: '2026-05-24 00:00:00',
-        },
-      ]),
-      isRepoStale: vi.fn(),
-    };
+        on: vi.fn((_eventName, callback) => {
+          handler = callback;
+        }),
+      },
+      deps = {
+        state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
+        mem: vi.fn(),
+        getKnownRepos: vi.fn().mockResolvedValue([
+          {
+            name: 'PiMemoryExtension',
+            path: process.cwd(),
+            file_count: 292,
+            symbol_count: 6913,
+            indexed_at: '2026-05-24 00:00:00',
+          },
+        ]),
+        isRepoStale: vi.fn(),
+      };
 
     registerBeforeAgentStart(pi, deps);
     const result = await handler(
@@ -94,33 +94,33 @@ describe('context injection prompt extraction', () => {
   test('promptless startup injects project summary without memory titles', async () => {
     let handler;
     const pi = {
-      on: vi.fn((_eventName, callback) => {
-        handler = callback;
-      }),
-    };
-    const deps = {
-      state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
-      mem: vi.fn().mockResolvedValue({
-        observations: [{ type: 'decision', title: 'Noisy prior decision', trust_score: 0.95 }],
-        personal: [{ title: 'Personal preference' }],
-        stats: { total_memories: 42, total_personal: 1, active_workflows: 0 },
-        topic: null,
-      }),
-      getKnownRepos: vi.fn().mockResolvedValue([
-        {
-          name: 'PiMemoryExtension',
-          path: process.cwd(),
-          file_count: 292,
-          symbol_count: 6913,
-          indexed_at: '2026-05-24 00:00:00',
-        },
-      ]),
-      isRepoStale: vi.fn().mockReturnValue(false),
-    };
+        on: vi.fn((_eventName, callback) => {
+          handler = callback;
+        }),
+      },
+      deps = {
+        state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
+        mem: vi.fn().mockResolvedValue({
+          observations: [{ type: 'decision', title: 'Noisy prior decision', trust_score: 0.95 }],
+          personal: [{ title: 'Personal preference' }],
+          stats: { total_memories: 42, total_personal: 1, active_workflows: 0 },
+          topic: null,
+        }),
+        getKnownRepos: vi.fn().mockResolvedValue([
+          {
+            name: 'PiMemoryExtension',
+            path: process.cwd(),
+            file_count: 292,
+            symbol_count: 6913,
+            indexed_at: '2026-05-24 00:00:00',
+          },
+        ]),
+        isRepoStale: vi.fn().mockReturnValue(false),
+      };
 
     registerBeforeAgentStart(pi, deps);
-    const result = await handler({}, { cwd: process.cwd() });
-    const content = result.message.content;
+    const result = await handler({}, { cwd: process.cwd() }),
+      content = result.message.content;
 
     expect(deps.mem).toHaveBeenCalledWith(
       'context',
@@ -137,45 +137,45 @@ describe('context injection prompt extraction', () => {
   test('policy prompt caps injected memories to one and omits Related paths', async () => {
     let handler;
     const pi = {
-      on: vi.fn((_eventName, callback) => {
-        handler = callback;
-      }),
-    };
-    const deps = {
-      state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
-      mem: vi.fn().mockResolvedValue({
-        observations: [
-          {
-            type: 'decision',
-            title: 'Matched decision 1',
-            trust_score: 0.95,
-            content: '**What**: Use SQLite FTS5\n**Why**: Avoid external search services\n**Where**: src/search.js',
-          },
-          {
-            type: 'bugfix',
-            title: 'Matched bugfix 2',
-            trust_score: 0.95,
-            content: '**What**: Fixed config leak',
-          },
-          {
-            type: 'pattern',
-            title: 'Matched pattern 3',
-            trust_score: 0.95,
-            content: '**What**: Should not be injected',
-          },
-        ],
-        personal: [],
-        stats: { total_memories: 42, total_personal: 0, active_workflows: 0 },
-        topic: 'benchmark',
-      }),
-      getKnownRepos: vi.fn().mockResolvedValue([]),
-      isRepoStale: vi.fn().mockReturnValue(false),
-    };
+        on: vi.fn((_eventName, callback) => {
+          handler = callback;
+        }),
+      },
+      deps = {
+        state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
+        mem: vi.fn().mockResolvedValue({
+          observations: [
+            {
+              type: 'decision',
+              title: 'Matched decision 1',
+              trust_score: 0.95,
+              content: '**What**: Use SQLite FTS5\n**Why**: Avoid external search services\n**Where**: src/search.js',
+            },
+            {
+              type: 'bugfix',
+              title: 'Matched bugfix 2',
+              trust_score: 0.95,
+              content: '**What**: Fixed config leak',
+            },
+            {
+              type: 'pattern',
+              title: 'Matched pattern 3',
+              trust_score: 0.95,
+              content: '**What**: Should not be injected',
+            },
+          ],
+          personal: [],
+          stats: { total_memories: 42, total_personal: 0, active_workflows: 0 },
+          topic: 'benchmark',
+        }),
+        getKnownRepos: vi.fn().mockResolvedValue([]),
+        isRepoStale: vi.fn().mockReturnValue(false),
+      };
 
     registerBeforeAgentStart(pi, deps);
-    const prompt = 'what should the agent do before relying on stale code-memory results?';
-    const result = await handler({ prompt }, { cwd: process.cwd() });
-    const content = result.message.content;
+    const prompt = 'what should the agent do before relying on stale code-memory results?',
+      result = await handler({ prompt }, { cwd: process.cwd() }),
+      content = result.message.content;
 
     expect(deps.mem).toHaveBeenCalledWith(
       'context',
@@ -194,45 +194,45 @@ describe('context injection prompt extraction', () => {
   test('navigation prompt injects up to two memories and includes Related paths', async () => {
     let handler;
     const pi = {
-      on: vi.fn((_eventName, callback) => {
-        handler = callback;
-      }),
-    };
-    const deps = {
-      state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
-      mem: vi.fn().mockResolvedValue({
-        observations: [
-          {
-            type: 'decision',
-            title: 'Matched decision 1',
-            trust_score: 0.95,
-            content: '**What**: Use SQLite FTS5\n**Why**: Avoid external search services\n**Where**: src/search.js',
-          },
-          {
-            type: 'bugfix',
-            title: 'Matched bugfix 2',
-            trust_score: 0.95,
-            content: '**What**: Fixed config leak\n**Where**: src/config.js',
-          },
-          {
-            type: 'pattern',
-            title: 'Matched pattern 3',
-            trust_score: 0.95,
-            content: '**What**: Third complementary memory\n**Where**: src/pattern.js',
-          },
-        ],
-        personal: [],
-        stats: { total_memories: 42, total_personal: 0, active_workflows: 0 },
-        topic: 'benchmark',
-      }),
-      getKnownRepos: vi.fn().mockResolvedValue([]),
-      isRepoStale: vi.fn().mockReturnValue(false),
-    };
+        on: vi.fn((_eventName, callback) => {
+          handler = callback;
+        }),
+      },
+      deps = {
+        state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
+        mem: vi.fn().mockResolvedValue({
+          observations: [
+            {
+              type: 'decision',
+              title: 'Matched decision 1',
+              trust_score: 0.95,
+              content: '**What**: Use SQLite FTS5\n**Why**: Avoid external search services\n**Where**: src/search.js',
+            },
+            {
+              type: 'bugfix',
+              title: 'Matched bugfix 2',
+              trust_score: 0.95,
+              content: '**What**: Fixed config leak\n**Where**: src/config.js',
+            },
+            {
+              type: 'pattern',
+              title: 'Matched pattern 3',
+              trust_score: 0.95,
+              content: '**What**: Third complementary memory\n**Where**: src/pattern.js',
+            },
+          ],
+          personal: [],
+          stats: { total_memories: 42, total_personal: 0, active_workflows: 0 },
+          topic: 'benchmark',
+        }),
+        getKnownRepos: vi.fn().mockResolvedValue([]),
+        isRepoStale: vi.fn().mockReturnValue(false),
+      };
 
     registerBeforeAgentStart(pi, deps);
-    const prompt = 'identify the current search module path';
-    const result = await handler({ prompt }, { cwd: process.cwd() });
-    const content = result.message.content;
+    const prompt = 'identify the current search module path',
+      result = await handler({ prompt }, { cwd: process.cwd() }),
+      content = result.message.content;
 
     expect(content).toContain('Matched decision 1');
     expect(content).toContain('Matched bugfix 2');
@@ -245,40 +245,40 @@ describe('context injection prompt extraction', () => {
   test('historical prompt suppresses stale code verification warning', async () => {
     let handler;
     const pi = {
-      on: vi.fn((_eventName, callback) => {
-        handler = callback;
-      }),
-    };
-    const deps = {
-      state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
-      mem: vi.fn().mockResolvedValue({
-        observations: [
+        on: vi.fn((_eventName, callback) => {
+          handler = callback;
+        }),
+      },
+      deps = {
+        state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
+        mem: vi.fn().mockResolvedValue({
+          observations: [
+            {
+              type: 'architecture',
+              title: 'SQLite FTS5 rationale',
+              trust_score: 0.95,
+              content: '**Why**: Avoid external services\n**Where**: src/memory-domain/search.js',
+            },
+          ],
+          personal: [],
+          stats: { total_memories: 42, total_personal: 0, active_workflows: 0 },
+          topic: 'why fts5',
+        }),
+        getKnownRepos: vi.fn().mockResolvedValue([
           {
-            type: 'architecture',
-            title: 'SQLite FTS5 rationale',
-            trust_score: 0.95,
-            content: '**Why**: Avoid external services\n**Where**: src/memory-domain/search.js',
+            name: 'PiMemoryExtension',
+            path: process.cwd(),
+            file_count: 292,
+            symbol_count: 6913,
+            indexed_at: '2026-05-24 00:00:00',
           },
-        ],
-        personal: [],
-        stats: { total_memories: 42, total_personal: 0, active_workflows: 0 },
-        topic: 'why fts5',
-      }),
-      getKnownRepos: vi.fn().mockResolvedValue([
-        {
-          name: 'PiMemoryExtension',
-          path: process.cwd(),
-          file_count: 292,
-          symbol_count: 6913,
-          indexed_at: '2026-05-24 00:00:00',
-        },
-      ]),
-      isRepoStale: vi.fn().mockReturnValue(true),
-    };
+        ]),
+        isRepoStale: vi.fn().mockReturnValue(true),
+      };
 
     registerBeforeAgentStart(pi, deps);
-    const result = await handler({ prompt: 'Why did LaPis choose SQLite FTS5?' }, { cwd: process.cwd() });
-    const content = result.message.content;
+    const result = await handler({ prompt: 'Why did LaPis choose SQLite FTS5?' }, { cwd: process.cwd() }),
+      content = result.message.content;
 
     // Historical prompt: stale warning suppressed, code index still shown
     expect(content).toContain('Code index: `PiMemoryExtension`');
@@ -289,57 +289,57 @@ describe('context injection prompt extraction', () => {
   test('coding prompt auto-injects coding-context after preflight', async () => {
     let handler;
     const pi = {
-      on: vi.fn((_eventName, callback) => {
-        handler = callback;
-      }),
-    };
-    const deps = {
-      state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
-      mem: vi.fn(async (cmd) => {
-        if (cmd === 'context') {
-          return {
-            observations: [],
-            personal: [],
-            stats: { total_memories: 42, total_personal: 0, active_workflows: 0 },
-            topic: null,
-          };
-        }
-        if (cmd === 'preflight') {
-          return {
-            likely_existing_code: [{ symbol: 'saveUser', file: 'src/users.js', line: 4, kind: 'function' }],
-            related_files: ['src/users.js'],
-            duplicate_warnings: [],
-            risk: 'medium',
-            recommended_action: 'Review saveUser before editing.',
-          };
-        }
-        if (cmd === 'coding-context') {
-          return {
-            target: { symbol: 'saveUser', file: 'src/users.js' },
-            summary: { risk: 'medium', review_bar: 'normal-plus', affected_files: 2 },
-            related_files: ['src/users.js', 'src/routes.js'],
-            likely_tests: [{ file: 'test/users.test.js', reasons: ['imports target file'] }],
-            partial_errors: [],
-          };
-        }
-        return null;
-      }),
-      getKnownRepos: vi.fn().mockResolvedValue([
-        {
-          name: 'PiMemoryExtension',
-          path: process.cwd(),
-          file_count: 292,
-          symbol_count: 6913,
-          indexed_at: '2026-05-24 00:00:00',
-        },
-      ]),
-      isRepoStale: vi.fn().mockReturnValue(false),
-    };
+        on: vi.fn((_eventName, callback) => {
+          handler = callback;
+        }),
+      },
+      deps = {
+        state: { currentProject: 'PiMemoryExtension', hasInjectedContext: false, sessionId: 1 },
+        mem: vi.fn(async (cmd) => {
+          if (cmd === 'context') {
+            return {
+              observations: [],
+              personal: [],
+              stats: { total_memories: 42, total_personal: 0, active_workflows: 0 },
+              topic: null,
+            };
+          }
+          if (cmd === 'preflight') {
+            return {
+              likely_existing_code: [{ symbol: 'saveUser', file: 'src/users.js', line: 4, kind: 'function' }],
+              related_files: ['src/users.js'],
+              duplicate_warnings: [],
+              risk: 'medium',
+              recommended_action: 'Review saveUser before editing.',
+            };
+          }
+          if (cmd === 'coding-context') {
+            return {
+              target: { symbol: 'saveUser', file: 'src/users.js' },
+              summary: { risk: 'medium', review_bar: 'normal-plus', affected_files: 2 },
+              related_files: ['src/users.js', 'src/routes.js'],
+              likely_tests: [{ file: 'test/users.test.js', reasons: ['imports target file'] }],
+              partial_errors: [],
+            };
+          }
+          return null;
+        }),
+        getKnownRepos: vi.fn().mockResolvedValue([
+          {
+            name: 'PiMemoryExtension',
+            path: process.cwd(),
+            file_count: 292,
+            symbol_count: 6913,
+            indexed_at: '2026-05-24 00:00:00',
+          },
+        ]),
+        isRepoStale: vi.fn().mockReturnValue(false),
+      };
 
     registerBeforeAgentStart(pi, deps);
-    const prompt = 'fix saveUser so it validates input';
-    const result = await handler({ prompt }, { cwd: process.cwd() });
-    const content = result.message.content;
+    const prompt = 'fix saveUser so it validates input',
+      result = await handler({ prompt }, { cwd: process.cwd() }),
+      content = result.message.content;
 
     expect(deps.mem).toHaveBeenCalledWith(
       'preflight',

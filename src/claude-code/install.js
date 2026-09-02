@@ -28,14 +28,13 @@
  * duplicate spawning a second server.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-
-const PACKAGE_NAME = '@genegulanesjr/lapis';
-const DEFAULT_MCP_NAME = 'lapis';
-const CLAUDE_MD_START = '<!-- lapis:start -->';
-const CLAUDE_MD_END = '<!-- lapis:end -->';
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  PACKAGE_NAME = '@genegulanesjr/lapis',
+  DEFAULT_MCP_NAME = 'lapis',
+  CLAUDE_MD_START = '<!-- lapis:start -->',
+  CLAUDE_MD_END = '<!-- lapis:end -->';
 
 // --- flag parsing ---------------------------------------------------------
 
@@ -45,15 +44,15 @@ const CLAUDE_MD_END = '<!-- lapis:end -->';
  */
 function parseFlags(argv) {
   const flags = {
-    global: false,
-    mcpName: DEFAULT_MCP_NAME,
-    claudeMd: true,
-    bin: null,
-    autoAllow: false,
-    daemon: false,
-    daemonPort: 9100,
-  };
-  const args = Array.isArray(argv) ? argv : [];
+      global: false,
+      mcpName: DEFAULT_MCP_NAME,
+      claudeMd: true,
+      bin: null,
+      autoAllow: false,
+      daemon: false,
+      daemonPort: 9100,
+    },
+    args = Array.isArray(argv) ? argv : [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--global') {
@@ -97,20 +96,20 @@ function parseFlags(argv) {
  * @returns {{ mode: string, command: string, baseArgs: string[], machineSpecific: boolean }}
  */
 function resolveInvocation(flags, io) {
-  const bin = flags.bin;
+  const bin = flags.bin,
+    hasSeparator = bin ? bin.includes('/') || bin.includes('\\') : undefined,
+    abs = bin && hasSeparator ? path.resolve(io.cwd, bin) : undefined;
   if (!bin) {
     return { mode: 'npx', command: 'npx', baseArgs: ['-y', PACKAGE_NAME], machineSpecific: false };
   }
-  const hasSeparator = bin.includes('/') || bin.includes('\\');
   if (!hasSeparator) {
     // Bare name on PATH (e.g. `--bin lapis` after a global npm install):
     // PATH-relative, so still committable.
     return { mode: 'global-bin', command: bin, baseArgs: [], machineSpecific: false };
   }
-  const abs = path.resolve(io.cwd, bin);
   if (abs.endsWith('.js') || abs.endsWith('.cjs') || abs.endsWith('.mjs')) {
     // `node <script>` works on every platform (Windows cannot exec-spawn a
-    // shebang script or a .cmd shim).
+    // Shebang script or a .cmd shim).
     return { mode: 'local-clone', command: 'node', baseArgs: [abs], machineSpecific: true };
   }
   return { mode: 'local-clone', command: abs, baseArgs: [], machineSpecific: true };
@@ -190,11 +189,11 @@ function isLapisMcpEntry(entry) {
   if (commandString(entry).includes(PACKAGE_NAME)) {
     return true;
   }
-  const args = Array.isArray(entry.args) ? entry.args : [];
+  const args = Array.isArray(entry.args) ? entry.args : [],
+    base = !(args[args.length - 1] !== 'mcp') ? path.basename(String(entry.command || '')).toLowerCase() : undefined;
   if (args[args.length - 1] !== 'mcp') {
     return false;
   }
-  const base = path.basename(String(entry.command || '')).toLowerCase();
   if (base === 'node' || base === 'node.exe') {
     return isLapisBinName(args[0]);
   }
@@ -259,9 +258,9 @@ function buildHookGroups(invocation, mcpName) {
           // Tracking + tool-state mirroring stays synchronous so the next
           // PreToolUse sees fresh state (edit-track, exploredFiles, recall).
           h('PostToolUse', { timeout: 15, extraArgs: ['--skip', 'git-trust'] }),
-          // git-trust is heavy (sync-code-trust over the repo) → background.
+          // Git-trust is heavy (sync-code-trust over the repo) → background.
           // No `if` prefix rule: the handler's GIT_TRUST_OP_RE does the real
-          // check, so compound commands like `cd repo && git pull` are covered.
+          // Check, so compound commands like `cd repo && git pull` are covered.
           h('PostToolUse', {
             timeout: 60,
             async: true,
@@ -302,7 +301,7 @@ function stripLapisHooks(settings) {
     }
   }
   // The (possibly now-empty) `hooks` key is kept in place so a re-install
-  // preserves key order (byte-identical idempotency); uninstall drops it.
+  // Preserves key order (byte-identical idempotency); uninstall drops it.
   return settings;
 }
 
@@ -421,7 +420,7 @@ function writeJson(filePath, value) {
     mode === undefined ? { encoding: 'utf8' } : { encoding: 'utf8', mode },
   );
   if (mode !== undefined) {
-    // writeFileSync's mode only applies at creation; enforce it explicitly.
+    // WriteFileSync's mode only applies at creation; enforce it explicitly.
     fs.chmodSync(tmpPath, mode);
   }
   fs.renameSync(tmpPath, filePath);
@@ -554,20 +553,21 @@ function writeTextAtomic(filePath, content) {
 
 /** Insert or replace the delimited LaPis block in a CLAUDE.md file. */
 function upsertClaudeMdBlock(filePath, block) {
-  const { existed, content: existing } = readClaudeMdSafe(filePath);
+  const { existed, content: existing } = readClaudeMdSafe(filePath),
+    start = existing.indexOf(CLAUDE_MD_START),
+    end = existing.indexOf(CLAUDE_MD_END);
   // If a symlink is in the way, remove the link itself (NOT its target) so the
-  // atomic rename below installs a fresh regular file.
+  // Atomic rename below installs a fresh regular file.
   if (existed === false) {
     try {
       if (fs.lstatSync(filePath).isSymbolicLink()) {
         fs.unlinkSync(filePath);
       }
     } catch {
-      // raced away — the atomic rename below still produces a regular file
+      // Raced away — the atomic rename below still produces a regular file
     }
   }
-  const start = existing.indexOf(CLAUDE_MD_START);
-  const end = existing.indexOf(CLAUDE_MD_END);
+
   let next;
   if (start !== -1 && end !== -1 && end > start) {
     next = existing.slice(0, start) + block + existing.slice(end + CLAUDE_MD_END.length);
@@ -581,7 +581,12 @@ function upsertClaudeMdBlock(filePath, block) {
 
 /** Remove the delimited LaPis block; delete the file when nothing else remains. */
 function removeClaudeMdBlock(filePath) {
-  const { existed, content: existing } = readClaudeMdSafe(filePath);
+  const { existed, content: existing } = readClaudeMdSafe(filePath),
+    start = existing.indexOf(CLAUDE_MD_START),
+    end = existing.indexOf(CLAUDE_MD_END),
+    next = !(start === -1 || end === -1 || end <= start)
+      ? (existing.slice(0, start) + existing.slice(end + CLAUDE_MD_END.length)).replace(/\n{3,}/g, '\n\n')
+      : undefined;
   if (!existed) {
     // A bare symlink (no block to remove) — unlink the LINK only, never a target.
     try {
@@ -590,16 +595,14 @@ function removeClaudeMdBlock(filePath) {
         return true;
       }
     } catch {
-      // already gone
+      // Already gone
     }
     return false;
   }
-  const start = existing.indexOf(CLAUDE_MD_START);
-  const end = existing.indexOf(CLAUDE_MD_END);
+
   if (start === -1 || end === -1 || end <= start) {
     return false;
   }
-  const next = (existing.slice(0, start) + existing.slice(end + CLAUDE_MD_END.length)).replace(/\n{3,}/g, '\n\n');
   if (!next.trim()) {
     fs.unlinkSync(filePath);
   } else {
@@ -611,9 +614,9 @@ function removeClaudeMdBlock(filePath) {
 // --- path routing ------------------------------------------------------------
 
 function resolveIo(io = {}) {
-  const home = io.home || process.env.HOME || process.env.USERPROFILE || os.homedir();
-  const cwd = path.resolve(io.cwd || process.cwd());
-  const log = io.log || ((line) => process.stdout.write(`${line}\n`));
+  const home = io.home || process.env.HOME || process.env.USERPROFILE || os.homedir(),
+    cwd = path.resolve(io.cwd || process.cwd()),
+    log = io.log || ((line) => process.stdout.write(`${line}\n`));
   return { home, cwd, log };
 }
 
@@ -667,7 +670,7 @@ function mcpServersFor(config, target) {
     }
     return config.mcpServers;
   }
-  // local scope: ~/.claude.json → projects[<cwd>].mcpServers
+  // Local scope: ~/.claude.json → projects[<cwd>].mcpServers
   if (!config.projects || typeof config.projects !== 'object') {
     config.projects = {};
   }
@@ -691,41 +694,44 @@ function mcpServersFor(config, target) {
  * @returns {{ written: string[], mcpScope: string, mcpName: string, invocation: object, daemon: object|null }}
  */
 async function runInstall(argv, io) {
-  const flags = parseFlags(argv);
-  const { home, cwd, log } = resolveIo(io);
-  const invocation = resolveInvocation(flags, { cwd });
-  const paths = configPaths({ home, cwd });
-  const targets = routeTargets(flags, invocation, paths, cwd);
-  const written = [];
+  const flags = parseFlags(argv),
+    { home, cwd, log } = resolveIo(io),
+    invocation = resolveInvocation(flags, { cwd }),
+    paths = configPaths({ home, cwd }),
+    targets = routeTargets(flags, invocation, paths, cwd),
+    written = [],
+    // READ PHASE — parse every target file before writing any of them, so a
+    // corrupt file aborts the whole install instead of leaving a half-installed
+    // state (readJson throws on corrupt JSON rather than clobbering it).
+    mcpConfig = readJson(targets.mcp.file),
+    settings = readJson(targets.hooksFile),
+    groups = (() => {
+      // WRITE PHASE.
+      // 1. MCP server config (one of the two config systems).
+      upsertMcpServer(mcpServersFor(mcpConfig, targets.mcp), flags.mcpName, buildMcpEntry(invocation));
+      writeJson(targets.mcp.file, mcpConfig);
+      written.push(targets.mcp.file);
 
-  // READ PHASE — parse every target file before writing any of them, so a
-  // corrupt file aborts the whole install instead of leaving a half-installed
-  // state (readJson throws on corrupt JSON rather than clobbering it).
-  const mcpConfig = readJson(targets.mcp.file);
-  const settings = readJson(targets.hooksFile);
+      // 2. Hooks config (the other config system) — plus optional auto-allow.
 
-  // WRITE PHASE.
-  // 1. MCP server config (one of the two config systems).
-  upsertMcpServer(mcpServersFor(mcpConfig, targets.mcp), flags.mcpName, buildMcpEntry(invocation));
-  writeJson(targets.mcp.file, mcpConfig);
-  written.push(targets.mcp.file);
+      return buildHookGroups(hookInvocationFor(invocation, { cwd, global: flags.global }), flags.mcpName);
+    })(),
+    dispatchMode = (() => {
+      mergeHookGroups(settings, groups);
+      if (flags.autoAllow) {
+        addAutoAllow(settings, flags.mcpName);
+      }
+      writeJson(targets.hooksFile, settings);
+      written.push(targets.hooksFile);
 
-  // 2. Hooks config (the other config system) — plus optional auto-allow.
-  const groups = buildHookGroups(hookInvocationFor(invocation, { cwd, global: flags.global }), flags.mcpName);
-  mergeHookGroups(settings, groups);
-  if (flags.autoAllow) {
-    addAutoAllow(settings, flags.mcpName);
-  }
-  writeJson(targets.hooksFile, settings);
-  written.push(targets.hooksFile);
+      // 3. CLAUDE.md memory protocol block (optional, default on).
+      if (flags.claudeMd) {
+        upsertClaudeMdBlock(targets.claudeMdFile, claudeMdBlock(flags.mcpName));
+        written.push(targets.claudeMdFile);
+      }
 
-  // 3. CLAUDE.md memory protocol block (optional, default on).
-  if (flags.claudeMd) {
-    upsertClaudeMdBlock(targets.claudeMdFile, claudeMdBlock(flags.mcpName));
-    written.push(targets.claudeMdFile);
-  }
-
-  const dispatchMode = flags.daemon ? 'daemon' : invocation.mode;
+      return flags.daemon ? 'daemon' : invocation.mode;
+    })();
   log(`Installed LaPis for Claude Code (${dispatchMode} dispatch).`);
   log(`  MCP server "${flags.mcpName}" (${targets.mcp.kind} scope) → ${targets.mcp.file}`);
   log(`  Hooks → ${targets.hooksFile}`);
@@ -742,7 +748,7 @@ async function runInstall(argv, io) {
     log('Note: .claude/settings.local.json holds a machine-specific path; keep it gitignored.');
   }
   if (!flags.autoAllow) {
-    log('Tip: pass --auto-allow to pre-approve mcp__' + flags.mcpName + '__* tool permissions.');
+    log(`Tip: pass --auto-allow to pre-approve mcp__${flags.mcpName}__* tool permissions.`);
   }
 
   let daemon = null;
@@ -751,7 +757,7 @@ async function runInstall(argv, io) {
     daemon = await runStart(['--detached', '--port', String(flags.daemonPort)], io);
     log('');
     if (daemon?.alreadyRunning && daemon?.mismatch) {
-      // runStart already warned; report the port hooks will actually POST to.
+      // RunStart already warned; report the port hooks will actually POST to.
       log(
         `Daemon mode requested port ${flags.daemonPort}, but the running daemon is on port ${daemon.port}` +
           ` — hooks will POST to port ${daemon.port}. Run \`lapis claude-code stop\` to relocate it.`,

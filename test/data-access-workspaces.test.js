@@ -7,9 +7,12 @@ function mockDeps() {
 describe('data-access/workspaces', () => {
   describe('listWorkspaces', () => {
     it('should return workspaces with counts', () => {
-      const deps = mockDeps();
-      deps.sqlJson.mockReturnValue([{ id: 1, name: 'proj1', created_at: '2024-01-01', memory_count: 5 }]);
-      const result = listWorkspaces(deps);
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ id: 1, name: 'proj1', created_at: '2024-01-01', memory_count: 5 }]);
+
+          return listWorkspaces(deps);
+        })();
       expect(result.workspaces.length).toBe(1);
       expect(result.total).toBe(1);
     });
@@ -17,9 +20,12 @@ describe('data-access/workspaces', () => {
 
   describe('createWorkspace', () => {
     it('should create a workspace and return it', () => {
-      const deps = mockDeps();
-      deps.sqlJson.mockReturnValue([{ id: 1, name: 'test', created_at: '2024-01-01' }]);
-      const result = createWorkspace(deps, 'test');
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ id: 1, name: 'test', created_at: '2024-01-01' }]);
+
+          return createWorkspace(deps, 'test');
+        })();
       expect(result.success).toBe(true);
       expect(result.workspace.name).toBe('test');
     });
@@ -30,28 +36,37 @@ describe('data-access/workspaces', () => {
     });
 
     it('should return error if workspace already exists', () => {
-      const deps = mockDeps();
-      deps.sqlRun.mockImplementation(() => {
-        throw new Error('UNIQUE constraint');
-      });
-      const result = createWorkspace(deps, 'existing');
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlRun.mockImplementation(() => {
+            throw new Error('UNIQUE constraint');
+          });
+
+          return createWorkspace(deps, 'existing');
+        })();
       expect(result.error).toContain('already exists');
     });
   });
 
   describe('archiveWorkspace', () => {
     it('should archive an existing workspace', () => {
-      const deps = mockDeps();
-      deps.sqlJson.mockReturnValue([{ id: 1 }]);
-      const result = archiveWorkspace(deps, 'proj1');
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ id: 1 }]);
+
+          return archiveWorkspace(deps, 'proj1');
+        })();
       expect(result.success).toBe(true);
       expect(result.archived).toBe(true);
     });
 
     it('should return error for non-existent workspace', () => {
-      const deps = mockDeps();
-      deps.sqlJson.mockReturnValue([]);
-      const result = archiveWorkspace(deps, 'nonexistent');
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlJson.mockReturnValue([]);
+
+          return archiveWorkspace(deps, 'nonexistent');
+        })();
       expect(result.error).toContain('not found');
     });
 
@@ -63,9 +78,12 @@ describe('data-access/workspaces', () => {
 
   describe('listProjects', () => {
     it('should return projects with counts', () => {
-      const deps = mockDeps();
-      deps.sqlJson.mockReturnValue([{ project: 'myproj', memory_count: 10, last_active: '2024-01-01' }]);
-      const result = listProjects(deps);
+      const deps = mockDeps(),
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ project: 'myproj', memory_count: 10, last_active: '2024-01-01' }]);
+
+          return listProjects(deps);
+        })();
       expect(result.projects.length).toBe(1);
     });
   });

@@ -11,10 +11,10 @@
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-let _reposCache = null;
-let _reposCacheTime = 0;
-let _projectsCache = null;
-let _projectsCacheTime = 0;
+let _reposCache = null,
+  _reposCacheTime = 0,
+  _projectsCache = null,
+  _projectsCacheTime = 0;
 
 function clearProjectDbCache() {
   _reposCache = null;
@@ -29,9 +29,9 @@ function loadKnownRepos() {
 }
 
 function loadKnownProjects() {
-  const { sqlJson } = require('../../db');
-  const rows =
-    sqlJson(`
+  const { sqlJson } = require('../../db'),
+    rows =
+      sqlJson(`
       SELECT project
       FROM observations
       WHERE deleted_at IS NULL AND type != 'skill'

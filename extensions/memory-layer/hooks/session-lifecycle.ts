@@ -56,13 +56,12 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
     }
 
     const contextResult = await deps.mem('context', {
-      project: deps.state.currentProject,
-      limit: '15',
-      ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
-    });
-
-    const contextObservations = (contextResult?.observations as any[]) || [];
-    const hasProjectContext = Boolean(contextResult) && contextObservations.length > 0;
+        project: deps.state.currentProject,
+        limit: '15',
+        ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
+      }),
+      contextObservations = (contextResult?.observations as any[]) || [],
+      hasProjectContext = Boolean(contextResult) && contextObservations.length > 0;
 
     let crossProjectResult: MemResult | null = null;
     if (!hasProjectContext) {
@@ -85,61 +84,59 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
       };
     }
 
-    const effectiveContext = contextResult || crossProjectResult;
+    {
+      const effectiveContext = contextResult || crossProjectResult,
+        isNewProject = !hasProjectContext && crossProjectResult !== null,
+        effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : contextObservations,
+        stats = effectiveContext.stats as any,
+        personal = (effectiveContext.personal as any[]) || [],
+        lines: string[] = ['## Memory Context (re-injected after compaction)', ''];
 
-    const isNewProject = !hasProjectContext && crossProjectResult !== null;
-    const effectiveObservations = isNewProject
-      ? (crossProjectResult!.observations as any[]) || []
-      : contextObservations;
-    const stats = effectiveContext.stats as any;
-    const personal = (effectiveContext.personal as any[]) || [];
-
-    const lines: string[] = ['## Memory Context (re-injected after compaction)', ''];
-
-    if (isNewProject) {
-      lines.push(`Project: **${deps.state.currentProject}** | 🆕 new project`);
-      if (effectiveObservations.length > 0) {
-        lines.push('');
-        lines.push('### 🔗 Related memories from other projects');
-        for (const o of effectiveObservations.slice(0, 5)) {
-          lines.push(`- [${o.type}] ${o.title}`);
-        }
-      }
-    } else {
-      lines.push(`Project: **${deps.state.currentProject}** | ${stats?.total_memories || 0} memories`);
-      if (effectiveObservations.length > 0) {
-        lines.push('');
-        lines.push('### Recent Relevant Memory');
-        for (const o of effectiveObservations) {
-          let trust = '';
-          if (o.trust_score < 0.5) {
-            trust = '⚠️';
-          } else if (o.trust_score < 0.8) {
-            trust = '🔎';
+      if (isNewProject) {
+        lines.push(`Project: **${deps.state.currentProject}** | 🆕 new project`);
+        if (effectiveObservations.length > 0) {
+          lines.push('');
+          lines.push('### 🔗 Related memories from other projects');
+          for (const o of effectiveObservations.slice(0, 5)) {
+            lines.push(`- [${o.type}] ${o.title}`);
           }
-          lines.push(`- [${o.type}] ${o.title} ${trust}`);
+        }
+      } else {
+        lines.push(`Project: **${deps.state.currentProject}** | ${stats?.total_memories || 0} memories`);
+        if (effectiveObservations.length > 0) {
+          lines.push('');
+          lines.push('### Recent Relevant Memory');
+          for (const o of effectiveObservations) {
+            let trust = '';
+            if (o.trust_score < 0.5) {
+              trust = '⚠️';
+            } else if (o.trust_score < 0.8) {
+              trust = '🔎';
+            }
+            lines.push(`- [${o.type}] ${o.title} ${trust}`);
+          }
         }
       }
-    }
 
-    if (personal.length > 0) {
-      lines.push('');
-      lines.push('### Your Preferences (cross-project)');
-      for (const p of personal.slice(0, 3)) {
-        lines.push(`- ${p.title}`);
+      if (personal.length > 0) {
+        lines.push('');
+        lines.push('### Your Preferences (cross-project)');
+        for (const p of personal.slice(0, 3)) {
+          lines.push(`- ${p.title}`);
+        }
       }
+
+      lines.push('');
+      lines.push('Use `memory-save`, `memory-search`, and `memory-get` tools to interact with memory.');
+
+      return {
+        message: {
+          customType: 'memory-context',
+          content: lines.join('\n'),
+          display: false,
+        },
+      };
     }
-
-    lines.push('');
-    lines.push('Use `memory-save`, `memory-search`, and `memory-get` tools to interact with memory.');
-
-    return {
-      message: {
-        customType: 'memory-context',
-        content: lines.join('\n'),
-        display: false,
-      },
-    };
   });
 }
 
@@ -150,43 +147,40 @@ export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {
     }
 
     // `quit` = Ctrl+C / Ctrl+D / SIGHUP / SIGTERM. Pi awaits session_shutdown
-    // handlers before exiting, so awaiting DB bookkeeping here blocks the exit
-    // for seconds on large DBs (VACUUM, FTS optimize). On quit we run the work
-    // fire-and-forget so the process can exit immediately.
+    // Handlers before exiting, so awaiting DB bookkeeping here blocks the exit
+    // For seconds on large DBs (VACUUM, FTS optimize). On quit we run the work
+    // Fire-and-forget so the process can exit immediately.
     // `reload` / `new` / `resume` / `fork` keep the awaited path so the summary
-    // and trust sync land before the next session starts.
-    const reason = (event as any)?.reason as string | undefined;
-    const isQuit = reason === 'quit' || !reason;
-
-    const entries = ctx.sessionManager.getEntries();
-    const userMessages = entries.filter((e: any) => e.type === 'message' && e.message?.role === 'user');
-    const assistantMessages = entries.filter((e: any) => e.type === 'message' && e.message?.role === 'assistant');
-
-    const summaryContent = buildSessionSummary({
-      userMessages,
-      assistantCount: assistantMessages.length,
-      turnCount: deps.state.turnCount,
-      memoriesSaved: deps.state.memoriesSavedThisSession,
-      editedFiles: deps.state.editedFiles,
-      cwd: process.cwd(),
-    });
-
-    const runShutdownWork = async () => {
-      try {
-        await deps.mem('session-summary', {
-          content: summaryContent,
-          project: deps.state.currentProject,
-        });
-        await deps.mem('session-end', {
-          id: String(deps.state.sessionId),
-          memories: String(deps.state.memoriesSavedThisSession),
-          auto: 'true',
-        });
-      } catch (e) {
-        // Best-effort on shutdown; never throw out of the handler.
-        console.error('[memory-layer] shutdown work failed:', e instanceof Error ? e.message : String(e));
-      }
-    };
+    // And trust sync land before the next session starts.
+    const reason = (event as any)?.reason as string | undefined,
+      isQuit = reason === 'quit' || !reason,
+      entries = ctx.sessionManager.getEntries(),
+      userMessages = entries.filter((e: any) => e.type === 'message' && e.message?.role === 'user'),
+      assistantMessages = entries.filter((e: any) => e.type === 'message' && e.message?.role === 'assistant'),
+      summaryContent = buildSessionSummary({
+        userMessages,
+        assistantCount: assistantMessages.length,
+        turnCount: deps.state.turnCount,
+        memoriesSaved: deps.state.memoriesSavedThisSession,
+        editedFiles: deps.state.editedFiles,
+        cwd: process.cwd(),
+      }),
+      runShutdownWork = async () => {
+        try {
+          await deps.mem('session-summary', {
+            content: summaryContent,
+            project: deps.state.currentProject,
+          });
+          await deps.mem('session-end', {
+            id: String(deps.state.sessionId),
+            memories: String(deps.state.memoriesSavedThisSession),
+            auto: 'true',
+          });
+        } catch (e) {
+          // Best-effort on shutdown; never throw out of the handler.
+          console.error('[memory-layer] shutdown work failed:', e instanceof Error ? e.message : String(e));
+        }
+      };
 
     if (isQuit) {
       await Promise.race([runShutdownWork(), new Promise((resolve) => setTimeout(resolve, 2000))]);

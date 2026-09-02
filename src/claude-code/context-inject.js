@@ -13,10 +13,10 @@
  * buildInjectedContext is the capped convenience wrapper for session-start.
  */
 
-const path = require('node:path');
-const { CONTEXT } = require('../../constants');
-const { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder');
-const { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
+const path = require('node:path'),
+  { CONTEXT } = require('../../constants'),
+  { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder'),
+  { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
 
 /**
  * Fetch project context, falling back to cross-project if empty.
@@ -24,14 +24,13 @@ const { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
  */
 async function fetchContext({ dispatch, project, limit, query, sessionId }) {
   const baseArgs = {
-    project,
-    limit: String(limit),
-    'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
-    ...(sessionId ? { 'session-id': String(sessionId) } : {}),
-    ...(query ? { query } : {}),
-  };
-
-  const contextResult = await dispatch('context', baseArgs);
+      project,
+      limit: String(limit),
+      'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
+      ...(sessionId ? { 'session-id': String(sessionId) } : {}),
+      ...(query ? { query } : {}),
+    },
+    contextResult = await dispatch('context', baseArgs);
   if (contextResult && !contextResult.error) {
     return { contextResult, crossProjectResult: null };
   }
@@ -50,71 +49,70 @@ async function fetchContext({ dispatch, project, limit, query, sessionId }) {
  * @returns {Promise<{lines: string[], cwdRepo: object|null} | null>}
  */
 async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, query = null, sessionId = null }) {
-  const limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT;
-  const { contextResult, crossProjectResult } = await fetchContext({
-    dispatch,
-    project,
-    limit,
-    query,
-    sessionId,
-  });
+  const limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT,
+    { contextResult, crossProjectResult } = await fetchContext({
+      dispatch,
+      project,
+      limit,
+      query,
+      sessionId,
+    }),
+    effectiveContext = !(!contextResult && !crossProjectResult) ? contextResult || crossProjectResult : undefined,
+    isNewProject = !(!contextResult && !crossProjectResult) ? crossProjectResult !== null && !contextResult : undefined,
+    observations = !(!contextResult && !crossProjectResult)
+      ? (effectiveContext.observations || []).filter(Boolean)
+      : undefined,
+    personal = !(!contextResult && !crossProjectResult) ? (effectiveContext.personal || []).filter(Boolean) : undefined,
+    stats = !(!contextResult && !crossProjectResult) ? effectiveContext.stats || {} : undefined,
+    topic = !(!contextResult && !crossProjectResult) ? effectiveContext.topic || null : undefined,
+    repos = !(!contextResult && !crossProjectResult) ? getKnownRepos() : undefined,
+    resolvedCwd = !(!contextResult && !crossProjectResult) ? path.resolve(resolveCwd(cwd)) : undefined,
+    cwdRepo = !(!contextResult && !crossProjectResult) ? findMatchingRepo(resolvedCwd, repos) : undefined,
+    isStale = !(!contextResult && !crossProjectResult) ? false : undefined;
 
   if (!contextResult && !crossProjectResult) {
     return null;
   }
 
-  const effectiveContext = contextResult || crossProjectResult;
-  const isNewProject = crossProjectResult !== null && !contextResult;
-
-  const observations = (effectiveContext.observations || []).filter(Boolean);
-  const personal = (effectiveContext.personal || []).filter(Boolean);
-  const stats = effectiveContext.stats || {};
-  const topic = effectiveContext.topic || null;
-
-  // Staleness check is deferred to Phase 2's best-effort posture.
-  const repos = getKnownRepos();
-  const resolvedCwd = path.resolve(resolveCwd(cwd));
-  const cwdRepo = findMatchingRepo(resolvedCwd, repos);
-  const isStale = false;
-
   let effectiveObservations = [];
   if (query) {
     effectiveObservations = isNewProject ? crossProjectResult.observations || [] : observations;
   }
-  const effectiveStats = isNewProject ? crossProjectResult.stats || {} : stats;
+  {
+    const effectiveStats = isNewProject ? crossProjectResult.stats || {} : stats,
+      lines = buildContextBlock({
+        promptQuery: query,
+        currentProject: project,
+        projectDir: cwdRepo?.path || resolvedCwd,
+        cwdRepo,
+        isStale,
+        isNewProject,
+        observations,
+        effectiveObservations,
+        personal,
+        stats,
+        effectiveStats,
+        topic,
+        crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
+      });
 
-  const lines = buildContextBlock({
-    promptQuery: query,
-    currentProject: project,
-    projectDir: cwdRepo?.path || resolvedCwd,
-    cwdRepo,
-    isStale,
-    isNewProject,
-    observations,
-    effectiveObservations,
-    personal,
-    stats,
-    effectiveStats,
-    topic,
-    crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
-  });
+    if (!cwdRepo) {
+      lines.push('');
+      lines.push(
+        `⚠️ **Code not indexed:** Project "${project}" has no code index yet. Index it first: \`memory-code index-repo --path ${resolvedCwd} --name ${project}\``,
+      );
+    }
 
-  if (!cwdRepo) {
-    lines.push('');
-    lines.push(
-      `⚠️ **Code not indexed:** Project "${project}" has no code index yet. Index it first: \`memory-code index-repo --path ${resolvedCwd} --name ${project}\``,
-    );
+    appendExtensionHint(lines, resolvedCwd);
+    return { lines, cwdRepo };
   }
-
-  appendExtensionHint(lines, resolvedCwd);
-  return { lines, cwdRepo };
 }
 
 /** Capped convenience wrapper returning the final markdown string (or null). */
 async function buildInjectedContext(opts) {
   const assembled = await assembleContextLines(opts).catch((err) => {
     // Log instead of silently swallowing — a null return value is
-    // indistinguishable from "no relevant memories" without a log line.
+    // Indistinguishable from "no relevant memories" without a log line.
     console.error(`[claude-code] assembleContextLines failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   });

@@ -15,11 +15,11 @@
  * maps ok:false to exit code 1.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { parseFlags, isLapisHookHandler, isLapisMcpEntry, readJson, resolveIo, configPaths } = require('./install');
+const fs = require('node:fs'),
+  path = require('node:path'),
+  { parseFlags, isLapisHookHandler, isLapisMcpEntry, readJson, resolveIo, configPaths } = require('./install');
 
-/** which(1): resolve a bare command name against PATH (with PATHEXT on Windows). */
+/** Which(1): resolve a bare command name against PATH (with PATHEXT on Windows). */
 function resolveOnPath(command, env = process.env) {
   if (typeof command !== 'string' || !command) {
     return null;
@@ -27,8 +27,8 @@ function resolveOnPath(command, env = process.env) {
   if (command.includes('/') || command.includes('\\')) {
     return fs.existsSync(command) ? command : null;
   }
-  const pathVar = env.PATH || env.Path || '';
-  const exts = process.platform === 'win32' ? (env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(';') : [''];
+  const pathVar = env.PATH || env.Path || '',
+    exts = process.platform === 'win32' ? (env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(';') : [''];
   for (const dir of pathVar.split(path.delimiter)) {
     if (!dir) {
       continue;
@@ -39,7 +39,7 @@ function resolveOnPath(command, env = process.env) {
         fs.accessSync(candidate, fs.constants.X_OK);
         return candidate;
       } catch {
-        // keep scanning
+        // Keep scanning
       }
     }
   }
@@ -70,13 +70,14 @@ function findMcpEntry(paths, mcpName, cwd) {
 
 /** Count LaPis hook handlers per settings file. */
 function countLapisHooks(filePath) {
-  let settings;
+  let settings,
+    count = 0;
   try {
     settings = readJson(filePath);
   } catch {
     return 0;
   }
-  let count = 0;
+
   for (const groups of Object.values(settings.hooks || {})) {
     if (!Array.isArray(groups)) {
       continue;
@@ -109,9 +110,12 @@ function checkNativeModule(deps) {
 
 function checkDatabase(deps) {
   try {
-    const db = deps.db || require('../../db');
-    db.ensureDb();
-    const dbPath = db.DB_PATH;
+    const db = deps.db || require('../../db'),
+      dbPath = (() => {
+        db.ensureDb();
+
+        return db.DB_PATH;
+      })();
     fs.accessSync(dbPath, fs.constants.W_OK);
     db.getDb().prepare('SELECT 1').get();
     return { name: 'database', ok: true, detail: `writable at ${dbPath}` };
@@ -133,36 +137,39 @@ function checkMcpConfig(paths, mcpName, cwd, env) {
       detail: `no "${mcpName}" server found — run \`lapis claude-code install\``,
     };
   }
-  const { entry, scope, file } = found;
-  const args = Array.isArray(entry.args) ? entry.args : [];
+  const { entry, scope, file } = found,
+    args = Array.isArray(entry.args) ? entry.args : [],
+    base = !(args[args.length - 1] !== 'mcp') ? path.basename(String(entry.command || '')) : undefined;
   if (args[args.length - 1] !== 'mcp') {
     return { name: 'MCP server config', ok: false, detail: `entry in ${file} does not spawn \`mcp\`` };
   }
-  // node-script invocation: the script path must exist; otherwise resolve the
-  // command itself (PATH lookup for bare names, fs check for paths).
-  const base = path.basename(String(entry.command || ''));
+  // Node-script invocation: the script path must exist; otherwise resolve the
+  // Command itself (PATH lookup for bare names, fs check for paths).
   if ((base === 'node' || base === 'node.exe') && args.length > 1) {
     if (!fs.existsSync(args[0])) {
       return { name: 'MCP server config', ok: false, detail: `script not found: ${args[0]}` };
     }
     return { name: 'MCP server config', ok: true, detail: `"${mcpName}" (${scope} scope) → node ${args[0]}` };
   }
-  const resolved = resolveOnPath(entry.command, env);
-  if (!resolved) {
-    return { name: 'MCP server config', ok: false, detail: `command not found on PATH: ${entry.command}` };
+  {
+    const resolved = resolveOnPath(entry.command, env);
+    if (!resolved) {
+      return { name: 'MCP server config', ok: false, detail: `command not found on PATH: ${entry.command}` };
+    }
+    return { name: 'MCP server config', ok: true, detail: `"${mcpName}" (${scope} scope) → ${resolved}` };
   }
-  return { name: 'MCP server config', ok: true, detail: `"${mcpName}" (${scope} scope) → ${resolved}` };
 }
 
 function checkHooksConfig(paths) {
   const sources = [
-    ['project', paths.projectSettings],
-    ['local', paths.localSettings],
-    ['user', paths.userSettings],
-  ];
-  const found = sources
-    .map(([label, file]) => ({ label, file, count: countLapisHooks(file) }))
-    .filter((s) => s.count > 0);
+      ['project', paths.projectSettings],
+      ['local', paths.localSettings],
+      ['user', paths.userSettings],
+    ],
+    found = sources.map(([label, file]) => ({ label, file, count: countLapisHooks(file) })).filter((s) => s.count > 0),
+    detail = !(found.length === 0)
+      ? found.map((s) => `${s.count} handlers (${s.label}: ${s.file})`).join(', ')
+      : undefined;
   if (found.length === 0) {
     return {
       name: 'hooks config',
@@ -170,31 +177,36 @@ function checkHooksConfig(paths) {
       detail: 'no LaPis hooks found — run `lapis claude-code install`',
     };
   }
-  const detail = found.map((s) => `${s.count} handlers (${s.label}: ${s.file})`).join(', ');
   return { name: 'hooks config', ok: true, detail };
 }
 
 function checkStateStore(deps) {
   try {
-    const stateStore = deps.stateStore || require('./state-store');
-    const dir = stateStore.DEFAULT_DIR;
-    fs.mkdirSync(dir, { recursive: true });
-    const probe = path.join(dir, `.doctor-probe-${process.pid}`);
-    fs.writeFileSync(probe, 'ok', 'utf8');
-    fs.unlinkSync(probe);
+    const stateStore = deps.stateStore || require('./state-store'),
+      dir = stateStore.DEFAULT_DIR,
+      probe = (() => {
+        fs.mkdirSync(dir, { recursive: true });
 
-    // Observability into the state dir: TTL window + size + oldest file (#233).
-    const ttl = typeof stateStore.defaultTtlHours === 'function' ? stateStore.defaultTtlHours() : 24;
-    let bytes = 0;
-    let oldestName = null;
-    let oldestMs = Infinity;
+        return path.join(dir, `.doctor-probe-${process.pid}`);
+      })(),
+      ttl = (() => {
+        fs.writeFileSync(probe, 'ok', 'utf8');
+        fs.unlinkSync(probe);
+
+        // Observability into the state dir: TTL window + size + oldest file (#233).
+
+        return typeof stateStore.defaultTtlHours === 'function' ? stateStore.defaultTtlHours() : 24;
+      })();
+    let bytes = 0,
+      oldestName = null,
+      oldestMs = Infinity;
     try {
       for (const entry of fs.readdirSync(dir)) {
         if (!entry.endsWith('.json')) {
           continue;
         }
-        const full = path.join(dir, entry);
-        const stat = fs.statSync(full);
+        const full = path.join(dir, entry),
+          stat = fs.statSync(full);
         bytes += stat.size;
         if (stat.mtimeMs < oldestMs) {
           oldestMs = stat.mtimeMs;
@@ -204,10 +216,9 @@ function checkStateStore(deps) {
     } catch {
       // Ignore readdir/stat failures; the writability check above is the gate.
     }
-    const kib = (bytes / 1024).toFixed(1);
-    const age =
-      oldestName && Number.isFinite(oldestMs) ? `${((Date.now() - oldestMs) / 3600000).toFixed(1)}h old` : 'none';
-    const detail = `writable at ${dir} · TTL ${ttl}h · ${kib} KiB across .json · oldest: ${oldestName || 'none'} (${age})`;
+    const kib = (bytes / 1024).toFixed(1),
+      age = oldestName && Number.isFinite(oldestMs) ? `${((Date.now() - oldestMs) / 3600000).toFixed(1)}h old` : 'none',
+      detail = `writable at ${dir} · TTL ${ttl}h · ${kib} KiB across .json · oldest: ${oldestName || 'none'} (${age})`;
     return { name: 'session state store', ok: true, detail };
   } catch (e) {
     return {
@@ -226,23 +237,24 @@ function checkStateStore(deps) {
  * @returns {{ ok: boolean, checks: Array<{name, ok, detail}> }}
  */
 function runDoctor(argv, io = {}) {
-  const flags = parseFlags(argv);
-  const { home, cwd, log } = resolveIo(io);
-  const paths = configPaths({ home, cwd });
-  const env = io.env || process.env;
+  const flags = parseFlags(argv),
+    { home, cwd, log } = resolveIo(io),
+    paths = configPaths({ home, cwd }),
+    env = io.env || process.env,
+    checks = [
+      checkNativeModule(io),
+      checkDatabase(io),
+      checkMcpConfig(paths, flags.mcpName, cwd, env),
+      checkHooksConfig(paths),
+      checkStateStore(io),
+    ],
+    ok = (() => {
+      for (const check of checks) {
+        log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
+      }
 
-  const checks = [
-    checkNativeModule(io),
-    checkDatabase(io),
-    checkMcpConfig(paths, flags.mcpName, cwd, env),
-    checkHooksConfig(paths),
-    checkStateStore(io),
-  ];
-
-  for (const check of checks) {
-    log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
-  }
-  const ok = checks.every((c) => c.ok);
+      return checks.every((c) => c.ok);
+    })();
   log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
   return { ok, checks };
 }

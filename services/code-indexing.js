@@ -1,7 +1,7 @@
-const { createParserRegistry } = require('../src/code-index/parser-registry');
-const { getCodeRepoHealth, indexRepository, reindexRepository } = require('../src/code-index/incremental-indexer');
-const { createJobQueue } = require('../src/code-index/job-queue');
-const jobStore = require('../src/code-index/job-store');
+const { createParserRegistry } = require('../src/code-index/parser-registry'),
+  { getCodeRepoHealth, indexRepository, reindexRepository } = require('../src/code-index/incremental-indexer'),
+  { createJobQueue } = require('../src/code-index/job-queue'),
+  jobStore = require('../src/code-index/job-store');
 
 function parseCodeFile(filePath) {
   return createParserRegistry().parseFile(filePath);
@@ -35,27 +35,28 @@ function getQueue() {
 }
 
 async function indexRepoAsyncInternal(deps, repoPath, repoName, options = {}) {
-  const { scanRepository } = require('../src/code-index/scanner');
-  const dbModule = require('../db');
-  const scan = scanRepository(repoPath, { ignore: [], respectGitignore: true });
-  const filesTotal = scan && scan.files ? scan.files.length : 0;
-  const mode = options.mode || 'full';
-  const storeDeps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
-  const jobId = jobStore.createJob(storeDeps, { repoName, mode, filesTotal });
-  const queue = getQueue();
+  const { scanRepository } = require('../src/code-index/scanner'),
+    dbModule = require('../db'),
+    scan = scanRepository(repoPath, { ignore: [], respectGitignore: true }),
+    filesTotal = scan && scan.files ? scan.files.length : 0,
+    mode = options.mode || 'full',
+    storeDeps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun },
+    jobId = jobStore.createJob(storeDeps, { repoName, mode, filesTotal }),
+    queue = getQueue();
+
   queue.startJob(jobId, { repoName, repoPath, mode });
   return { jobId, filesTotal, status: 'running' };
 }
 
 function indexStatusInternal(jobId) {
-  const dbModule = require('../db');
-  const storeDeps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
+  const dbModule = require('../db'),
+    storeDeps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
   return jobStore.getJob(storeDeps, jobId);
 }
 
 function listIndexJobsInternal({ onlyRunning = false, limit = 20 } = {}) {
-  const dbModule = require('../db');
-  const storeDeps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
+  const dbModule = require('../db'),
+    storeDeps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
   return onlyRunning ? jobStore.listRunningJobs(storeDeps) : jobStore.listRecentJobs(storeDeps, limit);
 }
 

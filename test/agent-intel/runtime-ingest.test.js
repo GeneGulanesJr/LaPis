@@ -1,8 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process');
-
-const STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -28,9 +27,9 @@ function writeCoverage(coveragePath, data) {
 }
 
 describe('runtime ingest command', () => {
-  const repoName = `test-runtime-${Date.now()}`;
-  const tmpRepo = path.join('/tmp', repoName);
-  const coveragePath = path.join(tmpRepo, 'coverage', 'coverage-final.json');
+  const repoName = `test-runtime-${Date.now()}`,
+    tmpRepo = path.join('/tmp', repoName),
+    coveragePath = path.join(tmpRepo, 'coverage', 'coverage-final.json');
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {
@@ -51,7 +50,7 @@ export function createUser(data) { return db.query("INSERT INTO users SET ?", [d
           1: { name: 'listUsers', line: 2 },
           2: { name: 'createUser', line: 3 },
         },
-        f: { 0: 5000, 1: 150, 2: 50 }, // getUser=hot, listUsers=warm, createUser=cold
+        f: { 0: 5000, 1: 150, 2: 50 }, // GetUser=hot, listUsers=warm, createUser=cold
       },
     });
   }, 60000);

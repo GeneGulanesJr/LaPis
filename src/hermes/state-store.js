@@ -1,15 +1,14 @@
-// src/hermes/state-store.js
+// Src/hermes/state-store.js
 'use strict';
 // Per-Hermes-session state store. Hermes spawns a fresh process per hook
-// event, so cross-event state (mapped LaPis session id, turn counter) lives
-// on disk, mirroring src/claude-code/state-store.js. Fail-open: unusable
-// session ids never collapse onto one shared file; corrupt files degrade to
-// defaults. No locking needed for v1 (single-writer-per-event, best-effort).
+// Event, so cross-event state (mapped LaPis session id, turn counter) lives
+// On disk, mirroring src/claude-code/state-store.js. Fail-open: unusable
+// Session ids never collapse onto one shared file; corrupt files degrade to
+// Defaults. No locking needed for v1 (single-writer-per-event, best-effort).
 
-const fs = require('node:fs');
-const path = require('node:path');
-
-const PLACEHOLDERS = new Set(['', 'none', 'null', 'undefined', 'None', 'NULL']);
+const fs = require('node:fs'),
+  path = require('node:path'),
+  PLACEHOLDERS = new Set(['', 'none', 'null', 'undefined', 'None', 'NULL']);
 
 function isUsableSessionId(id) {
   return id !== undefined && id !== null && !PLACEHOLDERS.has(String(id).trim());
@@ -21,10 +20,12 @@ function statePath(dir, sessionId) {
 }
 
 function loadState(dir, sessionId) {
-  if (!isUsableSessionId(sessionId)) return {};
+  if (!isUsableSessionId(sessionId)) {
+    return {};
+  }
   try {
-    const raw = fs.readFileSync(statePath(dir, sessionId), 'utf8');
-    const parsed = JSON.parse(raw);
+    const raw = fs.readFileSync(statePath(dir, sessionId), 'utf8'),
+      parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
     return {};
@@ -32,12 +33,14 @@ function loadState(dir, sessionId) {
 }
 
 function saveState(dir, sessionId, patch) {
-  if (!isUsableSessionId(sessionId)) return;
+  if (!isUsableSessionId(sessionId)) {
+    return;
+  }
   fs.mkdirSync(dir, { recursive: true });
-  const current = loadState(dir, sessionId);
-  const next = { ...current, ...patch };
-  const tmp = `${statePath(dir, sessionId)}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + '\n');
+  const current = loadState(dir, sessionId),
+    next = { ...current, ...patch },
+    tmp = `${statePath(dir, sessionId)}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);
   fs.renameSync(tmp, statePath(dir, sessionId));
 }
 

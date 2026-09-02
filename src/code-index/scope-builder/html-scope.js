@@ -16,8 +16,8 @@ function getAttrs(tagNode) {
   const attrs = [];
   for (const ch of tagNode.children) {
     if (ch.type === 'attribute') {
-      let name = '';
-      let value = '';
+      let name = '',
+        value = '';
       for (const ac of ch.children) {
         if (ac.type === 'attribute_name') {
           name = ac.text;
@@ -37,8 +37,8 @@ function getAttrs(tagNode) {
 }
 
 function buildHtmlScopeBindingsAst(tree, _source) {
-  const bindings = [];
-  const root = tree.rootNode;
+  const bindings = [],
+    root = tree.rootNode;
 
   function walk(node, depth) {
     if (!node) {
@@ -55,88 +55,89 @@ function buildHtmlScopeBindingsAst(tree, _source) {
       }
 
       if (startTag) {
-        const tagName = getTagName(startTag).toLowerCase();
-        const attrs = getAttrs(startTag);
-        const sl = startTag.startPosition.row + 1;
-        const el = node.endPosition ? node.endPosition.row + 1 : sl;
-        const sb = startTag.startIndex;
-        const eb = node.endIndex;
-
-        for (const attr of attrs) {
-          if (attr.name === 'id' && attr.value) {
-            addBinding(bindings, {
-              name: attr.value,
-              kind: 'element_id',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: sl,
-              lineEnd: el,
-              scopeDepth: depth,
-              byteStart: sb,
-              byteEnd: eb,
-            });
-          }
-        }
-
-        for (const attr of attrs) {
-          if (attr.name === 'class' && attr.value) {
-            for (const cls of attr.value.split(/\s+/).filter(Boolean)) {
-              addBinding(bindings, {
-                name: cls,
-                kind: 'css_class',
-                origin: 'local',
-                sourceModule: null,
-                sourceName: null,
-                lineStart: sl,
-                lineEnd: el,
-                scopeDepth: depth,
-                byteStart: sb,
-                byteEnd: eb,
-              });
+        const tagName = getTagName(startTag).toLowerCase(),
+          attrs = getAttrs(startTag),
+          sl = startTag.startPosition.row + 1,
+          el = node.endPosition ? node.endPosition.row + 1 : sl,
+          sb = startTag.startIndex,
+          eb = node.endIndex,
+          isCustom = (() => {
+            for (const attr of attrs) {
+              if (attr.name === 'id' && attr.value) {
+                addBinding(bindings, {
+                  name: attr.value,
+                  kind: 'element_id',
+                  origin: 'local',
+                  sourceModule: null,
+                  sourceName: null,
+                  lineStart: sl,
+                  lineEnd: el,
+                  scopeDepth: depth,
+                  byteStart: sb,
+                  byteEnd: eb,
+                });
+              }
             }
-          }
-        }
 
-        if (tagName === 'script') {
-          for (const attr of attrs) {
-            if (attr.name === 'src' && attr.value) {
-              addBinding(bindings, {
-                name: attr.value,
-                kind: 'script_src',
-                origin: 'external_file',
-                sourceModule: attr.value,
-                sourceName: null,
-                lineStart: sl,
-                lineEnd: el,
-                scopeDepth: depth,
-                byteStart: sb,
-                byteEnd: eb,
-              });
+            for (const attr of attrs) {
+              if (attr.name === 'class' && attr.value) {
+                for (const cls of attr.value.split(/\s+/).filter(Boolean)) {
+                  addBinding(bindings, {
+                    name: cls,
+                    kind: 'css_class',
+                    origin: 'local',
+                    sourceModule: null,
+                    sourceName: null,
+                    lineStart: sl,
+                    lineEnd: el,
+                    scopeDepth: depth,
+                    byteStart: sb,
+                    byteEnd: eb,
+                  });
+                }
+              }
             }
-          }
-        }
 
-        if (tagName === 'link') {
-          for (const attr of attrs) {
-            if (attr.name === 'href' && attr.value) {
-              addBinding(bindings, {
-                name: attr.value,
-                kind: 'link_href',
-                origin: 'external_file',
-                sourceModule: attr.value,
-                sourceName: null,
-                lineStart: sl,
-                lineEnd: sl,
-                scopeDepth: depth,
-                byteStart: sb,
-                byteEnd: eb,
-              });
+            if (tagName === 'script') {
+              for (const attr of attrs) {
+                if (attr.name === 'src' && attr.value) {
+                  addBinding(bindings, {
+                    name: attr.value,
+                    kind: 'script_src',
+                    origin: 'external_file',
+                    sourceModule: attr.value,
+                    sourceName: null,
+                    lineStart: sl,
+                    lineEnd: el,
+                    scopeDepth: depth,
+                    byteStart: sb,
+                    byteEnd: eb,
+                  });
+                }
+              }
             }
-          }
-        }
 
-        const isCustom = tagName.includes('-') || /^[A-Z]/.test(getTagName(startTag));
+            if (tagName === 'link') {
+              for (const attr of attrs) {
+                if (attr.name === 'href' && attr.value) {
+                  addBinding(bindings, {
+                    name: attr.value,
+                    kind: 'link_href',
+                    origin: 'external_file',
+                    sourceModule: attr.value,
+                    sourceName: null,
+                    lineStart: sl,
+                    lineEnd: sl,
+                    scopeDepth: depth,
+                    byteStart: sb,
+                    byteEnd: eb,
+                  });
+                }
+              }
+            }
+
+            return tagName.includes('-') || /^[A-Z]/.test(getTagName(startTag));
+          })();
         if (isCustom) {
           addBinding(bindings, {
             name: getTagName(startTag),
@@ -171,45 +172,48 @@ function buildHtmlScopeBindingsAst(tree, _source) {
 }
 
 function buildHtmlScopeBindingsRegex(source) {
-  const bindings = [];
-  const lines = source.split('\n');
+  const bindings = [],
+    lines = source.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lineNum = i + 1;
+    const line = lines[i],
+      lineNum = i + 1,
+      scriptSrcMatch = line.match(/\bsrc\s*=\s*["']([^"']+)["']/i),
+      idMatch = (() => {
+        if (scriptSrcMatch && /<script/i.test(line)) {
+          addBinding(bindings, {
+            name: scriptSrcMatch[1],
+            kind: 'script_src',
+            origin: 'external_file',
+            sourceModule: scriptSrcMatch[1],
+            sourceName: null,
+            lineStart: lineNum,
+            lineEnd: lineNum,
+            scopeDepth: 0,
+            byteStart: null,
+            byteEnd: null,
+          });
+        }
 
-    const scriptSrcMatch = line.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
-    if (scriptSrcMatch && /<script/i.test(line)) {
-      addBinding(bindings, {
-        name: scriptSrcMatch[1],
-        kind: 'script_src',
-        origin: 'external_file',
-        sourceModule: scriptSrcMatch[1],
-        sourceName: null,
-        lineStart: lineNum,
-        lineEnd: lineNum,
-        scopeDepth: 0,
-        byteStart: null,
-        byteEnd: null,
-      });
-    }
+        return line.match(/\bid\s*=\s*["']([^"']+)["']/i);
+      })(),
+      classMatch = (() => {
+        if (idMatch) {
+          addBinding(bindings, {
+            name: idMatch[1],
+            kind: 'element_id',
+            origin: 'local',
+            sourceModule: null,
+            sourceName: null,
+            lineStart: lineNum,
+            lineEnd: lineNum,
+            scopeDepth: 0,
+            byteStart: null,
+            byteEnd: null,
+          });
+        }
 
-    const idMatch = line.match(/\bid\s*=\s*["']([^"']+)["']/i);
-    if (idMatch) {
-      addBinding(bindings, {
-        name: idMatch[1],
-        kind: 'element_id',
-        origin: 'local',
-        sourceModule: null,
-        sourceName: null,
-        lineStart: lineNum,
-        lineEnd: lineNum,
-        scopeDepth: 0,
-        byteStart: null,
-        byteEnd: null,
-      });
-    }
-
-    const classMatch = line.match(/\bclass\s*=\s*["']([^"']+)["']/i);
+        return line.match(/\bclass\s*=\s*["']([^"']+)["']/i);
+      })();
     if (classMatch) {
       for (const cls of classMatch[1].split(/\s+/).filter(Boolean)) {
         addBinding(bindings, {

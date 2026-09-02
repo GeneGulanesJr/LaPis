@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * hooks-engine: context-builder
+ * Hooks-engine: context-builder
  *
  * Pure rendering core extracted from
  * extensions/memory-layer/hooks/context-injection.ts. Builds the memory-context
@@ -11,11 +11,11 @@
  * Owns `extractFilePaths`, shared with preflight-assembly.
  */
 
-const path = require('node:path');
-const { resolveIndexedRepo } = require('./project');
-const fs = require('node:fs');
-const { CONTEXT } = require('../../constants');
-const { isNavigationPrompt } = require('./prompt-classifiers');
+const path = require('node:path'),
+  { resolveIndexedRepo } = require('./project'),
+  fs = require('node:fs'),
+  { CONTEXT } = require('../../constants'),
+  { isNavigationPrompt } = require('./prompt-classifiers');
 
 function truncateText(text, limit) {
   if (text.length <= limit) {
@@ -39,25 +39,27 @@ function summarizeMemoryContent(content) {
   }
 
   const lines = content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const priority = lines.filter((line) => /^\*\*(What|Why|Where)\*\*:/i.test(line));
-  const selected = (priority.length > 0 ? priority : lines).slice(0, 3);
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean),
+    priority = lines.filter((line) => /^\*\*(What|Why|Where)\*\*:/i.test(line)),
+    selected = (priority.length > 0 ? priority : lines).slice(0, 3),
+    normalized = !(selected.length === 0)
+      ? selected
+          .join(' ')
+          .replace(/\*\*(What|Why|Where)\*\*:\s*/gi, '$1: ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : undefined,
+    limit = !(selected.length === 0) && normalized ? CONTEXT.PROMPT_MEMORY_SNIPPET_LENGTH || 280 : undefined;
   if (selected.length === 0) {
     return null;
   }
 
-  const normalized = selected
-    .join(' ')
-    .replace(/\*\*(What|Why|Where)\*\*:\s*/gi, '$1: ')
-    .replace(/\s+/g, ' ')
-    .trim();
   if (!normalized) {
     return null;
   }
 
-  const limit = CONTEXT.PROMPT_MEMORY_SNIPPET_LENGTH || 280;
   return normalized.length > limit ? `${normalized.slice(0, limit - 1)}…` : normalized;
 }
 
@@ -66,8 +68,8 @@ function extractFilePaths(content) {
     return [];
   }
 
-  const pathRe = /(?:^|\s|`)([\w/.-]+\.(?:js|ts|tsx|jsx|mjs|cjs|py|go|rs|sql))(?:`|\s|,|\.|$)/gm;
-  const matches = [];
+  const pathRe = /(?:^|\s|`)([\w/.-]+\.(?:js|ts|tsx|jsx|mjs|cjs|py|go|rs|sql))(?:`|\s|,|\.|$)/gm,
+    matches = [];
   let match;
   while ((match = pathRe.exec(content)) !== null) {
     const p = match[1];
@@ -108,8 +110,8 @@ function appendExtensionHint(lines, cwd) {
 }
 
 function buildSourceLookupGuidance(repos, cwd, currentProject) {
-  const resolvedCwd = path.resolve(cwd);
-  const cwdRepo = resolveIndexedRepo(resolvedCwd, repos, currentProject);
+  const resolvedCwd = path.resolve(cwd),
+    cwdRepo = resolveIndexedRepo(resolvedCwd, repos, currentProject);
 
   if (!cwdRepo) {
     return null;
@@ -146,22 +148,21 @@ function buildSourceLookupGuidance(repos, cwd, currentProject) {
  */
 function buildContextBlock(bag) {
   const {
-    promptQuery,
-    currentProject,
-    projectDir,
-    cwdRepo,
-    isStale,
-    isNewProject,
-    effectiveObservations,
-    personal,
-    effectiveStats,
-    topic,
-    crossProjectSuggestions = [],
-  } = bag;
-
-  const topicNote = topic ? ` | topic: ${topic}` : '';
-  const lines = ['## Memory Context (auto-loaded)', ''];
-  const projectSummary = truncateText(getProjectSummary(projectDir), CONTEXT.PROJECT_SUMMARY_LENGTH || 180);
+      promptQuery,
+      currentProject,
+      projectDir,
+      cwdRepo,
+      isStale,
+      isNewProject,
+      effectiveObservations,
+      personal,
+      effectiveStats,
+      topic,
+      crossProjectSuggestions = [],
+    } = bag,
+    topicNote = topic ? ` | topic: ${topic}` : '',
+    lines = ['## Memory Context (auto-loaded)', ''],
+    projectSummary = truncateText(getProjectSummary(projectDir), CONTEXT.PROJECT_SUMMARY_LENGTH || 180);
 
   if (isNewProject) {
     lines.push(
@@ -179,8 +180,8 @@ function buildContextBlock(bag) {
   lines.push(`- Directory: \`${projectDir}\``);
   lines.push(`- Summary: ${projectSummary}`);
   if (cwdRepo) {
-    const suppressStale = isStale && effectiveObservations.length > 0;
-    const staleLabel = isStale && !suppressStale ? ' (stale)' : '';
+    const suppressStale = isStale && effectiveObservations.length > 0,
+      staleLabel = isStale && !suppressStale ? ' (stale)' : '';
     lines.push(
       `- Code index: \`${cwdRepo.name}\` with ${cwdRepo.file_count} files / ${cwdRepo.symbol_count} symbols${staleLabel}`,
     );
@@ -190,10 +191,8 @@ function buildContextBlock(bag) {
   lines.push('');
 
   if (effectiveObservations.length > 0) {
-    const navigationPrompt = isNavigationPrompt(promptQuery);
-    const injectLimit = navigationPrompt
-      ? CONTEXT.NAVIGATION_PROMPT_INJECT_LIMIT || 2
-      : CONTEXT.PROMPT_INJECT_LIMIT || 1;
+    const navigationPrompt = isNavigationPrompt(promptQuery),
+      injectLimit = navigationPrompt ? CONTEXT.NAVIGATION_PROMPT_INJECT_LIMIT || 2 : CONTEXT.PROMPT_INJECT_LIMIT || 1;
     lines.push('### Prompt-Matched Memory');
     for (const o of effectiveObservations.slice(0, injectLimit)) {
       let trust = '';

@@ -115,204 +115,213 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
           'enrich-symbols': 'enrich-symbols',
         };
         const mode = typeof params.mode === 'string' ? params.mode : '';
+        const cmd = mode ? cmdMap[mode] : undefined;
         if (!mode) {
           return toolTextResult(codeHelpText());
         }
 
-        const cmd = cmdMap[mode];
         if (!cmd) {
           return toolTextResult(`Unknown memory-code mode: ${mode}\n\n${codeHelpText()}`, {}, true);
         }
 
-        const codeRepos =
-          mode === 'index-repo' || mode === 'reindex-repo' || mode === 'health' ? [] : await deps.getKnownRepos();
-        const inferredRepo = inferCurrentRepo(params, codeRepos, process.cwd());
-        if (inferredRepo) {
-          params = { ...params, repo: inferredRepo };
-        }
-
-        const validationError = validateCodeParams(mode, params);
-        if (validationError) {
-          return toolTextResult(validationError, {}, true);
-        }
-
-        const args: Record<string, string> = {};
-        if (params.repo) {
-          args.repo = params.repo;
-        }
-        if (params.symbol) {
-          args.symbol = params.symbol;
-        }
-        if (params.query || (mode === 'search' && params.symbol)) {
-          args.query = String(params.query || params.symbol);
-        }
-        if (params.task || ((mode === 'preflight' || mode === 'agent-pack') && params.query)) {
-          args.task = String(params.task || params.query);
-        }
-        if (params.file) {
-          args.file = params.file;
-        }
-        if (params.depth) {
-          args.depth = String(params.depth);
-        }
-        if (params.direction) {
-          args.direction = params.direction;
-        }
-        if (cmd === 'call-hierarchy') {
-          args.direction = mode === 'callers' ? 'callers' : 'callees';
-        }
-        if (params.min_confidence) {
-          args['min-confidence'] = String(params.min_confidence);
-        }
-        if (params.days) {
-          args.days = String(params.days);
-        }
-        if (params.refresh) {
-          args.refresh = 'true';
-        }
-        const top = params.top || (cmd === 'search-code' ? 5 : null);
-        if (top) {
-          if (cmd === 'search-code') {
-            args['max-results'] = String(top);
-          } else {
-            args.top = String(top);
-          }
-        }
-        if (params.scope) {
-          args.scope = params.scope;
-        }
-        if (params.sort_by) {
-          args['sort-by'] = params.sort_by;
-        }
-        if (params.min_complexity) {
-          args['min-complexity'] = String(params.min_complexity);
-        }
-        if (params.min_callers) {
-          args['min-callers'] = String(params.min_callers);
-        }
-        if (params.direction_hier) {
-          args.direction = params.direction_hier;
-        }
-        if (params.kind) {
-          args.kind = params.kind;
-        }
-        if (params.symbol_chain) {
-          args.symbol = String(params.symbol_chain);
-        }
-        if (params.path) {
-          args.path = params.path;
-        }
-        if (params.name) {
-          args.name = params.name;
-        }
-        if (params.rules) {
-          args.rules = typeof params.rules === 'string' ? params.rules : JSON.stringify(params.rules);
-        }
-        if (params.files) {
-          args.files = params.files;
-        }
-
-        if (mode === 'index-repo' || mode === 'reindex-repo') {
-          const ui = (ctx as any)?.ui;
-          const result = await deps.memStreaming(cmd, args, (msg: string) => {
-            try {
-              onUpdate(toolProgressResult(msg, { progress: true }));
-            } catch {}
-            if (ui?.setStatus) {
-              try {
-                ui.setStatus('memory-index', `📦 ${msg}`);
-              } catch {}
-            }
-          });
-          if (ui?.setStatus) {
-            try {
-              if (ui.clearStatus) {
-                ui.clearStatus('memory-index');
-              } else {
-                ui.setStatus('memory-index', '');
+        {
+          const codeRepos =
+              mode === 'index-repo' || mode === 'reindex-repo' || mode === 'health' ? [] : await deps.getKnownRepos(),
+            inferredRepo = inferCurrentRepo(params, codeRepos, process.cwd()),
+            validationError = (() => {
+              if (inferredRepo) {
+                params = { ...params, repo: inferredRepo };
               }
-            } catch {}
-          }
-          if (!result) {
-            return toolTextResult('Indexing failed or timed out.', {}, true);
-          }
-          if (result.error) {
-            return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
-          }
-          // Invalidate repo cache so guardrails immediately recognize the new/updated repo
-          deps.invalidateRepoCache();
-          const response = buildCodeToolResponse(mode, result ?? {});
-          let fmt: string | undefined | null;
-          try {
-            fmt = deps.formatCodeResult(mode, response.formatPayload);
-          } catch {
-            fmt = '';
-          }
-          return toolTextResult(fmt || 'Indexing completed.', response.details);
-        }
 
-        if (mode === 'health') {
-          const result = await deps.mem(cmd, args);
-          if (!result) {
-            return toolTextResult('Index health check failed.', {}, true);
+              return validateCodeParams(mode, params);
+            })();
+          if (validationError) {
+            return toolTextResult(validationError, {}, true);
           }
-          if (result.error) {
-            return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
+
+          {
+            const args: Record<string, string> = {},
+              top = (() => {
+                if (params.repo) {
+                  args.repo = params.repo;
+                }
+                if (params.symbol) {
+                  args.symbol = params.symbol;
+                }
+                if (params.query || (mode === 'search' && params.symbol)) {
+                  args.query = String(params.query || params.symbol);
+                }
+                if (params.task || ((mode === 'preflight' || mode === 'agent-pack') && params.query)) {
+                  args.task = String(params.task || params.query);
+                }
+                if (params.file) {
+                  args.file = params.file;
+                }
+                if (params.depth) {
+                  args.depth = String(params.depth);
+                }
+                if (params.direction) {
+                  args.direction = params.direction;
+                }
+                if (cmd === 'call-hierarchy') {
+                  args.direction = mode === 'callers' ? 'callers' : 'callees';
+                }
+                if (params.min_confidence) {
+                  args['min-confidence'] = String(params.min_confidence);
+                }
+                if (params.days) {
+                  args.days = String(params.days);
+                }
+                if (params.refresh) {
+                  args.refresh = 'true';
+                }
+
+                return params.top || (cmd === 'search-code' ? 5 : null);
+              })();
+            if (top) {
+              if (cmd === 'search-code') {
+                args['max-results'] = String(top);
+              } else {
+                args.top = String(top);
+              }
+            }
+            if (params.scope) {
+              args.scope = params.scope;
+            }
+            if (params.sort_by) {
+              args['sort-by'] = params.sort_by;
+            }
+            if (params.min_complexity) {
+              args['min-complexity'] = String(params.min_complexity);
+            }
+            if (params.min_callers) {
+              args['min-callers'] = String(params.min_callers);
+            }
+            if (params.direction_hier) {
+              args.direction = params.direction_hier;
+            }
+            if (params.kind) {
+              args.kind = params.kind;
+            }
+            if (params.symbol_chain) {
+              args.symbol = String(params.symbol_chain);
+            }
+            if (params.path) {
+              args.path = params.path;
+            }
+            if (params.name) {
+              args.name = params.name;
+            }
+            if (params.rules) {
+              args.rules = typeof params.rules === 'string' ? params.rules : JSON.stringify(params.rules);
+            }
+            if (params.files) {
+              args.files = params.files;
+            }
+
+            if (mode === 'index-repo' || mode === 'reindex-repo') {
+              const ui = (ctx as any)?.ui,
+                result = await deps.memStreaming(cmd, args, (msg: string) => {
+                  try {
+                    onUpdate(toolProgressResult(msg, { progress: true }));
+                  } catch {}
+                  if (ui?.setStatus) {
+                    try {
+                      ui.setStatus('memory-index', `📦 ${msg}`);
+                    } catch {}
+                  }
+                });
+              if (ui?.setStatus) {
+                try {
+                  if (ui.clearStatus) {
+                    ui.clearStatus('memory-index');
+                  } else {
+                    ui.setStatus('memory-index', '');
+                  }
+                } catch {}
+              }
+              if (!result) {
+                return toolTextResult('Indexing failed or timed out.', {}, true);
+              }
+              if (result.error) {
+                return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
+              }
+              // Invalidate repo cache so guardrails immediately recognize the new/updated repo
+              deps.invalidateRepoCache();
+              const response = buildCodeToolResponse(mode, result ?? {});
+              let fmt: string | undefined | null;
+              try {
+                fmt = deps.formatCodeResult(mode, response.formatPayload);
+              } catch {
+                fmt = '';
+              }
+              return toolTextResult(fmt || 'Indexing completed.', response.details);
+            }
+
+            if (mode === 'health') {
+              const result = await deps.mem(cmd, args);
+              if (!result) {
+                return toolTextResult('Index health check failed.', {}, true);
+              }
+              if (result.error) {
+                return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
+              }
+              return toolTextResult(formatHealthResult(result), result ?? {});
+            }
+
+            const repoMatch = codeRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
+            if (!repoMatch) {
+              const available = codeRepos.map((r) => r.name).join(', ') || 'none',
+                cwd = process.cwd();
+              return normalizeToolResult({
+                content: [
+                  {
+                    type: 'text',
+                    text: `❌ Repo \"${params.repo}\" is not indexed. Available repos: ${available}\n\nTo index this repo, run:\n\`memory-code index-repo --path ${cwd} --name ${params.repo}\``,
+                  },
+                ],
+                details: {},
+                isError: true,
+              });
+            }
+
+            const result = await deps.mem(cmd, args);
+            if (!result) {
+              if (
+                cmd === 'dead-code' ||
+                cmd === 'cycles' ||
+                cmd === 'importance' ||
+                cmd === 'coupling' ||
+                cmd === 'signal-chains' ||
+                cmd === 'import-graph'
+              ) {
+                return normalizeToolResult({
+                  content: [
+                    {
+                      type: 'text',
+                      text: `Analysis timed out or failed for \"${mode}\". Try reducing scope or depth, or re-index the repo.\nCommand: ${cmd} on repo \"${params.repo}\"`,
+                    },
+                  ],
+                  details: {},
+                  isError: true,
+                });
+              }
+              return toolTextResult('Analysis failed.', {}, true);
+            }
+            if (result.error) {
+              return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
+            }
+
+            const response = buildCodeToolResponse(mode, result ?? {});
+            let fmt: string | undefined | null;
+            try {
+              fmt = deps.formatCodeResult(mode, response.formatPayload);
+            } catch {
+              fmt = '';
+            }
+            return toolTextResult(fmt || `No ${mode} results found.`, response.details);
           }
-          return toolTextResult(formatHealthResult(result), result ?? {});
         }
-
-        const repoMatch = codeRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
-        if (!repoMatch) {
-          const available = codeRepos.map((r) => r.name).join(', ') || 'none';
-          const cwd = process.cwd();
-          return normalizeToolResult({
-            content: [
-              {
-                type: 'text',
-                text: `❌ Repo \"${params.repo}\" is not indexed. Available repos: ${available}\n\nTo index this repo, run:\n\`memory-code index-repo --path ${cwd} --name ${params.repo}\``,
-              },
-            ],
-            details: {},
-            isError: true,
-          });
-        }
-
-        const result = await deps.mem(cmd, args);
-        if (!result) {
-          if (
-            cmd === 'dead-code' ||
-            cmd === 'cycles' ||
-            cmd === 'importance' ||
-            cmd === 'coupling' ||
-            cmd === 'signal-chains' ||
-            cmd === 'import-graph'
-          ) {
-            return normalizeToolResult({
-              content: [
-                {
-                  type: 'text',
-                  text: `Analysis timed out or failed for \"${mode}\". Try reducing scope or depth, or re-index the repo.\nCommand: ${cmd} on repo \"${params.repo}\"`,
-                },
-              ],
-              details: {},
-              isError: true,
-            });
-          }
-          return toolTextResult('Analysis failed.', {}, true);
-        }
-        if (result.error) {
-          return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
-        }
-
-        const response = buildCodeToolResponse(mode, result ?? {});
-        let fmt: string | undefined | null;
-        try {
-          fmt = deps.formatCodeResult(mode, response.formatPayload);
-        } catch {
-          fmt = '';
-        }
-        return toolTextResult(fmt || `No ${mode} results found.`, response.details);
       } catch (err) {
         return toolTextResult(`Unexpected error: ${stringifyToolError(err)}`, {}, true);
       }
@@ -325,14 +334,14 @@ function inferCurrentRepo(params: Record<string, any>, repos: Array<{ name: stri
     return null;
   }
 
-  const resolvedCwd = path.resolve(cwd).toLowerCase();
-  const cwdMatch = repos.find((repo) => {
-    if (!repo.path) {
-      return false;
-    }
-    const repoPath = path.resolve(repo.path).toLowerCase();
-    return resolvedCwd === repoPath || resolvedCwd.startsWith(`${repoPath}/`);
-  });
+  const resolvedCwd = path.resolve(cwd).toLowerCase(),
+    cwdMatch = repos.find((repo) => {
+      if (!repo.path) {
+        return false;
+      }
+      const repoPath = path.resolve(repo.path).toLowerCase();
+      return resolvedCwd === repoPath || resolvedCwd.startsWith(`${repoPath}/`);
+    });
   if (cwdMatch) {
     return cwdMatch.name;
   }
@@ -341,10 +350,10 @@ function inferCurrentRepo(params: Record<string, any>, repos: Array<{ name: stri
 }
 
 function buildCodeToolResponse(mode: string, result: any): { formatPayload: any; details: Record<string, unknown> } {
-  const payload = unwrapCodeResultData(result);
-  const compactPayload = compactCodeToolPayload(mode, payload);
-  const meta =
-    result && typeof result === 'object' && result._meta && typeof result._meta === 'object' ? result._meta : null;
+  const payload = unwrapCodeResultData(result),
+    compactPayload = compactCodeToolPayload(mode, payload),
+    meta =
+      result && typeof result === 'object' && result._meta && typeof result._meta === 'object' ? result._meta : null;
   return {
     formatPayload: compactPayload,
     details: meta ? { _meta: meta, data: compactPayload } : compactPayload,
@@ -381,12 +390,12 @@ function compactOutlinePayload(result: any): Record<string, unknown> {
   }
 
   const classes = Array.isArray(result.classes)
-    ? result.classes.slice(0, 20).map((cls: any) => ({
-        ...cls,
-        methods: Array.isArray(cls.methods) ? cls.methods.slice(0, 25) : [],
-      }))
-    : [];
-  const standalone = Array.isArray(result.standalone) ? result.standalone.slice(0, 80) : [];
+      ? result.classes.slice(0, 20).map((cls: any) => ({
+          ...cls,
+          methods: Array.isArray(cls.methods) ? cls.methods.slice(0, 25) : [],
+        }))
+      : [],
+    standalone = Array.isArray(result.standalone) ? result.standalone.slice(0, 80) : [];
 
   return {
     ...result,
@@ -420,14 +429,14 @@ function codeHelpText(): string {
 }
 
 function formatHealthResult(result: any): string {
-  const diagnostics = result.diagnostics || {};
-  const lines = [
-    `# Index Health: ${result.repo}`,
-    '',
-    `Score: ${result.health_score}`,
-    `Indexed: ${result.indexed_files} files, ${result.indexed_symbols} symbols`,
-    `Fresh: ${result.stale ? 'no' : 'yes'}`,
-  ];
+  const diagnostics = result.diagnostics || {},
+    lines = [
+      `# Index Health: ${result.repo}`,
+      '',
+      `Score: ${result.health_score}`,
+      `Indexed: ${result.indexed_files} files, ${result.indexed_symbols} symbols`,
+      `Fresh: ${result.stale ? 'no' : 'yes'}`,
+    ];
   if (result.scan) {
     const delta = result.scan.indexed_file_delta;
     lines.push(
