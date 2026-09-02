@@ -228,6 +228,10 @@ Memory-on achieved perfect accuracy with 92.6% fewer active tokens overall. Memo
 
 The paired benchmark also reports behavior counters. In the latest run, memory-on used 6 total tools, 4 code-oriented tools, 4 memory tools, 12 assistant turns, and 0 failed tools. These counters help distinguish real memory regressions from normal provider cache and latency variance. The negative-control tasks are current-source questions; they should avoid memory facts and route quickly through `memory-code search` plus targeted reads when code verification is needed.
 
+## Website
+
+The LaPis landing page is included in [`website/`](website/). It is a build-free static site configured for Cloudflare Workers Static Assets and Cloudflare Pages; see the [deployment instructions](website/README.md).
+
 ## Documentation
 
 - [`docs/INDEX.md`](docs/INDEX.md) - documentation map and integration transports.
