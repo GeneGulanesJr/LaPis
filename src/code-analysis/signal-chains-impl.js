@@ -1,6 +1,10 @@
 // Signal chain tracing, layer violation detection, class hierarchy.
 
-const { path, _requireNativeDb } = require('./shared-deps');
+const { path, _requireNativeDb } = require('./shared-deps'), _HTTP_PATTERNS = [
+    /\.(get|post|put|delete|patch|head|options|all)\s*\(\s*['"\`]([^'"\`]+)['"\`]/g,
+    /\.(use|route)\s*\(\s*['"\`]([^'"\`]+)['"\`]/g,
+  ],
+  _CLI_PATTERNS = [/@click\.command\s*\(/g, /@app\.route\s*\(\s*['"\`]([^'"\`]+)['"\`]/g];
 
 function getClassHierarchy(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db),
@@ -27,9 +31,9 @@ function getClassHierarchy(db, repoId, opts = {}) {
 
   // Ancestors: walk parent_name chain upward
   if (direction === 'ancestors' || direction === 'both') {
-    const ancestors = [];
+    const ancestors = [], visited = new Set();
     let current = sym;
-    const visited = new Set();
+    
     while (current.parent_name && !visited.has(current.parent_name)) {
       visited.add(current.parent_name);
       const parent = db
@@ -59,18 +63,15 @@ function getClassHierarchy(db, repoId, opts = {}) {
   return result;
 }
 
-const _HTTP_PATTERNS = [
-    /\.(get|post|put|delete|patch|head|options|all)\s*\(\s*['"\`]([^'"\`]+)['"\`]/g,
-    /\.(use|route)\s*\(\s*['"\`]([^'"\`]+)['"\`]/g,
-  ],
-  _CLI_PATTERNS = [/@click\.command\s*\(/g, /@app\.route\s*\(\s*['"\`]([^'"\`]+)['"\`]/g];
+
 
 function getSignalChains(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db);
   if (guard) {
     return guard;
   }
-  const kind = opts.kind || null, // 'http', 'cli', or null for all
+  {
+const kind = opts.kind || null, // 'http', 'cli', or null for all
     symbol = opts.symbol || null,
     maxDepth = opts.maxDepth || 5,
     // Get all symbols with their signatures
@@ -89,7 +90,8 @@ function getSignalChains(db, repoId, opts = {}) {
     callGraph.get(c.caller_symbol_id).push({ callee_id: c.callee_symbol_id, callee_name: c.callee_name });
   }
 
-  const symbolMap = new Map(symbols.map((s) => [s.id, s])),
+  {
+const symbolMap = new Map(symbols.map((s) => [s.id, s])),
     // Detect gateways from symbol signatures
     gateways = [];
   for (const sym of symbols) {
@@ -162,7 +164,8 @@ function getSignalChains(db, repoId, opts = {}) {
         continue;
       }
       visited.add(current);
-      const callers = db
+      {
+const callers = db
         .prepare('SELECT caller_symbol_id FROM code_calls WHERE callee_symbol_id = ? AND repo_id = ?')
         .all(current, repoId);
       for (const c of callers) {
@@ -172,6 +175,7 @@ function getSignalChains(db, repoId, opts = {}) {
         }
       }
     }
+}
 
     // Find which gateways are in the visited set
     const relevantGateways = gateways.filter((g) => visited.has(g.symbol_id));
@@ -207,11 +211,13 @@ function getSignalChains(db, repoId, opts = {}) {
         break;
       }
       // Follow the first resolved callee (most common path)
-      const resolved = callees.find((c) => c.callee_id) || callees[0];
+      {
+const resolved = callees.find((c) => c.callee_id) || callees[0];
       if (!resolved || visited.has(resolved.callee_id || 0)) {
         break;
       }
-      const calleeSym = resolved.callee_id ? symbolMap.get(resolved.callee_id) : null;
+      {
+const calleeSym = resolved.callee_id ? symbolMap.get(resolved.callee_id) : null;
       chain.push({
         symbol_id: resolved.callee_id,
         name: resolved.callee_name,
@@ -222,11 +228,15 @@ function getSignalChains(db, repoId, opts = {}) {
       }
       current = resolved.callee_id;
     }
+}
+}
 
     return { gateway: gw, chain };
   });
 
   return { chains, gateway_count: gateways.length };
+}
+}
 }
 
 function getLayerViolations(db, repoId, opts = {}) {
@@ -243,7 +253,8 @@ function getLayerViolations(db, repoId, opts = {}) {
       return { error: 'Repo not found' };
     }
 
-    const fs = require('fs'),
+    {
+const fs = require('fs'),
       configPath = path.join(repo.path, '.pimemory-layers.jsonc');
     if (!fs.existsSync(configPath)) {
       return {
@@ -261,13 +272,15 @@ function getLayerViolations(db, repoId, opts = {}) {
       return { error: `Failed to parse .pimemory-layers.jsonc: ${e.message}` };
     }
   }
+}
 
   if (!rules || !rules.layers) {
     return { error: 'Invalid layer rules: missing "layers" array.' };
   }
 
   // Get all imports for this repo
-  const imports = db
+  {
+const imports = db
     .prepare(`
     SELECT cf_source.path as source_path, cf_target.path as target_path, ci.import_type
     FROM code_imports ci
@@ -278,18 +291,10 @@ function getLayerViolations(db, repoId, opts = {}) {
     .all(repoId);
 
   // Determine which layer a file belongs to
-  function fileLayer(filePath, layers) {
-    for (const layer of layers) {
-      for (const prefix of layer.paths) {
-        if (filePath.includes(prefix)) {
-          return layer.name;
-        }
-      }
-    }
-    return null; // Unaffiliated file
-  }
+  
 
-  const violations = [],
+  {
+const violations = [],
     layerMap = new Map();
   for (const layer of rules.layers) {
     layerMap.set(layer.name, new Set(layer.may_not_import || []));
@@ -308,7 +313,8 @@ function getLayerViolations(db, repoId, opts = {}) {
       continue;
     } // Same layer, ok
 
-    const forbidden = layerMap.get(sourceLayer);
+    {
+const forbidden = layerMap.get(sourceLayer);
     if (forbidden && forbidden.has(targetLayer)) {
       violations.push({
         source: imp.source_path,
@@ -319,8 +325,21 @@ function getLayerViolations(db, repoId, opts = {}) {
       });
     }
   }
+}
 
   return { violations, total: violations.length };
+function fileLayer(filePath, layers) {
+    for (const layer of layers) {
+      for (const prefix of layer.paths) {
+        if (filePath.includes(prefix)) {
+          return layer.name;
+        }
+      }
+    }
+    return null; // Unaffiliated file
+  }
+}
+}
 }
 
 module.exports = { getClassHierarchy, getSignalChains, getLayerViolations };

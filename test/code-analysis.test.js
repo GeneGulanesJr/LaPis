@@ -1,8 +1,8 @@
 // Integration tests for code-analysis (WASM)
-const { execSync } = require('child_process');
-const path = require('path'),
+const { execSync } = require('child_process'), path = require('path'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js'),
   REPO = 'PiMemoryExtension';
+
 
 function run(cmd, timeout = 15000) {
   try {

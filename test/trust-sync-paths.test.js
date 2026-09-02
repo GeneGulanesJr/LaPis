@@ -1,7 +1,7 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { resolveIndexedFilePaths, parseGitDiffNameStatus } = require('../src/trust-sync/change-detector');
+const fs = require('fs'), os = require('os'), path = require('path'), { resolveIndexedFilePaths, parseGitDiffNameStatus } = require('../src/trust-sync/change-detector');
+
+
+
 
 describe('resolveIndexedFilePaths', () => {
   it('maps git-relative paths to absolute indexed paths', () => {

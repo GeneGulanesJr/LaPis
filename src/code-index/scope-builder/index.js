@@ -1,13 +1,7 @@
 // Scope builder orchestrator — picks the right builder per language.
 // Each builder is a pure function: (tree, source, filePath) => Binding[]
 
-const path = require('path');
-const { buildJsTsScopeBindings } = require('./js-ts-scope');
-const { buildPythonScopeBindings } = require('./python-scope');
-const { buildGoScopeBindings } = require('./go-scope');
-const { buildRustScopeBindings } = require('./rust-scope');
-const { buildSqlScopeBindings } = require('./sql-scope');
-const { buildHtmlScopeBindings } = require('./html-scope'),
+const path = require('path'), { buildJsTsScopeBindings } = require('./js-ts-scope'), { buildPythonScopeBindings } = require('./python-scope'), { buildGoScopeBindings } = require('./go-scope'), { buildRustScopeBindings } = require('./rust-scope'), { buildSqlScopeBindings } = require('./sql-scope'), { buildHtmlScopeBindings } = require('./html-scope'),
   // Map file extensions to builder functions.
   // This mirrors the LANGUAGE_MAP in parse-code.js.
   SCOPE_BUILDER_MAP = {
@@ -26,6 +20,12 @@ const { buildHtmlScopeBindings } = require('./html-scope'),
     '.sql': buildSqlScopeBindings,
     '.html': buildHtmlScopeBindings,
   };
+
+
+
+
+
+
 
 /**
  * Get the appropriate scope builder function for a file.

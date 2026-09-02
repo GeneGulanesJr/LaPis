@@ -1,7 +1,7 @@
-const { jsonOk, jsonError } = require('../errors');
-const { compressMissionState } = require('../../compression/mission-state');
-const { recordCompressionRun } = require('../../compression/persistence');
-const { getDb } = require('../../../db');
+const { jsonOk, jsonError } = require('../errors'), { compressMissionState } = require('../../compression/mission-state'), { recordCompressionRun } = require('../../compression/persistence'), { getDb } = require('../../../db');
+
+
+
 
 function runCompression() {
   return async (req, res, ctx) => {
@@ -12,7 +12,7 @@ function runCompression() {
       return jsonError(res, 400, 'missionId is required', 'missionId is required');
     }
 
-    let db;
+    let db, result;
     try {
       db = getDb();
     } catch (e) {
@@ -20,7 +20,8 @@ function runCompression() {
       return jsonError(res, 500, 'database unavailable', e.message);
     }
 
-    const sqlJson = (sql, params = []) => {
+    {
+const sqlJson = (sql, params = []) => {
       try {
         return db.prepare(sql).all(...params);
       } catch (e) {
@@ -29,7 +30,7 @@ function runCompression() {
       }
     };
 
-    let result;
+    
     try {
       result = compressMissionState({ sqlJson, missionId });
     } catch (e) {
@@ -53,7 +54,8 @@ function runCompression() {
     );
 
     return jsonOk(res, result);
-  };
+  }
+};
 }
 
 module.exports = { runCompression };

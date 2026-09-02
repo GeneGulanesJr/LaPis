@@ -1,7 +1,7 @@
-const http = require('node:http');
-const { createDb, resetDb } = require('../../db');
-const { createHttpServer } = require('../../src/http/server');
-const { mergeDispatchArgs } = require('../../src/http/handlers/dispatch');
+const http = require('node:http'), { createDb, resetDb } = require('../../db'), { createHttpServer } = require('../../src/http/server'), { mergeDispatchArgs } = require('../../src/http/handlers/dispatch');
+
+
+
 
 describe('POST /dispatch', () => {
   let server, baseUrl, dispatchCalls;

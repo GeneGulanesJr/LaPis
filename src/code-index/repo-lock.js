@@ -1,8 +1,8 @@
-const crypto = require('crypto');
-const os = require('os'),
+const crypto = require('crypto'), os = require('os'),
   localHolding = new Set(),
   DEFAULT_LOCK_TIMEOUT_MS = 10 * 60 * 1000,
   LOCK_POLL_MS = 200;
+
 
 function makeHolderId() {
   return `${process.pid}:${crypto.randomBytes(4).toString('hex')}`;
@@ -94,7 +94,8 @@ async function withRepoIndexLock(repoName, fn) {
     return fn();
   }
 
-  const holderId = makeHolderId();
+  {
+const holderId = makeHolderId();
   await acquireSqliteLock(key, holderId);
   localHolding.add(key);
   try {
@@ -107,6 +108,7 @@ async function withRepoIndexLock(repoName, fn) {
       console.error(`[repo-lock] failed to release lock for ${key}: ${e.message}`);
     }
   }
+}
 }
 
 module.exports = { withRepoIndexLock, makeHolderId, tryAcquireSqliteLock, releaseSqliteLock };

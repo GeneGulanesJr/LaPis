@@ -1,9 +1,9 @@
 // Test coverage for db.js database layer
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const fs = require('fs'), path = require('path'), os = require('os'), dbModule = require('../db');
 
-const dbModule = require('../db');
+
+
+
 
 describe('db.js (database layer)', () => {
   beforeAll(() => {
@@ -159,10 +159,12 @@ describe('db.js (database layer)', () => {
       try {
         fs.unlinkSync(`${tmpPath}-shm`);
       } catch {}
-      const { resetConfigCache } = require('../config');
+      {
+const { resetConfigCache } = require('../config');
       resetConfigCache();
       dbModule.ensureDb();
-    });
+    }
+});
   });
 
   describe('MemoryError', () => {

@@ -56,69 +56,33 @@ const CODE_MODE_TO_COMMAND = {
 
 // --- small JSON-schema helpers (plain objects — no Zod, per SDK low-level Server) ---
 
-function opt(schema) {
-  // Shallow-clone + mark optional by removing from any required list.
-  // Required/optional is encoded at the Object() level, not the field level.
-  return { ...schema };
-}
 
-function str(desc) {
-  return { type: 'string', description: desc };
-}
 
-function strEnum(desc, values) {
-  return { type: 'string', description: desc, enum: values };
-}
 
-function num(desc) {
-  return { type: 'number', description: desc };
-}
 
-function bool(desc) {
-  return { type: 'boolean', description: desc };
-}
+
+
+
+
+
 
 /**
  * Build a JSON schema object. `required` is derived from the optional flag.
  * @param {Record<string, {schema: object, optional?: boolean}>} fields
  */
-function obj(fields) {
-  const properties = {},
-    required = [],
-  schema = (() => {
 
-    for (const [name, def] of Object.entries(fields)) {
-      properties[name] = def.schema;
-      if (!def.optional) {
-        required.push(name);
-      }
-    }
-    
-  return ({ type: 'object', properties });
-})();if (required.length > 0) {
-    schema.required = required;
-  }
-  return schema;
-}
 
 // --- arg normalization helpers ---
 // These mirror the param→dispatch-arg logic in code-tools.ts:139-213 and
 // Doc-tools.ts:94-136. Centralizing here keeps the catalog self-contained.
 
-function setIfPresent(args, key, value) {
-  if (value === undefined || value === null || value === '') {
-    return;
-  }
-  args[key] = String(value);
-}
+
 
 /**
  * Convert a snake_case param name to the kebab-case arg key used by dispatch.
  * e.g. "topic_key" → "topic-key", "min_confidence" → "min-confidence".
  */
-function kebab(key) {
-  return key.replace(/_/g, '-');
-}
+
 
 module.exports.CODE_MODE_TO_COMMAND = CODE_MODE_TO_COMMAND;
 module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
@@ -130,6 +94,7 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
 // Into memory tools that need it, matching the Pi extension's use of
 // State.currentProject.
 
+{
 const tools = [
   // ============ memory-save ============
   {
@@ -343,7 +308,7 @@ const tools = [
     toCommand(p) {
       const mode = p.mode,
       cmd = !(!mode || !CODE_MODE_TO_COMMAND[mode]) ? (CODE_MODE_TO_COMMAND[mode]) : undefined,
-      args = !(!mode || !CODE_MODE_TO_COMMAND[mode]) ? ({}) : undefined;
+      args = !(!mode || !CODE_MODE_TO_COMMAND[mode]) ? ({}) : undefined, top = p.top || (cmd === 'search-code' ? 5 : null);
       if (!mode || !CODE_MODE_TO_COMMAND[mode]) {
         return { cmd: null, error: !mode ? 'memory-code requires a mode.' : `Unknown memory-code mode: ${mode}` };
       }
@@ -372,7 +337,7 @@ const tools = [
       if (p.refresh) {
         args.refresh = 'true';
       }
-      const top = p.top || (cmd === 'search-code' ? 5 : null);
+      
       if (top) {
         if (cmd === 'search-code') {
           args[kebab('max_results')] = String(top);
@@ -492,3 +457,48 @@ const tools = [
 
 module.exports.tools = tools;
 module.exports.toolByName = Object.fromEntries(tools.map((t) => [t.name, t]));
+function opt(schema) {
+  // Shallow-clone + mark optional by removing from any required list.
+  // Required/optional is encoded at the Object() level, not the field level.
+  return { ...schema };
+}
+function str(desc) {
+  return { type: 'string', description: desc };
+}
+function strEnum(desc, values) {
+  return { type: 'string', description: desc, enum: values };
+}
+function num(desc) {
+  return { type: 'number', description: desc };
+}
+function bool(desc) {
+  return { type: 'boolean', description: desc };
+}
+function obj(fields) {
+  const properties = {},
+    required = [],
+  schema = (() => {
+
+    for (const [name, def] of Object.entries(fields)) {
+      properties[name] = def.schema;
+      if (!def.optional) {
+        required.push(name);
+      }
+    }
+    
+  return ({ type: 'object', properties });
+})();if (required.length > 0) {
+    schema.required = required;
+  }
+  return schema;
+}
+function setIfPresent(args, key, value) {
+  if (value === undefined || value === null || value === '') {
+    return;
+  }
+  args[key] = String(value);
+}
+function kebab(key) {
+  return key.replace(/_/g, '-');
+}
+}

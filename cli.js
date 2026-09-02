@@ -12,14 +12,7 @@ const {
   parseArgs,
   MemoryError,
   withTransaction,
-} = require('./db');
-const { getConfig } = require('./config');
-const obsDA = require('./data-access/observations');
-
-const fs = require('fs');
-
-const { buildCommandMap, getAllUsage, ANALYSIS_TOOLS, _wrapAnalysis } = require('./src/cli/gateway');
-const { createRepositories } = require('./src/platform/storage/repositories'),
+} = require('./db'), { getConfig } = require('./config'), obsDA = require('./data-access/observations'), fs = require('fs'), { buildCommandMap, getAllUsage, ANALYSIS_TOOLS, _wrapAnalysis } = require('./src/cli/gateway'), { createRepositories } = require('./src/platform/storage/repositories'),
   TOOL_TIERS = {
     core: new Set([
       'search',
@@ -57,17 +50,16 @@ const { createRepositories } = require('./src/platform/storage/repositories'),
     full: null,
   };
 
-function _readTierConfig() {
-  const configPath = getConfig().tier_config_path;
-  try {
-    const raw = fs.readFileSync(configPath, 'utf-8'),
-      cleaned = raw.replace(/\/\/.*$/gm, '');
-    return JSON.parse(cleaned);
-  } catch {
-    return { tier: 'full' };
-  }
-}
 
+
+
+
+
+
+
+
+
+{
 const softDeleteObservation = (id) => obsDA.softDeleteObservation({ sqlJson, sqlRun, sqlRaw }, id),
   baseStorageDeps = { sqlJson, sqlRun, sqlRaw, jsonErrNoExit },
   repositories = createRepositories(baseStorageDeps),
@@ -84,28 +76,11 @@ const softDeleteObservation = (id) => obsDA.softDeleteObservation({ sqlJson, sql
     withTransaction,
   }),
   args = parseArgs(process.argv),
-  cmd = process.argv[2];
+  cmd = process.argv[2], isHelpRequest = cmd === 'help' || cmd === '--help' || cmd === '-h' || args.help === true || args._.includes('-h');
 
-function printHelp(targetCmd) {
-  const usage = getAllUsage();
-  if (targetCmd && usage[targetCmd] !== undefined) {
-    const spec = usage[targetCmd];
-    process.stdout.write(`Usage: lapis ${targetCmd}${spec ? ` ${spec}` : ''}\n`);
-    return;
-  }
-  if (targetCmd) {
-    process.stdout.write(`Usage: lapis ${targetCmd} [options]\n`);
-    return;
-  }
-  const subcommands = [...Object.keys(commands), 'run'].sort();
-  process.stdout.write(
-    `Usage: lapis <subcommand> [--option value ...]\n` +
-      `       lapis run [--raw] [--text] [--remember] <command...>\n` +
-      `Subcommands: ${subcommands.join(', ')}\n`,
-  );
-}
 
-const isHelpRequest = cmd === 'help' || cmd === '--help' || cmd === '-h' || args.help === true || args._.includes('-h');
+
+
 
 if (isHelpRequest) {
   printHelp(commands[cmd] ? cmd : null);
@@ -330,3 +305,34 @@ if (isHelpRequest) {
     process.exit(1);
   }
 })();
+function _readTierConfig() {
+  const configPath = getConfig().tier_config_path;
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8'),
+      cleaned = raw.replace(/\/\/.*$/gm, '');
+    return JSON.parse(cleaned);
+  } catch {
+    return { tier: 'full' };
+  }
+}
+function printHelp(targetCmd) {
+  const usage = getAllUsage();
+  if (targetCmd && usage[targetCmd] !== undefined) {
+    const spec = usage[targetCmd];
+    process.stdout.write(`Usage: lapis ${targetCmd}${spec ? ` ${spec}` : ''}\n`);
+    return;
+  }
+  if (targetCmd) {
+    process.stdout.write(`Usage: lapis ${targetCmd} [options]\n`);
+    return;
+  }
+  {
+const subcommands = [...Object.keys(commands), 'run'].sort();
+  process.stdout.write(
+    `Usage: lapis <subcommand> [--option value ...]\n` +
+      `       lapis run [--raw] [--text] [--remember] <command...>\n` +
+      `Subcommands: ${subcommands.join(', ')}\n`,
+  );
+}
+}
+}

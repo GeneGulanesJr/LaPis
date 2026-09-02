@@ -15,9 +15,9 @@
  * maps ok:false to exit code 1.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { parseFlags, isLapisHookHandler, isLapisMcpEntry, readJson, resolveIo, configPaths } = require('./install');
+const fs = require('node:fs'), path = require('node:path'), { parseFlags, isLapisHookHandler, isLapisMcpEntry, readJson, resolveIo, configPaths } = require('./install');
+
+
 
 /** Which(1): resolve a bare command name against PATH (with PATHEXT on Windows). */
 function resolveOnPath(command, env = process.env) {
@@ -70,13 +70,13 @@ function findMcpEntry(paths, mcpName, cwd) {
 
 /** Count LaPis hook handlers per settings file. */
 function countLapisHooks(filePath) {
-  let settings;
+  let settings, count = 0;
   try {
     settings = readJson(filePath);
   } catch {
     return 0;
   }
-  let count = 0;
+  
   for (const groups of Object.values(settings.hooks || {})) {
     if (!Array.isArray(groups)) {
       continue;
@@ -150,11 +150,13 @@ function checkMcpConfig(paths, mcpName, cwd, env) {
     }
     return { name: 'MCP server config', ok: true, detail: `"${mcpName}" (${scope} scope) → node ${args[0]}` };
   }
-  const resolved = resolveOnPath(entry.command, env);
+  {
+const resolved = resolveOnPath(entry.command, env);
   if (!resolved) {
     return { name: 'MCP server config', ok: false, detail: `command not found on PATH: ${entry.command}` };
   }
   return { name: 'MCP server config', ok: true, detail: `"${mcpName}" (${scope} scope) → ${resolved}` };
+}
 }
 
 function checkHooksConfig(paths) {

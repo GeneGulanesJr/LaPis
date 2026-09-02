@@ -41,13 +41,13 @@ export function invalidateRepoCache(): void {
 
 export function isRepoStale(repo: RepoInfo): boolean {
   try {
-    const fs = require('fs');
-    const pathMod = require('path'),
+    const fs = require('fs'), pathMod = require('path'),
       indexedTime = new Date(repo.indexed_at).getTime() + 3600000, // 1h grace
       // Sample up to 50 source files for mtime changes
-      extensions = new Set(['.js', '.ts', '.tsx', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java']);
+      extensions = new Set(['.js', '.ts', '.tsx', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java']), maxCheck = 50;
+    
     let checked = 0;
-    const maxCheck = 50;
+    
 
     function checkDir(dir) {
       if (checked >= maxCheck) {
@@ -94,7 +94,7 @@ export function isRepoStale(repo: RepoInfo): boolean {
 export async function detectProject(cwd: string): Promise<string> {
   const resolved = path.resolve(cwd);
 
-  let knownProjects: string[] = [];
+  let knownProjects: string[] = [], dir = resolved;
   try {
     const result = await mem('list-projects', {});
     if (result && (result as any).projects) {
@@ -108,18 +108,18 @@ export async function detectProject(cwd: string): Promise<string> {
     const codeRepos = await getKnownRepos();
     if (codeRepos.length > 0) {
       let bestRepo: { repo: RepoInfo; depth: number } | null = null,
-        dir = resolved;
-      const root = path.parse(dir).root;
-      while (dir !== root && dir !== path.dirname(dir)) {
+        candidateDir = resolved;
+      const root = path.parse(candidateDir).root;
+      while (candidateDir !== root && candidateDir !== path.dirname(candidateDir)) {
         for (const repo of codeRepos) {
-          if (dir.toLowerCase() === repo.path.toLowerCase()) {
-            const depth = dir.split('/').length;
+          if (candidateDir.toLowerCase() === repo.path.toLowerCase()) {
+            const depth = candidateDir.split('/').length;
             if (!bestRepo || depth > bestRepo.depth) {
               bestRepo = { repo, depth };
             }
           }
         }
-        dir = path.dirname(dir);
+        candidateDir = path.dirname(candidateDir);
       }
       if (bestRepo) {
         return bestRepo.repo.name;
@@ -129,7 +129,7 @@ export async function detectProject(cwd: string): Promise<string> {
     /* Code repos may not be available */
   }
 
-  let dir = resolved;
+  
   const root = path.parse(dir).root;
   while (dir !== root && dir !== path.dirname(dir)) {
     const name = path.basename(dir),

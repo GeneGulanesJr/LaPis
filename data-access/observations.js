@@ -80,7 +80,16 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
     current = sqlJson('SELECT title, content, type, scope, expires_at FROM observations WHERE id = ?', [parsedId]),
   before = !(!current || current.length === 0) ? (current[0]) : undefined,
   fields = !(!current || current.length === 0) ? ({ title, content, type, scope }) : undefined,
-  versionEntries = !(!current || current.length === 0) ? ([]) : undefined;
+  versionEntries = !(!current || current.length === 0) ? ([]) : undefined, nextExpiresAt = clearExpiry === true ? null : expiresAt !== undefined ? expiresAt || null : undefined, setFields = [
+      { name: 'title', value: title },
+      { name: 'content', value: content },
+      { name: 'type', value: type },
+      { name: 'project', value: project },
+      { name: 'scope', value: scope },
+      { name: 'topic_key', value: topicKey },
+    ],
+    sets = [],
+    params = [];
   if (!current || current.length === 0) {
     return null;
   }
@@ -94,7 +103,7 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
   // History row and the actual UPDATE agree on what the new value is.
   // Observation_versions.new_value is NOT NULL, so we stringify null as ''
   // (matching the convention used by other fields in this table).
-  const nextExpiresAt = clearExpiry === true ? null : expiresAt !== undefined ? expiresAt || null : undefined;
+  
   if (nextExpiresAt !== undefined && String(nextExpiresAt || '') !== String(before.expires_at || '')) {
     versionEntries.push([
       parsedId,
@@ -104,16 +113,7 @@ function updateObservation(deps, { id, title, content, type, project, scope, top
     ]);
   }
 
-  const setFields = [
-      { name: 'title', value: title },
-      { name: 'content', value: content },
-      { name: 'type', value: type },
-      { name: 'project', value: project },
-      { name: 'scope', value: scope },
-      { name: 'topic_key', value: topicKey },
-    ],
-    sets = [],
-    params = [];
+  
   for (const f of setFields) {
     if (f.value !== undefined && f.value !== null) {
       sets.push(`${f.name} = ?`);

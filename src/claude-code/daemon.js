@@ -9,11 +9,7 @@
  * daemon URL for clients is LAPIS_DAEMON_URL or derived from the lockfile.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const http = require('node:http');
-const { spawn } = require('node:child_process'),
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), http = require('node:http'), { spawn } = require('node:child_process'),
   HOME = process.env.HOME || process.env.USERPROFILE || os.homedir(),
   DEFAULT_LOCKFILE = path.join(HOME, '.pi', 'memory', 'claude-daemon.json'),
   DEFAULT_HOST = '127.0.0.1',
@@ -21,6 +17,10 @@ const { spawn } = require('node:child_process'),
   HEALTH_POLL_MS = 100,
   HEALTH_TIMEOUT_MS = 15_000,
   STOP_GRACE_MS = 5_000;
+
+
+
+
 
 function defaultLockfilePath() {
   return process.env.LAPIS_DAEMON_LOCKFILE || DEFAULT_LOCKFILE;
@@ -266,10 +266,12 @@ async function runStart(argv, io = {}) {
   process.on('SIGTERM', cleanup);
   process.on('exit', cleanup);
 
-  const { startHttpServer } = require('../http/server');
+  {
+const { startHttpServer } = require('../http/server');
   log(`LaPis daemon listening on http://${flags.host}:${flags.port}`);
   await startHttpServer({ host: flags.host, port: flags.port });
   return info;
+}
 }
 
 async function stopProcess(pid, opts = {}) {

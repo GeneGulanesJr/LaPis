@@ -8,16 +8,16 @@
 // Remains primary (it owns hooks, TUI rendering, session lifecycle). MCP
 // Gets the tool surface only, which is the natural protocol boundary.
 
-const path = require('node:path');
-const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
-const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
-const { ListToolsRequestSchema, CallToolRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
-const { tools } = require('./tools');
-const { toCallToolResult } = require('./translate-result');
-const { resolveCwd, projectFromCwd, resolveProjectKey } = require('../hooks-engine/project');
-const { getKnownRepos, getKnownProjects } = require('../platform/project-db'),
+const path = require('node:path'), { Server } = require('@modelcontextprotocol/sdk/server/index.js'), { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js'), { ListToolsRequestSchema, CallToolRequestSchema } = require('@modelcontextprotocol/sdk/types.js'), { tools } = require('./tools'), { toCallToolResult } = require('./translate-result'), { resolveCwd, projectFromCwd, resolveProjectKey } = require('../hooks-engine/project'), { getKnownRepos, getKnownProjects } = require('../platform/project-db'),
   SERVER_NAME = 'lapis',
   SERVER_VERSION = require('../../package.json').version || '0.0.0';
+
+
+
+
+
+
+
 
 /**
  * Derive the MCP project key from cwd, preferring an indexed repo whose path
@@ -78,7 +78,8 @@ function createServer(opts = {}) {
       };
     }
 
-    const { cmd, args, error } = tool.toCommand(params || {}, ctx);
+    {
+const { cmd, args, error } = tool.toCommand(params || {}, ctx);
     if (error || !cmd) {
       return {
         content: [{ type: 'text', text: error || 'No command produced.' }],
@@ -99,7 +100,8 @@ function createServer(opts = {}) {
     }
 
     return toCallToolResult(result);
-  });
+  }
+});
 
   return server;
 }

@@ -21,7 +21,8 @@ function compressTestOutput({ stdout, stderr, exitCode }) {
   let inFailure = false,
     failureBuf = [],
     hiddenCount = 0;
-  const summaryLines = [],
+  {
+const summaryLines = [],
     coverageLines = [],
   result = (() => {
 
@@ -65,7 +66,7 @@ function compressTestOutput({ stdout, stderr, exitCode }) {
   
     
   return (exitCode === 0 ? 'PASSED' : 'FAILED');
-})();let output = `Test result: ${result}\n\n`;
+})(), failCount = failedBlocks.length;let output = `Test result: ${result}\n\n`;
 
   if (summaryLines.length > 0) {
     output += 'Summary:\n';
@@ -93,8 +94,9 @@ function compressTestOutput({ stdout, stderr, exitCode }) {
 
   output += `Hidden: ${hiddenCount} passed/progress lines removed`;
 
-  const failCount = failedBlocks.length;
-  let summary = `Tests ${result.toLowerCase()}.`;
+  
+  {
+let summary = `Tests ${result.toLowerCase()}.`;
   if (failCount > 0) {
     summary += ` ${failCount} failure block(s) extracted.`;
   }
@@ -105,6 +107,8 @@ function compressTestOutput({ stdout, stderr, exitCode }) {
     importantOutput: output.trim(),
     omittedLines: hiddenCount,
   };
+}
+}
 }
 
 module.exports = { compressTestOutput };

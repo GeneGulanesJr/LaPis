@@ -72,7 +72,8 @@ function compressListOutput({ stdout, stderr }) {
     }
   }
 
-  const totalSource = Object.values(sourceDirs).reduce((a, b) => a + b, 0);
+  {
+const totalSource = Object.values(sourceDirs).reduce((a, b) => a + b, 0);
   let summary = `${totalSource} source entries shown.`;
   if (collapsedCount > 0) {
     summary += ` ${collapsedCount} entries in common dirs collapsed.`;
@@ -83,6 +84,7 @@ function compressListOutput({ stdout, stderr }) {
     importantOutput: output.trim(),
     omittedLines: collapsedCount,
   };
+}
 }
 
 module.exports = { compressListOutput };

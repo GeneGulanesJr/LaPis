@@ -13,25 +13,25 @@
  * rejecting — best-effort, never blocks the prompt.
  */
 
-const path = require('node:path');
-const { CONTEXT } = require('../../../constants');
-const { findMatchingRepo } = require('../../hooks-engine/project');
-const { resolveProjectForCwd } = require('../project-resolve');
-const { isPreflightWorthyPrompt } = require('../../hooks-engine/prompt-classifiers');
-const {
+const path = require('node:path'), { CONTEXT } = require('../../../constants'), { findMatchingRepo } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), { isPreflightWorthyPrompt } = require('../../hooks-engine/prompt-classifiers'), {
   appendPreflightBlock,
   chooseCodingContextTarget,
   appendCodingContextBlock,
   unwrapAnalysisData,
-} = require('../../hooks-engine/preflight-assembly');
-const { capInjectedContext } = require('../../hooks-engine/context-builder');
-const { assembleContextLines } = require('../context-inject');
-const { makeMutate } = require('../state-mutate'),
+} = require('../../hooks-engine/preflight-assembly'), { capInjectedContext } = require('../../hooks-engine/context-builder'), { assembleContextLines } = require('../context-inject'), { makeMutate } = require('../state-mutate'),
   BUDGET_MS = 30000,
   REMINDER_INTERVAL = 5, // MEMORY_REMINDER_INTERVAL (state.ts:107)
   REMINDER_RECENT_MS = 180000, // 3min (context-injection.ts:235)
   REMINDER_TEXT =
     '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.';
+
+
+
+
+
+
+
+
 
 /**
  * Append preflight + coding-context blocks (best-effort). Mutates lines.
@@ -103,7 +103,8 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
     return null;
   }
 
-  const lines = assembled ? assembled.lines : [],
+  {
+const lines = assembled ? assembled.lines : [],
     cwdRepo = assembled ? assembled.cwdRepo : findMatchingRepo(resolvedCwd, repos);
 
   // Preflight / coding context (best-effort, timeout-safe).
@@ -117,7 +118,8 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
   // Routed through mutateState so parallel memory-tool hooks cannot be
   // Clobbered by an unlocked load/save (#228).
   let shouldRemind = false;
-  const mutate = makeMutate(stateStore, claudeSessionId);
+  {
+const mutate = makeMutate(stateStore, claudeSessionId);
   await mutate((s) => {
     if (isCancelled?.()) {
       return;
@@ -140,7 +142,8 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
     lines.push(REMINDER_TEXT);
   }
 
-  const additionalContext = capInjectedContext(lines.join('\n'));
+  {
+const additionalContext = capInjectedContext(lines.join('\n'));
   if (!additionalContext) {
     return null;
   }
@@ -151,6 +154,9 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
       additionalContext,
     },
   };
+}
+}
+}
 }
 
 async function handleUserPromptSubmit(ctx) {

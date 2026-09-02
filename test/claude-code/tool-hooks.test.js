@@ -1,40 +1,14 @@
-const realStateStore = require('../../src/claude-code/state-store');
-const { handlePreToolUse } = require('../../src/claude-code/handlers/pre-tool-use');
-const { handlePostToolUse } = require('../../src/claude-code/handlers/post-tool-use');
+const realStateStore = require('../../src/claude-code/state-store'), { handlePreToolUse } = require('../../src/claude-code/handlers/pre-tool-use'), { handlePostToolUse } = require('../../src/claude-code/handlers/post-tool-use');
 
-function makeStateStore(seed = {}) {
-  const map = new Map(Object.entries(seed));
-  return {
-    defaultState: realStateStore.defaultState,
-    loadState: (id) => map.get(id) || realStateStore.defaultState(),
-    saveState: (id, s) => {
-      map.set(id, s);
-    },
-    mutateState: async (id, mutator) => {
-      const s = map.get(id) || realStateStore.defaultState(),
-        r = await mutator(s);
-      map.set(id, s);
-      return r;
-    },
-    clearState: (id) => map.delete(id),
-    sweepStaleSessions: () => ({ swept: 0 }),
-    _peek: (id) => map.get(id),
-  };
-}
 
-function makeFakeDispatch(overrides = {}) {
-  const calls = [],
-    dispatch = async (cmd, args) => {
-      calls.push({ cmd, args });
-      return overrides[cmd] ? overrides[cmd](args) : { ok: true };
-    };
-  return { dispatch, calls };
-}
 
-function isDeny(out) {
-  return Boolean(out && out.hookSpecificOutput && out.hookSpecificOutput.permissionDecision === 'deny');
-}
 
+
+
+
+
+
+{
 const APP_REPO = { name: 'app', path: '/proj/app', indexed_at: new Date().toISOString() },
   reposFn = () => [APP_REPO];
 
@@ -335,10 +309,12 @@ describe('claude-code PostToolUse: edit-track + git-trust', () => {
       getKnownRepos: reposFn,
       stateStore,
     });
-    const edited = stateStore._peek('s').editedFiles;
+    {
+const edited = stateStore._peek('s').editedFiles;
     expect(edited).toContain('/proj/app/src/a.js');
     expect(edited).toContain('/proj/app/src/b.js');
-  });
+  }
+});
 
   test('non-git bash does not trigger sync-code-trust', async () => {
     const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), currentProject: 'app' } }),
@@ -411,10 +387,12 @@ describe('claude-code PostToolUse: tool-state mirroring', () => {
       getKnownRepos: reposFn,
       stateStore,
     });
-    const pending = stateStore._peek('s').pendingRecallFeedback;
+    {
+const pending = stateStore._peek('s').pendingRecallFeedback;
     expect(pending.map(([id]) => id)).toEqual([1, 2]);
     expect(pending[0][1]).toEqual({ sessionId: 7, query: 'dispatch' });
-  });
+  }
+});
 
   test('memory-search mirrors the real MCP JSON shape (content block, no markers)', async () => {
     const stateStore = makeStateStore({ s: { ...realStateStore.defaultState(), sessionId: 3 } }),
@@ -476,8 +454,41 @@ describe('claude-code PostToolUse: tool-state mirroring', () => {
       getKnownRepos: reposFn,
       stateStore,
     });
-    const explored = stateStore._peek('s').exploredFiles;
+    {
+const explored = stateStore._peek('s').exploredFiles;
     expect(explored).toContain('src/db.js');
     expect(explored).toContain('src/mcp/server.js');
-  });
+  }
 });
+});
+function makeStateStore(seed = {}) {
+  const map = new Map(Object.entries(seed));
+  return {
+    defaultState: realStateStore.defaultState,
+    loadState: (id) => map.get(id) || realStateStore.defaultState(),
+    saveState: (id, s) => {
+      map.set(id, s);
+    },
+    mutateState: async (id, mutator) => {
+      const s = map.get(id) || realStateStore.defaultState(),
+        r = await mutator(s);
+      map.set(id, s);
+      return r;
+    },
+    clearState: (id) => map.delete(id),
+    sweepStaleSessions: () => ({ swept: 0 }),
+    _peek: (id) => map.get(id),
+  };
+}
+function makeFakeDispatch(overrides = {}) {
+  const calls = [],
+    dispatch = async (cmd, args) => {
+      calls.push({ cmd, args });
+      return overrides[cmd] ? overrides[cmd](args) : { ok: true };
+    };
+  return { dispatch, calls };
+}
+function isDeny(out) {
+  return Boolean(out && out.hookSpecificOutput && out.hookSpecificOutput.permissionDecision === 'deny');
+}
+}

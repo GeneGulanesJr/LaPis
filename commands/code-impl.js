@@ -1,5 +1,5 @@
-const codeIndexingService = require('../services/code-indexing');
-const codeSearchService = require('../services/code-search');
+const codeIndexingService = require('../services/code-indexing'), codeSearchService = require('../services/code-search');
+
 
 async function indexRepo(args) {
   const repoPath = args.path;
@@ -14,7 +14,8 @@ async function indexRepo(args) {
   if (args.async === 'true' || args.mode === 'full') {
     return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
   }
-  const { getConfig } = require('../config'),
+  {
+const { getConfig } = require('../config'),
     threshold = getConfig().async_index_file_threshold || 500;
   let fileCount = 0;
   try {
@@ -31,6 +32,7 @@ async function indexRepo(args) {
     return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
   }
   return codeIndexingService.indexRepoInternal({ db: require('../db').getDb(), args }, repoPath, repoName);
+}
 }
 
 async function indexRepoAsync(args) {

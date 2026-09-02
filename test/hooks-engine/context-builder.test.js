@@ -4,8 +4,7 @@ const {
   summarizeMemoryContent,
   extractFilePaths,
   capInjectedContext,
-} = require('../../src/hooks-engine/context-builder');
-const {
+} = require('../../src/hooks-engine/context-builder'), {
     appendPreflightBlock,
     appendCodingContextBlock,
     chooseCodingContextTarget,
@@ -27,6 +26,7 @@ const {
     crossProjectSuggestions: [],
     cwd: process.cwd(),
   };
+
 
 describe('hooks-engine context-builder: summarizeMemoryContent', () => {
   test('normalizes What/Why/Where priority lines', () => {

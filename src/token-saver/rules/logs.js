@@ -40,7 +40,8 @@ function compressLogs({ stdout, stderr }) {
     uniqueMessages[_normalized].count++;
   }
 
-  const recurring = Object.entries(uniqueMessages)
+  {
+const recurring = Object.entries(uniqueMessages)
       .filter(([, v]) => v.count > 1)
       .sort((a, b) => b[1].count - a[1].count)
       .slice(0, 10),
@@ -88,6 +89,7 @@ function compressLogs({ stdout, stderr }) {
     importantOutput: output.trim(),
     omittedLines: deduped,
   };
+}
 }
 
 module.exports = { compressLogs };

@@ -6,72 +6,12 @@ const { addBinding, dedupBindings } = require('./shared');
 function buildSqlScopeBindings(tree, _source, _filePath) {
   const bindings = [];
 
-  function walk(node, scopeDepth) {
-    if (!node) {
-      return;
-    }
-    const type = node.type;
+  
 
-    switch (type) {
-      case 'cte': {
-        const nameNode = node.childForFieldName('name');
-        if (nameNode) {
-          addBinding(bindings, {
-            name: nameNode.text.replace(/[`"[\]]/g, ''),
-            kind: 'cte',
-            origin: 'local',
-            sourceModule: null,
-            sourceName: null,
-            lineStart: node.startPosition.row + 1,
-            lineEnd: node.endPosition.row + 1,
-            scopeDepth,
-            byteStart: node.startIndex,
-            byteEnd: node.endIndex,
-          });
-        }
-        break;
-      }
-      case 'table_reference':
-      case 'object_reference': {
-        // Extract table name from the reference
-        const text = node.text.replace(/[`"[\]]/g, '').trim(),
-          parts = text.split('.'),
-          tableName = parts[parts.length - 1];
-        if (tableName && !isSqlKeyword(tableName)) {
-          addBinding(bindings, {
-            name: tableName,
-            kind: 'table_ref',
-            origin: 'external',
-            sourceModule: null,
-            sourceName: null,
-            lineStart: node.startPosition.row + 1,
-            lineEnd: node.endPosition.row + 1,
-            scopeDepth,
-            byteStart: node.startIndex,
-            byteEnd: node.endIndex,
-          });
-        }
-        break;
-      }
-      default:
-        break;
-    }
+  
 
-    walkChildren(node, scopeDepth);
-  }
-
-  function walkChildren(node, depth) {
-    if (!node) {
-      return;
-    }
-    let child = node.firstChild;
-    while (child) {
-      walk(child, depth);
-      child = child.nextSibling;
-    }
-  }
-
-  const SQL_KEYWORDS = new Set([
+  {
+const SQL_KEYWORDS = new Set([
     'select',
     'from',
     'where',
@@ -144,6 +84,70 @@ function buildSqlScopeBindings(tree, _source, _filePath) {
   }
 
   return dedupBindings(bindings);
+function walk(node, scopeDepth) {
+    if (!node) {
+      return;
+    }
+    const type = node.type;
+
+    switch (type) {
+      case 'cte': {
+        const nameNode = node.childForFieldName('name');
+        if (nameNode) {
+          addBinding(bindings, {
+            name: nameNode.text.replace(/[`"[\]]/g, ''),
+            kind: 'cte',
+            origin: 'local',
+            sourceModule: null,
+            sourceName: null,
+            lineStart: node.startPosition.row + 1,
+            lineEnd: node.endPosition.row + 1,
+            scopeDepth,
+            byteStart: node.startIndex,
+            byteEnd: node.endIndex,
+          });
+        }
+        break;
+      }
+      case 'table_reference':
+      case 'object_reference': {
+        // Extract table name from the reference
+        const text = node.text.replace(/[`"[\]]/g, '').trim(),
+          parts = text.split('.'),
+          tableName = parts[parts.length - 1];
+        if (tableName && !isSqlKeyword(tableName)) {
+          addBinding(bindings, {
+            name: tableName,
+            kind: 'table_ref',
+            origin: 'external',
+            sourceModule: null,
+            sourceName: null,
+            lineStart: node.startPosition.row + 1,
+            lineEnd: node.endPosition.row + 1,
+            scopeDepth,
+            byteStart: node.startIndex,
+            byteEnd: node.endIndex,
+          });
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    walkChildren(node, scopeDepth);
+  }
+function walkChildren(node, depth) {
+    if (!node) {
+      return;
+    }
+    let child = node.firstChild;
+    while (child) {
+      walk(child, depth);
+      child = child.nextSibling;
+    }
+  }
+}
 }
 
 module.exports = { buildSqlScopeBindings };

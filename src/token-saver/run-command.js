@@ -18,7 +18,11 @@ function runCommand(commandArgs, options = {}) {
         env = process.env,
       } = options,
       isWindows = process.platform === 'win32';
-    let child;
+    let child, stdout = '',
+      stderr = '',
+      truncated = false,
+      killed = false,
+      timer = null;
 
     if (isWindows) {
       child = spawn('cmd', ['/c', ...commandArgs], {
@@ -35,11 +39,7 @@ function runCommand(commandArgs, options = {}) {
       });
     }
 
-    let stdout = '',
-      stderr = '',
-      truncated = false,
-      killed = false,
-      timer = null;
+    
 
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString();

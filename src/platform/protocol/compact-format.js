@@ -77,7 +77,9 @@ function _encodeList(rows, opts = {}) {
     encodedRows = [],
     // Detect path-like columns for prefix interning
     pathColumns = opts.interning !== false ? _findPathColumns(rows, header) : {},
-    prefixes = {};
+    prefixes = {}, result = { _header: header, _rows: encodedRows },
+    // Attach prefix map if we interned anything
+    prefixMap = {};
 
   // Compute prefixes if any path columns found
   for (const col of Object.keys(pathColumns)) {
@@ -103,9 +105,7 @@ function _encodeList(rows, opts = {}) {
     encodedRows.push(parts.join('|'));
   }
 
-  const result = { _header: header, _rows: encodedRows },
-    // Attach prefix map if we interned anything
-    prefixMap = {};
+  
   for (const col of Object.keys(prefixes)) {
     if (prefixes[col].length > 0) {
       prefixMap[col] = prefixes[col];
@@ -169,7 +169,8 @@ function _computePrefixes(values) {
   }
 
   // Filter: at least 3 occurrences
-  const qualifying = [...prefixCount.entries()].filter(([, count]) => count >= 3).sort((a, b) => b[1] - a[1]), // Most common first
+  {
+const qualifying = [...prefixCount.entries()].filter(([, count]) => count >= 3).sort((a, b) => b[1] - a[1]), // Most common first
     // Take top prefixes (max 5), avoiding overlaps: pick longer prefixes first
     selected = [],
     covered = new Set();
@@ -189,6 +190,7 @@ function _computePrefixes(values) {
   }
 
   return selected;
+}
 }
 
 // ══════════════════════════════════════════════════════════
@@ -391,12 +393,14 @@ function autoFormat(data) {
     return 'json';
   }
 
-  const compact = _encodeList(encodable.rows),
+  {
+const compact = _encodeList(encodable.rows),
     jsonBytes = _jsonSize(encodable.rows),
     compactBytes = _compactSize(compact),
     // Use compact only if savings ≥ 20%
     ratio = jsonBytes > 0 ? compactBytes / jsonBytes : 1;
   return ratio <= 0.8 ? 'compact' : 'json';
+}
 }
 
 // ══════════════════════════════════════════════════════════

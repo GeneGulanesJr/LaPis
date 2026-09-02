@@ -1,14 +1,14 @@
-const fs = require('fs');
-const _os = require('os');
-const path = require('path');
-const { execSync } = require('child_process');
-const {
+const fs = require('fs'), _os = require('os'), path = require('path'), { execSync } = require('child_process'), {
   buildImportGraphForFiles,
   buildCallGraphForFiles: _buildCallGraphForFiles,
   buildComplexityForFiles,
-} = require('../src/code-analysis/legacy-core');
-const { rebuildDerivedIndexes } = require('../src/code-index/incremental-indexer'),
-  STORE = path.resolve(__dirname, '..', 'memory-store.js');
+} = require('../src/code-analysis/legacy-core'), { rebuildDerivedIndexes } = require('../src/code-index/incremental-indexer'),
+  STORE = path.resolve(__dirname, '..', 'memory-store.js'), REPO_PREFIX = 'test-incr-derived';
+
+
+
+
+
 
 let cliAvailable = false;
 try {
@@ -21,179 +21,21 @@ try {
   cliAvailable = parsed && typeof parsed.total === 'number';
 } catch {}
 
-function run(cmd) {
-  const out = execSync(`node "${STORE}" ${cmd}`, {
-    encoding: 'utf8',
-    timeout: 30000,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  return JSON.parse(out.trim());
-}
 
-function _runFail(cmd) {
-  try {
-    execSync(`node "${STORE}" ${cmd}`, {
-      encoding: 'utf8',
-      timeout: 30000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return null;
-  } catch (err) {
-    try {
-      return JSON.parse((err.stderr || err.stdout || '').trim());
-    } catch {
-      return { error: err.stderr || err.message };
-    }
-  }
-}
 
-function writeTmpRepo(repoPath, files) {
-  fs.mkdirSync(repoPath, { recursive: true });
-  for (const [name, content] of Object.entries(files)) {
-    const filePath = path.join(repoPath, name);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, content);
-  }
-}
 
-const REPO_PREFIX = 'test-incr-derived';
 
-function repoName(suffix) {
-  return `${REPO_PREFIX}-${suffix}-${Date.now()}`;
-}
 
-function cleanupRepo(name) {
-  try {
-    execSync(`node "${STORE}" remove-code-repo --repo ${name}`, {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-  } catch {}
-}
 
-function makeMockDb(tables) {
-  const data = JSON.parse(JSON.stringify(tables)),
-    stmts = [];
 
-  function prepare(sql) {
-    const normalized = sql.replace(/\s+/g, ' ').trim();
-    stmts.push(normalized);
 
-    return {
-      run(...params) {
-        if (normalized.startsWith('DELETE FROM code_imports')) {
-          data.code_imports = (data.code_imports || []).filter((row) => {
-            if (params.length === 1 && normalized.includes('repo_id = ?')) {
-              return row.repo_id !== params[0];
-            }
-            return true;
-          });
-        }
-        if (normalized.startsWith('DELETE FROM code_calls')) {
-          data.code_calls = (data.code_calls || []).filter((row) => {
-            if (params.length === 1 && normalized.includes('repo_id = ?')) {
-              return row.repo_id !== params[0];
-            }
-            return true;
-          });
-        }
-        if (normalized.startsWith('DELETE FROM symbol_complexity')) {
-          data.symbol_complexity = (data.symbol_complexity || []).filter((_row) => {
-            if (normalized.includes('file_id IN')) {
-              return false;
-            }
-            return true;
-          });
-        }
-        if (normalized.startsWith('INSERT OR IGNORE INTO code_imports')) {
-          (data.code_imports = data.code_imports || []).push({
-            repo_id: params[0],
-            source_file_id: params[1],
-            target_module: params[2],
-            target_file_id: params[3],
-            import_type: params[4],
-            line_number: params[5],
-          });
-        }
-        if (normalized.startsWith('INSERT OR IGNORE INTO code_calls')) {
-          (data.code_calls = data.code_calls || []).push({
-            repo_id: params[0],
-            caller_symbol_id: params[1],
-            callee_name: params[2],
-            callee_symbol_id: params[3],
-            confidence: params[4],
-            line_number: params[5],
-          });
-        }
-        if (normalized.startsWith('INSERT OR REPLACE INTO symbol_complexity')) {
-          (data.symbol_complexity = data.symbol_complexity || []).push({
-            symbol_id: params[0],
-            cyclomatic: params[1],
-            nesting_depth: params[2],
-            param_count: params[3],
-            lines_of_code: params[4],
-            assessment: params[5],
-          });
-        }
-      },
-      get(...params) {
-        if (normalized.includes('SELECT id, path, content FROM code_files WHERE id = ?')) {
-          return (data.code_files || []).find((f) => f.id === params[0]) || undefined;
-        }
-        if (normalized.includes('SELECT content FROM code_files WHERE id = ?')) {
-          const f = (data.code_files || []).find((cf) => cf.id === params[0]);
-          return f ? { content: f.content } : undefined;
-        }
-        return undefined;
-      },
-      all(...params) {
-        if (
-          normalized.includes('SELECT DISTINCT source_file_id FROM code_imports') &&
-          normalized.includes('target_file_id IN')
-        ) {
-          return (data.code_imports || [])
-            .filter((imp) => imp.repo_id === params[0] && params.slice(1).includes(imp.target_file_id))
-            .map((imp) => ({ source_file_id: imp.source_file_id }));
-        }
-        if (
-          normalized.includes('SELECT DISTINCT s.file_id FROM code_calls') &&
-          normalized.includes('callee_symbol_id IS NULL')
-        ) {
-          const nullCallees = (data.code_calls || []).filter(
-              (cc) => cc.repo_id === params[0] && cc.callee_symbol_id == null,
-            ),
-            callerIds = nullCallees.map((cc) => cc.caller_symbol_id),
-            symbols = data.code_symbols || [];
-          return [...new Set(symbols.filter((s) => callerIds.includes(s.id)).map((s) => s.file_id))].map((fid) => ({
-            file_id: fid,
-          }));
-        }
-        if (normalized.includes('FROM code_symbols WHERE repo_id = ?') && !normalized.includes('file_id IN')) {
-          return (data.code_symbols || []).filter((s) => s.repo_id === params[0]);
-        }
-        if (normalized.includes('FROM code_symbols WHERE repo_id = ?') && normalized.includes('file_id IN')) {
-          return (data.code_symbols || []).filter(
-            (s) => s.repo_id === params[0] && params.slice(1).includes(s.file_id),
-          );
-        }
-        if (normalized.includes('FROM code_files WHERE repo_id = ?') && !normalized.includes('file_id IN')) {
-          return (data.code_files || []).filter((f) => f.repo_id === params[0]);
-        }
-        return [];
-      },
-    };
-  }
 
-  return {
-    prepare: (...args) => prepare(...args),
-    exec: () => {},
-    transaction: (fn) => fn,
-    _data: data,
-    _stmts: stmts,
-  };
-}
 
+
+
+
+
+{
 const describeIntegration = cliAvailable ? describe : describe.skip;
 
 describe('incremental derived graph builders', () => {
@@ -244,10 +86,12 @@ describe('incremental derived graph builders', () => {
       expect(result.incremental).toBe(true);
       expect(result.filesAffected).toBeGreaterThanOrEqual(1);
 
-      const imports = db._data.code_imports,
+      {
+const imports = db._data.code_imports,
         sourceIds = imports.map((imp) => imp.source_file_id);
       expect(sourceIds).not.toContain(3);
-    });
+    }
+});
 
     it('handles deleted files by removing their import edges', () => {
       const db = makeMockDb({
@@ -576,3 +420,169 @@ describeIntegration('health reporting with stale state', () => {
     expect(typeof health.health_score).toBe('number');
   });
 });
+function run(cmd) {
+  const out = execSync(`node "${STORE}" ${cmd}`, {
+    encoding: 'utf8',
+    timeout: 30000,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  return JSON.parse(out.trim());
+}
+function _runFail(cmd) {
+  try {
+    execSync(`node "${STORE}" ${cmd}`, {
+      encoding: 'utf8',
+      timeout: 30000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return null;
+  } catch (err) {
+    try {
+      return JSON.parse((err.stderr || err.stdout || '').trim());
+    } catch {
+      return { error: err.stderr || err.message };
+    }
+  }
+}
+function writeTmpRepo(repoPath, files) {
+  fs.mkdirSync(repoPath, { recursive: true });
+  for (const [name, content] of Object.entries(files)) {
+    const filePath = path.join(repoPath, name);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, content);
+  }
+}
+function repoName(suffix) {
+  return `${REPO_PREFIX}-${suffix}-${Date.now()}`;
+}
+function cleanupRepo(name) {
+  try {
+    execSync(`node "${STORE}" remove-code-repo --repo ${name}`, {
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch {}
+}
+function makeMockDb(tables) {
+  const data = JSON.parse(JSON.stringify(tables)),
+    stmts = [];
+
+  function prepare(sql) {
+    const normalized = sql.replace(/\s+/g, ' ').trim();
+    stmts.push(normalized);
+
+    return {
+      run(...params) {
+        if (normalized.startsWith('DELETE FROM code_imports')) {
+          data.code_imports = (data.code_imports || []).filter((row) => {
+            if (params.length === 1 && normalized.includes('repo_id = ?')) {
+              return row.repo_id !== params[0];
+            }
+            return true;
+          });
+        }
+        if (normalized.startsWith('DELETE FROM code_calls')) {
+          data.code_calls = (data.code_calls || []).filter((row) => {
+            if (params.length === 1 && normalized.includes('repo_id = ?')) {
+              return row.repo_id !== params[0];
+            }
+            return true;
+          });
+        }
+        if (normalized.startsWith('DELETE FROM symbol_complexity')) {
+          data.symbol_complexity = (data.symbol_complexity || []).filter((_row) => {
+            if (normalized.includes('file_id IN')) {
+              return false;
+            }
+            return true;
+          });
+        }
+        if (normalized.startsWith('INSERT OR IGNORE INTO code_imports')) {
+          (data.code_imports = data.code_imports || []).push({
+            repo_id: params[0],
+            source_file_id: params[1],
+            target_module: params[2],
+            target_file_id: params[3],
+            import_type: params[4],
+            line_number: params[5],
+          });
+        }
+        if (normalized.startsWith('INSERT OR IGNORE INTO code_calls')) {
+          (data.code_calls = data.code_calls || []).push({
+            repo_id: params[0],
+            caller_symbol_id: params[1],
+            callee_name: params[2],
+            callee_symbol_id: params[3],
+            confidence: params[4],
+            line_number: params[5],
+          });
+        }
+        if (normalized.startsWith('INSERT OR REPLACE INTO symbol_complexity')) {
+          (data.symbol_complexity = data.symbol_complexity || []).push({
+            symbol_id: params[0],
+            cyclomatic: params[1],
+            nesting_depth: params[2],
+            param_count: params[3],
+            lines_of_code: params[4],
+            assessment: params[5],
+          });
+        }
+      },
+      get(...params) {
+        if (normalized.includes('SELECT id, path, content FROM code_files WHERE id = ?')) {
+          return (data.code_files || []).find((f) => f.id === params[0]) || undefined;
+        }
+        if (normalized.includes('SELECT content FROM code_files WHERE id = ?')) {
+          const f = (data.code_files || []).find((cf) => cf.id === params[0]);
+          return f ? { content: f.content } : undefined;
+        }
+        return undefined;
+      },
+      all(...params) {
+        if (
+          normalized.includes('SELECT DISTINCT source_file_id FROM code_imports') &&
+          normalized.includes('target_file_id IN')
+        ) {
+          return (data.code_imports || [])
+            .filter((imp) => imp.repo_id === params[0] && params.slice(1).includes(imp.target_file_id))
+            .map((imp) => ({ source_file_id: imp.source_file_id }));
+        }
+        if (
+          normalized.includes('SELECT DISTINCT s.file_id FROM code_calls') &&
+          normalized.includes('callee_symbol_id IS NULL')
+        ) {
+          const nullCallees = (data.code_calls || []).filter(
+              (cc) => cc.repo_id === params[0] && cc.callee_symbol_id == null,
+            ),
+            callerIds = nullCallees.map((cc) => cc.caller_symbol_id),
+            symbols = data.code_symbols || [];
+          return [...new Set(symbols.filter((s) => callerIds.includes(s.id)).map((s) => s.file_id))].map((fid) => ({
+            file_id: fid,
+          }));
+        }
+        if (normalized.includes('FROM code_symbols WHERE repo_id = ?') && !normalized.includes('file_id IN')) {
+          return (data.code_symbols || []).filter((s) => s.repo_id === params[0]);
+        }
+        if (normalized.includes('FROM code_symbols WHERE repo_id = ?') && normalized.includes('file_id IN')) {
+          return (data.code_symbols || []).filter(
+            (s) => s.repo_id === params[0] && params.slice(1).includes(s.file_id),
+          );
+        }
+        if (normalized.includes('FROM code_files WHERE repo_id = ?') && !normalized.includes('file_id IN')) {
+          return (data.code_files || []).filter((f) => f.repo_id === params[0]);
+        }
+        return [];
+      },
+    };
+  }
+
+  return {
+    prepare: (...args) => prepare(...args),
+    exec: () => {},
+    transaction: (fn) => fn,
+    _data: data,
+    _stmts: stmts,
+  };
+}
+}

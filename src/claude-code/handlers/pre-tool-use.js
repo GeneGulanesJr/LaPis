@@ -22,11 +22,7 @@
  * (for search) guidance to index manually.
  */
 
-const path = require('node:path');
-const { isCodeFile } = require('../../code-index/scanner');
-const { resolveIndexedRepo, normalizeRepoPath } = require('../../hooks-engine/project');
-const { resolveProjectForCwd } = require('../project-resolve');
-const {
+const path = require('node:path'), { isCodeFile } = require('../../code-index/scanner'), { resolveIndexedRepo, normalizeRepoPath } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), {
   isPipedOutputFilter,
   isTargetedSymbolLookup,
   isTargetedGrepLookup,
@@ -34,9 +30,13 @@ const {
   CONFIG_FILENAMES,
   RAW_CODE_DISCOVERY_RE,
   CODE_PATH_HINT_RE,
-} = require('../../hooks-engine/guardrail-utils');
-const { preToolRole } = require('../tool-map');
-const { addNormalized, normalizePathForCompare } = require('../file-keys');
+} = require('../../hooks-engine/guardrail-utils'), { preToolRole } = require('../tool-map'), { addNormalized, normalizePathForCompare } = require('../file-keys');
+
+
+
+
+
+
 
 /** Build the PreToolUse deny envelope. */
 function deny(reason) {
@@ -79,7 +79,8 @@ function readGuardrail({ input, repos, cwd, state }) {
   if (typeof input.offset === 'number' || typeof input.limit === 'number') {
     return null;
   }
-  const basename = path.basename(filePath);
+  {
+const basename = path.basename(filePath);
   if (CONFIG_FILENAMES.has(basename)) {
     return null;
   }
@@ -87,7 +88,8 @@ function readGuardrail({ input, repos, cwd, state }) {
     return null;
   }
 
-  const absPath = path.resolve(cwd, filePath),
+  {
+const absPath = path.resolve(cwd, filePath),
     absNorm = normalizeRepoPath(absPath),
     cwdNorm = normalizeRepoPath(cwd);
   // Cross-project reads (outside cwd) bypass the outline guard.
@@ -95,7 +97,8 @@ function readGuardrail({ input, repos, cwd, state }) {
     return null;
   }
 
-  const matchedRepo = repos.find((r) => {
+  {
+const matchedRepo = repos.find((r) => {
     const rp = normalizeRepoPath(r.path);
     return absNorm === rp || absNorm.startsWith(`${rp}/`);
   });
@@ -105,7 +108,8 @@ function readGuardrail({ input, repos, cwd, state }) {
     return null;
   }
 
-  const relPath = normalizePathForCompare(path.relative(matchedRepo.path, absPath)),
+  {
+const relPath = normalizePathForCompare(path.relative(matchedRepo.path, absPath)),
     explored = Array.isArray(state.exploredFiles) ? state.exploredFiles : [],
     exploredNorm = explored.map(normalizePathForCompare),
     basenameNorm = basename.toLowerCase();
@@ -120,6 +124,10 @@ function readGuardrail({ input, repos, cwd, state }) {
       `• \`memory-code deps --repo ${matchedRepo.name}\` — dependency graph\n` +
       `After reviewing the outline, use \`read\` with \`offset\`/\`limit\` for targeted editing.`,
   );
+}
+}
+}
+}
 }
 
 function searchGuardrail({ input, repos, cwd, state }) {
@@ -175,7 +183,8 @@ function bashGuardrail({ input, repos, cwd, state }) {
   if (isTargetedSymbolLookup(cmd)) {
     return null;
   }
-  const searchHint = CODE_PATH_HINT_RE.test(cmd) ? 'Code search' : 'Raw repository search';
+  {
+const searchHint = CODE_PATH_HINT_RE.test(cmd) ? 'Code search' : 'Raw repository search';
   return deny(
     `${searchHint} detected in indexed repo "${repo.name}". Use \`memory-code\` instead:\n` +
       `• \`memory-code search --repo ${repo.name} --query <query>\` — find code symbols\n` +
@@ -184,16 +193,17 @@ function bashGuardrail({ input, repos, cwd, state }) {
       `• \`memory-code deps --repo ${repo.name}\` — dependency graph`,
   );
 }
+}
 
 async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stateStore }) {
   const toolName = payload.tool_name,
-    role = preToolRole(toolName);
+    role = preToolRole(toolName), input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
+    claudeSessionId = payload.session_id;
   if (!role) {
     return null;
   }
 
-  const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
-    claudeSessionId = payload.session_id;
+  
 
   // Memory-tool cadence bookkeeping (state mutations Pi's tool_call hook does).
   // Routed through mutateState so a parallel memory-* tool can't lose the

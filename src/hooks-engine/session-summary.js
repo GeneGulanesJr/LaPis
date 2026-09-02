@@ -8,9 +8,9 @@
  * extractMessageText from prompt-classifiers (de-duplicated).
  */
 
-const path = require('node:path');
-const { uniqueEditedPaths } = require('../claude-code/file-keys');
-const { extractMessageText } = require('./prompt-classifiers');
+const path = require('node:path'), { uniqueEditedPaths } = require('../claude-code/file-keys'), { extractMessageText } = require('./prompt-classifiers');
+
+
 
 /**
  * Build the markdown session-summary body.
@@ -48,7 +48,8 @@ function buildSessionSummary({
   // The previous `.content?.[0]?.text` chain only worked for the array shape and
   // Fell back to "Session work" for string content — losing the goal for every
   // Claude Code session. extractMessageText handles both shapes.
-  const goalText =
+  {
+const goalText =
       userMessages.length > 0
         ? extractMessageText(userMessages[0]?.message)?.slice(0, 200) || 'Session work'
         : 'Session work',
@@ -68,6 +69,7 @@ function buildSessionSummary({
   );
 
   return summaryParts.join('\n');
+}
 }
 
 module.exports = { buildSessionSummary };

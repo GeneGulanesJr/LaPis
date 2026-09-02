@@ -1,5 +1,4 @@
-const codeAnalysis = require('../../code-analysis');
-const { formatAnalysisForLlm } = require('../../platform/protocol/llm-format'),
+const codeAnalysis = require('../../code-analysis'), { formatAnalysisForLlm } = require('../../platform/protocol/llm-format'),
   USAGE = {
     'import-graph': '--repo X [--file F] [--direction imports|importers|both] [--depth N]',
     'call-hierarchy': '--symbol S --repo X [--direction callers|callees] [--depth N]',
@@ -46,6 +45,7 @@ const { formatAnalysisForLlm } = require('../../platform/protocol/llm-format'),
     'pr-risk',
     'coding-context',
   ]);
+
 
 function _dispatch(cmd, repoName, fn, deps) {
   if (!repoName) {

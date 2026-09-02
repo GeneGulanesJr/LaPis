@@ -1,7 +1,7 @@
 // Call graph extraction, callee resolution, and call hierarchy queries.
 
-const { codeParser, _requireNativeDb, CALL_GRAPH, _SKIP_CALLEE_NAMES } = require('./shared-deps');
-const { extractImportBindings } = require('./import-graph-impl');
+const { codeParser, _requireNativeDb, CALL_GRAPH, _SKIP_CALLEE_NAMES } = require('./shared-deps'), { extractImportBindings } = require('./import-graph-impl');
+
 
 function buildCallGraph(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db),
@@ -12,7 +12,8 @@ function buildCallGraph(db, repoId, opts = {}) {
 
   db.prepare('DELETE FROM code_calls WHERE repo_id = ?').run(repoId);
 
-  const insertStmt = db.prepare(
+  {
+const insertStmt = db.prepare(
       `INSERT OR IGNORE INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
     ),
     // PERF(issue #131): file_path intentionally excluded — never dereferenced from allSymbols.
@@ -81,7 +82,8 @@ function buildCallGraph(db, repoId, opts = {}) {
     }
   }
 
-  const fileRows = db.prepare('SELECT id, path, size_bytes FROM code_files WHERE repo_id = ?').all(repoId),
+  {
+const fileRows = db.prepare('SELECT id, path, size_bytes FROM code_files WHERE repo_id = ?').all(repoId),
     fileById = new Map(),
   contentStmt = (() => {
 
@@ -90,64 +92,22 @@ function buildCallGraph(db, repoId, opts = {}) {
     }
     
   return (db.prepare('SELECT content FROM code_files WHERE id = ?'));
-})(); let totalCalls = 0;
-  const fileImportsCache = {},
-    fileBindingsCache = {};
+})(), fileImportsCache = {},
+    fileBindingsCache = {}; let totalCalls = 0, processedFiles = 0;
+  
 
-  function getFileSymbol(fileId, name, kind) {
-    const byName = symbolsByFileAndName.get(fileId),
-    matches = byName ? (byName.get(name)) : undefined;
-    if (!byName) {
-      return null;
-    }
-    if (!matches) {
-      return null;
-    }
-    if (kind) {
-      return matches.find((s) => s.kind === kind) || null;
-    }
-    return matches[0] || null;
-  }
+  
 
-  function getFileImports(fileId) {
-    if (fileImportsCache[fileId]) {
-      return fileImportsCache[fileId];
-    }
-    const imports = db
-      .prepare(
-        'SELECT target_file_id, target_module FROM code_imports WHERE source_file_id = ? AND target_file_id IS NOT NULL',
-      )
-      .all(fileId);
-    fileImportsCache[fileId] = imports;
-    return imports;
-  }
+  
 
-  function getFileBindings(fileId, fileContent) {
-    if (fileBindingsCache[fileId]) {
-      return fileBindingsCache[fileId];
-    }
-    const bindings = extractImportBindings(fileContent || ''),
-      imports = getFileImports(fileId),
-      importMap = new Map(),
-    resolved = (() => {
-
-      for (const imp of imports) {
-        importMap.set(imp.target_module, imp.target_file_id);
-      }
-      
-  return (bindings.map((b) => ({
-      ...b,
-      target_file_id: importMap.get(b.modulePath) || null,
-    })));
-})();fileBindingsCache[fileId] = resolved;
-    return resolved;
-  }
+  
 
   // PERF(issue #134): Pre-allocated result for resolveCallee — avoids creating a new object
   // Per call in the hot path. resolveCallee writes directly into _rr; callers read from it
   // After the call. Do NOT change resolveCallee to return a new object; the per-call
   // Allocation overhead is significant at hundreds of thousands of invocations.
-  const _rr = { calleeSymbolId: null, confidence: 0 },
+  {
+const _rr = { calleeSymbolId: null, confidence: 0 },
     // ── Scope-aware resolution statement (v10) ────────────────
     scopeResolveStmt = db.prepare(`
     SELECT sr.resolved_symbol_id, sr.confidence, sr.status, fsb.scope_depth
@@ -157,7 +117,8 @@ function buildCallGraph(db, repoId, opts = {}) {
       AND sr.status = 'resolved_internal'
     ORDER BY fsb.scope_depth DESC, sr.confidence DESC
     LIMIT 1
-  `);
+  `), pendingEdges = [],
+    totalFiles = symbolsByFile.size;
 
   // Keep original resolveCallee as heuristic fallback
   function resolveCalleeHeuristic(calleeName, callerSym, receiver, fileContent) {
@@ -219,7 +180,8 @@ function buildCallGraph(db, repoId, opts = {}) {
     }
 
     if (receiver && receiver !== 'this' && receiver !== 'super') {
-      const binding = bindings.find((b) => b.localName === receiver && !b.isReExport);
+      const binding = bindings.find((b) => b.localName === receiver && !b.isReExport), qualifiedName = `${receiver}.${calleeName}`,
+        qualifiedMatches = symbolsByQualified.get(qualifiedName);
       if (binding && binding.target_file_id) {
         if (binding.originalName === '*') {
           const matchSym = getFileSymbol(binding.target_file_id, calleeName, 'function');
@@ -242,8 +204,7 @@ function buildCallGraph(db, repoId, opts = {}) {
         }
       }
 
-      const qualifiedName = `${receiver}.${calleeName}`,
-        qualifiedMatches = symbolsByQualified.get(qualifiedName);
+      
       if (qualifiedMatches && qualifiedMatches.length === 1) {
         _rr.calleeSymbolId = qualifiedMatches[0].id;
         _rr.confidence = 0.85;
@@ -251,7 +212,8 @@ function buildCallGraph(db, repoId, opts = {}) {
       }
     }
 
-    const fileImports = getFileImports(callerSym.file_id);
+    {
+const fileImports = getFileImports(callerSym.file_id);
     for (const imp of fileImports) {
       const matchSym = getFileSymbol(imp.target_file_id, calleeName);
       if (matchSym) {
@@ -277,6 +239,7 @@ function buildCallGraph(db, repoId, opts = {}) {
       }
     }
   }
+}
 
   /**
    * Scope-aware callee resolution (v10):
@@ -318,9 +281,8 @@ function buildCallGraph(db, repoId, opts = {}) {
     return null;
   }
 
-  const pendingEdges = [],
-    totalFiles = symbolsByFile.size;
-  let processedFiles = 0;
+  
+  
 
   function processRegexFallback(sym, fileContent) {
     if (sym.end_byte <= sym.start_byte) {
@@ -354,10 +316,12 @@ function buildCallGraph(db, repoId, opts = {}) {
         seen.add(calleeName);
 
         resolveCallee(calleeName, sym, null, fileContent);
-        const lineNum = sym.start_line + body.substring(0, match.index).split('\n').length - 1;
+        {
+const lineNum = sym.start_line + body.substring(0, match.index).split('\n').length - 1;
         pendingEdges.push([repoId, sym.id, calleeName, _rr.calleeSymbolId, _rr.confidence, lineNum]);
         totalCalls++;
       }
+}
     }
   }
 
@@ -369,14 +333,16 @@ function buildCallGraph(db, repoId, opts = {}) {
       continue;
     }
 
-    const contentRow = contentStmt.get(fileId);
+    {
+const contentRow = contentStmt.get(fileId);
     if (!contentRow || !contentRow.content) {
       processedFiles++;
       // oxlint-disable-next-line no-continue
       continue;
     }
 
-    const fileContent = contentRow.content,
+    {
+const fileContent = contentRow.content,
       filePath = meta.path,
       fileSize = fileContent.length;
 
@@ -440,8 +406,11 @@ function buildCallGraph(db, repoId, opts = {}) {
       onProgress({ filesProcessed: processedFiles, totalFiles, callsFound: totalCalls });
     }
   }
+}
+}
 
-  const runInTx =
+  {
+const runInTx =
     typeof db.transaction === 'function'
       ? (fn) => db.transaction(fn)()
       : (fn) => {
@@ -464,6 +433,56 @@ function buildCallGraph(db, repoId, opts = {}) {
 
   return { success: true, calls: totalCalls };
 }
+function getFileSymbol(fileId, name, kind) {
+    const byName = symbolsByFileAndName.get(fileId),
+    matches = byName ? (byName.get(name)) : undefined;
+    if (!byName) {
+      return null;
+    }
+    if (!matches) {
+      return null;
+    }
+    if (kind) {
+      return matches.find((s) => s.kind === kind) || null;
+    }
+    return matches[0] || null;
+  }
+function getFileImports(fileId) {
+    if (fileImportsCache[fileId]) {
+      return fileImportsCache[fileId];
+    }
+    const imports = db
+      .prepare(
+        'SELECT target_file_id, target_module FROM code_imports WHERE source_file_id = ? AND target_file_id IS NOT NULL',
+      )
+      .all(fileId);
+    fileImportsCache[fileId] = imports;
+    return imports;
+  }
+function getFileBindings(fileId, fileContent) {
+    if (fileBindingsCache[fileId]) {
+      return fileBindingsCache[fileId];
+    }
+    const bindings = extractImportBindings(fileContent || ''),
+      imports = getFileImports(fileId),
+      importMap = new Map(),
+    resolved = (() => {
+
+      for (const imp of imports) {
+        importMap.set(imp.target_module, imp.target_file_id);
+      }
+      
+  return (bindings.map((b) => ({
+      ...b,
+      target_file_id: importMap.get(b.modulePath) || null,
+    })));
+})();fileBindingsCache[fileId] = resolved;
+    return resolved;
+  }
+}
+}
+}
+}
 
 function getCallHierarchy(db, repoId, opts) {
   const guard = _requireNativeDb(db),
@@ -475,7 +494,8 @@ function getCallHierarchy(db, repoId, opts) {
     return { error: 'Missing --symbol' };
   }
 
-  const symRow = db
+  {
+const symRow = db
     .prepare('SELECT id, name, file_path FROM code_symbols WHERE repo_id = ? AND name = ?')
     .all(repoId, symbol),
   symbolId = !(symRow.length === 0) ? (symRow[0].id) : undefined,
@@ -530,6 +550,7 @@ function getCallHierarchy(db, repoId, opts) {
     result.resolved_file = symRow[0].file_path;
   }
   return result;
+}
 }
 
 module.exports = {

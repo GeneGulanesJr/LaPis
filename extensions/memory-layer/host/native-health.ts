@@ -12,12 +12,14 @@ function findLapisRoot(): string {
         return dir;
       }
     } catch {}
-    const parent = path.dirname(dir);
+    {
+const parent = path.dirname(dir);
     if (parent === dir) {
       break;
     }
     dir = parent;
   }
+}
   return path.resolve(__dirname, '..', '..', '..');
 }
 

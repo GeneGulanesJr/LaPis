@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-const fs = require('fs');
-const path = require('path');
-const { copyHtmlGrammar } = require('./scripts/postinstall-helpers'),
+const fs = require('fs'), path = require('path'), { copyHtmlGrammar } = require('./scripts/postinstall-helpers'),
   root = __dirname,
   nm = (...p) => path.join(root, 'node_modules', ...p);
+
+
 
 // Copy the bundled tree-sitter-html.wasm grammar into ./grammars.
 //

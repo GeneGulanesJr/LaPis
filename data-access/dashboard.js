@@ -24,7 +24,7 @@ function getDashboard(deps) {
      WHERE o.deleted_at IS NULL AND rl.memory_id IS NULL`,
     ).cnt;
 
-  let expiringSoon = 0;
+  let expiringSoon = 0, dream = { lastRun: null, totalCleaned: null, runCount: null };
   try {
     expiringSoon = one(
       "SELECT COUNT(*) as cnt FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now', '+7 days') AND deleted_at IS NULL",
@@ -34,7 +34,8 @@ function getDashboard(deps) {
   }
 
   // ── By Type ───────────────────────────────────────────────
-  const byTypeRaw = sqlJson(
+  {
+const byTypeRaw = sqlJson(
       `SELECT type, COUNT(*) as cnt FROM observations
      WHERE deleted_at IS NULL AND type != 'skill'
      GROUP BY type ORDER BY cnt DESC`,
@@ -74,7 +75,7 @@ function getDashboard(deps) {
     };
 
   // ── Dream Cycle ───────────────────────────────────────────
-  let dream = { lastRun: null, totalCleaned: null, runCount: null };
+  
   try {
     const dreamLastRun = sqlJson("SELECT value FROM settings WHERE key = 'dream_last_run'"),
       dreamTotalCleaned = sqlJson("SELECT value FROM settings WHERE key = 'dream_total_cleaned'"),
@@ -89,7 +90,8 @@ function getDashboard(deps) {
   }
 
   // ── Code Index ────────────────────────────────────────────
-  const codeIndexRaw = sqlJson('SELECT name, path, file_count, symbol_count, indexed_at, base_head FROM code_repos'),
+  {
+const codeIndexRaw = sqlJson('SELECT name, path, file_count, symbol_count, indexed_at, base_head FROM code_repos'),
     codeIndex = codeIndexRaw.map((r) => ({
       name: r.name,
       path: r.path,
@@ -116,6 +118,8 @@ function getDashboard(deps) {
     dream,
     codeIndex,
   };
+}
+}
 }
 
 module.exports = { getDashboard };

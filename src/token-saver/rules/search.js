@@ -4,7 +4,7 @@ const MAX_MATCHES_PER_FILE = 10,
 function compressSearchOutput({ stdout, stderr, commandArgs }) {
   const combined = `${stdout}\n${stderr}`.trim(),
   lines = combined ? (combined.split('\n')) : undefined,
-  fileMap = combined ? ({}) : undefined;
+  fileMap = combined ? ({}) : undefined, headerLines = [];
   if (!combined) {
     return {
       summary: 'No matches.',
@@ -13,8 +13,8 @@ function compressSearchOutput({ stdout, stderr, commandArgs }) {
     };
   }
 
-  let totalMatches = 0;
-  const headerLines = [];
+  let totalMatches = 0, output = '';
+  
 
   for (const line of lines) {
     const match = line.match(/^(?<file>.+?):(?<lineNum>\d+):(?<text>.*)$/);
@@ -32,12 +32,10 @@ function compressSearchOutput({ stdout, stderr, commandArgs }) {
     }
   }
 
-  const files = Object.keys(fileMap),
+  {
+const files = Object.keys(fileMap),
     isTruncated = files.length > MAX_FILES,
-    shownFiles = files.slice(0, MAX_FILES);
-
-  let output = '';
-  const searchTerm = commandArgs.join(' '),
+    shownFiles = files.slice(0, MAX_FILES), searchTerm = commandArgs.join(' '),
   omitted = (() => {
 
     if (searchTerm) {
@@ -61,7 +59,11 @@ function compressSearchOutput({ stdout, stderr, commandArgs }) {
   
     
   return (Math.max(0, totalMatches - shownFiles.reduce((sum, f) => sum + fileMap[f].length, 0)));
-})();let summary = `${totalMatches} match(es) across ${files.length} file(s).`;
+})();
+
+  
+  {
+let summary = `${totalMatches} match(es) across ${files.length} file(s).`;
   if (omitted > 0) {
     summary += ` ${omitted} matches truncated.`;
   }
@@ -71,6 +73,8 @@ function compressSearchOutput({ stdout, stderr, commandArgs }) {
     importantOutput: output.trim(),
     omittedLines: omitted,
   };
+}
+}
 }
 
 module.exports = { compressSearchOutput };

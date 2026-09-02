@@ -92,7 +92,8 @@ function buildCochangeEdges(db, repoId, opts = {}) {
     return { success: true, count: 0 };
   }
 
-  const files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
+  {
+const files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
     pathToId = new Map(files.map((f) => [f.path, f.id])),
   pairCount = (() => {
 
@@ -104,6 +105,7 @@ function buildCochangeEdges(db, repoId, opts = {}) {
     
   return (Object.keys(pairs).length);
 })();return { success: true, count: pairCount };
+}
 }
 
 module.exports = {

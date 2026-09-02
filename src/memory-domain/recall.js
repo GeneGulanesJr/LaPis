@@ -1,5 +1,5 @@
-const { RANKING } = require('../../constants');
-const { insertRecallLog: insertRecallLogDA } = require('../../data-access/observations');
+const { RANKING } = require('../../constants'), { insertRecallLog: insertRecallLogDA } = require('../../data-access/observations');
+
 
 function insertRecallLog(deps, entries) {
   if (!entries || entries.length === 0) {

@@ -1,6 +1,6 @@
-const { getConfig } = require('../../config');
-const { CAPTURE_PASSIVE } = require('../../constants');
-const { parseExpiresIn } = require('./ttl');
+const { getConfig } = require('../../config'), { CAPTURE_PASSIVE } = require('../../constants'), { parseExpiresIn } = require('./ttl');
+
+
 
 function save(deps, args) {
   const {
@@ -19,7 +19,7 @@ function save(deps, args) {
     topicKey = args['topic-key'] || null,
     sessionId = args['session-id'] || findLatestSession(project),
     force = args.force === 'true' || args.force === true,
-    expiresIn = args['expires-in'] || args.expiresIn || null;
+    expiresIn = args['expires-in'] || args.expiresIn || null, missing = [];
   let expiresAt = null;
   if (expiresIn !== null && expiresIn !== undefined && expiresIn !== '') {
     expiresAt = parseExpiresIn(expiresIn);
@@ -28,7 +28,7 @@ function save(deps, args) {
     }
   }
 
-  const missing = [];
+  
   if (!title) {
     missing.push('--title');
   }

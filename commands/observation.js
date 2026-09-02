@@ -1,8 +1,8 @@
-const obsService = require('../services/observations');
-const obsDA = require('../data-access/observations');
-const dedupService = require('../services/dedup');
-const sessionsService = require('../services/sessions');
-const { parseExpiresIn } = require('../src/memory-domain/ttl');
+const obsService = require('../services/observations'), obsDA = require('../data-access/observations'), dedupService = require('../services/dedup'), sessionsService = require('../services/sessions'), { parseExpiresIn } = require('../src/memory-domain/ttl');
+
+
+
+
 
 function getMemoryRepository(deps) {
   if (deps.memoryRepository) {
@@ -93,7 +93,8 @@ function update(deps, args) {
     expiresAt = String(args['expires-at']);
   }
 
-  const result = memoryRepository.updateObservation({
+  {
+const result = memoryRepository.updateObservation({
     id,
     title: args.title,
     content: args.content,
@@ -108,6 +109,7 @@ function update(deps, args) {
     return jsonErrNoExit('Nothing to update');
   }
   return result.length > 0 ? result[0] : { error: 'Observation not found' };
+}
 }
 
 function del(deps, args) {

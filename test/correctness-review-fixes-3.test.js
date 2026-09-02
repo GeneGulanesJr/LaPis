@@ -12,9 +12,9 @@
 //      Candidate; a deleted file throws ENOENT and is rejected before it can
 //      Be recorded as deleted, so incremental reindex left orphaned rows.
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const fs = require('fs'), path = require('path'), os = require('os');
+
+
 
 describe('correctness review fixes (round 3) — F23-F26', () => {
   // ── F23: LIKE escape clauses carry ESCAPE '\' ──────────────────────────

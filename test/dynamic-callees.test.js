@@ -54,8 +54,10 @@ console.log(btn);`,
       symbols = parser.parseContent('test.js', code),
       dynImports = symbols.filter((s) => s.kind === 'dynamic_import');
     expect(dynImports.length).toBeGreaterThanOrEqual(2);
-    const paths = dynImports.map((s) => s.name);
+    {
+const paths = dynImports.map((s) => s.name);
     expect(paths).toContain('./module.js');
     expect(paths).toContain('../utils');
-  });
+  }
+});
 });

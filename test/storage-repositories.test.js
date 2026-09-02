@@ -1,7 +1,7 @@
-const { createRepositories } = require('../src/platform/storage/repositories');
-const { createStorageContext } = require('../src/platform/storage');
-const obsCmd = require('../commands/observation');
-const symCmd = require('../commands/symbols');
+const { createRepositories } = require('../src/platform/storage/repositories'), { createStorageContext } = require('../src/platform/storage'), obsCmd = require('../commands/observation'), symCmd = require('../commands/symbols');
+
+
+
 
 describe('platform storage repositories', () => {
   function mockDeps() {

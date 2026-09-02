@@ -38,11 +38,13 @@ function getDocOutline(db, repoId, filePath) {
     if (!file) {
       return { error: `Doc file not found: ${filePath}` };
     }
-    const sections = db
+    {
+const sections = db
       .prepare('SELECT id, title, level, parent_id, role FROM doc_sections WHERE file_id = ? ORDER BY byte_start')
       .all(file.id);
     return buildOutlineTree(sections);
   }
+}
   const files = db
     .prepare(`
     SELECT df.path, COUNT(ds.id) as section_count FROM doc_files df LEFT JOIN doc_sections ds ON ds.file_id = df.id

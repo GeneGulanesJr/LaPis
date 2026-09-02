@@ -4,9 +4,17 @@
  * Uses git CLI (zero native deps). Gracefully degrades if git unavailable.
  */
 
-const { execFileSync } = require('child_process');
-const path = require('path');
-const { requireNativeDb: _requireNativeDb } = require('./utils');
+const { execFileSync } = require('child_process'), path = require('path'), { requireNativeDb: _requireNativeDb } = require('./utils'), CLASSIFICATION_RULES = [
+  { pattern: /^Initial commit|first commit/i, classification: 'creation' },
+  { pattern: /^Add\b|^Implement\b|^Create\b/i, classification: 'feature' },
+  { pattern: /\bfix(?:es)?\b|\bbug\b|\bhotfix\b|\bpatch\b/i, classification: 'bugfix' },
+  { pattern: /\brefactor\b|\bclean\s*up\b|\breorganize\b/i, classification: 'refactor' },
+  { pattern: /\bperf(?:ormance)?\b|\boptimize\b|\bspeed\b/i, classification: 'perf' },
+  { pattern: /\brename\b|\bmove\b|\brelocate\b/i, classification: 'rename' },
+  { pattern: /\brevert\b|\brollback\b/i, classification: 'revert' },
+];
+
+
 
 function isGitAvailable() {
   try {
@@ -102,11 +110,13 @@ function getChurn(db, repoId, target, days, refresh) {
     }
   }
 
-  const since = computeSince(days);
+  {
+const since = computeSince(days);
   if (resolved.filePath) {
     return computeFileChurn(db, resolved.repo, resolved.filePath, days, since);
   }
   return computeRepoChurn(db, resolved.repo, days, since);
+}
 }
 
 function getFirstSeen(repoPath, filePath) {
@@ -247,15 +257,7 @@ function upsertChurn(db, repoId, filePath, windowDays, metrics) {
 // SYMBOL PROVENANCE (v6 — Git archaeology for single symbol)
 // ══════════════════════════════════════════════════════════
 
-const CLASSIFICATION_RULES = [
-  { pattern: /^Initial commit|first commit/i, classification: 'creation' },
-  { pattern: /^Add\b|^Implement\b|^Create\b/i, classification: 'feature' },
-  { pattern: /\bfix(?:es)?\b|\bbug\b|\bhotfix\b|\bpatch\b/i, classification: 'bugfix' },
-  { pattern: /\brefactor\b|\bclean\s*up\b|\breorganize\b/i, classification: 'refactor' },
-  { pattern: /\bperf(?:ormance)?\b|\boptimize\b|\bspeed\b/i, classification: 'perf' },
-  { pattern: /\brename\b|\bmove\b|\brelocate\b/i, classification: 'rename' },
-  { pattern: /\brevert\b|\brollback\b/i, classification: 'revert' },
-];
+
 
 function classifyCommit(message) {
   for (const rule of CLASSIFICATION_RULES) {
@@ -294,7 +296,8 @@ function getProvenance(db, repoId, symbolName) {
     return { error: `Repo ${repoId} not found` };
   }
 
-  let logEntries = [];
+  let logEntries = [], creationDate = null,
+    lastModifiedDate = null, summary = `${symbol.kind} "${symbolName}" in ${symbol.file_path}:${symbol.start_line}-${symbol.end_line}. `;
   try {
     const logOutput = execFileSync(
       'git',
@@ -346,10 +349,9 @@ function getProvenance(db, repoId, symbolName) {
       logEntries.length > 50 && logEntries.some((e) => e.touches_symbol)
         ? logEntries.filter((e) => e.touches_symbol).slice(0, 50)
         : logEntries.slice(0, 50),
-    classifications = {};
-  let creationDate = null,
-    lastModifiedDate = null;
-  const authors = new Set();
+    classifications = {}, authors = new Set();
+  
+  
   for (const c of relevantCommits) {
     classifications[c.classification] = (classifications[c.classification] || 0) + 1;
     if (c.classification === 'creation' && !creationDate) {
@@ -361,7 +363,7 @@ function getProvenance(db, repoId, symbolName) {
     }
   }
 
-  let summary = `${symbol.kind} "${symbolName}" in ${symbol.file_path}:${symbol.start_line}-${symbol.end_line}. `;
+  
   summary += `${relevantCommits.length} commits by ${authors.size} author(s). `;
   if (creationDate) {
     summary += `First seen: ${creationDate.split('T')[0]}. `;
@@ -369,7 +371,8 @@ function getProvenance(db, repoId, symbolName) {
   if (lastModifiedDate) {
     summary += `Last modified: ${lastModifiedDate.split('T')[0]}. `;
   }
-  const clsSummary = Object.entries(classifications)
+  {
+const clsSummary = Object.entries(classifications)
     .sort((a, b) => b[1] - a[1])
     .map(([cls, count]) => `${cls}(${count})`)
     .join(', ');
@@ -388,6 +391,7 @@ function getProvenance(db, repoId, symbolName) {
     classification_summary: classifications,
     summary,
   };
+}
 }
 
 module.exports = { getChurn, isGitAvailable, getProvenance, classifyCommit };

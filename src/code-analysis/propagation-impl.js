@@ -23,7 +23,7 @@ const { _requireNativeDb } = require('./shared-deps'),
  */
 function getAffectedGraph(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db),
-  { symbol, file, minReachability = DEFAULT_MIN_REACHABILITY, maxDepth = DEFAULT_MAX_DEPTH } = !(guard) ? (opts) : undefined;
+  { symbol, file, minReachability = DEFAULT_MIN_REACHABILITY, maxDepth = DEFAULT_MAX_DEPTH } = !(guard) ? (opts) : undefined, seedSymbolIds = [];
   if (guard) {
     return guard;
   }
@@ -36,7 +36,7 @@ function getAffectedGraph(db, repoId, opts = {}) {
   let seedFileId = null,
     seedFilePath = file || null,
     seedSymbolName = symbol || null;
-  const seedSymbolIds = [];
+  
 
   if (symbol) {
     const symRows = db
@@ -63,7 +63,8 @@ function getAffectedGraph(db, repoId, opts = {}) {
     }
   }
 
-  const visited = new Map(), // Key → { reachability, depth, signals }
+  {
+const visited = new Map(), // Key → { reachability, depth, signals }
     queue = [],
     affectedFiles = new Map(), // FileId → { path, reachability, signals, depth }
     affectedSymbols = new Map(),
@@ -267,7 +268,8 @@ function getAffectedGraph(db, repoId, opts = {}) {
     }
   }
 
-  const sortedFiles = [...affectedFiles.values()].sort((a, b) => b.reachability - a.reachability),
+  {
+const sortedFiles = [...affectedFiles.values()].sort((a, b) => b.reachability - a.reachability),
     sortedSymbols = [...affectedSymbols.values()].sort((a, b) => b.reachability - a.reachability);
 
   return {
@@ -276,6 +278,8 @@ function getAffectedGraph(db, repoId, opts = {}) {
     affected_files: sortedFiles,
     affected_symbols: sortedSymbols,
   };
+}
+}
 }
 
 function updateFileEntry(map, fileId, filePath, score, signal, depth) {

@@ -80,10 +80,10 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
         'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
         ...(promptQuery ? { query: promptQuery } : {}),
         ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
-      });
+      }), projectContext = contextResult;
 
     let crossProjectResult: MemResult | null = null;
-    const projectContext = contextResult;
+    
     if (!projectContext) {
       crossProjectResult = await deps.mem('context', {
         'all-projects': 'true',
@@ -138,7 +138,8 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
   
       
   return (crossProjectResult !== null && !projectContext);
-})();let effectiveObservations: any[] = [];
+})();{
+let effectiveObservations: any[] = [];
     if (promptQuery) {
       effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : observations;
     }
@@ -146,7 +147,8 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
 
     deps.state.hasInjectedContext = true;
 
-    const topic = effectiveContext.topic as string | null,
+    {
+const topic = effectiveContext.topic as string | null,
       projectDir = cwdRepo?.path || ctx.cwd,
       lines = buildContextBlock({
         promptQuery,
@@ -219,7 +221,9 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
         display: false,
       },
     };
-  });
+  }
+}
+});
 }
 
 export function registerContextReminder(pi: ExtensionAPI, deps: ContextDeps) {

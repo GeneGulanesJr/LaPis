@@ -1,6 +1,6 @@
-const path = require('path');
-const fs = require('fs');
-const codeParser = require('../parse-code');
+const path = require('path'), fs = require('fs'), codeParser = require('../parse-code');
+
+
 
 function writeTmp(filePath, content) {
   fs.writeFileSync(filePath, content);
@@ -113,7 +113,8 @@ impl Foo {
         
   return (syms.find((s) => s.name === 'Foo' && s.kind === 'class'));
 })();expect(foo).toBeDefined();
-      const bar = syms.find((s) => s.name === 'bar'),
+      {
+const bar = syms.find((s) => s.name === 'bar'),
       baz = (() => {
 
         expect(bar).toBeDefined();
@@ -121,7 +122,8 @@ impl Foo {
         
   return (syms.find((s) => s.name === 'baz'));
 })();expect(baz).toBeDefined();
-    });
+    }
+});
 
     it('extracts Rust mod items', () => {
       const f = path.join('/tmp', 'v2-rust-mod.rs'),
@@ -263,7 +265,8 @@ class Animal:
   return (syms.find((s) => s.name === 'greet'));
 })();expect(greet).toBeDefined();
       expect(greet.docstring).toContain('Say hello');
-      const animal = syms.find((s) => s.name === 'Animal'),
+      {
+const animal = syms.find((s) => s.name === 'Animal'),
       speak = (() => {
 
         expect(animal).toBeDefined();
@@ -272,7 +275,8 @@ class Animal:
   return (syms.find((s) => s.name === 'speak'));
 })();expect(speak).toBeDefined();
       expect(speak.docstring).toContain('Make a sound');
-    });
+    }
+});
 
     it('extracts Go doc comments', () => {
       const f = path.join('/tmp', 'v2-go-doc.go'),
@@ -334,14 +338,16 @@ UserId = int
   return (syms.find((s) => s.name === 'CONFIG'));
 })();expect(config).toBeDefined();
       expect(config.kind).toBe('constant');
-      const retries = syms.find((s) => s.name === 'MAX_RETRIES'),
+      {
+const retries = syms.find((s) => s.name === 'MAX_RETRIES'),
       uid = (() => {
 
         expect(retries).toBeDefined();
         
   return (syms.find((s) => s.name === 'UserId'));
 })();expect(uid).toBeDefined();
-    });
+    }
+});
   });
 
   describe('enrichment: Go var/const and imports', () => {

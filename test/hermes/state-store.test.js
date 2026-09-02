@@ -1,8 +1,8 @@
 // Test/hermes/state-store.test.js
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { loadState, saveState, statePath } = require('../../src/hermes/state-store');
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), { loadState, saveState, statePath } = require('../../src/hermes/state-store');
+
+
+
 
 describe('hermes state-store', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hermes-state-'));

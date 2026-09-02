@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const { pathIsInside, SECRET_FILE_RE } = require('./scanner');
+const fs = require('fs'), path = require('path'), { pathIsInside, SECRET_FILE_RE } = require('./scanner');
+
+
 
 /**
  * Resolve a changed-path entry to an absolute path inside repoRoot.
@@ -23,7 +23,8 @@ function resolveRepoScopedPath(repoPath, filePath, rejections) {
     return null;
   }
   const abs = path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(absRoot, filePath);
-  let resolved = abs;
+  {
+let resolved = abs;
   try {
     resolved = fs.realpathSync(abs);
   } catch {
@@ -45,6 +46,7 @@ function resolveRepoScopedPath(repoPath, filePath, rejections) {
     return null;
   }
   return resolved;
+}
 }
 
 /**

@@ -8,8 +8,8 @@
  * from context-builder (shared helper).
  */
 
-const { CONTEXT } = require('../../constants');
-const { extractFilePaths } = require('./context-builder');
+const { CONTEXT } = require('../../constants'), { extractFilePaths } = require('./context-builder');
+
 
 function iconForRisk(risk) {
   if (risk === 'high') {
@@ -75,12 +75,14 @@ function extractExplicitSymbol(prompt) {
     return codeSymbol[1];
   }
 
-  const callSymbol = prompt.match(/\b([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\s*\(/);
+  {
+const callSymbol = prompt.match(/\b([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\s*\(/);
   if (callSymbol) {
     return callSymbol[1];
   }
 
   return null;
+}
 }
 
 function chooseCodingContextTarget(prompt, preflightResult) {

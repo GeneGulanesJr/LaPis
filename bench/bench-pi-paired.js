@@ -10,111 +10,28 @@
 
 'use strict';
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { spawn } = require('child_process'),
+const fs = require('fs'), os = require('os'), path = require('path'), { spawn } = require('child_process'),
   DEFAULT_TASKS = path.join(__dirname, 'fixtures', 'pi-memory-tasks.json'),
   PI_CONFIG_FILES = ['models.json', 'settings.json', 'auth.json'],
   MEMORY_OFF_EMPTY_SETTINGS = new Set(['packages']),
   CACHE_READ_TOKEN_WEIGHT = 0.1;
 
-function parseArgs(argv) {
-  const args = {
-    tasks: DEFAULT_TASKS,
-    outDir: path.join('bench', 'results', `pi-paired-${new Date().toISOString().replace(/[:.]/g, '-')}`),
-    only: null,
-    timeoutMs: 10 * 60 * 1000,
-  };
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg === '--tasks') {
-      args.tasks = argv[++i];
-    } else if (arg === '--out-dir') {
-      args.outDir = argv[++i];
-    } else if (arg === '--only') {
-      args.only = argv[++i];
-    } else if (arg === '--timeout-ms') {
-      args.timeoutMs = parseInt(argv[++i], 10);
-    } else if (arg === '--help' || arg === '-h') {
-      printHelp();
-      process.exit(0);
-    }
-  }
-  return args;
-}
 
-function printHelp() {
-  console.log(`Usage:
-  node bench/bench-pi-paired.js
 
-By default, this runs:
-  1. memory off: Pi with a temporary HOME that copies only config/auth files
-  2. memory on:  Pi from your normal HOME
 
-Command templates may use:
-  {prompt}   shell-quoted benchmark prompt
-  {task_id}  task id
-  {repo}     repo name from the fixture
-  {out}      shell-quoted output file path
 
-Options:
-  --only TASK_ID       Run one task
-  --timeout-ms N       Per-side timeout, default 600000
 
-Override example:
-  BENCH_PI_MEMORY_OFF_CMD='pi --print --mode json --no-session {prompt} > {out} 2>&1' \\
-  BENCH_PI_MEMORY_ON_CMD='pi --print --mode json --no-session {prompt} > {out} 2>&1' \\
-  node bench/bench-pi-paired.js`);
-}
 
-function shellQuote(value) {
-  return `'${String(value).replace(/'/g, `'\\''`)}'`;
-}
 
-function renderCommand(template, task, repo, outFile) {
-  return template
-    .replaceAll('{prompt}', shellQuote(task.prompt))
-    .replaceAll('{task_id}', task.id)
-    .replaceAll('{repo}', repo)
-    .replaceAll('{out}', shellQuote(outFile));
-}
 
-function defaultPiCommand(homeDir = null) {
-  const homePrefix = homeDir ? `HOME=${shellQuote(homeDir)} ` : '';
-  return `${homePrefix}pi --print --mode json --no-session {prompt} > {out} 2>&1`;
-}
 
-function prepareNoMemoryHome(outDir) {
-  const sourceAgentDir = path.join(os.homedir(), '.pi', 'agent'),
-    homeDir = path.join(outDir, '.pi-memory-off-home'),
-    targetAgentDir = path.join(homeDir, '.pi', 'agent');
-  fs.mkdirSync(targetAgentDir, { recursive: true });
 
-  for (const file of PI_CONFIG_FILES) {
-    const source = path.join(sourceAgentDir, file);
-    if (fs.existsSync(source)) {
-      const target = path.join(targetAgentDir, file);
-      if (file === 'settings.json') {
-        fs.writeFileSync(target, `${JSON.stringify(sanitizeMemoryOffSettings(source), null, 2)}\n`);
-      } else {
-        fs.copyFileSync(source, target);
-      }
-    }
-  }
 
-  return homeDir;
-}
 
-function sanitizeMemoryOffSettings(settingsPath) {
-  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-  for (const key of MEMORY_OFF_EMPTY_SETTINGS) {
-    if (Array.isArray(settings[key])) {
-      settings[key] = [];
-    }
-  }
-  return settings;
-}
+
+
+
+
 
 let progressActive = false;
 
@@ -239,12 +156,7 @@ function parsePiOutput(raw) {
     };
   let parsedEvents = 0;
 
-  function countTool(name) {
-    if (name) {
-      toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
-      toolNames.push(name);
-    }
-  }
+  
 
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
@@ -273,7 +185,8 @@ function parsePiOutput(raw) {
       } else if ((type.includes('text') || type.includes('message')) && typeof event.text === 'string') {
         assistantText = event.text;
       }
-      const hasAssistantAnswerText = message.role === 'assistant' && assistantText.trim().length > 0,
+      {
+const hasAssistantAnswerText = message.role === 'assistant' && assistantText.trim().length > 0,
         eventUsage = message.usage || event.usage;
       if (eventUsage) {
         const normalizedUsage = {
@@ -356,6 +269,7 @@ function parsePiOutput(raw) {
         behavior.error_events++;
       }
     }
+}
   }
 
   usage.active_tokens = usage.input_tokens + usage.output_tokens;
@@ -406,6 +320,12 @@ function parsePiOutput(raw) {
     result.parse_warning = 'No valid Pi events found in output';
   }
   return result;
+function countTool(name) {
+    if (name) {
+      toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
+      toolNames.push(name);
+    }
+  }
 }
 
 function gradeAnswer(answer, expectedFacts) {
@@ -433,7 +353,8 @@ async function runSide(side, commandTemplate, task, repo, outDir, cwd, timeoutMs
   const outFile = path.join(outDir, `${task.id}.${side}.jsonl`),
     command = renderCommand(commandTemplate, task, repo, outFile);
   benchLog(`[bench] ${task.id}: starting ${side}`);
-  const run = await runCommand(command, cwd, timeoutMs, outFile);
+  {
+const run = await runCommand(command, cwd, timeoutMs, outFile);
   benchLog(`[bench] ${task.id}: finished ${side} in ${run.elapsed_ms}ms`);
   if (run.status !== 0 && run.status != null) {
     if (!run.error) {
@@ -450,7 +371,8 @@ async function runSide(side, commandTemplate, task, repo, outDir, cwd, timeoutMs
     raw = `${run.stdout}\n${run.stderr}`;
   }
 
-  const parsed = parsePiOutput(raw),
+  {
+const parsed = parsePiOutput(raw),
     grade = gradeAnswer(parsed.answer, task.expected_facts || []);
 
   return {
@@ -466,6 +388,8 @@ async function runSide(side, commandTemplate, task, repo, outDir, cwd, timeoutMs
     behavior: parsed.behavior,
     grade,
   };
+}
+}
 }
 
 function printTableHeader(taskColumnWidth) {
@@ -553,7 +477,8 @@ async function main() {
     
   return (path.resolve(args.outDir));
 })();fs.mkdirSync(outDir, { recursive: true });
-  const noMemoryHome = prepareNoMemoryHome(outDir),
+  {
+const noMemoryHome = prepareNoMemoryHome(outDir),
     offCommand = process.env.BENCH_PI_MEMORY_OFF_CMD || defaultPiCommand(noMemoryHome),
     onCommand = process.env.BENCH_PI_MEMORY_ON_CMD || defaultPiCommand();
 
@@ -562,7 +487,8 @@ async function main() {
     benchLog('[bench] using default Pi commands; set BENCH_PI_MEMORY_OFF_CMD / BENCH_PI_MEMORY_ON_CMD to override');
   }
   benchLog('');
-  const results = [],
+  {
+const results = [],
     taskColumnWidth = Math.max(24, ...tasks.map((task) => task.id.length));
   printTableHeader(taskColumnWidth);
   for (const task of tasks) {
@@ -570,7 +496,8 @@ async function main() {
     fs.mkdirSync(taskOutDir, { recursive: true });
     // Sequential runs keep memory-off and memory-on from sharing live Pi state.
     // eslint-disable-next-line no-await-in-loop
-    const off = await runSide('memory-off', offCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs),
+    {
+const off = await runSide('memory-off', offCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs),
       // eslint-disable-next-line no-await-in-loop
       on = await runSide('memory-on', onCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs);
     results.push({
@@ -583,8 +510,10 @@ async function main() {
     });
     printRow(task.id, off, on, taskColumnWidth);
   }
+}
 
-  const allFailed = results.every(
+  {
+const allFailed = results.every(
     (r) =>
       r.memory_off.status !== 0 &&
       r.memory_off.status != null &&
@@ -598,7 +527,8 @@ async function main() {
     process.exit(1);
   }
 
-  const summary = buildSummary(results),
+  {
+const summary = buildSummary(results),
     report = {
       generated_at: new Date().toISOString(),
       host: os.hostname(),
@@ -645,6 +575,10 @@ async function main() {
     );
   }
   benchLog(`  Report:            ${reportPath}`);
+}
+}
+}
+}
 }
 
 function buildSummary(results) {
@@ -856,3 +790,93 @@ module.exports = {
   gradeAnswer,
   parsePiOutput,
 };
+function parseArgs(argv) {
+  const args = {
+    tasks: DEFAULT_TASKS,
+    outDir: path.join('bench', 'results', `pi-paired-${new Date().toISOString().replace(/[:.]/g, '-')}`),
+    only: null,
+    timeoutMs: 10 * 60 * 1000,
+  };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--tasks') {
+      args.tasks = argv[++i];
+    } else if (arg === '--out-dir') {
+      args.outDir = argv[++i];
+    } else if (arg === '--only') {
+      args.only = argv[++i];
+    } else if (arg === '--timeout-ms') {
+      args.timeoutMs = parseInt(argv[++i], 10);
+    } else if (arg === '--help' || arg === '-h') {
+      printHelp();
+      process.exit(0);
+    }
+  }
+  return args;
+}
+function printHelp() {
+  console.log(`Usage:
+  node bench/bench-pi-paired.js
+
+By default, this runs:
+  1. memory off: Pi with a temporary HOME that copies only config/auth files
+  2. memory on:  Pi from your normal HOME
+
+Command templates may use:
+  {prompt}   shell-quoted benchmark prompt
+  {task_id}  task id
+  {repo}     repo name from the fixture
+  {out}      shell-quoted output file path
+
+Options:
+  --only TASK_ID       Run one task
+  --timeout-ms N       Per-side timeout, default 600000
+
+Override example:
+  BENCH_PI_MEMORY_OFF_CMD='pi --print --mode json --no-session {prompt} > {out} 2>&1' \\
+  BENCH_PI_MEMORY_ON_CMD='pi --print --mode json --no-session {prompt} > {out} 2>&1' \\
+  node bench/bench-pi-paired.js`);
+}
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+function renderCommand(template, task, repo, outFile) {
+  return template
+    .replaceAll('{prompt}', shellQuote(task.prompt))
+    .replaceAll('{task_id}', task.id)
+    .replaceAll('{repo}', repo)
+    .replaceAll('{out}', shellQuote(outFile));
+}
+function defaultPiCommand(homeDir = null) {
+  const homePrefix = homeDir ? `HOME=${shellQuote(homeDir)} ` : '';
+  return `${homePrefix}pi --print --mode json --no-session {prompt} > {out} 2>&1`;
+}
+function prepareNoMemoryHome(outDir) {
+  const sourceAgentDir = path.join(os.homedir(), '.pi', 'agent'),
+    homeDir = path.join(outDir, '.pi-memory-off-home'),
+    targetAgentDir = path.join(homeDir, '.pi', 'agent');
+  fs.mkdirSync(targetAgentDir, { recursive: true });
+
+  for (const file of PI_CONFIG_FILES) {
+    const source = path.join(sourceAgentDir, file);
+    if (fs.existsSync(source)) {
+      const target = path.join(targetAgentDir, file);
+      if (file === 'settings.json') {
+        fs.writeFileSync(target, `${JSON.stringify(sanitizeMemoryOffSettings(source), null, 2)}\n`);
+      } else {
+        fs.copyFileSync(source, target);
+      }
+    }
+  }
+
+  return homeDir;
+}
+function sanitizeMemoryOffSettings(settingsPath) {
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+  for (const key of MEMORY_OFF_EMPTY_SETTINGS) {
+    if (Array.isArray(settings[key])) {
+      settings[key] = [];
+    }
+  }
+  return settings;
+}

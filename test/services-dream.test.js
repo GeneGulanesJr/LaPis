@@ -1,5 +1,5 @@
-const { runCompact, compact, dream, trustRecovery } = require('../services/dream');
-const dbModule = require('../db');
+const { runCompact, compact, dream, trustRecovery } = require('../services/dream'), dbModule = require('../db');
+
 
 describe('services/dream: runCompact', () => {
   beforeAll(() => {

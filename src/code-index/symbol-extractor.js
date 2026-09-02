@@ -1,6 +1,6 @@
-const crypto = require('crypto');
-const path = require('path');
-const { createParserRegistry } = require('./parser-registry');
+const crypto = require('crypto'), path = require('path'), { createParserRegistry } = require('./parser-registry');
+
+
 
 function safeJson(value, fallback = []) {
   try {

@@ -1,8 +1,8 @@
-const path = require('path');
-const fs = require('fs');
-const codeParser = require('../parse-code');
-const { extractImportBindings } = require('../src/code-analysis'),
+const path = require('path'), fs = require('fs'), codeParser = require('../parse-code'), { extractImportBindings } = require('../src/code-analysis'),
   TMP_DIR = path.join('/tmp', 'accuracy-tests');
+
+
+
 
 function writeTmp(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -55,7 +55,8 @@ function foo() {
       expect(thisCall.receiver).toBe('this');
       expect(thisCall.full_path).toBe('this.selfMethod');
 
-      const superCall = callees.find((c) => c.callee === 'parentMethod'),
+      {
+const superCall = callees.find((c) => c.callee === 'parentMethod'),
       plainCall = (() => {
 
         expect(superCall).toBeDefined();
@@ -67,7 +68,8 @@ function foo() {
 })();expect(plainCall).toBeDefined();
       expect(plainCall.receiver).toBeNull();
       expect(plainCall.is_method).toBe(false);
-    } finally {
+    }
+} finally {
       cleanupTmp([tmpFile]);
     }
   });
@@ -222,8 +224,7 @@ describe('accuracy: extractImportBindings', () => {
 });
 
 describe('accuracy: end-to-end cross-file resolution', () => {
-  const Database = require('better-sqlite3');
-  const codeAnalysis = require('../src/code-analysis'),
+  const Database = require('better-sqlite3'), codeAnalysis = require('../src/code-analysis'),
     TEST_DB_PATH = path.join(TMP_DIR, 'accuracy-test.db'),
     TEST_REPO_DIR = path.join(TMP_DIR, 'test-repo'),
     files = {
@@ -267,6 +268,7 @@ class Child extends Base {
 }
 `,
     };
+  
 
   let db, repoId;
 
@@ -283,11 +285,13 @@ class Child extends Base {
     const schemaSql = fs.readFileSync(path.resolve(__dirname, '..', 'schema.sql'), 'utf-8');
     db.exec(schemaSql);
 
-    const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)'),
+    {
+const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)'),
       info = insertRepo.run('AccuracyTestRepo', TEST_REPO_DIR);
     repoId = info.lastInsertRowid;
 
-    const insertFile = db.prepare(
+    {
+const insertFile = db.prepare(
         'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
       ),
       insertSymbol = db.prepare(
@@ -323,7 +327,9 @@ class Child extends Base {
 
     codeAnalysis.buildImportGraph(db, repoId);
     codeAnalysis.buildCallGraph(db, repoId);
-  });
+  }
+}
+});
 
   afterAll(() => {
     if (db) {

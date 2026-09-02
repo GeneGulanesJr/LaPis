@@ -8,11 +8,11 @@
  * native module, and the bundled skill. Exits 0 only when all checks pass.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
+const fs = require('node:fs'), path = require('node:path'), { readText, topBlockRange } = require('./config-editor'), { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
 
-const { readText, topBlockRange } = require('./config-editor');
-const { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
+
+
+
 
 function checkConfigFile(paths) {
   if (!fs.existsSync(paths.config)) {
@@ -47,12 +47,14 @@ function checkMcpConfig(paths, mcpName) {
       detail: 'entry looks incomplete (expected memory-store.js + enabled: true)',
     };
   }
-  const envOk = /LAPIS_HOME\s*:/.test(block);
+  {
+const envOk = /LAPIS_HOME\s*:/.test(block);
   return {
     ok: true,
     name: `MCP server "${mcpName}"`,
     detail: `configured${envOk ? ' with LAPIS_HOME pinned' : ' (no LAPIS_HOME env — DB may split across homes)'}`,
   };
+}
 }
 
 function checkHooksConfig(paths) {
@@ -105,13 +107,15 @@ function checkDatabase(io) {
   try {
     const db = require('../../db');
     db.ensureDb();
-    const conn = db.getDb(),
+    {
+const conn = db.getDb(),
       row = conn.prepare('SELECT COUNT(*) AS n FROM sqlite_master').get();
     if (!row || typeof row.n !== 'number') {
       return { ok: false, name: 'SQLite database', detail: 'schema query failed' };
     }
     return { ok: true, name: 'SQLite database', detail: `reachable at ${db.DB_PATH}` };
-  } catch (e) {
+  }
+} catch (e) {
     return { ok: false, name: 'SQLite database', detail: e instanceof Error ? e.message : String(e) };
   }
 }

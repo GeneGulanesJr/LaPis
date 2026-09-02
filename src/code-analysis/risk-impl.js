@@ -1,6 +1,7 @@
 const { execFileSync } = require('child_process');
 // PR risk profiling and untested symbol detection.
 
+{
 const {
   path,
   _requireNativeDb,
@@ -8,9 +9,9 @@ const {
   UNDETECTED_CONFIDENCE,
   COMPLEXITY /* oxlint-disable-line no-unused-vars */,
   HOTSPOT_THRESHOLDS /* oxlint-disable-line no-unused-vars */,
-} = require('./shared-deps');
-const { getBlastRadius } = require('./import-graph-impl'),
+} = require('./shared-deps'), { getBlastRadius } = require('./import-graph-impl'),
   GIT_REF_RE = /^[A-Za-z0-9._^~/-]+$/;
+
 
 function isValidGitRef(ref) {
   return typeof ref === 'string' && ref.length > 0 && GIT_REF_RE.test(ref);
@@ -34,7 +35,8 @@ function getUntestedSymbols(db, repoId, opts = {}) {
   if (guard) {
     return guard;
   }
-  const { minConfidence = 0.5, includePrivate = false } = opts,
+  {
+const { minConfidence = 0.5, includePrivate = false } = opts,
     // 1. Identify test files
     allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
     testFileIds = new Set(),
@@ -67,7 +69,8 @@ function getUntestedSymbols(db, repoId, opts = {}) {
   }
 
   // 3. Trace call graph from test functions → production symbols (batch)
-  const testedSymbols = new Set(),
+  {
+const testedSymbols = new Set(),
     indirectlyTested = new Set();
 
   if (testFileIds.size > 0) {
@@ -111,7 +114,8 @@ function getUntestedSymbols(db, repoId, opts = {}) {
   }
 
   // 4. Get all production symbols
-  const allSymbols = db
+  {
+const allSymbols = db
       .prepare('SELECT id, name, kind, file_path, start_line, file_id FROM code_symbols WHERE repo_id = ?')
       .all(repoId),
     // Exclusions
@@ -174,13 +178,17 @@ function getUntestedSymbols(db, repoId, opts = {}) {
     indirectly_tested: indirectlyTested.size,
   };
 }
+}
+}
+}
 
 function getPrRiskProfile(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db);
   if (guard) {
     return guard;
   }
-  const { branch = 'HEAD', base = 'main' } = opts,
+  {
+const { branch = 'HEAD', base = 'main' } = opts,
     // Get changed files between base and branch
     repo = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId);
   if (!repo) {
@@ -200,8 +208,9 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   }
 
   // Get changed symbols
-  const changedSymbolIds = new Set(),
-    changedSymbols = [];
+  {
+const changedSymbolIds = new Set(),
+    changedSymbols = [], weights = PR_RISK.WEIGHTS;
   for (const filePath of changedFiles) {
     const syms = db
       .prepare('SELECT id, name, kind, file_path FROM code_symbols WHERE repo_id = ? AND file_path = ?')
@@ -281,7 +290,8 @@ function getPrRiskProfile(db, repoId, opts = {}) {
   } catch {}
 
   // Signal 3: Churn (20%)
-  let churnScore = 0,
+  {
+let churnScore = 0,
   testCoverageScore = (() => {
 
     try {
@@ -313,7 +323,9 @@ try {
     // Signal 5: Change volume (10%)
     
   return (0);
-})();try {
+})(), wBlastRadius = weights.blast_radius,
+    wComplexity = weights.complexity,
+    wChurn = weights.churn, riskLevel = 'critical';try {
     const diffStat = gitDiffOutput(repo.path, base, branch, true),
       // Parse the last line which has the total: "X files changed, Y insertions(+), Z deletions(-)"
       totalMatch = diffStat.match(/(\d+) insertions?.*?(\d+) deletions?/);
@@ -324,13 +336,12 @@ try {
   } catch {}
 
   // Composite score with weights
-  const weights = PR_RISK.WEIGHTS;
+  
 
   // If test coverage unavailable, redistribute weight
-  let wBlastRadius = weights.blast_radius,
-    wComplexity = weights.complexity,
-    wChurn = weights.churn;
-  const wTestCoverage = testCoverageScore > 0 ? weights.test_coverage : 0,
+  
+  {
+const wTestCoverage = testCoverageScore > 0 ? weights.test_coverage : 0,
     wChangeVolume = weights.change_volume,
   composite = (() => {
 
@@ -348,7 +359,7 @@ try {
     churnScore * wChurn +
     testCoverageScore * wTestCoverage +
     changeVolumeScore * wChangeVolume);
-})(); let riskLevel = 'critical';
+})(); 
   if (composite <= PR_RISK.RISK_LEVELS.LOW) {
     riskLevel = 'low';
   } else if (composite <= PR_RISK.RISK_LEVELS.MEDIUM) {
@@ -371,5 +382,10 @@ try {
     changed_symbols: changedSymbolIds.size,
   };
 }
+}
+}
+}
+}
 
 module.exports = { getUntestedSymbols, getPrRiskProfile };
+}

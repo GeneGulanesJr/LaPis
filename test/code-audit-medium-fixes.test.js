@@ -2,9 +2,9 @@
 // Each sub-describe covers one verified bug fix.
 // Run via: npm test -- code-audit-medium-fixes
 
-const { resolveScopeBindingsForFiles } = require('../src/code-index/scope-resolver');
-const { winnow } = require('../src/code-analysis/import-graph-impl');
-const { extractHtmlSections } = require('../src/doc-index/html-parser');
+const { resolveScopeBindingsForFiles } = require('../src/code-index/scope-resolver'), { winnow } = require('../src/code-analysis/import-graph-impl'), { extractHtmlSections } = require('../src/doc-index/html-parser');
+
+
 
 // ── #7: resolveScopeBindingsForFiles must return { resolved, ... } (not undefined) ──
 

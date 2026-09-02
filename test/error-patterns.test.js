@@ -1,12 +1,12 @@
 // Test coverage for standardized error patterns (Issue #34)
 // And test isolation / atomic migrations (Issues #35, #36)
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
+const path = require('path'), os = require('os'), fs = require('fs'), dbModule = require('../db'),
+  { MemoryError } = dbModule, { resetConfigCache } = require('../config');
 
-const dbModule = require('../db'),
-  { MemoryError } = dbModule;
-const { resetConfigCache } = require('../config');
+
+
+
+
 
 describe('Error patterns and DB isolation', () => {
   beforeAll(() => {

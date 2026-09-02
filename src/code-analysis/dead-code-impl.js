@@ -29,7 +29,8 @@ function getDeadCode(db, repoId, opts) {
   }
 
   // 2. Shebang files
-  const shebangFiles = db
+  {
+const shebangFiles = db
     .prepare("SELECT id FROM code_files WHERE repo_id = ? AND content LIKE '#!/usr/bin/env%'")
     .all(repoId),
   exportDefaultFiles = (() => {
@@ -48,7 +49,8 @@ function getDeadCode(db, repoId, opts) {
   }
 
   // 4. package.json bin/main/exports fields
-  const packageJsonFiles = db
+  {
+const packageJsonFiles = db
     .prepare("SELECT id, path, content FROM code_files WHERE repo_id = ? AND path LIKE '%/package.json'")
     .all(repoId),
   barrelFiles = (() => {
@@ -90,7 +92,8 @@ function getDeadCode(db, repoId, opts) {
   }
 
   // ── BFS from entry points through import graph ──
-  const reachable = new Set(entryFiles),
+  {
+const reachable = new Set(entryFiles),
     queue = [...entryFiles];
   while (queue.length > 0) {
     const current = queue.shift(),
@@ -107,7 +110,8 @@ function getDeadCode(db, repoId, opts) {
     }
   }
 
-  const allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
+  {
+const allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
     deadFiles = allFiles.filter((f) => !reachable.has(f.id)),
     deadFileSet = new Set(deadFiles.map((f) => f.id)),
     // ── Symbols with zero callers ──
@@ -152,10 +156,10 @@ function getDeadCode(db, repoId, opts) {
   for (const sym of uncalledSymbols) {
     const isFileDead = deadFileSet.has(sym.file_id),
       isReExported = reExportedFileIds.has(sym.file_id),
-      isNameReExported = reExportedNames.has(sym.name);
+      isNameReExported = reExportedNames.has(sym.name), signals = [];
 
     let confidence = 0;
-    const signals = [];
+    
     if (!isReExported && !isNameReExported) {
       confidence += DEAD_CODE.NO_CALLERS_WEIGHT;
       signals.push('no_callers');
@@ -190,6 +194,10 @@ function getDeadCode(db, repoId, opts) {
     dead_symbols: results,
     total_symbols: allFiles.length,
   };
+}
+}
+}
+}
 }
 
 module.exports = { getDeadCode };

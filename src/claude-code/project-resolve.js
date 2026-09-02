@@ -8,8 +8,8 @@
  * chain (path prefix → knownProjects up-tree → basename).
  */
 
-const path = require('node:path');
-const { resolveCwd, resolveProjectKey } = require('../hooks-engine/project');
+const path = require('node:path'), { resolveCwd, resolveProjectKey } = require('../hooks-engine/project');
+
 
 function loadReposAndProjects(getKnownRepos, getKnownProjects) {
   return {

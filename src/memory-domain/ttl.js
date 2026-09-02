@@ -15,7 +15,8 @@ function parseExpiresIn(duration) {
   if (!Number.isFinite(n) || n <= 0) {
     return null;
   }
-  const now = new Date();
+  {
+const now = new Date();
   if (unit === 'h') {
     now.setUTCHours(now.getUTCHours() + n);
   } else if (unit === 'd') {
@@ -32,6 +33,7 @@ function parseExpiresIn(duration) {
     return null;
   }
   return formatSqliteDatetime(now);
+}
 }
 
 function formatSqliteDatetime(d) {

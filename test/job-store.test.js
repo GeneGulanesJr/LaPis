@@ -1,9 +1,9 @@
-const { createDb, sqlJson, sqlRun } = require('../db');
-const jobStore = require('../src/code-index/job-store'),
+const { createDb, sqlJson, sqlRun } = require('../db'), jobStore = require('../src/code-index/job-store'),
   // After createDb() returns, the global sqlJson/sqlRun functions in db.js
   // operate on the in-memory database. job-store accepts a { sqlJson, sqlRun }
   // shape so we can pass them through directly.
   deps = { sqlJson, sqlRun };
+
 
 let initialized = false;
 beforeAll(() => {

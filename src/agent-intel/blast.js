@@ -19,7 +19,8 @@ function blastRadius(db, repoId, symbolName, options = {}) {
   }
 
   // Direct callers
-  const directCallers = db
+  {
+const directCallers = db
       .prepare(`
     SELECT DISTINCT cs.id, cs.name, cs.qualified_name, cs.kind, cs.file_path
     FROM code_calls cc
@@ -38,7 +39,7 @@ function blastRadius(db, repoId, symbolName, options = {}) {
     WHERE cc1.repo_id = ? AND cc1.callee_symbol_id = ?
       AND cs2.id != ?
   `)
-      .all(repoId, symbolRow.id, symbolRow.id);
+      .all(repoId, symbolRow.id, symbolRow.id), totalCallers = directCallers.length + transitiveCallers.length;
 
   // Tests that likely call this symbol.
   // Previous implementation matched test files whose path string contained the
@@ -101,7 +102,8 @@ try {
     // Runtime hotness (if available)
     
   return (null);
-})();if (includeRuntime) {
+})(), risk = 'low',
+    riskScore = 0;if (includeRuntime) {
     try {
       // Try to match by symbol_id first, then by function_name and file_path
       let runtimeData = db
@@ -136,9 +138,8 @@ try {
   }
 
   // Compute risk based on blast + runtime
-  const totalCallers = directCallers.length + transitiveCallers.length;
-  let risk = 'low',
-    riskScore = 0;
+  
+  
 
   if (totalCallers >= 20) {
     risk = 'critical';
@@ -157,7 +158,8 @@ try {
     riskScore = Math.min(100, riskScore + 20);
   }
 
-  const reason =
+  {
+const reason =
     runtime && runtime.traffic === 'hot'
       ? `Hot runtime path with ${totalCallers} total callers.`
       : `${totalCallers} total callers (${directCallers.length} direct, ${transitiveCallers.length} transitive).`;
@@ -178,6 +180,8 @@ try {
     risk_score: riskScore,
     reason,
   };
+}
+}
 }
 
 module.exports = { blastRadius };

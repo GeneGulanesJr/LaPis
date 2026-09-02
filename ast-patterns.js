@@ -83,10 +83,10 @@ const PRESET_DETECTORS = [
         return null;
       }
       // Count loop keywords at different indentation levels as rough nesting proxy
-      const lines = symbol.body_preview.split('\n');
+      const lines = symbol.body_preview.split('\n'), loopRe = /\b(for|while|do)\b/;
       let maxNesting = 0,
         currentNesting = 0;
-      const loopRe = /\b(for|while|do)\b/;
+      
       for (const line of lines) {
         const trimmed = line.trim();
         if (loopRe.test(trimmed)) {

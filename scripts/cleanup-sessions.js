@@ -64,7 +64,7 @@ function cleanupSessions(deps, opts = {}) {
   const { keepLast = 10, project = null, yes = false, includeDream = false, bypassAgeGates = false } = opts,
     report = { ok: true, phases: {} },
     // Phase 0: Triage (always runs)
-    triage = triageReport(deps);
+    triage = triageReport(deps), projects = project ? triage.projects.filter((p) => p.name === project) : triage.projects;
   report.triage = triage;
 
   if (!yes) {
@@ -73,12 +73,13 @@ function cleanupSessions(deps, opts = {}) {
   }
 
   // Phase 1: Prune sessions
-  const projects = project ? triage.projects.filter((p) => p.name === project) : triage.projects;
+  
 
   let sessionsCompacted = 0,
     promptsCleaned = 0;
 
-  const txFn = deps.withTransaction || ((fn) => fn());
+  {
+const txFn = deps.withTransaction || ((fn) => fn());
 
   txFn(() => {
     for (const proj of projects) {
@@ -101,7 +102,8 @@ function cleanupSessions(deps, opts = {}) {
       }
 
       // Hard assertion: never go below floor
-      const remaining = deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [proj.name]);
+      {
+const remaining = deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [proj.name]);
       if (remaining[0].cnt - toDelete.length < SESSION_FLOOR) {
         continue; // Safety: skip if floor would be breached
       }
@@ -115,6 +117,7 @@ function cleanupSessions(deps, opts = {}) {
         sessionsCompacted++;
       }
     }
+}
   });
 
   report.phases.sessionPrune = { sessionsCompacted, promptsCleaned };
@@ -140,15 +143,17 @@ function cleanupSessions(deps, opts = {}) {
 
   return report;
 }
+}
 
 // CLI entry point
 if (require.main === module) {
-  const { ensureDb, sqlJson, sqlRun, sqlRaw, parseArgs, withTransaction } = require('../db');
-  const obsDA = require('../data-access/observations');
+  const { ensureDb, sqlJson, sqlRun, sqlRaw, parseArgs, withTransaction } = require('../db'), obsDA = require('../data-access/observations');
+  
 
   ensureDb();
 
-  const args = parseArgs(process.argv),
+  {
+const args = parseArgs(process.argv),
     softDeleteObservation = (id) => obsDA.softDeleteObservation({ sqlJson, sqlRun, sqlRaw }, id),
     deps = { sqlJson, sqlRun, sqlRaw, withTransaction, softDeleteObservation },
     opts = {
@@ -170,6 +175,7 @@ if (require.main === module) {
     
   return (cleanupSessions(deps, opts));
 })();console.log(JSON.stringify(result, null, 2));
+}
 }
 
 module.exports = { triageReport, cleanupSessions };

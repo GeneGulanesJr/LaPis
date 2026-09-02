@@ -1,12 +1,12 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+const fs = require('fs'), os = require('os'), path = require('path'), dbModule = require('../db'), { getRecalledMemoryIds } = require('../data-access/symbols'), { trustRecovery } = require('../services/dream'), { getPrRiskProfile } = require('../src/code-analysis/risk-impl'), { createHttpServer } = require('../src/http/server');
 
-const dbModule = require('../db');
-const { getRecalledMemoryIds } = require('../data-access/symbols');
-const { trustRecovery } = require('../services/dream');
-const { getPrRiskProfile } = require('../src/code-analysis/risk-impl');
-const { createHttpServer } = require('../src/http/server');
+
+
+
+
+
+
+
 
 describe('review fixes', () => {
   describe('migration V23', () => {
@@ -32,7 +32,8 @@ describe('review fixes', () => {
       dbModule.resetDb();
       dbModule.createDb({ db_path: tmpDb });
 
-      const reopened = dbModule.getDb(),
+      {
+const reopened = dbModule.getDb(),
         version = reopened.prepare('PRAGMA user_version').get().user_version,
         table = reopened.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='repo_index_locks'").get(),
         sourceModuleCol = reopened
@@ -47,7 +48,8 @@ describe('review fixes', () => {
       expect(sourceModuleCol).toBe(true);
       expect(hasTotalFilesChanged).toBe(true);
       expect(hasTopFilesJson).toBe(true);
-    });
+    }
+});
   });
 
   describe('trust recovery from recall_log', () => {
@@ -144,12 +146,14 @@ expect(recalled.some((r) => String(r.memory_id) === String(ignoredMemoryId))).to
         repoId = existing[0].id;
         return;
       }
-      const inserted = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
+      {
+const inserted = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
         'review-fixes-pr-risk',
         process.cwd(),
       ]);
       repoId = inserted[0].id;
-    });
+    }
+});
 
     it('rejects shell metacharacters in branch/base without executing', () => {
       const db = dbModule.getDb(),
@@ -179,16 +183,20 @@ expect(recalled.some((r) => String(r.memory_id) === String(ignoredMemoryId))).to
         },
       });
       await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-      const { port } = server.address();
+      {
+const { port } = server.address();
       baseUrl = `http://127.0.0.1:${port}`;
 
-      const oversized = 'x'.repeat(1024 * 1024 + 1),
+      {
+const oversized = 'x'.repeat(1024 * 1024 + 1),
         res = await fetch(`${baseUrl}/missions`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ data: oversized }),
         });
       expect(res.status).toBe(413);
-    });
+    }
+}
+});
   });
 });

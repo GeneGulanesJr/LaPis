@@ -1,5 +1,5 @@
-const { createDb, resetDb, sqlJson, sqlRun } = require('../db');
-const { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
+const { createDb, resetDb, sqlJson, sqlRun } = require('../db'), { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
+
 
 describe('Aurex HTTP Server', () => {
   beforeAll(() => {
@@ -382,7 +382,7 @@ describe('Aurex HTTP Server', () => {
   });
 
   describe('HTTP server E2E — Aurex endpoints', () => {
-    let server, baseUrl, req;
+    let server, baseUrl, req, missionId, milestoneId, unitId, contractId, todoId;
 
     beforeAll(async () => {
       const { createHttpServer } = require('../src/http/server'),
@@ -422,7 +422,7 @@ describe('Aurex HTTP Server', () => {
 
     afterAll(() => new Promise((resolve) => server.close(resolve)));
 
-    let missionId, milestoneId, unitId, contractId, todoId;
+    
 
     it('creates a mission', async () => {
       const res = await req('POST', '/missions', { description: 'E2E mission', config: { modelHints: {} } });
@@ -441,9 +441,11 @@ describe('Aurex HTTP Server', () => {
     it('updates mission status', async () => {
       const res = await req('PATCH', `/missions/${missionId}/status`, { status: 'running' });
       expect(res.status).toBe(200);
-      const updated = await req('GET', `/missions/${missionId}`);
+      {
+const updated = await req('GET', `/missions/${missionId}`);
       expect(updated.body.status).toBe('running');
-    });
+    }
+});
 
     it('creates a todo ledger for a mission', async () => {
       const res = await req('POST', '/todo-ledgers', {
@@ -477,10 +479,12 @@ describe('Aurex HTTP Server', () => {
       expect(res.body.status).toBe('ready');
       todoId = res.body.id;
 
-      const list = await req('GET', `/missions/${missionId}/todos`);
+      {
+const list = await req('GET', `/missions/${missionId}/todos`);
       expect(list.status).toBe(200);
       expect(list.body.some((todo) => todo.id === todoId)).toBe(true);
-    });
+    }
+});
 
     it('rejects unsafe todo status transitions over HTTP', async () => {
       const res = await req('PATCH', `/todos/${todoId}/status`, { status: 'passed' });
@@ -497,25 +501,31 @@ describe('Aurex HTTP Server', () => {
       expect(evidence.status).toBe(200);
       expect(evidence.body.evidence.changedFiles).toContain('src/http/handlers/todos.js');
 
-      const note = await req('POST', `/todos/${todoId}/notes`, { note: 'Evidence captured' });
+      {
+const note = await req('POST', `/todos/${todoId}/notes`, { note: 'Evidence captured' });
       expect(note.status).toBe(200);
       expect(note.body.evidence.notes).toContain('Evidence captured');
 
-      const implemented = await req('PATCH', `/todos/${todoId}/status`, { status: 'implemented' });
+      {
+const implemented = await req('PATCH', `/todos/${todoId}/status`, { status: 'implemented' });
       expect(implemented.status).toBe(200);
       expect(implemented.body.status).toBe('implemented');
-    });
+    }
+}
+});
 
     it('returns todo context query and focused context', async () => {
       const query = await req('GET', `/todos/${todoId}/context-query`);
       expect(query.status).toBe(200);
       expect(query.body.lapisContextQuery).toBe('todo ledger HTTP handler tests');
 
-      const context = await req('GET', `/todos/${todoId}/context`);
+      {
+const context = await req('GET', `/todos/${todoId}/context`);
       expect(context.status).toBe(200);
       expect(context.body.query).toBe('todo ledger HTTP handler tests');
       expect(Array.isArray(context.body.context)).toBe(true);
-    });
+    }
+});
 
     it('records todo audit events', async () => {
       const events = await req('GET', `/todos/${todoId}/events`);

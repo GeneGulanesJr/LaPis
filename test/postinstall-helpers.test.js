@@ -3,12 +3,12 @@
 // The repo runs vitest with `globals: true` (see vitest.config.mjs), so
 // Describe/it/expect are available without importing — matching every other
 // Test file under test/. Do not `require('vitest')`; that throws under CJS.
-const { copyGrammar, copyHtmlGrammar, MIN_GRAMMAR_BYTES } = require('../scripts/postinstall-helpers');
-const fs = require('fs');
-const os = require('os');
-const path = require('path'),
+const { copyGrammar, copyHtmlGrammar, MIN_GRAMMAR_BYTES } = require('../scripts/postinstall-helpers'), fs = require('fs'), os = require('os'), path = require('path'),
   // Payload well above MIN_GRAMMAR_BYTES so size guards fire only on purpose.
   VALID_WASM = Buffer.alloc(MIN_GRAMMAR_BYTES + 4096, 0x00);
+
+
+
 
 function makeFixture({ srcBytes = VALID_WASM, destBytes = null } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-postinstall-')),

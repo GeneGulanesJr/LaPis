@@ -1,8 +1,8 @@
-const http = require('http');
-const { matchRoute } = require('./routes');
-const { jsonError } = require('./errors');
-const { resolveHttpApiKey, requireHttpAuth, assertServeHostPolicy } = require('./auth'),
+const http = require('http'), { matchRoute } = require('./routes'), { jsonError } = require('./errors'), { resolveHttpApiKey, requireHttpAuth, assertServeHostPolicy } = require('./auth'),
   MAX_BODY_BYTES = 1024 * 1024;
+
+
+
 
 function createHttpServer(deps) {
   const routes = buildRoutes(deps),
@@ -12,7 +12,7 @@ function createHttpServer(deps) {
         return;
       }
 
-      let parsed, match;
+      let parsed, match, body = null;
       try {
         parsed = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
         match = matchRoute(req.method, parsed.pathname, routes);
@@ -24,7 +24,7 @@ function createHttpServer(deps) {
         return jsonError(res, 404, 'not_found', `No route for ${req.method} ${parsed.pathname}`);
       }
 
-      let body = null;
+      
       if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {
         body = await parseBody(req, res);
         if (body === undefined) {
@@ -85,27 +85,27 @@ function parseBody(req, res) {
 
 function buildRoutes(deps) {
   const { repositories } = deps,
-    aurex = repositories.aurex;
+    aurex = repositories.aurex, health = require('./handlers/health'), missions = require('./handlers/missions'), milestones = require('./handlers/milestones'), units = require('./handlers/units'), handoffs = require('./handlers/handoffs'), contracts = require('./handlers/contracts'), verdicts = require('./handlers/verdicts'), broadcasts = require('./handlers/broadcasts'), findings = require('./handlers/findings'), sessions = require('./handlers/sessions'), memory = require('./handlers/memory'), costs = require('./handlers/costs'), compression = require('./handlers/compression'), retry = require('./handlers/retry'), checkpoints = require('./handlers/checkpoints'), settings = require('./handlers/settings'), codeIndex = require('./handlers/code-index'), todos = require('./handlers/todos'), dispatch = require('./handlers/dispatch');
 
-  const health = require('./handlers/health');
-  const missions = require('./handlers/missions');
-  const milestones = require('./handlers/milestones');
-  const units = require('./handlers/units');
-  const handoffs = require('./handlers/handoffs');
-  const contracts = require('./handlers/contracts');
-  const verdicts = require('./handlers/verdicts');
-  const broadcasts = require('./handlers/broadcasts');
-  const findings = require('./handlers/findings');
-  const sessions = require('./handlers/sessions');
-  const memory = require('./handlers/memory');
-  const costs = require('./handlers/costs');
-  const compression = require('./handlers/compression');
-  const retry = require('./handlers/retry');
-  const checkpoints = require('./handlers/checkpoints');
-  const settings = require('./handlers/settings');
-  const codeIndex = require('./handlers/code-index');
-  const todos = require('./handlers/todos');
-  const dispatch = require('./handlers/dispatch');
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
   return [
     // Health
@@ -239,7 +239,7 @@ async function startHttpServer(opts) {
   
     
   return (db);
-})();const { createAurexRepository } = require('../platform/storage/repositories/aurex'),
+})(), { createAurexRepository } = require('../platform/storage/repositories/aurex'),
     aurex = createAurexRepository({ sqlJson, sqlRun }),
     server = createHttpServer({
       repositories: { aurex },

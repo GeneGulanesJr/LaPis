@@ -13,10 +13,10 @@
  * buildInjectedContext is the capped convenience wrapper for session-start.
  */
 
-const path = require('node:path');
-const { CONTEXT } = require('../../constants');
-const { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder');
-const { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
+const path = require('node:path'), { CONTEXT } = require('../../constants'), { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder'), { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
+
+
+
 
 /**
  * Fetch project context, falling back to cross-project if empty.
@@ -77,7 +77,8 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
   if (query) {
     effectiveObservations = isNewProject ? crossProjectResult.observations || [] : observations;
   }
-  const effectiveStats = isNewProject ? crossProjectResult.stats || {} : stats,
+  {
+const effectiveStats = isNewProject ? crossProjectResult.stats || {} : stats,
     lines = buildContextBlock({
       promptQuery: query,
       currentProject: project,
@@ -103,6 +104,7 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
 
   appendExtensionHint(lines, resolvedCwd);
   return { lines, cwdRepo };
+}
 }
 
 /** Capped convenience wrapper returning the final markdown string (or null). */

@@ -34,7 +34,8 @@ function register(commands, deps) {
     });
   };
 
-  const enrichment = require('../../agent-intel/symbol-enrichment');
+  {
+const enrichment = require('../../agent-intel/symbol-enrichment');
   commands['enrich-symbols'] = (args) => {
     const db = deps.getDb ? deps.getDb() : deps.db,
       repoName = args.repo;
@@ -56,7 +57,8 @@ function register(commands, deps) {
     return enrichment.getSymbolMeta(db, parseInt(symbolId));
   };
 
-  const auditDiffModule = require('../../agent-intel/audit-diff');
+  {
+const auditDiffModule = require('../../agent-intel/audit-diff');
   commands['audit-diff'] = (args) => {
     const db = deps.getDb ? deps.getDb() : deps.db,
       repoName = args.repo;
@@ -78,7 +80,8 @@ function register(commands, deps) {
   };
 
   // Runtime ingest commands
-  const runtimeIngest = require('../../agent-intel/runtime-ingest');
+  {
+const runtimeIngest = require('../../agent-intel/runtime-ingest');
   commands['runtime-ingest'] = (args) => {
     const db = deps.getDb ? deps.getDb() : deps.db,
       repoName = args.repo;
@@ -125,7 +128,8 @@ function register(commands, deps) {
   };
 
   // Blast radius command
-  const blastModule = require('../../agent-intel/blast');
+  {
+const blastModule = require('../../agent-intel/blast');
   commands.blast = (args) => {
     const db = deps.getDb ? deps.getDb() : deps.db,
       repoName = args.repo;
@@ -144,7 +148,8 @@ function register(commands, deps) {
   };
 
   // Stale flags detection
-  const staleFlags = require('../../agent-intel/stale-flags');
+  {
+const staleFlags = require('../../agent-intel/stale-flags');
   commands['stale-flags'] = (args) => {
     const db = deps.getDb ? deps.getDb() : deps.db,
       repoName = args.repo;
@@ -159,6 +164,11 @@ function register(commands, deps) {
     staleFlags.persistStaleFlags(db, findings);
     return { stale_flags: findings };
   };
+}
+}
+}
+}
+}
 }
 
 module.exports = { register, USAGE };

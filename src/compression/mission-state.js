@@ -1,5 +1,5 @@
-const { compressGeneric } = require('../token-saver/rules/generic');
-const { estimateTokens } = require('../token-saver/estimate-tokens');
+const { compressGeneric } = require('../token-saver/rules/generic'), { estimateTokens } = require('../token-saver/estimate-tokens');
+
 
 /**
  * Aggregate a mission's recent state into a single text blob, then run
@@ -63,7 +63,8 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
 
   // 3. Failed validation verdicts (what went wrong)
   // Schema note: validation_verdicts uses `timestamp`, not `created_at`.
-  const verdicts = sqlJson(
+  {
+const verdicts = sqlJson(
     `SELECT vv.verdict, vv.findings, vv.failed_unit_ids
      FROM validation_verdicts vv
      JOIN validation_contracts vc ON vc.id = vv.contract_id
@@ -109,7 +110,8 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
     };
   }
 
-  const combined = sections.join('\n\n'),
+  {
+const combined = sections.join('\n\n'),
     originalTokens = estimateTokens(combined),
     compressed = compressGeneric({
       stdout: combined,
@@ -123,6 +125,8 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
     summary: compressed.summary,
     tokensSaved,
   };
+}
+}
 }
 
 module.exports = { compressMissionState };

@@ -1,13 +1,13 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { getLanguageForFile, canParseFile } = require('../src/code-index/parser-registry');
-const { normalizeSymbol, extractSymbolsFromFile } = require('../src/code-index/symbol-extractor');
-const { sourceSliceFromRow } = require('../src/code-index/source-retrieval');
-const { parsePhase, reindexRepository } = require('../src/code-index/incremental-indexer');
-const { scanRepository } = require('../src/code-index/scanner');
-const { createCodeIndexRepository } = require('../src/code-index/repos');
-const { hashContent } = require('../utils');
+const fs = require('fs'), os = require('os'), path = require('path'), { getLanguageForFile, canParseFile } = require('../src/code-index/parser-registry'), { normalizeSymbol, extractSymbolsFromFile } = require('../src/code-index/symbol-extractor'), { sourceSliceFromRow } = require('../src/code-index/source-retrieval'), { parsePhase, reindexRepository } = require('../src/code-index/incremental-indexer'), { scanRepository } = require('../src/code-index/scanner'), { createCodeIndexRepository } = require('../src/code-index/repos'), { hashContent } = require('../utils');
+
+
+
+
+
+
+
+
+
 
 describe('code-index parser registry', () => {
   it('maps supported file extensions to parser languages', () => {
@@ -29,10 +29,10 @@ describe('code-index parser registry', () => {
 describe('code-index parse progress', () => {
   it('reports what parsing sub-step is currently running', async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-parse-progress-')),
-      filePath = path.join(tmp, 'app.js');
-    fs.writeFileSync(filePath, 'function app() { return 1; }');
-    const progress = [],
+      filePath = path.join(tmp, 'app.js'), progress = [],
       originalWrite = process.stderr.write;
+    fs.writeFileSync(filePath, 'function app() { return 1; }');
+    
     process.stderr.write = (chunk, encoding, cb) => {
       progress.push(JSON.parse(String(chunk)));
       if (typeof cb === 'function') {

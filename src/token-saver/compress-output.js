@@ -1,11 +1,4 @@
-const { compressGitDiff } = require('./rules/git-diff');
-const { compressTestOutput } = require('./rules/test-output');
-const { compressInstallOutput } = require('./rules/install-output');
-const { compressFileRead } = require('./rules/file-read');
-const { compressListOutput } = require('./rules/list-output');
-const { compressSearchOutput } = require('./rules/search');
-const { compressLogs } = require('./rules/logs');
-const { compressGeneric } = require('./rules/generic'),
+const { compressGitDiff } = require('./rules/git-diff'), { compressTestOutput } = require('./rules/test-output'), { compressInstallOutput } = require('./rules/install-output'), { compressFileRead } = require('./rules/file-read'), { compressListOutput } = require('./rules/list-output'), { compressSearchOutput } = require('./rules/search'), { compressLogs } = require('./rules/logs'), { compressGeneric } = require('./rules/generic'),
   COMPRESSORS = {
     'git-diff': compressGitDiff,
     'git-status': compressGeneric,
@@ -16,6 +9,13 @@ const { compressGeneric } = require('./rules/generic'),
     search: compressSearchOutput,
     logs: compressLogs,
   };
+
+
+
+
+
+
+
 
 function compressOutput({ commandType, commandArgs, stdout, stderr, exitCode }) {
   const compressor = COMPRESSORS[commandType] || compressGeneric;

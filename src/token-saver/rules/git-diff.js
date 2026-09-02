@@ -11,7 +11,7 @@ const LOCKFILE_PATTERNS = [
 function compressGitDiff({ stdout, stderr }) {
   const combined = `${stdout}\n${stderr}`.trim(),
   lines = combined ? (combined.split('\n')) : undefined,
-  files = combined ? ([]) : undefined;
+  files = combined ? ([]) : undefined, lockfileDiffs = [];
   if (!combined) {
     return {
       summary: 'No changes.',
@@ -20,9 +20,7 @@ function compressGitDiff({ stdout, stderr }) {
     };
   }
 
-  let currentFile = null;
-  const lockfileDiffs = [];
-  let contextLines = 0,
+  let currentFile = null, contextLines = 0,
     inLockfile = false,
   output = (() => {
 
@@ -75,7 +73,9 @@ function compressGitDiff({ stdout, stderr }) {
   
     
   return ('Git diff summary:\n');
-})();for (const file of files) {
+})(), summary = `${files.length} file(s) changed.`;
+  
+  for (const file of files) {
     const isLockfile = lockfileDiffs.includes(file);
     if (isLockfile) {
       output += `- ${file.path}: lockfile diff hidden (${file.lockfileLines} lines)\n`;
@@ -84,7 +84,8 @@ function compressGitDiff({ stdout, stderr }) {
     }
   }
 
-  const nonLockfiles = files.filter((f) => !lockfileDiffs.includes(f));
+  {
+const nonLockfiles = files.filter((f) => !lockfileDiffs.includes(f));
   if (nonLockfiles.length > 0) {
     output += '\nImportant hunks:\n';
     for (const file of nonLockfiles.slice(0, 20)) {
@@ -95,9 +96,10 @@ function compressGitDiff({ stdout, stderr }) {
     }
   }
 
-  const lockfileLines = lockfileDiffs.reduce((sum, f) => sum + f.lockfileLines, 0),
+  {
+const lockfileLines = lockfileDiffs.reduce((sum, f) => sum + f.lockfileLines, 0),
     omitted = contextLines + lockfileLines;
-  let summary = `${files.length} file(s) changed.`;
+  
   if (lockfileDiffs.length > 0) {
     summary += ` ${lockfileDiffs.length} lockfile diff(s) hidden.`;
   }
@@ -108,6 +110,8 @@ function compressGitDiff({ stdout, stderr }) {
     importantOutput: output.trim(),
     omittedLines: omitted,
   };
+}
+}
 }
 
 module.exports = { compressGitDiff };

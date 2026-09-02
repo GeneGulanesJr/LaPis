@@ -3,10 +3,10 @@
 // Indexing is I/O/SQLite-bound, not CPU-bound, so pooling adds complexity for
 // No real throughput gain.
 
-const path = require('path');
-const { Worker } = require('worker_threads');
-const { EventEmitter } = require('events'),
+const path = require('path'), { Worker } = require('worker_threads'), { EventEmitter } = require('events'),
   WORKER_SCRIPT = path.resolve(__dirname, 'index-worker.js');
+
+
 
 function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
   const workers = new Map(), // jobId -> { worker, status }

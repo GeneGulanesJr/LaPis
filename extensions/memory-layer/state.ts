@@ -1,7 +1,26 @@
 import path from 'node:path';
 
 const PKG_ROOT = path.resolve(__dirname, '..', '..'),
-  MEMORY_SCRIPT = path.join(PKG_ROOT, 'memory-store.js');
+  MEMORY_SCRIPT = path.join(PKG_ROOT, 'memory-store.js'), TIMEOUT_DEFAULTS: Record<string, number> = {
+  _default: 15000,
+  'dead-code': 60000,
+  cycles: 60000,
+  'signal-chains': 45000,
+  hotspots: 45000,
+  importance: 45000,
+  coupling: 30000,
+  'blast-radius': 30000,
+  preflight: 30000,
+  'agent-pack': 30000,
+  churn: 30000,
+  extractable: 30000,
+  'import-graph': 30000,
+  'call-hierarchy': 30000,
+  'index-repo': 120000,
+  'reindex-repo': 120000,
+  'index-docs': 120000,
+  'reindex-docs': 120000,
+};
 
 export { PKG_ROOT, MEMORY_SCRIPT };
 
@@ -25,26 +44,7 @@ export interface DocRepoInfo {
   section_count: number;
 }
 
-const TIMEOUT_DEFAULTS: Record<string, number> = {
-  _default: 15000,
-  'dead-code': 60000,
-  cycles: 60000,
-  'signal-chains': 45000,
-  hotspots: 45000,
-  importance: 45000,
-  coupling: 30000,
-  'blast-radius': 30000,
-  preflight: 30000,
-  'agent-pack': 30000,
-  churn: 30000,
-  extractable: 30000,
-  'import-graph': 30000,
-  'call-hierarchy': 30000,
-  'index-repo': 120000,
-  'reindex-repo': 120000,
-  'index-docs': 120000,
-  'reindex-docs': 120000,
-};
+
 
 export function getTimeout(cmd: string): number {
   return TIMEOUT_DEFAULTS[cmd] ?? TIMEOUT_DEFAULTS._default;
@@ -60,6 +60,7 @@ export function trustIcon(score: number): string {
   return '';
 }
 
+{
 const CODE_EXTENSIONS = new Set([
   '.js',
   '.ts',
@@ -133,3 +134,4 @@ export const state = {
     totalSavedTokens: 0 as number,
   },
 };
+}

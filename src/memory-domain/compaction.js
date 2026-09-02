@@ -1,6 +1,6 @@
-const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../constants');
-const { createTrustSyncRepository } = require('../platform/storage/repositories/trust-sync');
-const trustSync = require('../trust-sync');
+const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../constants'), { createTrustSyncRepository } = require('../platform/storage/repositories/trust-sync'), trustSync = require('../trust-sync');
+
+
 
 // Cheap, lock-light cleanup: all the DELETEs + trust decay. No VACUUM, no FTS optimize.
 // Safe to run on every session-end without blocking exit.
@@ -118,8 +118,9 @@ function compact(deps) {
 function dream(deps, args = {}) {
   const startedAt = new Date().toISOString(),
     report = { startedAt, phases: {} };
-  let totalCleaned = 0;
-  const cleanedIds = [],
+  let totalCleaned = 0, noiseCleaned = 0, consolidated = 0, summariesConsolidated = 0, sessionsCompacted = 0;
+  {
+const cleanedIds = [],
     // Pre-phase: hard-delete expired observations before any dream phases
     // so expired rows don't get soft-deleted or consolidated unnecessarily
     expiredCount = deps.sqlJson(
@@ -156,7 +157,8 @@ function dream(deps, args = {}) {
   totalCleaned += superseded.length;
 
   // Phase 2: Stale auto-progress memories
-  const staleAutoTypes = ['progress', 'accomplished'],
+  {
+const staleAutoTypes = ['progress', 'accomplished'],
   autoDetectedTypes = (() => {
 
     for (const type of staleAutoTypes) {
@@ -218,7 +220,8 @@ function dream(deps, args = {}) {
   }
 
   // Phase 4: Correction entry cleanup
-  const corrections = deps.sqlJson(`
+  {
+const corrections = deps.sqlJson(`
     SELECT id, title, content, project
     FROM observations
     WHERE (title LIKE 'CORRECTION:%' OR title LIKE 'Correction:%')
@@ -285,7 +288,8 @@ function dream(deps, args = {}) {
   totalCleaned += obsoleteConfigs.length;
 
   // Phase 6: Low-value titled decisions (noise cleanup)
-  const noiseTitlePatterns = [
+  {
+const noiseTitlePatterns = [
       /^Architecture choice:\s*(Done!|OK|Now I|Here's what|All \d+ |The complex|The symlink|Good concern|You're right|Approved)/i,
       /^Constraint identified:\s*(Here's my review|Two issues|All errors)/i,
     ],
@@ -295,7 +299,7 @@ function dream(deps, args = {}) {
     WHERE type = 'decision' AND deleted_at IS NULL
     ORDER BY created_at DESC
   `);
-  let noiseCleaned = 0;
+  
   for (const row of allDecisions) {
     if (noiseTitlePatterns.some((p) => p.test(row.title))) {
       deps.softDeleteObservation(row.id);
@@ -311,7 +315,8 @@ function dream(deps, args = {}) {
   totalCleaned += noiseCleaned;
 
   // Phase 7: Consolidate related memories on the same topic
-  const topicGroups = deps.sqlJson(`
+  {
+const topicGroups = deps.sqlJson(`
     SELECT topic_key, project, COUNT(*) as cnt, MIN(id) as keep_id,
            GROUP_CONCAT(id) as ids, GROUP_CONCAT(title, '\n') as titles
     FROM observations
@@ -321,7 +326,7 @@ function dream(deps, args = {}) {
     GROUP BY topic_key, project
     HAVING COUNT(*) >= 3
   `);
-  let consolidated = 0;
+  
   for (const group of topicGroups) {
     const ids = group.ids.split(',').map(Number),
       keepId = Math.min(...ids),
@@ -357,14 +362,15 @@ function dream(deps, args = {}) {
   totalCleaned += consolidated;
 
   // Phase 8: Maintain single session_summary per project
-  const summariesPerProject = deps.sqlJson(`
+  {
+const summariesPerProject = deps.sqlJson(`
     SELECT id, project, content, created_at,
            ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) as rn,
            COUNT(*) OVER (PARTITION BY project) as total
     FROM observations
     WHERE type = 'session_summary' AND deleted_at IS NULL
   `);
-  let summariesConsolidated = 0;
+  
   for (const row of summariesPerProject) {
     if (row.total > 1 && row.rn > 1) {
       deps.softDeleteObservation(row.id);
@@ -380,7 +386,8 @@ function dream(deps, args = {}) {
   totalCleaned += summariesConsolidated;
 
   // Phase 9: Session compaction — clean old empty sessions
-  const sessionStats = deps.sqlJson(`
+  {
+const sessionStats = deps.sqlJson(`
     SELECT project,
            COUNT(*) as total_sessions,
            SUM(CASE WHEN memories_saved = 0 THEN 1 ELSE 0 END) as empty_sessions,
@@ -388,14 +395,15 @@ function dream(deps, args = {}) {
     FROM session_log
     GROUP BY project
   `);
-  let sessionsCompacted = 0;
+  
   for (const stat of sessionStats) {
     const total = stat.total_sessions;
     if (total <= 5) {
       continue;
     } // Hard floor
 
-    const oldEmptySessions = deps.sqlJson(
+    {
+const oldEmptySessions = deps.sqlJson(
       `SELECT id FROM session_log
        WHERE project = ? AND memories_saved = 0
        AND ended_at IS NOT NULL
@@ -410,6 +418,7 @@ function dream(deps, args = {}) {
       sessionsCompacted++;
     }
   }
+}
   report.phases.sessionCompaction = {
     projects: sessionStats.length,
     sessionsCompacted,
@@ -417,7 +426,8 @@ function dream(deps, args = {}) {
   totalCleaned += sessionsCompacted;
 
   // Run cheap compact only — dream may run mid-session; skip VACUUM/FTS optimize.
-  const compactResult = runCompactCheap(deps);
+  {
+const compactResult = runCompactCheap(deps);
   report.phases.compact = compactResult;
 
   report.completedAt = new Date().toISOString();
@@ -453,6 +463,14 @@ function dream(deps, args = {}) {
   }
 
   return report;
+}
+}
+}
+}
+}
+}
+}
+}
 }
 
 function trustRecovery(deps, args) {

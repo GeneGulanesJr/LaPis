@@ -4,102 +4,25 @@
 // These are NOT vitest tests — they run as a standalone Node script
 // So they can be executed in CI without the vitest runner.
 
-const { execSync } = require('child_process');
-const path = require('path');
-const fs = require('fs');
-const os = require('os'),
+const { execSync } = require('child_process'), path = require('path'), fs = require('fs'), os = require('os'),
   ROOT = path.resolve(__dirname, '..'),
   CLI = `node "${path.join(ROOT, 'memory-store.js')}"`,
-  TMP_DIR = path.join(os.tmpdir(), `lapis-smoke-${Date.now()}`);
+  TMP_DIR = path.join(os.tmpdir(), `lapis-smoke-${Date.now()}`), failures = [];
+
+
+
 
 let passed = 0,
   failed = 0;
-const failures = [];
 
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
 
-function smokeTest(name, cmd, { expectExit0 = true, expectContains = null, env = {} } = {}) {
-  try {
-    const result = execSync(cmd, {
-      cwd: ROOT,
-      encoding: 'utf8',
-      timeout: 60000,
-      env: { ...process.env, ...env },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    if (expectContains && !result.includes(expectContains)) {
-      throw new Error(`Output did not contain "${expectContains}". Got:\n${result.slice(0, 500)}`);
-    }
-    console.log(`  ✓ ${name}`);
-    passed++;
-  } catch (err) {
-    if (!expectExit0) {
-      // Command was expected to fail — that's fine
-      console.log(`  ✓ ${name} (expected non-zero exit)`);
-      passed++;
-      return;
-    }
-    console.log(`  ✗ ${name}`);
-    console.log(`    ${String(err.message).slice(0, 300)}`);
-    failures.push(name);
-    failed++;
-  }
-}
 
-function smokeTestWithDb(name, dbPath, cmdFn) {
-  ensureDir(path.dirname(dbPath));
-  // Create a minimal project directory for indexing
-  const projectDir = path.join(TMP_DIR, 'project'),
-  docsDir = (() => {
 
-    ensureDir(projectDir);
-    fs.writeFileSync(path.join(projectDir, 'index.js'), '// hello\nfunction foo() { return 1; }\n');
-  
-    
-  return (path.join(TMP_DIR, 'docs'));
-})(),
-  env = (() => {
-ensureDir(docsDir);
-    fs.writeFileSync(path.join(docsDir, 'readme.md'), '# Test\n\nSome content.\n\n## Section One\n\nBody.\n');
-  
-    
-  return ({ HOME: path.join(TMP_DIR, 'home') });
-})();ensureDir(env.HOME);
-  try {
-    cmdFn(env, projectDir, docsDir);
-    console.log(`  ✓ ${name}`);
-    passed++;
-  } catch (err) {
-    console.log(`  ✗ ${name}`);
-    console.log(`    ${String(err.message).slice(0, 300)}`);
-    failures.push(name);
-    failed++;
-  }
-}
 
-function run(cmd, opts = {}) {
-  try {
-    return execSync(cmd, {
-      cwd: ROOT,
-      encoding: 'utf8',
-      timeout: 60000,
-      env: { ...process.env, ...opts.env },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-  } catch (e) {
-    // Commands that return {error:...} exit 1 — that's OK for smoke tests.
-    // The command ran and returned a structured response.
-    const output = (e.stdout || '') + (e.stderr || '');
-    if (output.includes('"error"')) {
-      return output;
-    }
-    throw e;
-  }
-}
+
+
+
+
 
 console.log('\nSmoke CLI Tests\n');
 
@@ -232,10 +155,12 @@ smokeTestWithDb('save + get round-trip', path.join(TMP_DIR, 'smoke-get.db'), (en
     throw new Error('save did not return id');
   }
   // Get requires --id
-  const getOut = run(`${CLI} get --id 1`, { env });
+  {
+const getOut = run(`${CLI} get --id 1`, { env });
   if (!getOut.includes('"id"') && !getOut.includes('error')) {
     throw new Error('get unexpected output');
   }
+}
 });
 
 smokeTestWithDb('save + update', path.join(TMP_DIR, 'smoke-upd.db'), (env) => {
@@ -614,4 +539,85 @@ console.log(`${'='.repeat(50)}\n`);
 
 if (failed > 0) {
   process.exit(1);
+}
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+function smokeTest(name, cmd, { expectExit0 = true, expectContains = null, env = {} } = {}) {
+  try {
+    const result = execSync(cmd, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 60000,
+      env: { ...process.env, ...env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    if (expectContains && !result.includes(expectContains)) {
+      throw new Error(`Output did not contain "${expectContains}". Got:\n${result.slice(0, 500)}`);
+    }
+    console.log(`  ✓ ${name}`);
+    passed++;
+  } catch (err) {
+    if (!expectExit0) {
+      // Command was expected to fail — that's fine
+      console.log(`  ✓ ${name} (expected non-zero exit)`);
+      passed++;
+      return;
+    }
+    console.log(`  ✗ ${name}`);
+    console.log(`    ${String(err.message).slice(0, 300)}`);
+    failures.push(name);
+    failed++;
+  }
+}
+function smokeTestWithDb(name, dbPath, cmdFn) {
+  ensureDir(path.dirname(dbPath));
+  // Create a minimal project directory for indexing
+  const projectDir = path.join(TMP_DIR, 'project'),
+  docsDir = (() => {
+
+    ensureDir(projectDir);
+    fs.writeFileSync(path.join(projectDir, 'index.js'), '// hello\nfunction foo() { return 1; }\n');
+  
+    
+  return (path.join(TMP_DIR, 'docs'));
+})(),
+  env = (() => {
+ensureDir(docsDir);
+    fs.writeFileSync(path.join(docsDir, 'readme.md'), '# Test\n\nSome content.\n\n## Section One\n\nBody.\n');
+  
+    
+  return ({ HOME: path.join(TMP_DIR, 'home') });
+})();ensureDir(env.HOME);
+  try {
+    cmdFn(env, projectDir, docsDir);
+    console.log(`  ✓ ${name}`);
+    passed++;
+  } catch (err) {
+    console.log(`  ✗ ${name}`);
+    console.log(`    ${String(err.message).slice(0, 300)}`);
+    failures.push(name);
+    failed++;
+  }
+}
+function run(cmd, opts = {}) {
+  try {
+    return execSync(cmd, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 60000,
+      env: { ...process.env, ...opts.env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch (e) {
+    // Commands that return {error:...} exit 1 — that's OK for smoke tests.
+    // The command ran and returned a structured response.
+    const output = (e.stdout || '') + (e.stderr || '');
+    if (output.includes('"error"')) {
+      return output;
+    }
+    throw e;
+  }
 }

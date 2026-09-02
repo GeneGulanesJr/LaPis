@@ -1,8 +1,8 @@
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const { execFile, spawn } = require('child_process'),
+const path = require('path'), fs = require('fs'), os = require('os'), { execFile, spawn } = require('child_process'),
   MEMORY_SCRIPT = path.resolve(__dirname, '..', 'memory-store.js');
+
+
+
 
 // Verify that indexing via the child-process path (spawn) works correctly
 // And returns full results — not just a jobId. This is the path that

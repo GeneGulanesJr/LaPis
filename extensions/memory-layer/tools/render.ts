@@ -15,7 +15,8 @@ export function renderCompactToolResult(result: any, options: any, theme: any) {
     return compactText(theme.fg('dim', 'No output'));
   }
 
-  const limit = options?.expanded ? EXPANDED_LINES : COLLAPSED_LINES,
+  {
+const limit = options?.expanded ? EXPANDED_LINES : COLLAPSED_LINES,
     shown = lines.slice(0, limit).map(compactLine),
     hidden = lines.length - shown.length;
   let text = shown.join('\n');
@@ -28,6 +29,7 @@ export function renderCompactToolResult(result: any, options: any, theme: any) {
   }
 
   return compactText(theme.fg(isError ? 'error' : 'toolOutput', text));
+}
 }
 
 function extractTextLines(result: any): string[] {

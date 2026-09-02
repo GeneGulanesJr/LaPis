@@ -6,12 +6,12 @@ function extractLinks(content) {
     re = /\[([^\]]*)\]\(([^)]+)\)/g;
   let match;
   while ((match = re.exec(stripped)) !== null) {
-    const prefix = stripped.substring(Math.max(0, match.index - 1), match.index);
+    const prefix = stripped.substring(Math.max(0, match.index - 1), match.index), target = match[2];
     if (prefix === '!') {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    const target = match[2];
+    
     if (
       !target ||
       target.startsWith('[^') ||
@@ -66,7 +66,8 @@ function resolveLinks(db, repoId) {
     sectionSlugCache.set(s.id, slugify(s.title));
   }
 
-  const allDocFiles = db.prepare('SELECT id, path FROM doc_files WHERE repo_id = ?').all(repoId),
+  {
+const allDocFiles = db.prepare('SELECT id, path FROM doc_files WHERE repo_id = ?').all(repoId),
     docFileByPath = new Map();
   for (const f of allDocFiles) {
     docFileByPath.set(f.path, f);
@@ -76,31 +77,12 @@ function resolveLinks(db, repoId) {
     }
   }
 
-  function findFileByPath(pathPart) {
-    if (docFileByPath.has(pathPart)) {
-      return docFileByPath.get(pathPart);
-    }
-    for (const f of allDocFiles) {
-      if (f.path.endsWith(`/${pathPart}`) || f.path === pathPart) {
-        return f;
-      }
-    }
-    return null;
-  }
+  
 
-  function resolveAnchor(fileId, anchor) {
-    const slug = slugify(anchor),
-      candidates = sectionsByFile.get(fileId) || [];
-    for (const c of candidates) {
-      const cSlug = sectionSlugCache.get(c.id);
-      if (cSlug === slug || cSlug.startsWith(slug) || slug.startsWith(cSlug)) {
-        return c.id;
-      }
-    }
-    return null;
-  }
+  
 
-  const updateStmt = db.prepare('UPDATE doc_links SET target_section_id = ? WHERE id = ?'),
+  {
+const updateStmt = db.prepare('UPDATE doc_links SET target_section_id = ? WHERE id = ?'),
     breakStmt = db.prepare('UPDATE doc_links SET is_broken = 1 WHERE id = ?'),
     firstSectionStmt = db.prepare('SELECT id FROM doc_sections WHERE file_id = ? LIMIT 1');
 
@@ -134,6 +116,30 @@ function resolveLinks(db, repoId) {
   }
 
   return { resolved, broken };
+function findFileByPath(pathPart) {
+    if (docFileByPath.has(pathPart)) {
+      return docFileByPath.get(pathPart);
+    }
+    for (const f of allDocFiles) {
+      if (f.path.endsWith(`/${pathPart}`) || f.path === pathPart) {
+        return f;
+      }
+    }
+    return null;
+  }
+function resolveAnchor(fileId, anchor) {
+    const slug = slugify(anchor),
+      candidates = sectionsByFile.get(fileId) || [];
+    for (const c of candidates) {
+      const cSlug = sectionSlugCache.get(c.id);
+      if (cSlug === slug || cSlug.startsWith(slug) || slug.startsWith(cSlug)) {
+        return c.id;
+      }
+    }
+    return null;
+  }
+}
+}
 }
 
 function getBacklinks(db, repoId, docPath) {
@@ -143,13 +149,15 @@ function getBacklinks(db, repoId, docPath) {
   if (!targetFile) {
     return { error: `Doc file not found: ${docPath}` };
   }
-  const targetSections = db.prepare('SELECT id FROM doc_sections WHERE file_id = ?').all(targetFile.id),
+  {
+const targetSections = db.prepare('SELECT id FROM doc_sections WHERE file_id = ?').all(targetFile.id),
     targetIds = targetSections.map((s) => s.id);
   if (!targetIds.length) {
     return { backlinks: [] };
   }
 
-  const placeholders = targetIds.map(() => '?').join(','),
+  {
+const placeholders = targetIds.map(() => '?').join(','),
     backlinks = db
       .prepare(`
     SELECT dl.target_path, dl.link_text, ds.title as source_title, df.path as source_file
@@ -158,6 +166,8 @@ function getBacklinks(db, repoId, docPath) {
   `)
       .all(...targetIds);
   return { backlinks };
+}
+}
 }
 
 function getBrokenLinks(db, repoId) {

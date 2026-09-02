@@ -1,8 +1,8 @@
 // Comprehensive edge case tests for the memory layer
-const path = require('path');
-const { execSync } = require('child_process'),
+const path = require('path'), { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js'),
   testProject = `edge-test-${process.pid}`;
+
 
 function run(cmd, timeout = 15000) {
   try {
@@ -113,11 +113,13 @@ describe('edge cases: CRUD', () => {
     // Small delay to ensure timestamp differs
     await new Promise((resolve) => setTimeout(resolve, 1100));
     run(`update --id ${r.id} --content "after"`);
-    const after = run(`get --id ${r.id}`);
+    {
+const after = run(`get --id ${r.id}`);
     expect(after.updated_at).not.toBe(before.updated_at);
     expect(after.content).toBe('after');
     cleanup('Edge: update timestamp');
-  });
+  }
+});
 
   it('should exclude soft-deleted from search results', () => {
     const r = run(
@@ -282,11 +284,13 @@ describe('edge cases: trust system', () => {
     expect(r.ok).toBe(true);
     expect(r.trustScore).toBe(0.8);
 
-    const stale = run('stale-links --repo PiMemoryExtension'),
+    {
+const stale = run('stale-links --repo PiMemoryExtension'),
       found = stale.links.find((l) => l.memory_id === String(testMemoryId) && l.symbol_id === '12345');
     expect(found).toBeTruthy();
     expect(found.trust_score).toBe(0.8);
-  });
+  }
+});
 
   it('should record recall without error', () => {
     const r = run(`session-start --project ${testProject}`),

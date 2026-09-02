@@ -45,20 +45,12 @@ const MCP_PREFIX = 'mcp__lapis__',
  * Strip the `mcp__<server>__` prefix, returning the bare tool name (e.g.
  * `memory-code`) or null when the tool is not an MCP tool.
  */
-function mcpToolName(toolName) {
-  if (typeof toolName !== 'string') {
-    return null;
-  }
-  const match = MCP_TOOL_RE.exec(toolName);
-  return match ? match[1] : null;
-}
+
 
 /** True for any LaPis memory-* MCP tool (memory-save, memory-search, …). */
-function isMemoryMcpTool(toolName) {
-  const bare = mcpToolName(toolName);
-  return bare !== null && bare.startsWith('memory-');
-}
 
+
+{
 const EDIT_TOOLS = new Set(['Write', 'MultiEdit', 'Edit']);
 
 /**
@@ -122,3 +114,15 @@ module.exports = {
   postToolRole,
   EDIT_TOOLS,
 };
+function mcpToolName(toolName) {
+  if (typeof toolName !== 'string') {
+    return null;
+  }
+  const match = MCP_TOOL_RE.exec(toolName);
+  return match ? match[1] : null;
+}
+function isMemoryMcpTool(toolName) {
+  const bare = mcpToolName(toolName);
+  return bare !== null && bare.startsWith('memory-');
+}
+}

@@ -1,7 +1,7 @@
 'use strict';
 
-const { DUPLICATE_DETECTION: CFG } = require('../../constants');
-const { fingerprintSymbol, jaccardSimilarity, lshBands } = require('../code-analysis/fingerprint');
+const { DUPLICATE_DETECTION: CFG } = require('../../constants'), { fingerprintSymbol, jaccardSimilarity, lshBands } = require('../code-analysis/fingerprint');
+
 
 function _requireNativeDb(db) {
   if (!db || !db.prepare) {
@@ -118,12 +118,12 @@ function findDupes(db, repoId, opts = {}) {
       if (assigned.has(i)) {
         continue;
       }
-      const nbrs = neighbors[i];
+      const nbrs = neighbors[i], cluster = [i];
       if (!nbrs || nbrs.length === 0) {
         continue;
       }
   
-      const cluster = [i];
+      
       for (const j of nbrs) {
         if (!assigned.has(j)) {
           cluster.push(j);
@@ -158,7 +158,8 @@ function findDupes(db, repoId, opts = {}) {
       }
     }
 
-    const risk = maxSim > 0.85 ? 'high' : maxSim > 0.7 ? 'medium' : 'low',
+    {
+const risk = maxSim > 0.85 ? 'high' : maxSim > 0.7 ? 'medium' : 'low',
       primaryName = instances[0].symbol_name,
       recommendation = `Consider merging ${instances.map((i) => i.symbol_name).join(' and ')} into a single implementation.`;
 
@@ -170,7 +171,8 @@ function findDupes(db, repoId, opts = {}) {
       similarity: Math.round(maxSim * 100) / 100,
       instances,
     };
-  }));
+  }
+}));
 })(); // Persist to duplicate_groups / duplicate_instances
   _persistGroups(db, repoId, duplicateGroups);
 

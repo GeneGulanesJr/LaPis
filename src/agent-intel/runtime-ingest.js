@@ -2,8 +2,7 @@
 // Ingests Istanbul/NYC coverage JSON and stores runtime hotness per symbol.
 // Must not mutate code indexes or memory.
 
-const path = require('path');
-const fs = require('fs'),
+const path = require('path'), fs = require('fs'),
   /**
    * Istanbul coverage JSON shape:
    * {
@@ -22,6 +21,7 @@ const fs = require('fs'),
     warm: 100, // >= 100 hits
     cold: 0, // < 100 hits
   };
+
 
 function classifyTraffic(hitCount) {
   if (hitCount >= TRAFFIC_THRESHOLDS.hot) {
@@ -91,7 +91,8 @@ function ingestCoverage(db, repoId, coveragePath, sourceFile = '') {
     // Code_symbols table may not exist yet - continue without linking
   }
 
-  const insertStmt = db.prepare(`
+  {
+const insertStmt = db.prepare(`
     INSERT OR REPLACE INTO runtime_symbols
       (repo_id, symbol_id, file_path, function_name, line_start, hit_count, traffic, last_seen, source_file)
     VALUES
@@ -161,6 +162,7 @@ function ingestCoverage(db, repoId, coveragePath, sourceFile = '') {
     traffic_breakdown: breakdown,
     source_file: coveragePath,
   };
+}
 }
 
 function getHotSymbols(db, repoId, limit = 20) {

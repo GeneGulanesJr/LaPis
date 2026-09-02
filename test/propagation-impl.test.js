@@ -1,8 +1,8 @@
 // Tests for propagation-impl: getAffectedGraph
-const path = require('path');
-const fs = require('fs');
-const Database = require('better-sqlite3'),
+const path = require('path'), fs = require('fs'), Database = require('better-sqlite3'),
   TMP_DB = path.join('/tmp', 'propagation-test.db');
+
+
 
 let db, repoId;
 
@@ -61,8 +61,7 @@ afterEach(() => {
 
 describe('getAffectedGraph', () => {
   it('should find callers via code_calls', () => {
-    const { db: testDb, repoId: rid } = setupPropagationDb();
-    const { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
+    const { db: testDb, repoId: rid } = setupPropagationDb(), { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
       insertFile = testDb.prepare(
         'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
       ),
@@ -109,14 +108,14 @@ describe('getAffectedGraph', () => {
   
       
   return (getAffectedGraph(testDb, rid, { symbol: 'helper' }));
-})();expect(result.affected_files.length).toBeGreaterThanOrEqual(1);
+})();
+    expect(result.affected_files.length).toBeGreaterThanOrEqual(1);
     expect(result.affected_files.some((f) => f.path === 'consumer.js')).toBe(true);
     expect(result.affected_symbols.some((s) => s.name === 'main')).toBe(true);
   });
 
   it('should find importers via code_imports', () => {
-    const { db: testDb, repoId: rid } = setupPropagationDb();
-    const { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
+    const { db: testDb, repoId: rid } = setupPropagationDb(), { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
       insertFile = testDb.prepare(
         'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
       ),
@@ -131,12 +130,12 @@ describe('getAffectedGraph', () => {
   
       
   return (getAffectedGraph(testDb, rid, { file: 'lib.js' }));
-})();expect(result.affected_files.some((f) => f.path === 'consumer.js')).toBe(true);
+})();
+    expect(result.affected_files.some((f) => f.path === 'consumer.js')).toBe(true);
   });
 
   it('should find extends relations', () => {
-    const { db: testDb, repoId: rid } = setupPropagationDb();
-    const { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
+    const { db: testDb, repoId: rid } = setupPropagationDb(), { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
       insertFile = testDb.prepare(
         'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
       ),
@@ -191,13 +190,13 @@ describe('getAffectedGraph', () => {
   
       
   return (getAffectedGraph(testDb, rid, { symbol: 'Base' }));
-})();expect(result.affected_files.some((f) => f.path === 'child.js')).toBe(true);
+})();
+    expect(result.affected_files.some((f) => f.path === 'child.js')).toBe(true);
     expect(result.affected_files.some((f) => f.signals.includes('extends'))).toBe(true);
   });
 
   it('should decay reachability with distance', () => {
-    const { db: testDb, repoId: rid } = setupPropagationDb();
-    const { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
+    const { db: testDb, repoId: rid } = setupPropagationDb(), { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
       insertFile = testDb.prepare(
         'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
       ),
@@ -266,6 +265,7 @@ describe('getAffectedGraph', () => {
         'javascript',
         'a',
       );
+    
 
     insertCall.run(rid, Number(symA.lastInsertRowid), 'b', Number(symB.lastInsertRowid), 1.0);
     insertCall.run(rid, Number(symB.lastInsertRowid), 'c', Number(symC.lastInsertRowid), 1.0);
@@ -280,8 +280,7 @@ describe('getAffectedGraph', () => {
   });
 
   it('should include cochange signal', () => {
-    const { db: testDb, repoId: rid } = setupPropagationDb();
-    const { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
+    const { db: testDb, repoId: rid } = setupPropagationDb(), { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
       insertFile = testDb.prepare(
         'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
       ),
@@ -301,12 +300,12 @@ describe('getAffectedGraph', () => {
 expect(result.affected_files.some((f) => f.path === 'b.js')).toBe(true);
       
   return (result.affected_files.find((f) => f.path === 'b.js'));
-})();expect(bFile.signals).toContain('cochange');
+})();
+    expect(bFile.signals).toContain('cochange');
   });
 
   it('should respect minReachability threshold', () => {
-    const { db: testDb, repoId: rid } = setupPropagationDb();
-    const { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
+    const { db: testDb, repoId: rid } = setupPropagationDb(), { getAffectedGraph } = require('../src/code-analysis/propagation-impl'),
       insertFile = testDb.prepare(
         'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
       ),
@@ -321,6 +320,7 @@ expect(result.affected_files.some((f) => f.path === 'b.js')).toBe(true);
   
       
   return (getAffectedGraph(testDb, rid, { file: 'a.js', minReachability: 0.5 }));
-})();expect(result.affected_files.some((f) => f.path === 'b.js')).toBe(false);
+})();
+    expect(result.affected_files.some((f) => f.path === 'b.js')).toBe(false);
   });
 });

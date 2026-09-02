@@ -16,15 +16,7 @@
  * and PostToolUse tracking + tool-state mirroring.
  */
 
-const { stripTuiArtifacts } = require('../mcp/translate-result');
-const dispatchClient = require('./dispatch-client');
-const stateStore = require('./state-store');
-const { handleSessionStart } = require('./handlers/session-start');
-const { handleUserPromptSubmit } = require('./handlers/user-prompt-submit');
-const { handleStop } = require('./handlers/stop');
-const { handleSessionEnd } = require('./handlers/session-end');
-const { handlePreToolUse } = require('./handlers/pre-tool-use');
-const { handlePostToolUse } = require('./handlers/post-tool-use'),
+const { stripTuiArtifacts } = require('../mcp/translate-result'), dispatchClient = require('./dispatch-client'), stateStore = require('./state-store'), { handleSessionStart } = require('./handlers/session-start'), { handleUserPromptSubmit } = require('./handlers/user-prompt-submit'), { handleStop } = require('./handlers/stop'), { handleSessionEnd } = require('./handlers/session-end'), { handlePreToolUse } = require('./handlers/pre-tool-use'), { handlePostToolUse } = require('./handlers/post-tool-use'),
   HANDLERS = {
     SessionStart: handleSessionStart,
     UserPromptSubmit: handleUserPromptSubmit,
@@ -33,6 +25,14 @@ const { handlePostToolUse } = require('./handlers/post-tool-use'),
     PreToolUse: handlePreToolUse,
     PostToolUse: handlePostToolUse,
   };
+
+
+
+
+
+
+
+
 
 function readStdin() {
   return new Promise((resolve) => {
@@ -96,10 +96,11 @@ async function runHook(argv, opts = {}) {
     return;
   }
 
-  const roleFilter = parseRoleFilter(argv),
+  {
+const roleFilter = parseRoleFilter(argv),
     // Parse stdin payload (best-effort; malformed → empty object).
     raw = opts.stdin !== undefined ? opts.stdin : await readStdin();
-  let payload = {};
+  let payload = {}, output;
   if (raw && raw.trim()) {
     try {
       payload = JSON.parse(raw);
@@ -109,7 +110,8 @@ async function runHook(argv, opts = {}) {
   }
 
   // Event name precedence: explicit argv > payload.hook_event_name.
-  const resolvedEvent = event || payload.hook_event_name,
+  {
+const resolvedEvent = event || payload.hook_event_name,
     handler = HANDLERS[resolvedEvent],
   resolvedDispatchClient = handler ? (opts.dispatchClient || dispatchClient) : undefined,
   dispatch = handler ? (opts.dispatch || resolvedDispatchClient.dispatch) : undefined,
@@ -139,7 +141,7 @@ async function runHook(argv, opts = {}) {
     }
   }
 
-  let output;
+  
   try {
     output = await handler({
       payload,
@@ -159,6 +161,8 @@ async function runHook(argv, opts = {}) {
   if (output !== null && output !== undefined) {
     process.stdout.write(`${JSON.stringify(sanitizeOutput(output))}\n`);
   }
+}
+}
 }
 
 module.exports = { runHook, HANDLERS, sanitizeOutput, parseRoleFilter };

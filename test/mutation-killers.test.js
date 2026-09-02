@@ -11,12 +11,12 @@ const {
   symbolCluster,
   related,
   _extractFtsTerms: extractFtsTerms,
-} = require('../src/memory-domain/search');
-const { trigramOverlap, checkDuplicate, markDuplicate } = require('../src/memory-domain/dedupe');
-const { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall');
-const { context, topicQueryNeedles, buildTopicQueryMatch, applyTokenBudget } = require('../src/memory-domain/context');
-const { createMemoryRepository } = require('../src/platform/storage/repositories/memory');
-const { RANKING, CONTEXT, TIME_WINDOWS, RESULT_LIMITS } = require('../constants');
+} = require('../src/memory-domain/search'), { trigramOverlap, checkDuplicate, markDuplicate } = require('../src/memory-domain/dedupe'), { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall'), { context, topicQueryNeedles, buildTopicQueryMatch, applyTokenBudget } = require('../src/memory-domain/context'), { createMemoryRepository } = require('../src/platform/storage/repositories/memory'), { RANKING, CONTEXT, TIME_WINDOWS, RESULT_LIMITS } = require('../constants');
+
+
+
+
+
 
 // ─── helpers ───
 function mockDeps(overrides = {}) {
@@ -507,10 +507,10 @@ describe('search.js related()', () => {
 describe('search.js _extractFtsTerms', () => {
   it('removes stop words and limits to 5', () => {
     // _extractFtsTerms is not exported — test indirectly via search
-    const sqlJson = vi.fn(() => [baseObs({ id: 1, snippet: 't', rank: -1 })]);
+    const sqlJson = vi.fn(() => [baseObs({ id: 1, snippet: 't', rank: -1 })]), ftsCall = sqlJson.mock.calls[0],
+      ftsQuery = ftsCall[1][0];
     search(mockDeps({ sqlJson }), { query: 'the one two three four five six seven eight' });
-    const ftsCall = sqlJson.mock.calls[0],
-      ftsQuery = ftsCall[1][0]; // The MATCH parameter
+     // The MATCH parameter
     // Should be at most 5 space-separated terms
     expect(ftsQuery.split(' ').length).toBeLessThanOrEqual(5);
   });
@@ -1277,9 +1277,9 @@ expect(obsCall).toBeDefined();
       context(mockDeps({ sqlJson }), { project: 'p', 'all-projects': 'true', deep: 'true', limit: '5' });
       
   return (sqlJson.mock.calls.find((c) => c[0].includes('observations o')));
-})();expect(obsCall).toBeDefined();
-    const params = obsCall[1],
-      limit = params[params.length - 1];
+})(), params = obsCall[1],
+      limit = params[params.length - 1];expect(obsCall).toBeDefined();
+    
     // Deep mode: min(5 * CROSS_PROJECT_DEEP_MULTIPLIER, CROSS_PROJECT_DEEP_MAX)
     expect(limit).toBeGreaterThan(5);
   });
@@ -2093,11 +2093,11 @@ describe('search.js FTS special path', () => {
   });
 
   it('search function: FTS LIMIT multiplier is SEARCH_MULTIPLIER', () => {
-    const sqlJson = vi.fn(() => [baseObs({ id: 1, snippet: 't', rank: -1 })]);
-    search(mockDeps({ sqlJson }), { query: 'test', limit: '3' });
-    const ftsCall = sqlJson.mock.calls[0],
+    const sqlJson = vi.fn(() => [baseObs({ id: 1, snippet: 't', rank: -1 })]), ftsCall = sqlJson.mock.calls[0],
       // Last param is the FTS limit
       limit = ftsCall[1][ftsCall[1].length - 1];
+    search(mockDeps({ sqlJson }), { query: 'test', limit: '3' });
+    
     expect(limit).toBe(Math.min(3 * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
   });
 
@@ -2106,11 +2106,11 @@ describe('search.js FTS special path', () => {
     const sqlJson = vi.fn(() => {
       n++;
       return n === 1 ? [] : [baseObs({ id: 1 })];
-    });
+    }), likeCall = sqlJson.mock.calls[1],
+      limit = likeCall[1][likeCall[1].length - 1];
     search(mockDeps({ sqlJson }), { query: 'normal', limit: '3' });
     // FTS returns empty → LIKE fallback. The LIKE call (index 1) has the multiplier.
-    const likeCall = sqlJson.mock.calls[1],
-      limit = likeCall[1][likeCall[1].length - 1];
+    
     expect(limit).toBe(Math.min(3 * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
   });
 
@@ -3671,8 +3671,7 @@ describe('context.js boundary condition killers', () => {
   });
 
   it('context: args.limit default uses getConfig().context_limit', () => {
-    const sqlJson = vi.fn(() => []);
-    const config = require('../config'),
+    const sqlJson = vi.fn(() => []), config = require('../config'),
       defaultLimit = config.getConfig().context_limit,
     obsCall = (() => {
 
@@ -3680,7 +3679,8 @@ describe('context.js boundary condition killers', () => {
       // The last param should be the default limit
       
   return (sqlJson.mock.calls.find((c) => c[0].includes('observations o') && !c[0].includes('topic_matches')));
-})();expect(obsCall[1][obsCall[1].length - 1]).toBe(defaultLimit);
+})();
+    expect(obsCall[1][obsCall[1].length - 1]).toBe(defaultLimit);
   });
 
   it('context: token-budget exactly 0 → no budget stats', () => {
@@ -3762,7 +3762,7 @@ describe('context.js boundary condition killers', () => {
   return (sqlJson.mock.calls.find(
       (c) => c[0].includes("scope = 'project'") && !c[0].includes('topic_matches'),
     ));
-})();const config = require('../config'),
+})(), config = require('../config'),
       defaultLimit = config.getConfig().context_limit;
     // Should be the default limit (no deep multiplication)
     expect(obsCall[1][obsCall[1].length - 1]).toBe(defaultLimit);

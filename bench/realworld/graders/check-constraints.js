@@ -20,7 +20,8 @@ function checkConstraints(task, worktreePath) {
     rawDiff = '';
   }
 
-  const violations = [],
+  {
+const violations = [],
     withPatterns = constraints.filter((c) => c.pattern);
 
   for (const constraint of withPatterns) {
@@ -45,7 +46,8 @@ function checkConstraints(task, worktreePath) {
       continue;
     }
 
-    const matches = rawDiff.match(regex);
+    {
+const matches = rawDiff.match(regex);
 
     if (type === 'must_not_contain' && matches) {
       violations.push({
@@ -65,12 +67,14 @@ function checkConstraints(task, worktreePath) {
       });
     }
   }
+}
 
   return {
     passed: violations.length === 0,
     violations,
     checked: constraints.length,
   };
+}
 }
 
 if (require.main === module) {
@@ -80,9 +84,11 @@ if (require.main === module) {
     console.error('Usage: node check-constraints.js <task.json> <worktree-path>');
     process.exit(1);
   }
-  const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8')),
+  {
+const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8')),
     result = checkConstraints(task, worktreePath);
   console.log(JSON.stringify(result, null, 2));
+}
 }
 
 module.exports = { checkConstraints };

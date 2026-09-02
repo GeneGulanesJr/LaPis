@@ -1,5 +1,5 @@
-const { CONTEXT } = require('../constants');
-const { context } = require('../src/memory-domain/context');
+const { CONTEXT } = require('../constants'), { context } = require('../src/memory-domain/context');
+
 
 function mockFn(impl = () => undefined) {
   const calls = [],
@@ -194,11 +194,13 @@ describe('context() with token-budget', () => {
       result = context(deps, { project: 'TestProject', 'token-budget': '600' });
 
     expect(result.observations.length).toBe(2);
-    const discovery = result.observations.find((o) => o.id === 1),
+    {
+const discovery = result.observations.find((o) => o.id === 1),
       learning = result.observations.find((o) => o.id === 2);
     expect(learning.content).toBe('x'.repeat(100));
     expect(learning._truncated).not.toBe(true);
-  });
+  }
+});
 
   test('headers-only branch respects budget (no overflow)', () => {
     // With budget=50 and 5 observations, headers should not exceed 50 tokens total

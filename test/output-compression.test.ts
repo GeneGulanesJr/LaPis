@@ -153,10 +153,12 @@ describe('registerOutputCompression', () => {
 })();await pi.getHandler('tool_result')(bashEvent('npm test', large), {});
 
     expect(recordRun).toHaveBeenCalledTimes(1);
-    const call = (recordRun as any).mock.calls[0][0];
+    {
+const call = (recordRun as any).mock.calls[0][0];
     expect(call.command).toBe('npm test');
     expect(call.savingsPercent).toBeGreaterThan(0);
-  });
+  }
+});
 
   test('handles missing text content (image-only) gracefully', async () => {
     const pi = makePi();

@@ -15,7 +15,8 @@ function runTests(task, worktreePath) {
     return { passed: 0, failed: 0, total: 0, results: [], skipped: true };
   }
 
-  const results = testCommands.map((cmd) => {
+  {
+const results = testCommands.map((cmd) => {
       try {
         execSync(cmd, {
           cwd: worktreePath,
@@ -37,6 +38,7 @@ function runTests(task, worktreePath) {
     passed = results.filter((r) => r.passed).length;
   return { passed, failed: results.length - passed, total: results.length, results, skipped: false };
 }
+}
 
 // CLI entry point for standalone invocation
 if (require.main === module) {
@@ -46,9 +48,11 @@ if (require.main === module) {
     console.error('Usage: node run-tests.js <task.json> <worktree-path>');
     process.exit(1);
   }
-  const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8')),
+  {
+const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8')),
     result = runTests(task, worktreePath);
   console.log(JSON.stringify(result, null, 2));
+}
 }
 
 module.exports = { runTests };

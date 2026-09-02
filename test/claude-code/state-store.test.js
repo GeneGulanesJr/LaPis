@@ -1,7 +1,7 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const stateStore = require('../../src/claude-code/state-store');
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), stateStore = require('../../src/claude-code/state-store');
+
+
+
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-state-'));

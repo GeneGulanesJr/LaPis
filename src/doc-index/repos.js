@@ -1,13 +1,13 @@
-const fs = require('fs');
-const path = require('path');
-const { RESULT_LIMITS } = require('../../constants');
-const { hashContent, walkDirForDocs: walkDir } = require('../../utils');
-const { parseMarkdownSections } = require('./markdown-parser');
-const { extractHtmlSections, extractHtmlLinks: parseHtmlLinks } = require('./html-parser');
-const { buildSectionHierarchy } = require('./sections');
-const { extractLinks, resolveLinks } = require('./links');
-const { extractGlossaryTerms } = require('./glossary');
-const { extractCodeBlocks } = require('./examples');
+const fs = require('fs'), path = require('path'), { RESULT_LIMITS } = require('../../constants'), { hashContent, walkDirForDocs: walkDir } = require('../../utils'), { parseMarkdownSections } = require('./markdown-parser'), { extractHtmlSections, extractHtmlLinks: parseHtmlLinks } = require('./html-parser'), { buildSectionHierarchy } = require('./sections'), { extractLinks, resolveLinks } = require('./links'), { extractGlossaryTerms } = require('./glossary'), { extractCodeBlocks } = require('./examples');
+
+
+
+
+
+
+
+
+
 
 function clearRepo(db, repoId) {
   db.prepare('DELETE FROM doc_code_blocks WHERE section_id IN (SELECT id FROM doc_sections WHERE repo_id = ?)').run(
@@ -65,7 +65,8 @@ async function indexDocs(db, rootPath, repoName, ignoreGlob) {
     totalLinks = 0,
     totalTerms = 0,
     totalCodeBlocks = 0;
-  const warnings = [],
+  {
+const warnings = [],
     insertFile = db.prepare(
       'INSERT INTO doc_files (repo_id, path, content, content_hash, mtime) VALUES (?, ?, ?, ?, ?) RETURNING id',
     ),
@@ -172,7 +173,8 @@ async function indexDocs(db, rootPath, repoName, ignoreGlob) {
     });
   }
 
-  const linkResults = resolveLinks(db, repoId);
+  {
+const linkResults = resolveLinks(db, repoId);
   db.prepare("UPDATE doc_repos SET file_count = ?, section_count = ?, updated_at = datetime('now') WHERE id = ?").run(
     files.length,
     totalSections,
@@ -191,6 +193,8 @@ async function indexDocs(db, rootPath, repoName, ignoreGlob) {
     warnings,
     link_resolution: linkResults,
   };
+}
+}
 }
 
 async function reindexDocs(db, repoId, mode, ignoreGlob) {

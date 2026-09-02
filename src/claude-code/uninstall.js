@@ -18,8 +18,7 @@
  *     user-scope mcpServers in ~/.claude.json.
  */
 
-const fs = require('node:fs');
-const {
+const fs = require('node:fs'), {
   parseFlags,
   stripLapisHooks,
   removeAutoAllow,
@@ -31,6 +30,7 @@ const {
   resolveIo,
   configPaths,
 } = require('./install');
+
 
 /**
  * Strip LaPis hooks + auto-allow rules for every removed server name from one

@@ -122,7 +122,7 @@ function getSymbolsForMemory(deps, memoryId) {
 }
 
 function getSymbolCluster(deps, { symbolId, repo }) {
-  const { sqlJson } = deps;
+  const { sqlJson } = deps, params = [symbolId];
   let q = `
     SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
            sl.trust_score
@@ -131,7 +131,7 @@ function getSymbolCluster(deps, { symbolId, repo }) {
     WHERE sl.symbol_id = ?
       AND o.deleted_at IS NULL
   `;
-  const params = [symbolId];
+  
   if (repo) {
     q += ' AND sl.repo = ?';
     params.push(repo);

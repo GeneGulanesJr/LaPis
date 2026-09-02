@@ -25,20 +25,14 @@ function _likeEscape(str) {
 
 function extractImportsFromSource(content) {
   const imports = [],
-    seen = new Set();
-
-  function add(mod, type, line) {
-    const key = `${mod}:${line}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      imports.push({ target_module: mod, import_type: type, line_number: line });
-    }
-  }
-
-  const esRe = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+(?:\s*,\s*\{[^}]*\})?)\s+from\s+)?['"]([^'"]+)['"]/g,
+    seen = new Set(), esRe = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+(?:\s*,\s*\{[^}]*\})?)\s+from\s+)?['"]([^'"]+)['"]/g,
     reExportRe = /export\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+)\s+from\s+)['"]([^'"]+)['"]/g,
     requireRe = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
     dynamicRe = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+  
+
+  
 
   let match;
   while ((match = esRe.exec(content)) !== null) {
@@ -60,6 +54,13 @@ function extractImportsFromSource(content) {
   }
 
   return imports;
+function add(mod, type, line) {
+    const key = `${mod}:${line}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      imports.push({ target_module: mod, import_type: type, line_number: line });
+    }
+  }
 }
 
 function extractImportBindings(content) {
@@ -83,7 +84,8 @@ function extractImportBindings(content) {
       continue;
     }
 
-    const namedMatch = line.match(/^import\s+(?:([\w]+)\s*,\s*)?\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/);
+    {
+const namedMatch = line.match(/^import\s+(?:([\w]+)\s*,\s*)?\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/);
     if (namedMatch) {
       if (namedMatch[1]) {
         bindings.push({ localName: namedMatch[1], originalName: 'default', modulePath: namedMatch[3], line: i + 1 });
@@ -104,7 +106,8 @@ function extractImportBindings(content) {
       continue;
     }
 
-    const reExportNamed = line.match(/^export\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/);
+    {
+const reExportNamed = line.match(/^export\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/);
     if (reExportNamed) {
       const names = reExportNamed[1]
         .split(',')
@@ -141,7 +144,8 @@ function extractImportBindings(content) {
       continue;
     }
 
-    const destructureRequire = line.match(
+    {
+const destructureRequire = line.match(
       /^(?:const|let|var)\s+\{([^}]+)\}\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/,
     );
     if (destructureRequire) {
@@ -166,6 +170,9 @@ function extractImportBindings(content) {
       continue;
     }
   }
+}
+}
+}
 
   return bindings;
 }
@@ -237,7 +244,8 @@ function buildImportGraph(db, repoId) {
   }
   db.prepare('DELETE FROM code_imports WHERE repo_id = ?').run(repoId);
 
-  const insertStmt = db.prepare(
+  {
+const insertStmt = db.prepare(
       `INSERT OR IGNORE INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
     ),
     files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
@@ -249,7 +257,8 @@ function buildImportGraph(db, repoId) {
 
   let totalEdges = 0;
 
-  const runInTx =
+  {
+const runInTx =
     typeof db.transaction === 'function'
       ? (fn) => db.transaction(fn)()
       : (fn) => {
@@ -279,6 +288,8 @@ function buildImportGraph(db, repoId) {
   });
 
   return { success: true, edges: totalEdges };
+}
+}
 }
 
 function getImportGraph(db, repoId, opts) {
@@ -374,7 +385,8 @@ function getBlastRadius(db, repoId, opts) {
     return { error: 'Missing --symbol' };
   }
 
-  const symRow = db
+  {
+const symRow = db
     .prepare('SELECT id, name, file_id, file_path FROM code_symbols WHERE repo_id = ? AND name = ?')
     .all(repoId, symbol);
   if (symRow.length === 0) {
@@ -384,7 +396,8 @@ function getBlastRadius(db, repoId, opts) {
     return { error: `Multiple symbols named "${symbol}"`, candidates: symRow };
   }
 
-  const symbolId = symRow[0].id,
+  {
+const symbolId = symRow[0].id,
     fileId = symRow[0].file_id,
     callers = db
       .prepare(`
@@ -416,6 +429,8 @@ function getBlastRadius(db, repoId, opts) {
     affected_files: [...new Set([...callers.map((c) => c.file_path), ...fileImporters.map((f) => f.path)])],
     min_confidence: minConfidence,
   };
+}
+}
 }
 
 // ══════════════════════════════════════════════════════════
@@ -498,13 +513,40 @@ function getDependencyCycles(db, repoId) {
 
   // Tarjan's SCC
   let index = 0;
-  const stack = [],
+  {
+const stack = [],
     onStack = new Set(),
     indices = new Map(),
     lowlink = new Map(),
     sccs = [];
 
-  function strongconnect(v) {
+  
+
+  for (const v of allNodes) {
+    if (!indices.has(v)) {
+      strongconnect(v);
+    }
+  }
+
+  // Find actual cycles (paths that close the loop)
+  const cycles = sccs.map((scc) => {
+    const sccSet = new Set(scc),
+      cycleEdges = [];
+    for (const node of scc) {
+      for (const neighbor of adj.get(node) || []) {
+        if (sccSet.has(neighbor)) {
+          cycleEdges.push({ from: node, to: neighbor });
+        }
+      }
+    }
+    return { files: scc, edges: cycleEdges, size: scc.length };
+  });
+
+  return {
+    cycles: cycles.sort((a, b) => b.size - a.size),
+    total_circular_files: cycles.reduce((sum, c) => sum + c.size, 0),
+  };
+function strongconnect(v) {
     indices.set(v, index);
     lowlink.set(v, index);
     index++;
@@ -533,31 +575,7 @@ function getDependencyCycles(db, repoId) {
       }
     }
   }
-
-  for (const v of allNodes) {
-    if (!indices.has(v)) {
-      strongconnect(v);
-    }
-  }
-
-  // Find actual cycles (paths that close the loop)
-  const cycles = sccs.map((scc) => {
-    const sccSet = new Set(scc),
-      cycleEdges = [];
-    for (const node of scc) {
-      for (const neighbor of adj.get(node) || []) {
-        if (sccSet.has(neighbor)) {
-          cycleEdges.push({ from: node, to: neighbor });
-        }
-      }
-    }
-    return { files: scc, edges: cycleEdges, size: scc.length };
-  });
-
-  return {
-    cycles: cycles.sort((a, b) => b.size - a.size),
-    total_circular_files: cycles.reduce((sum, c) => sum + c.size, 0),
-  };
+}
 }
 
 // ══════════════════════════════════════════════════════════
@@ -577,7 +595,12 @@ function winnow(db, repoId, opts = {}) {
       sortBy = 'pagerank',
       top = 20,
     } = !(guard) ? (opts) : undefined,
-  pr = !(guard) ? (_getCoupling().buildPageRank(db, repoId)) : undefined;
+  pr = !(guard) ? (_getCoupling().buildPageRank(db, repoId)) : undefined, { symbolMap, n: totalSymbols } = pr,
+    // Build query dynamically based on active axes
+    conditions = ['s.repo_id = ?'],
+    params = [repoId],
+    joins = [],
+    activeAxes = [], selectCols = ['s.id', 's.name', 's.kind', 's.file_path', 's.signature', 's.start_line', 's.end_line'];
   if (guard) {
     return guard;
   }
@@ -585,12 +608,7 @@ function winnow(db, repoId, opts = {}) {
   if (pr.error) {
     return pr;
   }
-  const { symbolMap, n: totalSymbols } = pr,
-    // Build query dynamically based on active axes
-    conditions = ['s.repo_id = ?'],
-    params = [repoId],
-    joins = [],
-    activeAxes = [];
+  
 
   // Kind filter
   if (kind) {
@@ -649,7 +667,7 @@ function winnow(db, repoId, opts = {}) {
   // Ensure the JOIN needed for the chosen sort axis exists (even without a min*
   // Filter) and expose the column the comparator sorts on. Without these columns
   // In the SELECT, the sort comparators read `undefined` and become no-ops.
-  const selectCols = ['s.id', 's.name', 's.kind', 's.file_path', 's.signature', 's.start_line', 's.end_line'];
+  
 
   if (sortBy === 'complexity') {
     if (!joins.some((j) => j.includes('symbol_complexity'))) {
@@ -684,7 +702,8 @@ function winnow(db, repoId, opts = {}) {
     rows = db.prepare(sql).all(...params);
 
   // Filter by name regex if needed
-  let filteredRows = rows;
+  {
+let filteredRows = rows;
   if (nameRegexObj) {
     filteredRows = rows.filter((r) => nameRegexObj.test(r.name));
   }
@@ -721,6 +740,7 @@ function winnow(db, repoId, opts = {}) {
     total_symbols: totalSymbols,
     axes: activeAxes,
   };
+}
 }
 
 module.exports = {

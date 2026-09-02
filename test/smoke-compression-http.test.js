@@ -1,7 +1,7 @@
 // HTTP smoke test for the new mission-state compression endpoint
-const http = require('http');
-const { createDb, resetDb, sqlJson, sqlRun } = require('../db');
-const { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
+const http = require('http'), { createDb, resetDb, sqlJson, sqlRun } = require('../db'), { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
+
+
 
 describe('POST /missions/:id/compression (HTTP)', () => {
   let server, baseUrl;
@@ -90,7 +90,9 @@ describe('POST /missions/:id/compression (HTTP)', () => {
   it('persists the compression run to mission_compression_log', async () => {
     const before = sqlJson('SELECT COUNT(*) AS c FROM mission_compression_log WHERE mission_id = ?', ['m-smoke-1']);
     await request('POST', '/missions/m-smoke-1/compression', { trigger: 'manual' });
-    const after = sqlJson('SELECT COUNT(*) AS c FROM mission_compression_log WHERE mission_id = ?', ['m-smoke-1']);
+    {
+const after = sqlJson('SELECT COUNT(*) AS c FROM mission_compression_log WHERE mission_id = ?', ['m-smoke-1']);
     expect(after[0].c).toBe(before[0].c + 1);
-  });
+  }
+});
 });

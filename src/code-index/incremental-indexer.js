@@ -1,16 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-const { execFileSync } = require('child_process');
-const { RESULT_LIMITS, WORKER_POOL } = require('../../constants');
-const { hashContent } = require('../../utils');
-const { createCodeIndexRepository } = require('./repos');
-const { scanRepository } = require('./scanner');
-const { SKIP_FILE_RE } = require('./scanner');
-const { resolveRepoScopedPath, resolveRepoScopedDeletedPath } = require('./path-guards');
-const { withRepoIndexLock } = require('./repo-lock');
-const { createParserRegistry, getLanguageForFile } = require('./parser-registry');
-const { extractSymbolsSplit, normalizeSymbolHot } = require('./symbol-extractor');
-const {
+const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process'), { RESULT_LIMITS, WORKER_POOL } = require('../../constants'), { hashContent } = require('../../utils'), { createCodeIndexRepository } = require('./repos'), { scanRepository } = require('./scanner'), { SKIP_FILE_RE } = require('./scanner'), { resolveRepoScopedPath, resolveRepoScopedDeletedPath } = require('./path-guards'), { withRepoIndexLock } = require('./repo-lock'), { createParserRegistry, getLanguageForFile } = require('./parser-registry'), { extractSymbolsSplit, normalizeSymbolHot } = require('./symbol-extractor'), {
   buildImportEdges,
   buildImportEdgesForFiles,
   buildCallEdges,
@@ -19,10 +7,22 @@ const {
   buildComplexityMetricsForFiles,
   buildRelationEdges,
   buildCochangeEdges,
-} = require('./edge-extractor');
-const { createParsePool } = require('./worker-pool');
-const { buildScopeBindings: _buildScopeBindings } = require('./scope-builder');
-const { resolveScopeBindings, resolveScopeBindingsForFiles } = require('./scope-resolver');
+} = require('./edge-extractor'), { createParsePool } = require('./worker-pool'), { buildScopeBindings: _buildScopeBindings } = require('./scope-builder'), { resolveScopeBindings, resolveScopeBindingsForFiles } = require('./scope-resolver');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * Insert scope bindings for a file using delete-then-insert strategy.
@@ -723,7 +723,8 @@ async function parsePhase(files, deps, repoId, args) {
     repoRoot = args.repoRoot || args.repoPath || null;
 
   let useWorkers = totalFiles >= WORKER_POOL.MIN_FILES_FOR_PARALLEL && !args.noWorkers,
-    pool = null;
+    pool = null, symbolCount = 0,
+    fileCount = 0;
 
   if (useWorkers) {
     try {
@@ -742,8 +743,7 @@ async function parsePhase(files, deps, repoId, args) {
     }
   }
 
-  let symbolCount = 0,
-    fileCount = 0;
+  
   const skipped = [],
     deferredBatches = [],
     deferIndexWrites = Boolean(args.deferIndexWrites),
@@ -1004,7 +1004,7 @@ async function indexRepository(deps, repoPath, repoName) {
       });
       
   return (Date.now());
-})();let parseResult;
+})();let parseResult, derived;
     try {
       parseResult = await parsePhase(files, { parserRegistry: registry, repository }, repoId, {
         ...args,
@@ -1074,7 +1074,7 @@ async function indexRepository(deps, repoPath, repoName) {
     });
     const derivedT0 = Date.now(),
       headCommit = getHeadCommit(absPath);
-    let derived;
+    
     try {
       derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
     } catch (derivedError) {
@@ -1174,7 +1174,10 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
         : null,
       gitDeletedFiles = gitDelta ? gitDelta.deleted : [],
       explicitChangedPathMode = gitDelta && gitDelta.source === 'changed-paths';
-    let scanResult;
+    let scanResult, reindexed = 0,
+      unchanged = 0,
+      symbolCount = 0,
+      hashed = 0;
     if (gitDelta) {
       scanResult = {
         files: gitChangedFiles,
@@ -1210,18 +1213,15 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
   
       
   return (new Map(repository.listFiles(existing.id).map((file) => [file.path, file])));
-})();let reindexed = 0,
-      unchanged = 0,
-      symbolCount = 0,
-      hashed = 0;
-    const skipped = [],
+})(), skipped = [],
       totalFiles = files.length,
       changedFileIds = [],
       deletedFileIds = [],
       changedRecords = [];
+    
 
     for (let i = 0; i < files.length; i++) {
-      const filePath = files[i];
+      const filePath = files[i], done = i + 1;
       if (i % 50 === 0) {
         emitProgress(
           args,
@@ -1254,7 +1254,7 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
         recordDiagnostic(repository, existing.id, { filePath, content: '' }, 'error', e.message, 0);
       }
 
-      const done = i + 1;
+      
       if (shouldEmitFileProgress(done, totalFiles)) {
         emitProgress(
           args,
@@ -1578,7 +1578,8 @@ async function getCodeRepoHealth(deps, repo) {
     };
   }
 
-  const parseQuality =
+  {
+const parseQuality =
       existing.file_count > 0
         ? Math.max(0, 1 - ((diagnosticCounts.error || 0) + (diagnosticCounts.zero_symbols || 0)) / existing.file_count)
         : 1,
@@ -1602,6 +1603,7 @@ async function getCodeRepoHealth(deps, repo) {
     health_score: healthScore,
     recommendations: buildHealthRecommendations({ pathExists, stale, diagnosticCounts, scan }),
   };
+}
 }
 
 function buildHealthRecommendations({ pathExists, stale, diagnosticCounts, scan }) {

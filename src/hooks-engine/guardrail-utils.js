@@ -20,124 +20,17 @@ const MIN_SYMBOL_LENGTH = 4,
     /(?:^|\s)(?:\.{0,2}\/|\/)?[^\s'*?\"']+\.(?:md|mdx|txt|json|jsonl|yaml|yml|toml|ini|cfg|conf|csv|log)(?:\s|$)/i,
   CODE_FILE_PATH_RE = /(?:^|\s)(?:\.{0,2}\/|\/)?[^\s'"]+\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)(?:\s|$)/;
 
-function splitPipeline(cmd) {
-  const stages = [];
-  let current = '',
-    quote = null;
 
-  for (let i = 0; i < cmd.length; i++) {
-    const ch = cmd[i],
-      prev = i > 0 ? cmd[i - 1] : '';
 
-    if ((ch === '"' || ch === "'") && prev !== '\\') {
-      quote = quote === ch ? null : quote || ch;
-    }
 
-    if (ch === '|' && !quote) {
-      stages.push(current.trim());
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
 
-  stages.push(current.trim());
-  return stages.filter(Boolean);
-}
 
-function isPipedOutputFilter(cmd) {
-  const stages = splitPipeline(cmd);
-  if (stages.length < 2) {
-    return false;
-  }
 
-  const [sourceStage, ...filterStages] = stages;
-  if (SEARCH_COMMAND_RE.test(sourceStage)) {
-    return false;
-  }
 
-  return filterStages.some((stage) => FILTER_COMMAND_RE.test(stage));
-}
-
-function isTargetedTextFileLookup(cmd) {
-  if (/\bfind\b/i.test(cmd) || !/\b(grep|rg|ag|ack)\b/i.test(cmd)) {
-    return false;
-  }
-
-  const stages = splitPipeline(cmd);
-  if (
-    stages.length > 1 &&
-    stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
-  ) {
-    return false;
-  }
-
-  return TEXT_FILE_PATH_RE.test(cmd);
-}
-
-function isTargetedSymbolLookup(cmd) {
-  if (/\bfind\b/.test(cmd)) {
-    return false;
-  }
-
-  if (!/\b(grep|rg|ag|ack)\b/.test(cmd)) {
-    return false;
-  }
-
-  const stages = splitPipeline(cmd);
-  if (
-    stages.length > 1 &&
-    stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
-  ) {
-    return false;
-  }
-
-  let pattern = null,
-    hasQuotedPattern = false,
-    m;
-  // Reset the module-level /g flag's lastIndex. The original (hooks/guardrail-utils.js)
-  // Reused QUOTED_PATTERN_RE across calls without resetting; because the loop below
-  // `break`s on the first non-glob candidate, lastIndex was left stale and a later
-  // Call could start scanning mid-string. Resetting here makes the function
-  // Deterministic across calls (intentional deviation from the original, which had
-  // This latent stateful-regex bug; covered by test/tool-guardrails.test.js parity).
-  QUOTED_PATTERN_RE.lastIndex = 0;
-  while ((m = QUOTED_PATTERN_RE.exec(cmd)) !== null) {
-    const candidate = m[1];
-    if (!/^[*?]/.test(candidate)) {
-      hasQuotedPattern = true;
-    }
-    if (!/[*?]/.test(candidate)) {
-      pattern = candidate;
-      break;
-    }
-  }
-
-  if (hasQuotedPattern && CODE_FILE_PATH_RE.test(cmd)) {
-    return true;
-  }
-
-  if (!pattern) {
-    return false;
-  }
-
-  if (pattern.length < MIN_SYMBOL_LENGTH) {
-    return false;
-  }
-
-  if (/[.*+?|^$()\[\]{}\\]/.test(pattern)) {
-    return false;
-  }
-
-  if (pattern.includes('|')) {
-    return false;
-  }
-
-  return true;
-}
 
 // --- from tool-guardrails.ts:9-53 ---
 
+{
 const CONFIG_FILENAMES = new Set([
     'package.json',
     'package-lock.json',
@@ -261,7 +154,8 @@ function isTargetedGrepLookup(toolInput = {}) {
   if (typeof pattern !== 'string' || !pattern) {
     return false;
   }
-  const trimmed = pattern.trim();
+  {
+const trimmed = pattern.trim();
   if (trimmed.length < MIN_SYMBOL_LENGTH) {
     return false;
   }
@@ -272,6 +166,7 @@ function isTargetedGrepLookup(toolInput = {}) {
     return false;
   }
   return true;
+}
 }
 
 /**
@@ -316,3 +211,116 @@ module.exports = {
   CODE_PATH_HINT_RE,
   MIN_SYMBOL_LENGTH,
 };
+function splitPipeline(cmd) {
+  const stages = [];
+  let current = '',
+    quote = null;
+
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i],
+      prev = i > 0 ? cmd[i - 1] : '';
+
+    if ((ch === '"' || ch === "'") && prev !== '\\') {
+      quote = quote === ch ? null : quote || ch;
+    }
+
+    if (ch === '|' && !quote) {
+      stages.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+
+  stages.push(current.trim());
+  return stages.filter(Boolean);
+}
+function isPipedOutputFilter(cmd) {
+  const stages = splitPipeline(cmd), [sourceStage, ...filterStages] = stages;
+  if (stages.length < 2) {
+    return false;
+  }
+
+  
+  if (SEARCH_COMMAND_RE.test(sourceStage)) {
+    return false;
+  }
+
+  return filterStages.some((stage) => FILTER_COMMAND_RE.test(stage));
+}
+function isTargetedTextFileLookup(cmd) {
+  if (/\bfind\b/i.test(cmd) || !/\b(grep|rg|ag|ack)\b/i.test(cmd)) {
+    return false;
+  }
+
+  const stages = splitPipeline(cmd);
+  if (
+    stages.length > 1 &&
+    stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
+  ) {
+    return false;
+  }
+
+  return TEXT_FILE_PATH_RE.test(cmd);
+}
+function isTargetedSymbolLookup(cmd) {
+  if (/\bfind\b/.test(cmd)) {
+    return false;
+  }
+
+  if (!/\b(grep|rg|ag|ack)\b/.test(cmd)) {
+    return false;
+  }
+
+  const stages = splitPipeline(cmd);
+  if (
+    stages.length > 1 &&
+    stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
+  ) {
+    return false;
+  }
+
+  let pattern = null,
+    hasQuotedPattern = false,
+    m;
+  // Reset the module-level /g flag's lastIndex. The original (hooks/guardrail-utils.js)
+  // Reused QUOTED_PATTERN_RE across calls without resetting; because the loop below
+  // `break`s on the first non-glob candidate, lastIndex was left stale and a later
+  // Call could start scanning mid-string. Resetting here makes the function
+  // Deterministic across calls (intentional deviation from the original, which had
+  // This latent stateful-regex bug; covered by test/tool-guardrails.test.js parity).
+  QUOTED_PATTERN_RE.lastIndex = 0;
+  while ((m = QUOTED_PATTERN_RE.exec(cmd)) !== null) {
+    const candidate = m[1];
+    if (!/^[*?]/.test(candidate)) {
+      hasQuotedPattern = true;
+    }
+    if (!/[*?]/.test(candidate)) {
+      pattern = candidate;
+      break;
+    }
+  }
+
+  if (hasQuotedPattern && CODE_FILE_PATH_RE.test(cmd)) {
+    return true;
+  }
+
+  if (!pattern) {
+    return false;
+  }
+
+  if (pattern.length < MIN_SYMBOL_LENGTH) {
+    return false;
+  }
+
+  if (/[.*+?|^$()\[\]{}\\]/.test(pattern)) {
+    return false;
+  }
+
+  if (pattern.includes('|')) {
+    return false;
+  }
+
+  return true;
+}
+}

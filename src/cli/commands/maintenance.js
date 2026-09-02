@@ -1,6 +1,4 @@
-const sesCmd = require('../../../commands/session');
-const wsCmd = require('../../../commands/workspace');
-const cleanupCmd = require('../../../scripts/cleanup-sessions'),
+const sesCmd = require('../../../commands/session'), wsCmd = require('../../../commands/workspace'), cleanupCmd = require('../../../scripts/cleanup-sessions'),
   USAGE = {
     init: '',
     compact: '',
@@ -17,6 +15,8 @@ const cleanupCmd = require('../../../scripts/cleanup-sessions'),
     'trust-recovery': '[--repo X]',
     'cleanup-sessions': '[--project X] [--dry-run] [--yes] [--keep-last N] [--include-dream] [--bypass-age-gates]',
   };
+
+
 
 function register(commands, deps) {
   const {

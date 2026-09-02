@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-const path = require('path');
-const { execSync } = require('child_process');
-const { BENCHMARK_TOOLS, formatBytes, pad, runCli, isRepoIndexed, findSymbolWithCallers } = require('./bench-helper');
-const wf = require('../src/platform/protocol/compact-format');
+const path = require('path'), { execSync } = require('child_process'), { BENCHMARK_TOOLS, formatBytes, pad, runCli, isRepoIndexed, findSymbolWithCallers } = require('./bench-helper'), wf = require('../src/platform/protocol/compact-format');
+
+
+
 
 // ══════════════════════════════════════════════════════════
 // CLI ARGS
@@ -232,12 +232,14 @@ function _printSummary(totalRaw, totalCompact, totalRows) {
       pad(totalCompact, 12) +
       ('-' + overallPct + '%').padStart(8),
   );
-  const savedBytes = totalRaw - totalCompact,
+  {
+const savedBytes = totalRaw - totalCompact,
     savedTokens = Math.round(savedBytes / 3.5);
   console.log(`\n✓ Benchmark complete.`);
   console.log(`  Total raw:     ${formatBytes(totalRaw)} (${totalRaw}B)`);
   console.log(`  Total compact: ${formatBytes(totalCompact)} (${totalCompact}B)`);
   console.log(`  Saved:         ${formatBytes(savedBytes)} (~${savedTokens} tokens, -${overallPct}%)`);
+}
 }
 
 main().catch((e) => {

@@ -1,8 +1,8 @@
-const memoryDomain = require('../src/memory-domain');
-const { rankObservations } = require('../src/memory-domain/search');
-const { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall');
-const { trigramOverlap } = require('../src/memory-domain/dedupe'),
+const memoryDomain = require('../src/memory-domain'), { rankObservations } = require('../src/memory-domain/search'), { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall'), { trigramOverlap } = require('../src/memory-domain/dedupe'),
   expectedModules = ['observations', 'search', 'context', 'sessions', 'recall', 'dedupe', 'compaction', 'workspaces'];
+
+
+
 
 describe('src/memory-domain boundary', () => {
   it('exports the declarative memory and session domain modules', () => {

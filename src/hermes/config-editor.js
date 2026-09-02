@@ -15,10 +15,10 @@
  * read-modify-write without holding locks.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os'),
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'),
   TOP_KEY_RE = /^[A-Za-z0-9_.-]+\s*:/;
+
+
 
 function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -91,21 +91,21 @@ function upsertSubBlock(text, topKey, subKey, bodyLines, indent = 2) {
     return squashBlankLines(joinLines([...ls, ...sep, ...block, '']));
   }
   const pad = ' '.repeat(indent),
-    subRe = new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`);
-  let subStart = -1;
+    subRe = new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`), block = [`${pad}${subKey}:`, ...bodyLines.map((l) => ' '.repeat(indent + 2) + l)];
+  let subStart = -1, subEnd = range.end;
   for (let i = range.start + 1; i < range.end; i++) {
     if (subRe.test(ls[i])) {
       subStart = i;
       break;
     }
   }
-  const block = [`${pad}${subKey}:`, ...bodyLines.map((l) => ' '.repeat(indent + 2) + l)];
+  
   if (subStart === -1) {
     const at = insertAt(ls, range);
     ls.splice(at, 0, ...block);
     return squashBlankLines(joinLines(ls));
   }
-  let subEnd = range.end;
+  
   for (let i = subStart + 1; i < range.end; i++) {
     if (ls[i].trim() === '') {
       continue;
@@ -129,7 +129,7 @@ function removeSubBlock(text, topKey, subKey, indent = 2) {
   if (!range) {
     return text;
   }
-  let subStart = -1;
+  let subStart = -1, subEnd = range.end;
   for (let i = range.start + 1; i < range.end; i++) {
     if (subRe.test(ls[i])) {
       subStart = i;
@@ -139,7 +139,7 @@ function removeSubBlock(text, topKey, subKey, indent = 2) {
   if (subStart === -1) {
     return text;
   }
-  let subEnd = range.end;
+  
   for (let i = subStart + 1; i < range.end; i++) {
     if (ls[i].trim() === '') {
       continue;
@@ -185,7 +185,7 @@ function removeEmptySubBlock(text, topKey, subKey, indent = 2) {
   if (!range) {
     return text;
   }
-  let subStart = -1;
+  let subStart = -1, subEnd = range.end;
   for (let i = range.start + 1; i < range.end; i++) {
     if (subRe.test(ls[i])) {
       subStart = i;
@@ -195,7 +195,7 @@ function removeEmptySubBlock(text, topKey, subKey, indent = 2) {
   if (subStart === -1) {
     return text;
   }
-  let subEnd = range.end;
+  
   for (let i = subStart + 1; i < range.end; i++) {
     if (/^ {0,2}[A-Za-z0-9_.-]+\s*:/.test(ls[i]) && ls[i].trim() !== '') {
       const ind = ls[i].match(/^ */)[0].length;
@@ -205,12 +205,14 @@ function removeEmptySubBlock(text, topKey, subKey, indent = 2) {
       }
     }
   }
-  const content = ls.slice(subStart + 1, subEnd);
+  {
+const content = ls.slice(subStart + 1, subEnd);
   if (!content.every(isEmptyLineForPrune)) {
     return text;
   }
   ls.splice(subStart, subEnd - subStart);
   return squashBlankLines(joinLines(ls));
+}
 }
 
 /** Remove a top-level block and its body. */
@@ -258,11 +260,11 @@ function upsertListItem(text, topKey, subKey, itemLines, marker) {
 /** Remove every dash-list item under `topKey.subKey` containing `marker`. */
 function removeListItems(text, topKey, subKey, marker) {
   const ls = splitLines(text),
-    range = topBlockRange(text, topKey);
+    range = topBlockRange(text, topKey), kept = [];
   if (!range) {
     return text;
   }
-  let subStart = -1;
+  let subStart = -1, subEnd = range.end;
   for (let i = range.start + 1; i < range.end; i++) {
     if (/^  [A-Za-z0-9_.-]+\s*:/.test(ls[i]) && ls[i].trim().startsWith(`${subKey}:`)) {
       subStart = i;
@@ -272,14 +274,14 @@ function removeListItems(text, topKey, subKey, marker) {
   if (subStart === -1) {
     return text;
   }
-  let subEnd = range.end;
+  
   for (let i = subStart + 1; i < range.end; i++) {
     if (/^  [A-Za-z0-9_.-]+\s*:/.test(ls[i])) {
       subEnd = i;
       break;
     }
   }
-  const kept = [];
+  
   let i = subStart + 1;
   while (i < subEnd) {
     if (/^    - /.test(ls[i])) {
@@ -305,14 +307,14 @@ function removeListItems(text, topKey, subKey, marker) {
 /** Upsert a top-level scalar line `key: value`. */
 function upsertScalar(text, key, value) {
   const ls = splitLines(text),
-    re = new RegExp(`^${escapeRegExp(key)}\\s*:`);
+    re = new RegExp(`^${escapeRegExp(key)}\\s*:`), sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
   for (let i = 0; i < ls.length; i++) {
     if (re.test(ls[i])) {
       ls[i] = `${key}: ${value}`;
       return joinLines(ls);
     }
   }
-  const sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
+  
   return squashBlankLines(joinLines([...ls, ...sep, `${key}: ${value}`]));
 }
 

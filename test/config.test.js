@@ -1,6 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-const {
+const fs = require('fs'), path = require('path'), {
   stripJsoncComments,
   expandTilde,
   deepMerge,
@@ -9,6 +7,8 @@ const {
   DEFAULTS,
   _CONFIG_PATH,
 } = require('../config');
+
+
 
 describe('config.js', () => {
   const ORIGINAL_READ = fs.readFileSync,

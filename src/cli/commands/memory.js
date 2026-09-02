@@ -1,6 +1,4 @@
-const obsCmd = require('../../../commands/observation');
-const searchCmd = require('../../../commands/search');
-const codeSearchService = require('../../../services/code-search'),
+const obsCmd = require('../../../commands/observation'), searchCmd = require('../../../commands/search'), codeSearchService = require('../../../services/code-search'),
   USAGE = {
     save: '--title <title> --content <content> [--type TYPE] [--project NAME] [--scope SCOPE] [--topic-key KEY] [--force] [--expires-in DUR] [--session-id ID]',
     get: '--id ID',
@@ -19,6 +17,8 @@ const codeSearchService = require('../../../services/code-search'),
     'mark-dup': '--source ID --target ID [--confidence N]',
     'log-negative-recall': '--entries <json-array>',
   };
+
+
 
 function register(commands, deps) {
   const { sqlJson, sqlRun, sqlRaw, jsonErrNoExit, repositories } = deps,

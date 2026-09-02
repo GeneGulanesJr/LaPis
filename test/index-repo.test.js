@@ -1,8 +1,8 @@
 // Integration tests for index-repo (WASM-based)
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process'),
+const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js');
+
+
 
 function writeTmpRepo(repoPath, files) {
   fs.mkdirSync(repoPath, { recursive: true });
@@ -91,7 +91,8 @@ describe('index-repo (WASM)', () => {
       expect(relResult.success).toBe(true);
       expect(relResult.symbol).toBe('main');
 
-      const absOut = execSync(`node "${STORE}" get-code-source --repo test-wasm-integ --file ${absFile} --name main`, {
+      {
+const absOut = execSync(`node "${STORE}" get-code-source --repo test-wasm-integ --file ${absFile} --name main`, {
           encoding: 'utf8',
           timeout: 10000,
         }),
@@ -110,7 +111,8 @@ describe('index-repo (WASM)', () => {
       }
       expect(missErr).toContain(absFile);
       expect(missErr).toMatch(/resolved against the repo root/);
-    });
+    }
+});
 
     it('should not mention Python in error messages', () => {
       let stderr = '';

@@ -63,7 +63,8 @@ async function runSmokeTest() {
 
   // 3. Non-bash tool — should be skipped
   console.log('\n3. Non-bash tool (should be skipped)...');
-  const readResult = await handler(
+  {
+const readResult = await handler(
     {
       type: 'tool_result',
       toolName: 'read',
@@ -79,7 +80,8 @@ async function runSmokeTest() {
 
   // 4. Short bash output — should be skipped
   console.log('\n4. Short bash output (should be skipped)...');
-  const shortResult = await handler(
+  {
+const shortResult = await handler(
     {
       type: 'tool_result',
       toolName: 'bash',
@@ -95,7 +97,8 @@ async function runSmokeTest() {
 
   // 5. Large bash output — should be compressed
   console.log('\n5. Large bash output (should be compressed)...');
-  const largeOutput = 'Test output line\n'.repeat(500),
+  {
+const largeOutput = 'Test output line\n'.repeat(500),
     largeResult = await handler(
       {
         type: 'tool_result',
@@ -143,6 +146,9 @@ async function runSmokeTest() {
     process.exit(1);
   }
   console.log('\n🎉 All smoke tests passed!\n');
+}
+}
+}
 }
 
 runSmokeTest().catch((e) => {

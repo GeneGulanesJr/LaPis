@@ -1,5 +1,5 @@
-const { createDb, resetDb, sqlJson } = require('../db');
-const { tryAcquireSqliteLock, releaseSqliteLock, makeHolderId } = require('../src/code-index/repo-lock');
+const { createDb, resetDb, sqlJson } = require('../db'), { tryAcquireSqliteLock, releaseSqliteLock, makeHolderId } = require('../src/code-index/repo-lock');
+
 
 describe('repo-index lock', () => {
   beforeEach(() => {

@@ -32,16 +32,17 @@ function checkTrajectory(parsedOutput) {
   
     
   return (0);
-})();if (editCount > 0) {
+})(), score = 1.0;if (editCount > 0) {
     readEditRatio = readCount / (readCount + editCount);
   } else if (readCount > 0) {
     readEditRatio = 1;
   }
 
-  const uniqueTools = Object.keys(toolCounts).length,
+  {
+const uniqueTools = Object.keys(toolCounts).length,
     errorRate = totalToolCalls > 0 ? failedToolCalls / totalToolCalls : 0;
 
-  let score = 1.0;
+  
   if (totalToolCalls > 0 && readCount === 0) {
     score -= 0.3;
   }
@@ -67,6 +68,7 @@ function checkTrajectory(parsedOutput) {
     score: parseFloat(score.toFixed(3)),
   };
 }
+}
 
 if (require.main === module) {
   const raw = require('fs').readFileSync(process.argv[2] || '/dev/stdin', 'utf-8');
@@ -77,8 +79,10 @@ if (require.main === module) {
   } catch {
     parsed = { tool_counts: {}, behavior: {} };
   }
-  const result = checkTrajectory(parsed);
+  {
+const result = checkTrajectory(parsed);
   console.log(JSON.stringify(result, null, 2));
+}
 }
 
 module.exports = { checkTrajectory };

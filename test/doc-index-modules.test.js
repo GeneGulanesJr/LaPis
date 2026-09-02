@@ -1,10 +1,10 @@
-const markdownParser = require('../src/doc-index/markdown-parser');
-const htmlParser = require('../src/doc-index/html-parser');
-const links = require('../src/doc-index/links');
-const glossary = require('../src/doc-index/glossary');
-const examples = require('../src/doc-index/examples');
-const analytics = require('../src/doc-index/analytics');
-const repos = require('../src/doc-index/repos');
+const markdownParser = require('../src/doc-index/markdown-parser'), htmlParser = require('../src/doc-index/html-parser'), links = require('../src/doc-index/links'), glossary = require('../src/doc-index/glossary'), examples = require('../src/doc-index/examples'), analytics = require('../src/doc-index/analytics'), repos = require('../src/doc-index/repos');
+
+
+
+
+
+
 
 describe('doc-index focused modules', () => {
   it('parses markdown sections through the parser module', () => {

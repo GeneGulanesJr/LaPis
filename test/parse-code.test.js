@@ -1,7 +1,7 @@
 // Unit tests for parse-code (WASM tree-sitter)
-const path = require('path');
-const fs = require('fs');
-const codeParser = require('../parse-code');
+const path = require('path'), fs = require('fs'), codeParser = require('../parse-code');
+
+
 
 function writeTmpTest(filePath, content) {
   fs.writeFileSync(filePath, content);
@@ -50,7 +50,8 @@ describe('parse-code (WASM tree-sitter)', () => {
   return (codeParser.parseFile(tmpFile));
 })();fs.unlinkSync(tmpFile);
 
-      const cls = symbols.find((s) => s.name === 'MyClass' && s.kind === 'class'),
+      {
+const cls = symbols.find((s) => s.name === 'MyClass' && s.kind === 'class'),
       method = (() => {
 
         expect(cls).toBeDefined();
@@ -60,7 +61,8 @@ describe('parse-code (WASM tree-sitter)', () => {
 })();expect(method).toBeDefined();
       expect(method.parent_name).toBe('MyClass');
       expect(method.qualified_name).toBe('MyClass.greet');
-    });
+    }
+});
 
     it('should extract arrow function variables', () => {
       const tmpFile = path.join('/tmp', 'test-arrow.js'),
@@ -158,7 +160,8 @@ fs.unlinkSync(tmpFile);
   return (codeParser.parseFile(tmpFile));
 })();fs.unlinkSync(tmpFile);
 
-      const iface = symbols.find((s) => s.name === 'User' && s.kind === 'interface'),
+      {
+const iface = symbols.find((s) => s.name === 'User' && s.kind === 'interface'),
       typeAlias = (() => {
 
         expect(iface).toBeDefined();
@@ -167,7 +170,8 @@ fs.unlinkSync(tmpFile);
         
   return (symbols.find((s) => s.name === 'ID' && s.kind === 'type'));
 })();expect(typeAlias).toBeDefined();
-    });
+    }
+});
 
     it('should extract TSX component', () => {
       const tmpFile = path.join('/tmp', 'test-comp.tsx'),

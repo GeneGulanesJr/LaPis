@@ -1,7 +1,7 @@
 'use strict';
 
-const path = require('path');
-const { AUDIT_DIFF: CFG } = require('../../constants');
+const path = require('path'), { AUDIT_DIFF: CFG } = require('../../constants');
+
 
 function _requireNativeDb(db) {
   if (!db || !db.prepare) {
@@ -51,7 +51,8 @@ function auditDiff(db, repoId, opts = {}) {
         riskScore += weights.constraint;
       }
 
-      const untested = _checkUntestedPublic(db, repoId, sym),
+      {
+const untested = _checkUntestedPublic(db, repoId, sym),
       hotPath = (() => {
 
         if (untested) {
@@ -66,6 +67,7 @@ function auditDiff(db, repoId, opts = {}) {
         riskScore += weights.hot_path;
       }
     }
+}
   }
 
   if (task) {
@@ -76,7 +78,8 @@ function auditDiff(db, repoId, opts = {}) {
     }
   }
 
-  const risk = _scoreToRisk(riskScore);
+  {
+const risk = _scoreToRisk(riskScore);
 
   _persistAudit(db, repoId, task, files, violations, risk);
 
@@ -86,6 +89,7 @@ function auditDiff(db, repoId, opts = {}) {
     files_checked: files.length,
     risk_score: Math.round(riskScore * 100) / 100,
   };
+}
 }
 
 function _checkDuplicateCreation(db, repoId, sym) {
@@ -98,7 +102,8 @@ function _checkDuplicateCreation(db, repoId, sym) {
     return null;
   }
 
-  const similar = db
+  {
+const similar = db
     .prepare(
       `SELECT name, file_path FROM code_symbols
        WHERE repo_id = ? AND file_path != ? AND name != ?
@@ -118,6 +123,7 @@ function _checkDuplicateCreation(db, repoId, sym) {
     file: sym.file_path,
     symbol: sym.name,
   };
+}
 }
 
 function _checkConstraintViolation(db, sym) {

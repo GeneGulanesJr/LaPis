@@ -1,5 +1,5 @@
-const { CONTEXT, RANKING } = require('../constants');
-const { context } = require('../src/memory-domain/context');
+const { CONTEXT, RANKING } = require('../constants'), { context } = require('../src/memory-domain/context');
+
 
 function mockFn(impl = () => undefined) {
   const calls = [],

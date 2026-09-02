@@ -1,11 +1,11 @@
 // Unified before-edit coding context built from the existing code index analyzers.
 
-const graph = require('./graph');
-const impact = require('./impact');
-const quality = require('./quality');
-const gitMetrics = require('./git-metrics'),
+const graph = require('./graph'), impact = require('./impact'), quality = require('./quality'), gitMetrics = require('./git-metrics'),
   DEFAULT_DEPTH = 2,
   DEFAULT_TOP = 10;
+
+
+
 
 function getCodingContext(db, repoId, opts = {}) {
   const symbolQuery = normalizeText(opts.symbol),
@@ -72,7 +72,8 @@ function getCodingContext(db, repoId, opts = {}) {
     );
   }
 
-  const likelyTests = findLikelyTests(db, repoId, target, top),
+  {
+const likelyTests = findLikelyTests(db, repoId, target, top),
     relatedFiles = collectRelatedFiles({ target, imports, callers, callees, blastRadius, likelyTests }, top),
     summary = summarizeContext({
       target,
@@ -105,6 +106,7 @@ function getCodingContext(db, repoId, opts = {}) {
     partial_errors: partialErrors,
   };
 }
+}
 
 function resolveSymbolTarget(db, repoId, symbolQuery, fileHint) {
   const rows = db
@@ -135,7 +137,8 @@ function resolveSymbolTarget(db, repoId, symbolQuery, fileHint) {
   }
 
   // Multiple matches — disambiguate by ranking candidates
-  const preferredKinds = new Set([
+  {
+const preferredKinds = new Set([
       'function',
       'method',
       'class',
@@ -190,6 +193,7 @@ function resolveSymbolTarget(db, repoId, symbolQuery, fileHint) {
     alternative_count: rows.length - 1,
   };
 }
+}
 
 function resolveFileTarget(db, repoId, fileQuery) {
   const row = findFile(db, repoId, fileQuery);
@@ -197,7 +201,8 @@ function resolveFileTarget(db, repoId, fileQuery) {
     return { error: `File "${fileQuery}" not found` };
   }
 
-  const symbols = db
+  {
+const symbols = db
     .prepare(
       `SELECT id, name, qualified_name, kind, start_line, end_line
        FROM code_symbols
@@ -218,6 +223,7 @@ function resolveFileTarget(db, repoId, fileQuery) {
       end_line: sym.end_line,
     })),
   };
+}
 }
 
 function findFile(db, repoId, fileQuery) {
@@ -325,10 +331,10 @@ function summarizeContext({
     complexityLevel = complexity?.assessment || null,
     churnPerWeek = typeof churn?.churn_per_week === 'number' ? churn.churn_per_week : null,
     couplingRows = Array.isArray(coupling?.files) ? coupling.files : coupling?.metrics || [],
-    instability = couplingRows[0] ? couplingRows[0].instability : null;
+    instability = couplingRows[0] ? couplingRows[0].instability : null, reasons = [];
 
-  let risk = 'low';
-  const reasons = [];
+  let risk = 'low', reviewBar = 'normal';
+  
   if (affectedFiles >= 10 || callerCount >= 10) {
     risk = 'high';
     reasons.push('large blast radius');
@@ -354,7 +360,7 @@ function summarizeContext({
     reasons.push('recent churn');
   }
 
-  let reviewBar = 'normal';
+  
   if (risk === 'high') {
     reviewBar = 'high';
   } else if (risk === 'medium') {

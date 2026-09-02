@@ -13,7 +13,7 @@ function checkDiff(task, worktreePath) {
   const mustTouch = task.success?.must_touch || [],
     mustNotTouch = task.success?.must_not_touch || [];
 
-  let rawDiff;
+  let rawDiff, linesChanged = 0;
   try {
     rawDiff = execSync('git diff --name-only', {
       cwd: worktreePath,
@@ -24,13 +24,14 @@ function checkDiff(task, worktreePath) {
     rawDiff = '';
   }
 
-  const touched = rawDiff ? rawDiff.split(/\r?\n/).filter(Boolean) : [],
+  {
+const touched = rawDiff ? rawDiff.split(/\r?\n/).filter(Boolean) : [],
     normalize = (p) => p.replace(/\\/g, '/'),
     touchedNorm = new Set(touched.map(normalize)),
     violations = mustNotTouch.filter((f) => touchedNorm.has(normalize(f))),
     missed = mustTouch.filter((f) => !touchedNorm.has(normalize(f)));
 
-  let linesChanged = 0;
+  
   try {
     const statDiff = execSync('git diff --stat', {
         cwd: worktreePath,
@@ -57,6 +58,7 @@ function checkDiff(task, worktreePath) {
     linesChanged,
   };
 }
+}
 
 if (require.main === module) {
   const taskPath = process.argv[2],
@@ -65,9 +67,11 @@ if (require.main === module) {
     console.error('Usage: node check-diff.js <task.json> <worktree-path>');
     process.exit(1);
   }
-  const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8')),
+  {
+const task = JSON.parse(require('fs').readFileSync(taskPath, 'utf-8')),
     result = checkDiff(task, worktreePath);
   console.log(JSON.stringify(result, null, 2));
+}
 }
 
 module.exports = { checkDiff };

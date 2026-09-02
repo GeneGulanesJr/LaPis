@@ -1,8 +1,8 @@
-const { collectChangedSymbols, extractSymbolKey } = require('../src/trust-sync/change-detector');
-const { getTrustSyncRepository } = require('../src/trust-sync/symbol-links');
-const { evaluateTrustSync, stripOperations, symbolMatchesChange } = require('../src/trust-sync/trust-policy');
+const { collectChangedSymbols, extractSymbolKey } = require('../src/trust-sync/change-detector'), { getTrustSyncRepository } = require('../src/trust-sync/symbol-links'), { evaluateTrustSync, stripOperations, symbolMatchesChange } = require('../src/trust-sync/trust-policy'), { TRUST_DELTA } = require('../constants');
 
-const { TRUST_DELTA } = require('../constants');
+
+
+
 
 describe('src/trust-sync trust policy', () => {
   it('evaluates changed and survived links without repository side effects', () => {

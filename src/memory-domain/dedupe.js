@@ -1,5 +1,5 @@
-const { DEDUP, RESULT_LIMITS } = require('../../constants');
-const { getConfig } = require('../../config');
+const { DEDUP, RESULT_LIMITS } = require('../../constants'), { getConfig } = require('../../config');
+
 
 function trigramOverlap(a, b) {
   const trigrams = (s) => {
@@ -28,14 +28,14 @@ function trigramOverlap(a, b) {
 }
 
 function checkDuplicate(deps, title, type, project, topicKey) {
-  const { sqlJson } = deps;
+  const { sqlJson } = deps, params = [type];
   let q = `
     SELECT id, title, topic_key, created_at
     FROM observations
     WHERE type = ? AND deleted_at IS NULL
       AND (expires_at IS NULL OR expires_at > datetime('now'))
   `;
-  const params = [type];
+  
   if (project) {
     q += ' AND project = ?';
     params.push(project);
@@ -47,7 +47,8 @@ function checkDuplicate(deps, title, type, project, topicKey) {
     q += ' ORDER BY created_at DESC';
   }
   q += ` LIMIT ${RESULT_LIMITS.DEDUP_CANDIDATES}`;
-  const candidates = sqlJson(q, params),
+  {
+const candidates = sqlJson(q, params),
     duplicates = [],
     warningThreshold = getConfig().dedup.warning_threshold;
   for (const c of candidates) {
@@ -62,6 +63,7 @@ function checkDuplicate(deps, title, type, project, topicKey) {
     }
   }
   return { potential_duplicates: duplicates };
+}
 }
 
 function markDuplicate(deps, args) {

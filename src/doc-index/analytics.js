@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const { RESULT_LIMITS } = require('../../constants');
+const fs = require('fs'), path = require('path'), { RESULT_LIMITS } = require('../../constants');
+
+
 
 function searchDocs(db, repoId, query, opts) {
   opts = opts || {};
@@ -133,8 +133,10 @@ function getOrphanSections(db, repoId, opts = {}) {
     params = [repoId];
   }
 
-  const orphans = db.prepare(query).all(...params);
+  {
+const orphans = db.prepare(query).all(...params);
   return { orphans, total: orphans.length };
+}
 }
 
 function createDbCodeSymbolLookup(db) {
@@ -168,7 +170,8 @@ function getDocCoverageReport(symbols, sections) {
   }
 
   let documented = 0;
-  const documented_list = [],
+  {
+const documented_list = [],
     undocumented_list = [],
   total = (() => {
 
@@ -194,6 +197,7 @@ function getDocCoverageReport(symbols, sections) {
     documented_list: documented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
     undocumented_list: undocumented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
   };
+}
 }
 
 function getDocCoverage(db, repoId, docRepoId, opts = {}) {

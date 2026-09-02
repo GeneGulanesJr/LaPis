@@ -1,7 +1,7 @@
-const utils = require('../utils');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const utils = require('../utils'), fs = require('fs'), path = require('path'), os = require('os');
+
+
+
 
 describe('utils.js', () => {
   describe('requireNativeDb', () => {

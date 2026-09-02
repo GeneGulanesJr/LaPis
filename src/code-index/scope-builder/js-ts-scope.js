@@ -254,16 +254,16 @@ if (params) {
       // Find the source module
       sourceStr = findStringNode(node),
     modulePath = sourceStr ? (sourceStr) : undefined,
-    isPackage = sourceStr ? (!modulePath.startsWith('.') && !modulePath.startsWith('/')) : undefined;
+    isPackage = sourceStr ? (!modulePath.startsWith('.') && !modulePath.startsWith('/')) : undefined, _hasDefaultImport = false,
+      _hasNamespaceImport = false,
+      _hasNamedImports = false;
     if (!sourceStr) {
       return;
     }
 
     // Check for default import: import foo from '...'
     let child = node.firstChild;
-    const _hasDefaultImport = false,
-      _hasNamespaceImport = false,
-      _hasNamedImports = false;
+    
 
     while (child) {
       const t = child.type;
@@ -340,7 +340,8 @@ if (params) {
             } else if (nameNode) {
               localName = nameNode.text;
             }
-            const originalName = nameNode ? nameNode.text : localName;
+            {
+const originalName = nameNode ? nameNode.text : localName;
             if (localName) {
               addBinding(bindings, {
                 name: localName,
@@ -356,6 +357,7 @@ if (params) {
               });
             }
           }
+}
           specChild = specChild.nextSibling;
         }
       } else if (t === 'namespace_import') {

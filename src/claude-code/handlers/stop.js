@@ -16,15 +16,7 @@
  * the file lock so PostToolUse hooks are not blocked for the dispatch duration.
  */
 
-const path = require('node:path');
-const { uniqueEditedPaths } = require('../file-keys');
-const { makeMutate } = require('../state-mutate');
-const { resolveCwd } = require('../../hooks-engine/project');
-const { resolveProjectForCwd } = require('../project-resolve');
-const { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
-const { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher');
-const { readTranscriptStream } = require('../hooks-engine/transcript-reader');
-const {
+const path = require('node:path'), { uniqueEditedPaths } = require('../file-keys'), { makeMutate } = require('../state-mutate'), { resolveCwd } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), { extractMessageText } = require('../../hooks-engine/prompt-classifiers'), { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher'), { readTranscriptStream } = require('../hooks-engine/transcript-reader'), {
     buildAutoDecisionPayload,
     shouldCheckpoint,
     shouldDream,
@@ -34,6 +26,14 @@ const {
   // AUTO_DECISION_COOLDOWN) and the hooks-engine passive-capture defaults.
   CHECKPOINT_EVERY = 10,
   COOLDOWN_MS = 60000;
+
+
+
+
+
+
+
+
 
 function extractInlineAssistantText(payload) {
   // Preferred inline field (#207). Newer Claude Code builds may ship the last
@@ -198,7 +198,8 @@ async function runStopCapture({
     }
 
     // Dream: claim the once-per-session flag under lock, dispatch outside it.
-    const runDream = await mutate((state) => {
+    {
+const runDream = await mutate((state) => {
       if (!shouldDream(turnCount, state.dreamTriggeredThisSession)) {
         return false;
       }
@@ -214,7 +215,8 @@ async function runStopCapture({
     }
 
     // Negative recall: drain the queue under lock, dispatch outside it.
-    const recallEntries = await mutate((state) => {
+    {
+const recallEntries = await mutate((state) => {
       if (!state.pendingRecallFeedback || state.pendingRecallFeedback.length === 0) {
         return null;
       }
@@ -244,7 +246,9 @@ async function runStopCapture({
       }));
       await checkpoint({ dispatch, state: snapshot, project });
     }
-  } catch {
+  }
+}
+} catch {
     // Never throw out of a Stop handler.
   }
 }

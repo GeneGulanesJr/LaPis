@@ -12,14 +12,7 @@ let _inProcessDispatch: ((cmd: string, args: Record<string, string>) => Promise<
   // not on every preflight/coding-context call. The real cause is reported via
   // openDb()'s improved error message (see db.js).
   _inProcessFailureReported = false;
-function reportInProcessFailure(cmd: string, msg: string, kind: 'load' | 'dispatch' | 'streaming') {
-  if (_inProcessFailureReported) {
-    return;
-  }
-  _inProcessFailureReported = true;
-  const verb = kind === 'load' ? 'load in-process gateway' : `run ${cmd} in-process`;
-  console.error(`[memory-layer] failed to ${verb}, falling back to child process (this message will not repeat):`, msg);
-}
+
 
 const MAIN_THREAD_BLOCKING_COMMANDS = new Set([
   'index-repo',
@@ -205,7 +198,8 @@ export async function memStreaming(
 
       let stdout = '',
         timer: ReturnType<typeof setTimeout> | null = null;
-      const resetTimer = () => {
+      {
+const resetTimer = () => {
         if (timer) {
           clearTimeout(timer);
         }
@@ -265,8 +259,17 @@ export async function memStreaming(
         }
         reject(err);
       });
-    });
+    }
+});
   } catch {
     return mem(cmd, args);
   }
+}
+function reportInProcessFailure(cmd: string, msg: string, kind: 'load' | 'dispatch' | 'streaming') {
+  if (_inProcessFailureReported) {
+    return;
+  }
+  _inProcessFailureReported = true;
+  const verb = kind === 'load' ? 'load in-process gateway' : `run ${cmd} in-process`;
+  console.error(`[memory-layer] failed to ${verb}, falling back to child process (this message will not repeat):`, msg);
 }

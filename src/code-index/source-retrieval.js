@@ -1,7 +1,7 @@
-const path = require('path');
-const { ensureDb, sqlJson, sqlRaw } = require('../../db');
-const { estimateTokens } = require('../../utils');
-const { createCodeIndexRepository } = require('./repos');
+const path = require('path'), { ensureDb, sqlJson, sqlRaw } = require('../../db'), { estimateTokens } = require('../../utils'), { createCodeIndexRepository } = require('./repos');
+
+
+
 
 function sourceSliceFromRow(row) {
   const buf = Buffer.from(row.content, 'utf-8');
@@ -171,7 +171,7 @@ function searchCode(query, repoName, kind, maxResults) {
     JOIN code_symbols s ON s.id = code_symbols_fts.rowid
     JOIN code_repos r ON r.id = s.repo_id
     WHERE code_symbols_fts MATCH ?
-  `;
+  `, rows;
   const params = [ftsQuery];
 
   if (repoName) {
@@ -186,7 +186,7 @@ function searchCode(query, repoName, kind, maxResults) {
   sql += ' ORDER BY bm25(code_symbols_fts) LIMIT ?';
   params.push(Math.max(maxResults * 4, maxResults));
 
-  let rows;
+  
   try {
     rows = sqlJson(sql, params);
   } catch {
@@ -222,7 +222,8 @@ function rankedContext(query, repoName, options = {}) {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    const text = [result.signature, result.summary, source.source].filter(Boolean).join('\n'),
+    {
+const text = [result.signature, result.summary, source.source].filter(Boolean).join('\n'),
       tokens = estimateTokens(text);
     if (items.length > 0 && totalTokens + tokens > tokenBudget) {
       // oxlint-disable-next-line no-continue
@@ -247,8 +248,10 @@ function rankedContext(query, repoName, options = {}) {
       break;
     }
   }
+}
 
-  const response = {
+  {
+const response = {
     query,
     repo: repoName || null,
     context_items: items,
@@ -267,6 +270,7 @@ function rankedContext(query, repoName, options = {}) {
     response.warning = `No implementation found for '${query.slice(0, 80)}'.`;
   }
   return response;
+}
 }
 
 function listCodeRepos(repository = null) {

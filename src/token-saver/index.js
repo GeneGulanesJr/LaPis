@@ -1,8 +1,8 @@
-const { runCommand } = require('./run-command');
-const { classifyCommand } = require('./classify-command');
-const { estimateTokens } = require('./estimate-tokens');
-const { compressOutput } = require('./compress-output');
-const { recordRun } = require('./savings-store');
+const { runCommand } = require('./run-command'), { classifyCommand } = require('./classify-command'), { estimateTokens } = require('./estimate-tokens'), { compressOutput } = require('./compress-output'), { recordRun } = require('./savings-store');
+
+
+
+
 
 async function executeAndCompress(commandArgs, options = {}) {
   const command = commandArgs.join(' '),
@@ -37,7 +37,8 @@ async function executeAndCompress(commandArgs, options = {}) {
     return rawResult;
   }
 
-  const compressed = compressOutput({
+  {
+const compressed = compressOutput({
       commandType,
       commandArgs,
       stdout: result.stdout,
@@ -70,6 +71,7 @@ async function executeAndCompress(commandArgs, options = {}) {
   } catch {}
 
   return finalResult;
+}
 }
 
 function formatTextOutput(result) {

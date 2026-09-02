@@ -86,7 +86,8 @@ export function registerDocTools(pi: ExtensionAPI, deps: DocDeps) {
           return toolTextResult(`Unknown memory-doc mode: ${mode}\n\n${docHelpText()}`, {}, true);
         }
 
-        const validationError = validateDocParams(mode, params),
+        {
+const validationError = validateDocParams(mode, params),
         args = !(validationError) ? ({}) : undefined;
         if (validationError) {
           return toolTextResult(validationError, {}, true);
@@ -184,7 +185,8 @@ export function registerDocTools(pi: ExtensionAPI, deps: DocDeps) {
           fmt = '';
         }
         return toolTextResult(fmt || `No ${mode} results found.`, result ?? {});
-      } catch (err) {
+      }
+} catch (err) {
         return toolTextResult(`Unexpected error: ${stringifyToolError(err)}`, {}, true);
       }
     },

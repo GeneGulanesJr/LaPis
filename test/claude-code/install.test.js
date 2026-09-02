@@ -1,15 +1,15 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), install = require('../../src/claude-code/install'),
+  { runInstall } = install, { runUninstall } = require('../../src/claude-code/uninstall'), doctor = require('../../src/claude-code/doctor'), { parseRoleFilter } = require('../../src/claude-code/hooks'), { handlePostToolUse } = require('../../src/claude-code/handlers/post-tool-use'), realStateStore = require('../../src/claude-code/state-store'), { postToolRole, preToolRole, mcpToolName } = require('../../src/claude-code/tool-map');
 
-const install = require('../../src/claude-code/install'),
-  { runInstall } = install;
-const { runUninstall } = require('../../src/claude-code/uninstall');
-const doctor = require('../../src/claude-code/doctor');
-const { parseRoleFilter } = require('../../src/claude-code/hooks');
-const { handlePostToolUse } = require('../../src/claude-code/handlers/post-tool-use');
-const realStateStore = require('../../src/claude-code/state-store');
-const { postToolRole, preToolRole, mcpToolName } = require('../../src/claude-code/tool-map');
+
+
+
+
+
+
+
+
+
 
 // ---- helpers ----
 
@@ -110,14 +110,16 @@ describe('claude-code install: default (npx, project scope)', () => {
       
   return (allHandlers(settings, 'PostToolUse'));
 })();expect(post).toHaveLength(2);
-    const sync = post.find((h) => !h.async),
+    {
+const sync = post.find((h) => !h.async),
       asyncH = post.find((h) => h.async);
     expect(sync.args.slice(5)).toEqual(['--skip', 'git-trust']);
     expect(asyncH.args.slice(5)).toEqual(['--only', 'git-trust']);
     // No `if` prefix rule on git-trust: GIT_TRUST_OP_RE classifies compound
     // Commands like `cd repo && git pull` (#225).
     expect(asyncH.if).toBeUndefined();
-  });
+  }
+});
 
   test('CLAUDE.md protocol block is written between delimiters', async () => {
     const md = fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8');
@@ -140,7 +142,8 @@ describe('claude-code install: idempotency', () => {
   test('re-install produces byte-identical config (no duplicate handlers or servers)', async () => {
     const io = makeIo();
     await runInstall(['--auto-allow'], io);
-    const settingsPath = path.join(io.cwd, '.claude', 'settings.json'),
+    {
+const settingsPath = path.join(io.cwd, '.claude', 'settings.json'),
       mcpPath = path.join(io.cwd, '.mcp.json'),
       firstSettings = fs.readFileSync(settingsPath, 'utf8'),
       firstMcp = fs.readFileSync(mcpPath, 'utf8'),
@@ -150,7 +153,8 @@ describe('claude-code install: idempotency', () => {
     expect(fs.readFileSync(settingsPath, 'utf8')).toBe(firstSettings);
     expect(fs.readFileSync(mcpPath, 'utf8')).toBe(firstMcp);
     expect(fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8')).toBe(firstMd);
-  });
+  }
+});
 
   test('renaming via --mcp-name removes the stale same-command entry (dedupe by command string)', async () => {
     const io = makeIo();
@@ -292,14 +296,14 @@ describe('claude-code install: optional flags', () => {
   });
 
   test('--daemon invokes detached daemon start with --daemon-port', async () => {
-    const io = makeIo();
-    const daemonMod = require('../../src/claude-code/daemon'),
+    const io = makeIo(), daemonMod = require('../../src/claude-code/daemon'),
       startSpy = vi.spyOn(daemonMod, 'runStart').mockResolvedValue({
         pid: 12345,
         port: 9200,
         host: '127.0.0.1',
       }),
       result = await runInstall(['--daemon', '--daemon-port', '9200'], io);
+    
     expect(startSpy).toHaveBeenCalledWith(['--detached', '--port', '9200'], io);
     expect(result.daemon.port).toBe(9200);
     expect(io.lines.some((l) => l.includes('daemon dispatch'))).toBe(true);
@@ -535,14 +539,14 @@ describe('claude-code uninstall', () => {
 
   test('stops the daemon when a lockfile is present', async () => {
     const io = makeIo(),
-      lockfilePath = path.join(io.root, 'claude-daemon.json');
-    const daemonMod = require('../../src/claude-code/daemon'),
+      lockfilePath = path.join(io.root, 'claude-daemon.json'), daemonMod = require('../../src/claude-code/daemon'),
     stopSpy = (() => {
 
       daemonMod.writeLockfile({ pid: 999999999, port: 9100, host: '127.0.0.1' }, lockfilePath);
       
   return (vi.spyOn(daemonMod, 'runStop').mockResolvedValue({ stopped: true }));
-})(); await runInstall([], io);
+})();
+     await runInstall([], io);
     await runUninstall([], { ...io, lockfilePath });
 
     expect(stopSpy).toHaveBeenCalledWith([], expect.objectContaining({ lockfilePath }));
@@ -753,14 +757,14 @@ describe('claude-code hook role filter', () => {
   });
 
   test('the git-trust role never writes state back (async handler must not clobber concurrent saves)', async () => {
-    const stateStore = makeStateStore();
+    const stateStore = makeStateStore(), originalSave = stateStore.saveState;
     // Simulate the synchronous handler having already recorded an edit.
     stateStore.saveState('s3', {
       ...realStateStore.defaultState(),
       editedFiles: ['/proj/from-sync-handler.js'],
     });
     let saves = 0;
-    const originalSave = stateStore.saveState;
+    
     stateStore.saveState = (id, s) => {
       saves++;
       originalSave(id, s);
@@ -796,9 +800,11 @@ describe('claude-code hook role filter', () => {
       getKnownRepos: () => [],
       stateStore,
     });
-    const ids = stateStore._peek('s4').pendingRecallFeedback.map(([id]) => id);
+    {
+const ids = stateStore._peek('s4').pendingRecallFeedback.map(([id]) => id);
     expect(ids).toEqual([12, 34]);
-  });
+  }
+});
 });
 
 // =====================================================================

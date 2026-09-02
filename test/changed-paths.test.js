@@ -1,7 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const { parseChangedPathsInput } = require('../src/code-index/incremental-indexer');
+const path = require('path'), fs = require('fs'), os = require('os'), { parseChangedPathsInput } = require('../src/code-index/incremental-indexer');
+
+
+
 
 describe('parseChangedPathsInput rejected paths', () => {
   let repoRoot;

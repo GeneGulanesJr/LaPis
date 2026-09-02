@@ -12,10 +12,10 @@
  * Mirrors extensions/.../hooks/session-lifecycle.ts registerSessionShutdown.
  */
 
-const { resolveCwd } = require('../../hooks-engine/project');
-const { resolveProjectForCwd } = require('../project-resolve');
-const { buildSessionSummary } = require('../../hooks-engine/session-summary');
-const { readTranscript } = require('../hooks-engine/transcript-reader');
+const { resolveCwd } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), { buildSessionSummary } = require('../../hooks-engine/session-summary'), { readTranscript } = require('../hooks-engine/transcript-reader');
+
+
+
 
 async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore, getKnownRepos, getKnownProjects }) {
   const cwd = resolveCwd(payload.cwd),
@@ -29,7 +29,8 @@ async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore,
     return null;
   }
 
-  const transcript = readTranscript(payload.transcript_path),
+  {
+const transcript = readTranscript(payload.transcript_path),
     // DB-derived count is authoritative for both summary text and session-end.
     memories = dispatchClient.countSessionMemories(state.sessionId),
     summaryContent = buildSessionSummary({
@@ -55,6 +56,7 @@ async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore,
 
   stateStore.clearState(claudeSessionId);
   return null; // Silent — no stdout for SessionEnd
+}
 }
 
 module.exports = { handleSessionEnd };

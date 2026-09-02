@@ -1,9 +1,9 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const db = require('../db');
-const { insertObservation, updateObservation } = require('../data-access/observations');
-const { get } = require('../commands/observation');
+const fs = require('fs'), os = require('os'), path = require('path'), db = require('../db'), { insertObservation, updateObservation } = require('../data-access/observations'), { get } = require('../commands/observation');
+
+
+
+
+
 
 describe('observation_versions table', () => {
   let deps, tempDir;

@@ -14,10 +14,7 @@
  * rely on it for headless consent.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-
-const {
+const fs = require('node:fs'), path = require('node:path'), {
   removeSubBlock,
   removeTopLevelBlock,
   removeListItems,
@@ -26,8 +23,11 @@ const {
   removeScalar,
   readText,
   writeTextAtomic,
-} = require('./config-editor');
-const { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
+} = require('./config-editor'), { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
+
+
+
+
 
 async function runUninstall(argv, io = {}) {
   const flags = parseFlags(argv),
@@ -39,7 +39,8 @@ async function runUninstall(argv, io = {}) {
 
   // MCP server entry.
   let text = readText(paths.config);
-  const beforeMcp = text,
+  {
+const beforeMcp = text,
   skillDir = (() => {
 
     text = removeSubBlock(text, 'mcp_servers', flags.mcpName);
@@ -131,6 +132,7 @@ async function runUninstall(argv, io = {}) {
   }
 
   return { removed, home, config: paths.config };
+}
 }
 
 /** True when a top-level block exists but has no non-empty content lines. */

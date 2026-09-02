@@ -57,7 +57,9 @@ function buildPageRank(db, repoId) {
     symbolSet = new Set(symbols.map((s) => s.id)),
     symbolMap = new Map(symbols.map((s) => [s.id, s])),
     // Build outgoing edges map
-    outEdges = new Map();
+    outEdges = new Map(), d = PAGERANK.DAMPING_FACTOR,
+    n = symbolSet.size,
+    baseRank = (1 - d) / n;
   for (const call of calls) {
     if (symbolSet.has(call.caller_symbol_id) && symbolSet.has(call.callee_symbol_id)) {
       if (!outEdges.has(call.caller_symbol_id)) {
@@ -73,9 +75,7 @@ function buildPageRank(db, repoId) {
   // In-place value resets on an already-sized hash table.
   // Do NOT replace with single-map in-place update; PageRank requires reading prior-iteration
   // Values (ranks) while writing new values (newRanks) simultaneously.
-  const d = PAGERANK.DAMPING_FACTOR,
-    n = symbolSet.size,
-    baseRank = (1 - d) / n;
+  
   let ranks = new Map(),
     newRanks = new Map();
   for (const id of symbolSet) {
@@ -103,9 +103,11 @@ function buildPageRank(db, repoId) {
     newRanks = tmp;
   }
 
-  const result = { ranks, symbolMap, n };
+  {
+const result = { ranks, symbolMap, n };
   _prCacheSet(repoId, result);
   return result;
+}
 }
 
 // Clear PageRank cache (for testing / reindex)

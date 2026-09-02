@@ -21,9 +21,7 @@
  * gracefully instead of cross-contaminating state.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os'),
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'),
   HOME = process.env.HOME || process.env.USERPROFILE || os.homedir(),
   DEFAULT_DIR = path.join(HOME, '.pi', 'memory', 'claude-sessions'),
   DEFAULT_TTL_HOURS = 24,
@@ -36,6 +34,8 @@ const os = require('node:os'),
   // Placeholders that String(...) of a missing session_id collapses to; refusing
   // them prevents every keyless session sharing one file (#224).
   PLACEHOLDER_KEYS = new Set(['undefined', 'null', 'nan', '', '_', '__', '___']);
+
+
 
 // Field set mirrors extensions/memory-layer/state.ts (session-relevant subset;
 // Caches like cachedRepos/compressionStats are intentionally excluded).
@@ -114,14 +114,14 @@ function loadState(sessionId, opts) {
 }
 
 function readStateFile(filePath) {
-  let raw;
+  let raw, parsed;
   try {
     raw = fs.readFileSync(filePath, 'utf8');
   } catch {
     return defaultState();
   }
 
-  let parsed;
+  
   try {
     parsed = JSON.parse(raw);
   } catch {
@@ -193,7 +193,8 @@ async function mutateState(sessionId, mutator, opts) {
     return mutator(defaultState());
   }
   fs.mkdirSync(dir, { recursive: true });
-  const lockPath = `${filePath}.lock`,
+  {
+const lockPath = `${filePath}.lock`,
     acquired = await acquireLock(lockPath, opts);
   try {
     const state = readStateFile(filePath),
@@ -205,6 +206,7 @@ async function mutateState(sessionId, mutator, opts) {
       releaseLock(lockPath);
     }
   }
+}
 }
 
 async function acquireLock(lockPath, opts = {}) {
@@ -261,15 +263,16 @@ function sweepStaleSessions(maxAgeHours, opts) {
 
 function sweepSessions(maxAgeHours, opts) {
   const dir = resolveDir(opts);
-  let entries;
+  let entries, swept = 0;
   try {
     entries = fs.readdirSync(dir);
   } catch {
     return { swept: 0 };
   }
 
-  const cutoff = Date.now() - maxAgeHours * 3600 * 1000;
-  let swept = 0;
+  {
+const cutoff = Date.now() - maxAgeHours * 3600 * 1000;
+  
   for (const entry of entries) {
     if (!entry.endsWith('.json')) {
       continue;
@@ -286,6 +289,7 @@ function sweepSessions(maxAgeHours, opts) {
     }
   }
   return { swept };
+}
 }
 
 /**

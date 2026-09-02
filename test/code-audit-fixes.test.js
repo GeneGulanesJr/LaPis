@@ -1,9 +1,9 @@
 // Regression tests for code-audit findings (#1-#8). Each sub-describe covers
 // One verified bug fix. Run via: npm test -- code-audit-fixes
 
-const http = require('http');
-const { matchRoute } = require('../src/http/routes');
-const { createHttpServer } = require('../src/http/server');
+const http = require('http'), { matchRoute } = require('../src/http/routes'), { createHttpServer } = require('../src/http/server');
+
+
 
 // ── #1 + #2: HTTP server must not crash on malformed URL / percent-encoding ──
 
@@ -129,18 +129,20 @@ describe('code-audit: dead usedFallback field removed', () => {
 
 describe('code-audit: settings getSetting non-JSON guard', () => {
   it('returns raw string when stored value is not valid JSON', async () => {
-    const sqlJson = () => [{ value: 'not-json' }];
-    const { getSetting } = require('../src/http/handlers/settings'),
+    const sqlJson = () => [{ value: 'not-json' }], { getSetting } = require('../src/http/handlers/settings'),
       handler = getSetting(sqlJson),
       res = {
         writeHead: vi.fn(),
         end: vi.fn(),
       };
+    
 
     await handler({ method: 'GET' }, res, { params: { key: 'x' } });
     expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
-    const payload = JSON.parse(res.end.mock.calls[0][0]);
+    {
+const payload = JSON.parse(res.end.mock.calls[0][0]);
     // Non-JSON stored value falls back to raw string instead of throwing.
     expect(payload.value).toBe('not-json');
-  });
+  }
+});
 });

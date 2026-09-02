@@ -28,13 +28,13 @@
  * duplicate spawning a second server.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os'),
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'),
   PACKAGE_NAME = '@genegulanesjr/lapis',
   DEFAULT_MCP_NAME = 'lapis',
   CLAUDE_MD_START = '<!-- lapis:start -->',
   CLAUDE_MD_END = '<!-- lapis:end -->';
+
+
 
 // --- flag parsing ---------------------------------------------------------
 
@@ -553,7 +553,8 @@ function writeTextAtomic(filePath, content) {
 
 /** Insert or replace the delimited LaPis block in a CLAUDE.md file. */
 function upsertClaudeMdBlock(filePath, block) {
-  const { existed, content: existing } = readClaudeMdSafe(filePath);
+  const { existed, content: existing } = readClaudeMdSafe(filePath), start = existing.indexOf(CLAUDE_MD_START),
+    end = existing.indexOf(CLAUDE_MD_END);
   // If a symlink is in the way, remove the link itself (NOT its target) so the
   // Atomic rename below installs a fresh regular file.
   if (existed === false) {
@@ -565,8 +566,7 @@ function upsertClaudeMdBlock(filePath, block) {
       // Raced away — the atomic rename below still produces a regular file
     }
   }
-  const start = existing.indexOf(CLAUDE_MD_START),
-    end = existing.indexOf(CLAUDE_MD_END);
+  
   let next;
   if (start !== -1 && end !== -1 && end > start) {
     next = existing.slice(0, start) + block + existing.slice(end + CLAUDE_MD_END.length);
@@ -580,7 +580,9 @@ function upsertClaudeMdBlock(filePath, block) {
 
 /** Remove the delimited LaPis block; delete the file when nothing else remains. */
 function removeClaudeMdBlock(filePath) {
-  const { existed, content: existing } = readClaudeMdSafe(filePath);
+  const { existed, content: existing } = readClaudeMdSafe(filePath), start = existing.indexOf(CLAUDE_MD_START),
+    end = existing.indexOf(CLAUDE_MD_END),
+  next = !(start === -1 || end === -1 || end <= start) ? ((existing.slice(0, start) + existing.slice(end + CLAUDE_MD_END.length)).replace(/\n{3,}/g, '\n\n')) : undefined;
   if (!existed) {
     // A bare symlink (no block to remove) — unlink the LINK only, never a target.
     try {
@@ -593,9 +595,7 @@ function removeClaudeMdBlock(filePath) {
     }
     return false;
   }
-  const start = existing.indexOf(CLAUDE_MD_START),
-    end = existing.indexOf(CLAUDE_MD_END),
-  next = !(start === -1 || end === -1 || end <= start) ? ((existing.slice(0, start) + existing.slice(end + CLAUDE_MD_END.length)).replace(/\n{3,}/g, '\n\n')) : undefined;
+  
   if (start === -1 || end === -1 || end <= start) {
     return false;
   }

@@ -35,7 +35,8 @@ function ensureIndexed(deps: GuardrailsDeps, resolvedCwd: string, projectName: s
   if (pending) {
     return pending;
   }
-  const promise = (async (): Promise<IndexResult | null> => {
+  {
+const promise = (async (): Promise<IndexResult | null> => {
     try {
       const result = await deps.memStreaming('index-repo', { path: resolvedCwd, name: projectName });
       if (!result) {
@@ -55,6 +56,7 @@ function ensureIndexed(deps: GuardrailsDeps, resolvedCwd: string, projectName: s
   })();
   activeIndexing.set(key, promise);
   return promise;
+}
 }
 
 export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
@@ -205,7 +207,8 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
         };
       }
 
-      const fileBase = path.basename(filePath).toLowerCase(),
+      {
+const fileBase = path.basename(filePath).toLowerCase(),
         relPath = path.relative(matchedRepo.path, absPath).toLowerCase();
       if (
         deps.state.exploredFiles.has(fileBase) ||
@@ -225,6 +228,7 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
           `After reviewing the outline, use \`read\` with \`offset\`/\`limit\` for targeted editing.`,
       };
     }
+}
   });
 
   // Track explored files from memory-code results (callers, deps, importance, etc.)

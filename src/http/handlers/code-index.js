@@ -1,6 +1,6 @@
-const { indexRepository, reindexRepository, getCodeRepoHealth } = require('../../code-index/incremental-indexer');
-const { getDependencyCycles } = require('../../code-analysis/graph');
-const { getDb } = require('../../../db');
+const { indexRepository, reindexRepository, getCodeRepoHealth } = require('../../code-index/incremental-indexer'), { getDependencyCycles } = require('../../code-analysis/graph'), { getDb } = require('../../../db');
+
+
 
 // Compute real dependency cycles; degrade gracefully to a zero-value so a
 // Graph-build failure never 500s the whole summary/graph endpoint.

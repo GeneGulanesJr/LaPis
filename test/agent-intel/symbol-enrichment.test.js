@@ -1,7 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process'),
+const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
+
+
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -67,7 +67,8 @@ function sendWelcomeEmail(user) {
     const symbols = run(`search-code --repo ${repoName} --query "validateEmail"`);
     expect(symbols.results.length).toBeGreaterThan(0);
     // Look up the symbol by name and file to get its DB id
-    const sym = symbols.results[0],
+    {
+const sym = symbols.results[0],
       // outline the file to get symbol IDs
       outline = run(`outline --repo ${repoName} --file ${sym.file}`),
       match =
@@ -80,7 +81,8 @@ function sendWelcomeEmail(user) {
       expect(typeof meta.intent).toBe('string');
       expect(meta.intent.length).toBeGreaterThan(0);
     }
-  });
+  }
+});
 
   it('reports enrichment statistics', () => {
     const result = run(`enrich-symbols --repo ${repoName}`);

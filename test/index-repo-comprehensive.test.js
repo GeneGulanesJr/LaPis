@@ -1,7 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process'),
-  STORE = path.resolve(__dirname, '..', 'memory-store.js');
+const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', 'memory-store.js'), REPO_PREFIX = 'test-idx';
+
+
 
 function run(cmd) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -38,7 +38,7 @@ function writeTmpRepo(repoPath, files) {
   }
 }
 
-const REPO_PREFIX = 'test-idx';
+
 
 function repoName(suffix) {
   return `${REPO_PREFIX}-${suffix}-${Date.now()}`;
@@ -379,10 +379,10 @@ expect(result.success).toBe(true);
   });
 
   describe('large repo call graph scalability', () => {
-    const name = repoName('large');
-    let tmpRepo;
-    const FILE_COUNT = 50,
+    const name = repoName('large'), FILE_COUNT = 50,
       FUNCS_PER_FILE = 10;
+    let tmpRepo;
+    
 
     beforeAll(() => {
       tmpRepo = path.join('/tmp', `test-idx-large-${Date.now()}`);

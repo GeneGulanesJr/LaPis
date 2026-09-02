@@ -1,11 +1,11 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), install = require('../../src/hermes/install'),
+  { runInstall, hookCommand } = install, { runUninstall } = require('../../src/hermes/uninstall'), doctor = require('../../src/hermes/doctor');
 
-const install = require('../../src/hermes/install'),
-  { runInstall, hookCommand } = install;
-const { runUninstall } = require('../../src/hermes/uninstall');
-const doctor = require('../../src/hermes/doctor');
+
+
+
+
+
 
 // ---- helpers ----
 

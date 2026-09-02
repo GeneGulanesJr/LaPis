@@ -146,7 +146,8 @@ function enrichSymbols(db, repoId, opts = {}) {
   let enriched = 0,
     skipped = 0;
 
-  const tx = db.transaction(() => {
+  {
+const tx = db.transaction(() => {
     for (const sym of symbols) {
       const intent = extractIntent(sym),
         constraints = extractConstraints(sym),
@@ -167,6 +168,7 @@ function enrichSymbols(db, repoId, opts = {}) {
     enriched_count: enriched,
     skipped_count: skipped,
   };
+}
 }
 
 /**

@@ -3,16 +3,16 @@
 // Code-index, doc-index, and static analysis read models into compact
 // Before-coding context. Must not mutate memory or code indexes.
 
-const codeSearch = require('../code-index/source-retrieval');
-const memorySearch = require('../memory-domain/search');
-const path = require('path');
-const docIndex = require('../doc-index'),
+const codeSearch = require('../code-index/source-retrieval'), memorySearch = require('../memory-domain/search'), path = require('path'), docIndex = require('../doc-index'),
   DEFAULT_LIMITS = {
     code: 8,
     memory: 5,
     docs: 5,
     relatedFiles: 8,
   };
+
+
+
 
 function clampInt(value, fallback, min, max) {
   const n = Number(value);
@@ -342,7 +342,8 @@ function preflight(deps, args) {
   }
 
   // Enrich top code items with metadata
-  let enrichedCodeItems = codeItems,
+  {
+let enrichedCodeItems = codeItems,
   runtimeHotness = (() => {
 
     try {
@@ -393,7 +394,8 @@ function preflight(deps, args) {
   }
 
   // Recalculate risk with runtime consideration
-  const effectiveRisk =
+  {
+const effectiveRisk =
     runtimeHotness && runtimeHotness.is_hot_path
       ? risk === 'low'
         ? 'medium'
@@ -428,6 +430,8 @@ function preflight(deps, args) {
       },
     },
   };
+}
+}
 }
 
 function agentPack(deps, args) {

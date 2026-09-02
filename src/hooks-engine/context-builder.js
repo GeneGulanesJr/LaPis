@@ -11,11 +11,11 @@
  * Owns `extractFilePaths`, shared with preflight-assembly.
  */
 
-const path = require('node:path');
-const { resolveIndexedRepo } = require('./project');
-const fs = require('node:fs');
-const { CONTEXT } = require('../../constants');
-const { isNavigationPrompt } = require('./prompt-classifiers');
+const path = require('node:path'), { resolveIndexedRepo } = require('./project'), fs = require('node:fs'), { CONTEXT } = require('../../constants'), { isNavigationPrompt } = require('./prompt-classifiers');
+
+
+
+
 
 function truncateText(text, limit) {
   if (text.length <= limit) {

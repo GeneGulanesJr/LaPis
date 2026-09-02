@@ -1,5 +1,5 @@
-const { RESULT_LIMITS } = require('../../constants');
-const { getTrustSyncRepository } = require('./symbol-links');
+const { RESULT_LIMITS } = require('../../constants'), { getTrustSyncRepository } = require('./symbol-links');
+
 
 function symbolCluster(deps, args) {
   const symbolId = args.symbol || args.query,
@@ -19,11 +19,12 @@ function related(deps, args) {
     return deps.jsonErrNoExit('Missing --id');
   }
 
-  const repository = getTrustSyncRepository(deps, ['getSymbolsForMemory', 'getRelatedMemories']),
+  {
+const repository = getTrustSyncRepository(deps, ['getSymbolsForMemory', 'getRelatedMemories']),
     symbols = repository.getSymbolsForMemory(id),
   symbolIds = !(symbols.length === 0) ? (symbols.map((s) => s.symbol_id)) : undefined,
   clusters = !(symbols.length === 0) ? (repository.getRelatedMemories({ memoryId: id, symbolIds })) : undefined,
-  grouped = !(symbols.length === 0) ? (new Map()) : undefined;
+  grouped = !(symbols.length === 0) ? (new Map()) : undefined, relatedMemories = [];
   if (symbols.length === 0) {
     return { memory_id: id, related: [] };
   }
@@ -37,7 +38,7 @@ function related(deps, args) {
     }
   }
 
-  const relatedMemories = [];
+  
   for (const sym of symbols) {
     const cluster = grouped.get(sym.symbol_id);
     if (cluster && cluster.length > 0) {
@@ -46,6 +47,7 @@ function related(deps, args) {
   }
 
   return { memory_id: id, related: relatedMemories };
+}
 }
 
 module.exports = { symbolCluster, related };

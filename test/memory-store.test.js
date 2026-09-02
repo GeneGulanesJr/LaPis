@@ -1,6 +1,6 @@
-const path = require('path');
-const { execSync } = require('child_process'),
+const path = require('path'), { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js');
+
 
 function run(cmd, extraArgs = '') {
   const out = execSync(`node "${STORE}" ${cmd} ${extraArgs}`, {
@@ -92,11 +92,13 @@ describe('memory-store: save', () => {
     // SQLite format: "YYYY-MM-DD HH:MM:SS"
     expect(result.expires_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     // Should be roughly 7 days from now (within ±2 hours to account for clock skew)
-    const expMs = Date.parse(`${result.expires_at.replace(' ', 'T')}Z`),
+    {
+const expMs = Date.parse(`${result.expires_at.replace(' ', 'T')}Z`),
       days = (expMs - Date.now()) / 86400000;
     expect(days).toBeGreaterThan(6.9);
     expect(days).toBeLessThan(7.1);
-  });
+  }
+});
 
   it('should reject invalid --expires-in values', () => {
     const result = runFail(

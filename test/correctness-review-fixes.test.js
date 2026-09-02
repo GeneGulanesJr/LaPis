@@ -1,10 +1,10 @@
-const dreamService = require('../services/dream');
-const sessionCmd = require('../commands/session');
-const { mapSearchRows } = require('../src/http/handlers/memory');
-const { search } = require('../src/memory-domain/search');
-const { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
-const { logNegativeRecall } = require('../commands/observation');
-const dbModule = require('../db');
+const dreamService = require('../services/dream'), sessionCmd = require('../commands/session'), { mapSearchRows } = require('../src/http/handlers/memory'), { search } = require('../src/memory-domain/search'), { createAurexRepository } = require('../src/platform/storage/repositories/aurex'), { logNegativeRecall } = require('../commands/observation'), dbModule = require('../db');
+
+
+
+
+
+
 
 describe('correctness review fixes', () => {
   beforeAll(() => {
@@ -77,7 +77,8 @@ describe('correctness review fixes', () => {
     repo.createTodo(missionA, { title: 'Batch todo A', status: 'ready', goal: 'g' });
     repo.createTodo(missionB, { title: 'Batch todo B', status: 'ready', goal: 'g' });
 
-    const originalSqlJson = dbModule.sqlJson,
+    {
+const originalSqlJson = dbModule.sqlJson,
       todoQueries = [],
       sqlJsonSpy = (query, params) => {
         if (typeof query === 'string' && query.includes('FROM todo_items WHERE mission_id IN')) {
@@ -88,7 +89,8 @@ describe('correctness review fixes', () => {
       spiedRepo = createAurexRepository({ sqlJson: sqlJsonSpy, sqlRun: dbModule.sqlRun });
     spiedRepo.listMissionLedgers();
     expect(todoQueries).toHaveLength(1);
-  });
+  }
+});
 
   it('claimNextReadyTodo skips todos with incomplete dependencies', () => {
     const repo = createAurexRepository({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun }),
@@ -173,8 +175,10 @@ db.prepare('INSERT INTO code_files (repo_id, path, content_hash, language, conte
       `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, source_module, line_start, line_end, scope_depth)
        VALUES (?, ?, 'foo', 'named_import', 'external_file', NULL, 'foo', './utils', 1, 1, 0)`,
     ).run(repoId, fileId);
-    const { resolveScopeBindings } = require('../src/code-index/scope-resolver');
+    {
+const { resolveScopeBindings } = require('../src/code-index/scope-resolver');
     expect(() => resolveScopeBindings(db, repoId)).not.toThrow();
     db.prepare('DELETE FROM code_repos WHERE name = ?').run('scope-fix');
-  });
+  }
+});
 });

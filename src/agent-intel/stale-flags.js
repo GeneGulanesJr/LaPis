@@ -2,8 +2,7 @@
 // Scans source code for stale feature flags (one-sided branches).
 // A one-sided branch is an if/ternary where one side is always executed.
 
-const fs = require('fs');
-const path = require('path'),
+const fs = require('fs'), path = require('path'),
   // Patterns that indicate stale flags:
   // 1. if (true) / if (false)
   // 2. if (process.env.NODE_ENV === 'development') inside non-dev code
@@ -26,6 +25,7 @@ const path = require('path'),
     /\bif\s*\(\s*(?:true|false|1\s*==\s*1|0\s*==\s*1)\s*\)\s*\{(?:\s| |\n)*(?:return|throw|break|continue)[^}]*\}\s*else/g,
   ],
   ALWAYS_TRUE_CONTEXT = ['process.env.NODE_ENV', 'process.env.DEBUG', 'process.env.TESTING'];
+
 
 function scanFileForStaleFlags(filePath) {
   if (!fs.existsSync(filePath)) {

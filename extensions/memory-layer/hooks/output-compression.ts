@@ -38,7 +38,8 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
       return;
     }
 
-    const minChars = ocConfig.min_chars ?? DEFAULT_MIN_CHARS,
+    {
+const minChars = ocConfig.min_chars ?? DEFAULT_MIN_CHARS,
       minSavingsPercent = ocConfig.min_savings_percent ?? DEFAULT_MIN_SAVINGS_PERCENT,
       // Extract command and output text
       command = event.input.command as string,
@@ -55,7 +56,8 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
     }
 
     // Parse command into args for the classifier
-    const commandArgs = command.trim().split(/\s+/),
+    {
+const commandArgs = command.trim().split(/\s+/),
       // Classify and compress
       commandType = classifyCommand(commandArgs),
       exitCode = event.isError ? 1 : 0,
@@ -105,12 +107,16 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
     }
 
     // Prepend a savings note so the LLM knows output was compressed
-    const prefix = `[Output compressed: ${savingsPercent}% token savings (${savedTokens} tokens saved). Summary: ${compressed.summary}]\n\n`,
+    {
+const prefix = `[Output compressed: ${savingsPercent}% token savings (${savedTokens} tokens saved). Summary: ${compressed.summary}]\n\n`,
       newContent = prefix + compressed.importantOutput;
 
     // Return modified content
     return {
       content: [{ type: 'text' as const, text: newContent }],
     };
-  });
+  }
+}
+}
+});
 }

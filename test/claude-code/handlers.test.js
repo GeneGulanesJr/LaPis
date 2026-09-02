@@ -1,12 +1,12 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const realStateStore = require('../../src/claude-code/state-store');
-const { handleSessionStart } = require('../../src/claude-code/handlers/session-start');
-const { handleUserPromptSubmit } = require('../../src/claude-code/handlers/user-prompt-submit');
-const { handleStop, runStopCapture } = require('../../src/claude-code/handlers/stop');
-const { handleSessionEnd } = require('../../src/claude-code/handlers/session-end');
-const { runHook } = require('../../src/claude-code/hooks');
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), realStateStore = require('../../src/claude-code/state-store'), { handleSessionStart } = require('../../src/claude-code/handlers/session-start'), { handleUserPromptSubmit } = require('../../src/claude-code/handlers/user-prompt-submit'), { handleStop, runStopCapture } = require('../../src/claude-code/handlers/stop'), { handleSessionEnd } = require('../../src/claude-code/handlers/session-end'), { runHook } = require('../../src/claude-code/hooks'), EMPTY_CONTEXT = { observations: [], personal: [], stats: { total_memories: 0, total_personal: 0 } };
+
+
+
+
+
+
+
+
 
 // ---- fakes ----
 
@@ -45,7 +45,7 @@ function makeStateStore() {
   };
 }
 
-const EMPTY_CONTEXT = { observations: [], personal: [], stats: { total_memories: 0, total_personal: 0 } };
+
 
 function hasCall(calls, cmd, predicate) {
   return calls.some((c) => c.cmd === cmd && (!predicate || predicate(c.args)));
@@ -111,10 +111,12 @@ describe('claude-code handlers: SessionStart', () => {
       stateStore,
     });
 
-    const stored = stateStore._peek('claude-null');
+    {
+const stored = stateStore._peek('claude-null');
     expect(stored.sessionId).toBeNull();
     expect(stored.projectSessionCount).toBe(0);
-  });
+  }
+});
 
   test('resume and clear also call session-start', async () => {
     for (const source of ['resume', 'clear']) {
@@ -336,16 +338,16 @@ describe('claude-code handlers: Stop', () => {
 
   test('passive capture saves an auto-decision on a qualifying assistant message', async () => {
     const { dispatch, calls } = makeFakeDispatch(),
-      stateStore = makeStateStore();
+      stateStore = makeStateStore(), reasoning =
+        'Analyzing the requirements and constraints of this subsystem in detail before proceeding. '.repeat(4),
+      longText = `${reasoning} Based on the tradeoffs, going with a queue-based design because it avoids head-of-line blocking.`;
     stateStore.saveState('y', {
       ...realStateStore.defaultState(),
       sessionId: 1,
       turnCount: 3,
       lastAutoDecisionSave: 0,
     });
-    const reasoning =
-        'Analyzing the requirements and constraints of this subsystem in detail before proceeding. '.repeat(4),
-      longText = `${reasoning} Based on the tradeoffs, going with a queue-based design because it avoids head-of-line blocking.`;
+    
     await runStopCapture({
       dispatch,
       stateStore,
@@ -398,14 +400,16 @@ describe('claude-code handlers: Stop', () => {
       });
     expect(out).toBeNull();
 
-    const captured = await waitFor(
+    {
+const captured = await waitFor(
       () => hasCall(calls, 'save', (a) => a.type === 'decision' || a.type === 'bugfix'),
       1000,
     );
     expect(captured).toBe(true);
 
     fs.rmSync(txDir, { recursive: true, force: true });
-  });
+  }
+});
 
   test('negative-recall feedback is flushed', async () => {
     const { dispatch, calls } = makeFakeDispatch(),
@@ -714,7 +718,9 @@ describe('claude-code router (hooks.js)', () => {
       getKnownRepos: () => [],
       stateStore: makeStateStore(),
     });
-    const elapsed = Date.now() - t0;
+    {
+const elapsed = Date.now() - t0;
     expect(elapsed).toBeLessThan(2000);
-  });
+  }
+});
 });

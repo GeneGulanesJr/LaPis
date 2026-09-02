@@ -1,9 +1,9 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const db = require('../db');
-const { insertObservation, insertObservationRelation } = require('../data-access/observations');
-const { search } = require('../src/memory-domain/search');
+const fs = require('fs'), os = require('os'), path = require('path'), db = require('../db'), { insertObservation, insertObservationRelation } = require('../data-access/observations'), { search } = require('../src/memory-domain/search');
+
+
+
+
+
 
 describe('search with relations', () => {
   let deps, tempDir;

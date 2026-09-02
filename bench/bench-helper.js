@@ -2,43 +2,17 @@
  * Bench-helper.js — Shared utilities for token efficiency benchmarks
  */
 
-const path = require('path');
-const fs = require('fs');
-const { execFileSync } = require('child_process');
+const path = require('path'), fs = require('fs'), { execFileSync } = require('child_process');
+
+
 
 // ══════════════════════════════════════════════════════════
 // LAPIS ROOT DETECTION
 // ══════════════════════════════════════════════════════════
 
-function findLapisRoot() {
-  const candidates = [
-    path.resolve(__dirname, '..'),
-    process.env.LAPIS_PATH,
-    path.join(
-      process.env.HOME || process.env.USERPROFILE || '',
-      '.pi',
-      'agent',
-      'git',
-      'github.com',
-      'GeneGulanesJr',
-      'LaPis',
-    ),
-    path.join(process.env.HOME || process.env.USERPROFILE || '', '.pi', 'agent', 'skills', 'memory-layer'),
-  ];
-  for (const dir of candidates) {
-    if (!dir) {
-      // oxlint-disable-next-line no-continue
-      continue;
-    }
-    const msPath = path.join(dir, 'memory-store.js');
-    if (fs.existsSync(msPath)) {
-      return dir;
-    }
-  }
-  console.error('ERROR: Cannot find LaPis root (memory-store.js). Set LAPIS_PATH or run from the LaPis directory.');
-  process.exit(1);
-}
 
+
+{
 const LAPIS_ROOT = findLapisRoot(),
   CLI_MAX_BUFFER = 64 * 1024 * 1024,
   // ══════════════════════════════════════════════════════════
@@ -169,3 +143,32 @@ module.exports = {
   isRepoIndexed,
   findSymbolWithCallers,
 };
+function findLapisRoot() {
+  const candidates = [
+    path.resolve(__dirname, '..'),
+    process.env.LAPIS_PATH,
+    path.join(
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.pi',
+      'agent',
+      'git',
+      'github.com',
+      'GeneGulanesJr',
+      'LaPis',
+    ),
+    path.join(process.env.HOME || process.env.USERPROFILE || '', '.pi', 'agent', 'skills', 'memory-layer'),
+  ];
+  for (const dir of candidates) {
+    if (!dir) {
+      // oxlint-disable-next-line no-continue
+      continue;
+    }
+    const msPath = path.join(dir, 'memory-store.js');
+    if (fs.existsSync(msPath)) {
+      return dir;
+    }
+  }
+  console.error('ERROR: Cannot find LaPis root (memory-store.js). Set LAPIS_PATH or run from the LaPis directory.');
+  process.exit(1);
+}
+}

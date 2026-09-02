@@ -1,6 +1,6 @@
-const legacy = require('./legacy-core');
-const { createCodeIndexReadRepository } = require('./read-model');
-const { runAnalyzer } = require('./analyzer-runner');
+const legacy = require('./legacy-core'), { createCodeIndexReadRepository } = require('./read-model'), { runAnalyzer } = require('./analyzer-runner');
+
+
 
 function analyzeWinnow(db, repoId, opts = {}) {
   const codeIndex = createCodeIndexReadRepository(db),

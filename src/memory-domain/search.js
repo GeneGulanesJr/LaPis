@@ -1,6 +1,4 @@
-const { getConfig } = require('../../config');
-const { TIME_WINDOWS, RESULT_LIMITS, RANKING } = require('../../constants');
-const { insertRecallLog } = require('./recall'),
+const { getConfig } = require('../../config'), { TIME_WINDOWS, RESULT_LIMITS, RANKING } = require('../../constants'), { insertRecallLog } = require('./recall'),
   TYPE_PRIORITY_CASE = `CASE o.type
   WHEN 'decision' THEN 3 WHEN 'architecture' THEN 3
   WHEN 'bugfix' THEN 2 WHEN 'pattern' THEN 2
@@ -20,6 +18,8 @@ LEFT JOIN (
   FROM recall_log GROUP BY memory_id
 ) rl ON rl.memory_id = o.id`;
 
+
+
 function rankObservations(rows, query = '') {
   const now = Date.now(),
     queryWords = query
@@ -32,7 +32,7 @@ function rankObservations(rows, query = '') {
 
   return rows
     .map((row) => {
-      let ftsScore = 0;
+      let ftsScore = 0, navBoost = 1.0;
       if (row.rank !== undefined && row.rank !== null && row.rank !== 0) {
         ftsScore = -row.rank;
       } else if (queryWords.length > 0) {
@@ -57,7 +57,7 @@ function rankObservations(rows, query = '') {
         typeBoost = RANKING.TYPE_BOOST[row.type] || 1.0;
 
       // Boost memories containing file paths for navigation queries
-      let navBoost = 1.0;
+      
       if (isNavigationQuery) {
         const text = `${row.title || ''} ${row.snippet || ''}`;
         if (pathPattern.test(text)) {
@@ -65,7 +65,8 @@ function rankObservations(rows, query = '') {
         }
       }
 
-      const ranking = getConfig().ranking,
+      {
+const ranking = getConfig().ranking,
         composite =
           (ftsScore * ranking.fts_relevance +
             recencyScore * ranking.recency +
@@ -74,7 +75,8 @@ function rankObservations(rows, query = '') {
           typeBoost *
           navBoost;
       return { ...row, _score: composite };
-    })
+    }
+})
     .sort((a, b) => b._score - a._score);
 }
 
@@ -219,7 +221,7 @@ function search(deps, args) {
   }
 
 
-  let rows;
+  let rows, codeResults = null;
   if (!needsFallback) {
     try {
       let q = `
@@ -289,7 +291,8 @@ function search(deps, args) {
     rows = sqlJson(q, params);
   }
 
-  const ranked = rankObservations(rows, query).slice(0, limit);
+  {
+const ranked = rankObservations(rows, query).slice(0, limit);
 
   if (ranked.length > 0) {
     const rankedIds = ranked.map((r) => r.id),
@@ -328,12 +331,13 @@ function search(deps, args) {
     );
   }
 
-  let codeResults = null;
+  
   if (includeCode && deps.searchCode) {
     codeResults = deps.searchCode(query, null, null, limit);
   }
 
   return { results: ranked, code_results: codeResults };
+}
 }
 
 function symbolCluster(deps, args) {

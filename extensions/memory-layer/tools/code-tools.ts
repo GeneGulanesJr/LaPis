@@ -124,7 +124,8 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
           return toolTextResult(`Unknown memory-code mode: ${mode}\n\n${codeHelpText()}`, {}, true);
         }
 
-        const codeRepos =
+        {
+const codeRepos =
             mode === 'index-repo' || mode === 'reindex-repo' || mode === 'health' ? [] : await deps.getKnownRepos(),
           inferredRepo = inferCurrentRepo(params, codeRepos, process.cwd()),
         validationError = (() => {
@@ -139,7 +140,8 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
           return toolTextResult(validationError, {}, true);
         }
 
-        const args: Record<string, string> = {},
+        {
+const args: Record<string, string> = {},
         top = (() => {
 
           if (params.repo) {
@@ -319,7 +321,9 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
           fmt = '';
         }
         return toolTextResult(fmt || `No ${mode} results found.`, response.details);
-      } catch (err) {
+      }
+}
+} catch (err) {
         return toolTextResult(`Unexpected error: ${stringifyToolError(err)}`, {}, true);
       }
     },

@@ -1,6 +1,6 @@
-const { parseExpiresIn, formatSqliteDatetime } = require('../src/memory-domain/ttl');
-const obsService = require('../services/observations');
-const obsDA = require('../data-access/observations');
+const { parseExpiresIn, formatSqliteDatetime } = require('../src/memory-domain/ttl'), obsService = require('../services/observations'), obsDA = require('../data-access/observations');
+
+
 
 function mockDeps(overrides = {}) {
   return {
@@ -285,8 +285,8 @@ describe('compaction: runCompact expires expired observations', () => {
         const deps = {
           sqlRun: vi.fn(),
           sqlRaw: vi.fn(),
-        };
-        const { runCompact } = require('../src/memory-domain/compaction');
+        }, { runCompact } = require('../src/memory-domain/compaction');
+        
         return runCompact(deps);
       })(),
       expiredCall = result.steps.expiredPurged;
@@ -295,14 +295,14 @@ describe('compaction: runCompact expires expired observations', () => {
 
   it('emits the expired purge SQL as the first cleanup step', () => {
     const sqlRun = vi.fn(),
-      sqlRaw = vi.fn();
-    const { runCompact } = require('../src/memory-domain/compaction'),
+      sqlRaw = vi.fn(), { runCompact } = require('../src/memory-domain/compaction'),
     firstNonFtsRun = (() => {
 
       runCompact({ sqlRun, sqlRaw });
       
   return (sqlRun.mock.calls[0]);
-})();expect(firstNonFtsRun[0]).toContain('expires_at');
+})();
+    expect(firstNonFtsRun[0]).toContain('expires_at');
     expect(firstNonFtsRun[0]).toContain("datetime('now')");
   });
 });

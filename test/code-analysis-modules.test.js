@@ -1,8 +1,8 @@
-const codeAnalysis = require('../src/code-analysis');
-const graph = require('../src/code-analysis/graph');
-const quality = require('../src/code-analysis/quality');
-const { CodeIndexReadRepository } = require('../src/code-analysis/read-model');
-const { runAnalyzer } = require('../src/code-analysis/analyzer-runner');
+const codeAnalysis = require('../src/code-analysis'), graph = require('../src/code-analysis/graph'), quality = require('../src/code-analysis/quality'), { CodeIndexReadRepository } = require('../src/code-analysis/read-model'), { runAnalyzer } = require('../src/code-analysis/analyzer-runner');
+
+
+
+
 
 function throwingDb(message = 'boom') {
   return {

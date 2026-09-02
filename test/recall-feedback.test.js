@@ -1,10 +1,10 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const db = require('../db');
-const { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall');
-const { insertRecallLog: insertRecallLogDA } = require('../data-access/observations');
-const { logNegativeRecall } = require('../commands/observation');
+const fs = require('fs'), os = require('os'), path = require('path'), db = require('../db'), { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall'), { insertRecallLog: insertRecallLogDA } = require('../data-access/observations'), { logNegativeRecall } = require('../commands/observation');
+
+
+
+
+
+
 
 describe('recall feedback', () => {
   let deps, tempDir;

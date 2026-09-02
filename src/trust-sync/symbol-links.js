@@ -1,6 +1,4 @@
-const { TRUST_DELTA } = require('../../constants');
-const { detectChangedSymbols } = require('./change-detector');
-const { evaluateTrustSync, stripOperations } = require('./trust-policy'),
+const { TRUST_DELTA } = require('../../constants'), { detectChangedSymbols } = require('./change-detector'), { evaluateTrustSync, stripOperations } = require('./trust-policy'),
   TRUST_SYNC_METHODS = [
     'linkSymbol',
     'findUnlinked',
@@ -17,6 +15,8 @@ const { evaluateTrustSync, stripOperations } = require('./trust-policy'),
     'getSymbolCluster',
     'getRelatedMemories',
   ];
+
+
 
 function assertRepositoryMethods(repository, requiredMethods) {
   const missing = requiredMethods.filter((method) => typeof repository[method] !== 'function');

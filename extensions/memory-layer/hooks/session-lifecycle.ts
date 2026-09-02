@@ -84,7 +84,8 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
       };
     }
 
-    const effectiveContext = contextResult || crossProjectResult,
+    {
+const effectiveContext = contextResult || crossProjectResult,
       isNewProject = !hasProjectContext && crossProjectResult !== null,
       effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : contextObservations,
       stats = effectiveContext.stats as any,
@@ -135,7 +136,8 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
         display: false,
       },
     };
-  });
+  }
+});
 }
 
 export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {

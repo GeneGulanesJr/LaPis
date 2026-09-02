@@ -6,8 +6,8 @@
  * does not break unrelated features.
  */
 // ─── Task 1: Doc-index failure isolation ────────────────────────────
-const { rankObservations } = require('../src/memory-domain/search');
-const { evaluateTrustSync } = require('../src/trust-sync/trust-policy');
+const { rankObservations } = require('../src/memory-domain/search'), { evaluateTrustSync } = require('../src/trust-sync/trust-policy');
+
 
 describe('Module boundary: doc-index failure does not break memory save/search', () => {
   it('saves and searches observations even when doc-index modules throw', () => {
@@ -53,6 +53,7 @@ describe('Module boundary: doc-index failure does not break memory save/search',
 });
 
 // ─── Task 2: Passive capture failure isolation ──────────────────────
+{
 const { capturePassive } = require('../src/memory-domain/observations');
 
 describe('Module boundary: passive capture failure does not block session startup', () => {
@@ -85,6 +86,7 @@ describe('Module boundary: passive capture failure does not block session startu
 });
 
 // ─── Task 3: Trust sync failure isolation ───────────────────────────
+{
 const { save: saveObs } = require('../src/memory-domain/observations');
 
 describe('Module boundary: trust sync failure does not block basic memory tools', () => {
@@ -96,7 +98,8 @@ describe('Module boundary: trust sync failure does not block basic memory tools'
     expect(result.unchanged).toEqual([]);
 
     // Prove memory-domain save still works with proper deps
-    const calls = {
+    {
+const calls = {
         jsonErrNoExit: 0,
         checkDuplicate: 0,
         findLatestSession: 0,
@@ -145,13 +148,15 @@ describe('Module boundary: trust sync failure does not block basic memory tools'
       );
     expect(saved.id).toBe(99);
     expect(calls.insertObservation).toBeGreaterThan(0);
-  });
+  }
+});
 });
 
 // ─── Task 4: Code analyzer failure isolation ────────────────────────
-const { runAnalyzer, scopedError } = require('../src/code-analysis/analyzer-runner');
-const graph = require('../src/code-analysis/graph');
-const quality = require('../src/code-analysis/quality');
+{
+const { runAnalyzer, scopedError } = require('../src/code-analysis/analyzer-runner'), graph = require('../src/code-analysis/graph'), quality = require('../src/code-analysis/quality');
+
+
 
 describe('Module boundary: one code analyzer failure does not break other analyzers', () => {
   it('scopedError returns the expected envelope for any analyzer', () => {
@@ -205,8 +210,9 @@ describe('Module boundary: one code analyzer failure does not break other analyz
 });
 
 // ─── Task 5: Formatter failure isolation ────────────────────────────
-const { compactAnalysis, autoCompactAnalysis, formatAnalysisForLlm } = require('../src/platform/protocol/llm-format');
-const { compactResponse, expandResponse } = require('../src/platform/protocol/compact-format');
+{
+const { compactAnalysis, autoCompactAnalysis, formatAnalysisForLlm } = require('../src/platform/protocol/llm-format'), { compactResponse, expandResponse } = require('../src/platform/protocol/compact-format');
+
 
 describe('Module boundary: formatter failure returns a scoped result without throwing', () => {
   it('compactAnalysis handles empty data without throwing', () => {
@@ -253,3 +259,7 @@ describe('Module boundary: formatter failure returns a scoped result without thr
     expect(caught || true).toBe(true);
   });
 });
+}
+}
+}
+}

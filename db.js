@@ -5,10 +5,10 @@
  * Zero external Python deps. Zero MCP servers.
  */
 
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const { getConfig } = require('./config');
+const path = require('path'), fs = require('fs'), os = require('os'), { getConfig } = require('./config');
+
+
+
 
 /* ── custom error ─────────────────────────────────────────── */
 // MemoryError is used by cli.js CLI dispatch for typed error handling.
@@ -22,6 +22,7 @@ class MemoryError extends Error {
 }
 
 /* ── paths ────────────────────────────────────────────────── */
+{
 const HOME = process.env.LAPIS_HOME || process.env.HOME || process.env.USERPROFILE || os.homedir(),
   SCHEMA_PATH = path.resolve(__dirname, 'schema.sql');
 
@@ -30,148 +31,31 @@ let _db = null,
   _engine = null, // 'better-sqlite3'
   _lastBackendError = null; // Last error from openBetterSqlite3(), surfaced by openDb()
 
-function getDb() {
-  return _db;
-}
-function getEngine() {
-  return _engine;
-}
-function getDbPath() {
-  return getConfig().db_path;
-}
+
+
+
 
 // ResetDb/createDb are public API needed for test isolation (Issue #36).
 // Do NOT remove — PR22 deferred this change incorrectly.
-function resetDb() {
-  if (_db) {
-    try {
-      _db.close();
-    } catch {}
-  }
-  _db = null;
-  _engine = null;
-}
 
-function createDb(configOverride = {}) {
-  const mergedConfig = { ...getConfig(), ...configOverride },
-    savedConfig = getConfig._cached,
-    savedDb = _db,
-    savedEngine = _engine;
 
-  getConfig._cached = mergedConfig;
-  try {
-    _db = null;
-    _engine = null;
-    const result = ensureDb();
-    return result;
-  } catch (e) {
-    // Restore on failure
-    _db = savedDb;
-    _engine = savedEngine;
-    getConfig._cached = savedConfig;
-    throw e;
-  }
-  // NOTE: After successful createDb, the global _db/_engine point to the isolated DB.
-  // To restore the global singleton, call resetDb() then ensureDb().
-  // Config is NOT auto-restored so callers can continue using the isolated DB.
-}
+
 
 /* ── backend detection ────────────────────────────────────── */
 
-function safeInt(val, fallback) {
-  const n = Number(val);
-  return Number.isFinite(n) && n === Math.floor(n) ? n : fallback;
-}
 
-function findLapisRoot() {
-  let dir = __dirname;
-  for (let i = 0; i < 10; i++) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf-8'));
-      if (pkg.name === '@genegulanesjr/lapis' || pkg.name === 'lapis') {
-        return dir;
-      }
-    } catch {}
-    const parent = path.dirname(dir);
-    if (parent === dir) {
-      break;
-    }
-    dir = parent;
-  }
-  return __dirname;
-}
 
-function openBetterSqlite3() {
-  try {
-    const cfg = getConfig();
-    const Database = require('better-sqlite3'),
-      d = new Database(cfg.db_path);
-    d.pragma('journal_mode = WAL');
-    d.pragma('synchronous = NORMAL');
-    d.pragma('temp_store = MEMORY');
-    d.pragma(`busy_timeout = ${safeInt(cfg.busy_timeout_ms, 30000)}`);
-    d.pragma(`wal_autocheckpoint = ${safeInt(cfg.wal_autocheckpoint, 1000)}`);
-    d.pragma('foreign_keys = ON');
-    return d;
-  } catch (e) {
-    // Preserve the REAL failure (ABI mismatch, EACCES, SQLITE_BUSY, Bun's
-    // ERR_DLOPEN_FAILED, missing .node binary, etc.) instead of swallowing it.
-    // The previous code returned null and let openDb() emit a generic
-    // "run npm install" message that was almost always wrong.
-    _lastBackendError = e;
-    const code = e && e.code ? ` [${e.code}]` : '';
-    console.error(`[db] better-sqlite3 failed${code}: ${e && e.message ? e.message : e}`);
-    return null;
-  }
-}
 
-function openDb() {
-  const db = openBetterSqlite3();
-  if (db) {
-    _engine = 'better-sqlite3';
-    _db = db;
-    return db;
-  }
-  const lapisRoot = findLapisRoot(),
-    why = _lastBackendError
-      ? ` Reason: ${_lastBackendError.code ? `[${_lastBackendError.code}] ` : ''}${_lastBackendError.message || String(_lastBackendError)}`
-      : '',
-    hint = (() => {
-      const code = _lastBackendError && _lastBackendError.code,
-        msg = (_lastBackendError && _lastBackendError.message) || '';
-      // Don't tell the user to `npm install` when the module clearly loads but
-      // Failed at runtime (ABI / open / Bun). Those need different fixes.
-      if (code === 'ERR_DLOPEN_FAILED' || /not yet supported in Bun/i.test(msg)) {
-        return `  better-sqlite3 cannot load under this runtime. If pi is running under Bun, run pi under Node instead, or build a Node-compatible backend.\n`;
-      }
-      if (code === 'SQLITE_BUSY' || /database is locked|SQLITE_BUSY/i.test(msg)) {
-        return `  The memory DB is locked by another process. Close other pi/LaPis processes or raise busy_timeout_ms.\n`;
-      }
-      if (code === 'MODULE_NOT_FOUND') {
-        return `  Run: cd ${lapisRoot} && npm install\n`;
-      }
-      return `  If better-sqlite3 is not installed: cd ${lapisRoot} && npm install\n`;
-    })(),
-    msg = `No SQLite backend found. LaPis does not install dependencies at runtime.${why}\n${hint}`;
-  throw new Error(msg);
-}
+
+
+
+
 
 /* ── SQLITE_BUSY retry ─────────────────────────────────────── */
 
-function isBusyError(e) {
-  if (e && e.code === 'SQLITE_BUSY') {
-    return true;
-  }
-  const msg = (e && e.message) || '';
-  return /database is locked|SQLITE_BUSY/i.test(msg);
-}
 
-function sleepMs(ms) {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    /* Spin */
-  }
-}
+
+
 
 /**
  * Retry `fn` on SQLITE_BUSY with exponential backoff (100 * 2^attempt ms).
@@ -181,148 +65,21 @@ function sleepMs(ms) {
  * @returns {*} the return value of `fn`
  * @throws {*} rethrows the last error after exhausting retries or on non-BUSY errors
  */
-function retryOnBusy(fn, label) {
-  const maxRetries = safeInt(getConfig().busy_retry_max, 5);
-  let lastError;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return fn();
-    } catch (e) {
-      lastError = e;
-      if (!isBusyError(e) || attempt >= maxRetries) {
-        break;
-      }
-      const delay = 100 * 2 ** attempt;
-      if (label) {
-        console.warn(`[db] SQLITE_BUSY on ${label}, retry ${attempt + 1}/${maxRetries} in ${delay}ms`);
-      }
-      sleepMs(delay);
-    }
-  }
-  throw lastError;
-}
+
 
 /* ── native SQL layer ─────────────────────────────────────── */
 
-function _sqlJson(query, params = []) {
-  return retryOnBusy(() => {
-    try {
-      const stmt = _db.prepare(query);
-      return stmt.all(...params);
-    } catch (e) {
-      throw new Error(`SQL error: ${e.message}\nQuery: ${query}`, { cause: e });
-    }
-  }, 'sqlJson');
-}
 
-function _sqlRun(query, params = []) {
-  return retryOnBusy(() => {
-    try {
-      const stmt = _db.prepare(query);
-      return stmt.run(...params);
-    } catch (e) {
-      throw new Error(`SQL error: ${e.message}\nQuery: ${query}`, { cause: e });
-    }
-  }, 'sqlRun');
-}
 
-function _sqlExec(sql) {
-  return retryOnBusy(() => {
-    try {
-      _db.exec(sql);
-    } catch (e) {
-      throw new Error(`SQL exec error: ${e.message}`, { cause: e });
-    }
-  }, 'sqlExec');
-}
+
+
+
 
 // Public aliases
+{
 const sqlJson = _sqlJson,
   sqlRun = _sqlRun,
-  sqlRaw = _sqlExec;
-
-/* ── transaction helper ───────────────────────────────────── */
-
-/**
- * Run `fn` inside a DB transaction, rolling back on throw.
- * Uses better-sqlite3's `.transaction` when available; otherwise falls back to
- * manual BEGIN/COMMIT/ROLLBACK. `onRollbackError` is only invoked in the manual
- * fallback when ROLLBACK itself throws.
- * @param {Function} fn no-arg work function
- * @param {Function} [onRollbackError] receives the ROLLBACK failure (fallback only)
- * @returns {*} the return value of `fn`
- * @throws {MemoryError} if the DB is not initialized
- */
-function withTransaction(fn, onRollbackError) {
-  if (!_db) {
-    throw new MemoryError('Database not initialized. Call ensureDb() first.');
-  }
-  if (typeof _db.transaction === 'function') {
-    return _db.transaction(fn)();
-  }
-  _db.exec('BEGIN');
-  try {
-    const result = fn();
-    _db.exec('COMMIT');
-    return result;
-  } catch (e) {
-    try {
-      _db.exec('ROLLBACK');
-    } catch (rollbackErr) {
-      console.error('[db] ROLLBACK failed:', rollbackErr.message);
-      try {
-        if (typeof onRollbackError === 'function') {
-          onRollbackError(rollbackErr);
-        }
-      } catch {}
-    }
-    throw e;
-  }
-}
-
-/* ── ensureDb ─────────────────────────────────────────────── */
-
-function ensureDb() {
-  const dbPath = getDbPath(),
-    dir = path.dirname(dbPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  if (!_db) {
-    openDb();
-  }
-
-  if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
-    const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
-    try {
-      _db.exec(schema);
-    } catch {
-      const stmts = schema
-        .split(/;\s*\n/)
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0 && !s.startsWith('--') && !/^\s*PRAGMA/i.test(s));
-      for (const stmt of stmts) {
-        try {
-          _sqlExec(stmt);
-        } catch (inner) {
-          if (!/already exists|duplicate column/i.test(inner.message)) {
-            console.error(`[db] Schema statement error: ${inner.message}`);
-          }
-        }
-      }
-    }
-  }
-
-  runMigrations();
-
-  ensureCriticalTables();
-
-  return { ok: true, db: dbPath, engine: _engine };
-}
-
-// Critical tables that must exist for code analysis + doc indexing
-const _CRITICAL_TABLES = [
+  sqlRaw = _sqlExec, _CRITICAL_TABLES = [
   // KV store — used by HTTP /api/settings, dashboard dream stats, integrations
   ['settings', `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`],
   // V3: code indexing
@@ -399,88 +156,30 @@ const _CRITICAL_TABLES = [
   ],
 ];
 
-function ensureCriticalTables() {
-  for (const [name, createSql] of _CRITICAL_TABLES) {
-    try {
-      const exists = _db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").all(name);
-      if (!exists.length) {
-        _db.exec(createSql);
-        // Create indexes
-        _createTableIndexes(name, _db);
-      }
-    } catch (e) {
-      console.error(`[db] Failed to ensure critical table ${name}: ${e.message}`);
-    }
-  }
-}
+/* ── transaction helper ───────────────────────────────────── */
 
-function _createTableIndexes(name, db) {
-  const indexMap = {
-    code_repos: ['CREATE INDEX IF NOT EXISTS idx_cr_branch ON code_repos(current_branch)'],
-    code_files: [
-      'CREATE INDEX IF NOT EXISTS idx_cf_repo ON code_files(repo_id)',
-      'CREATE INDEX IF NOT EXISTS idx_cf_hash ON code_files(repo_id, content_hash)',
-    ],
-    code_file_diagnostics: [
-      'CREATE INDEX IF NOT EXISTS idx_cfd_repo ON code_file_diagnostics(repo_id)',
-      'CREATE INDEX IF NOT EXISTS idx_cfd_status ON code_file_diagnostics(repo_id, status)',
-    ],
-    code_symbols: [
-      'CREATE INDEX IF NOT EXISTS idx_cs_repo ON code_symbols(repo_id)',
-      'CREATE INDEX IF NOT EXISTS idx_cs_name ON code_symbols(name)',
-      'CREATE INDEX IF NOT EXISTS idx_cs_file ON code_symbols(file_id)',
-      'CREATE INDEX IF NOT EXISTS idx_cs_stable ON code_symbols(repo_id, stable_symbol_id)',
-    ],
-    code_imports: [
-      'CREATE INDEX IF NOT EXISTS idx_ci_source ON code_imports(source_file_id)',
-      'CREATE INDEX IF NOT EXISTS idx_ci_target ON code_imports(target_file_id)',
-      'CREATE INDEX IF NOT EXISTS idx_ci_repo ON code_imports(repo_id)',
-    ],
-    code_calls: [
-      'CREATE INDEX IF NOT EXISTS idx_cc_caller ON code_calls(caller_symbol_id)',
-      'CREATE INDEX IF NOT EXISTS idx_cc_callee_name ON code_calls(repo_id, callee_name)',
-      'CREATE INDEX IF NOT EXISTS idx_cc_callee ON code_calls(callee_symbol_id)',
-    ],
-    symbol_complexity: ['CREATE INDEX IF NOT EXISTS idx_sc_symbol ON symbol_complexity(symbol_id)'],
-    churn_metrics: ['CREATE INDEX IF NOT EXISTS idx_cm_repo ON churn_metrics(repo_id)'],
-    file_scope_bindings: [
-      'CREATE INDEX IF NOT EXISTS idx_fsb_file_name ON file_scope_bindings(repo_id, file_id, name, line_start)',
-      'CREATE INDEX IF NOT EXISTS idx_fsb_file_range ON file_scope_bindings(repo_id, file_id, line_start, line_end)',
-      'CREATE INDEX IF NOT EXISTS idx_fsb_file_depth ON file_scope_bindings(file_id, scope_depth)',
-    ],
-    scope_resolution: [
-      'CREATE INDEX IF NOT EXISTS idx_sr_binding ON scope_resolution(binding_id)',
-      'CREATE INDEX IF NOT EXISTS idx_sr_symbol ON scope_resolution(resolved_symbol_id)',
-      'CREATE INDEX IF NOT EXISTS idx_sr_status ON scope_resolution(status)',
-      'CREATE INDEX IF NOT EXISTS idx_sr_pass ON scope_resolution(resolved_at_pass)',
-    ],
-    repo_index_locks: ['CREATE INDEX IF NOT EXISTS idx_repo_index_locks_acquired ON repo_index_locks(acquired_at)'],
-    doc_sections: [
-      'CREATE INDEX IF NOT EXISTS idx_ds_file ON doc_sections(file_id)',
-      'CREATE INDEX IF NOT EXISTS idx_ds_parent ON doc_sections(parent_id)',
-      'CREATE INDEX IF NOT EXISTS idx_ds_repo ON doc_sections(repo_id)',
-      'CREATE INDEX IF NOT EXISTS idx_ds_level ON doc_sections(level)',
-    ],
-    doc_links: [
-      'CREATE INDEX IF NOT EXISTS idx_dl_source ON doc_links(source_section_id)',
-      'CREATE INDEX IF NOT EXISTS idx_dl_target ON doc_links(target_section_id)',
-      'CREATE INDEX IF NOT EXISTS idx_dl_broken ON doc_links(is_broken)',
-    ],
-    doc_terms: [
-      'CREATE INDEX IF NOT EXISTS idx_dt_term ON doc_terms(term)',
-      'CREATE INDEX IF NOT EXISTS idx_dt_repo ON doc_terms(repo_id)',
-    ],
-    doc_code_blocks: [
-      'CREATE INDEX IF NOT EXISTS idx_dcb_section ON doc_code_blocks(section_id)',
-      'CREATE INDEX IF NOT EXISTS idx_dcb_lang ON doc_code_blocks(lang)',
-    ],
-  };
-  for (const sql of indexMap[name] || []) {
-    try {
-      db.exec(sql);
-    } catch {}
-  }
-}
+/**
+ * Run `fn` inside a DB transaction, rolling back on throw.
+ * Uses better-sqlite3's `.transaction` when available; otherwise falls back to
+ * manual BEGIN/COMMIT/ROLLBACK. `onRollbackError` is only invoked in the manual
+ * fallback when ROLLBACK itself throws.
+ * @param {Function} fn no-arg work function
+ * @param {Function} [onRollbackError] receives the ROLLBACK failure (fallback only)
+ * @returns {*} the return value of `fn`
+ * @throws {MemoryError} if the DB is not initialized
+ */
+
+
+/* ── ensureDb ─────────────────────────────────────────────── */
+
+
+
+// Critical tables that must exist for code analysis + doc indexing
+
+
+
+
+
 
 /* ── migrations ───────────────────────────────────────────── */
 
@@ -1532,3 +1231,327 @@ module.exports = {
   parseArgs,
   MemoryError,
 };
+function getDb() {
+  return _db;
+}
+function getEngine() {
+  return _engine;
+}
+function getDbPath() {
+  return getConfig().db_path;
+}
+function resetDb() {
+  if (_db) {
+    try {
+      _db.close();
+    } catch {}
+  }
+  _db = null;
+  _engine = null;
+}
+function createDb(configOverride = {}) {
+  const mergedConfig = { ...getConfig(), ...configOverride },
+    savedConfig = getConfig._cached,
+    savedDb = _db,
+    savedEngine = _engine;
+
+  getConfig._cached = mergedConfig;
+  try {
+    _db = null;
+    _engine = null;
+    const result = ensureDb();
+    return result;
+  } catch (e) {
+    // Restore on failure
+    _db = savedDb;
+    _engine = savedEngine;
+    getConfig._cached = savedConfig;
+    throw e;
+  }
+  // NOTE: After successful createDb, the global _db/_engine point to the isolated DB.
+  // To restore the global singleton, call resetDb() then ensureDb().
+  // Config is NOT auto-restored so callers can continue using the isolated DB.
+}
+function safeInt(val, fallback) {
+  const n = Number(val);
+  return Number.isFinite(n) && n === Math.floor(n) ? n : fallback;
+}
+function findLapisRoot() {
+  let dir = __dirname;
+  for (let i = 0; i < 10; i++) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf-8'));
+      if (pkg.name === '@genegulanesjr/lapis' || pkg.name === 'lapis') {
+        return dir;
+      }
+    } catch {}
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return __dirname;
+}
+function openBetterSqlite3() {
+  try {
+    const cfg = getConfig(), Database = require('better-sqlite3'),
+      d = new Database(cfg.db_path);
+    
+    d.pragma('journal_mode = WAL');
+    d.pragma('synchronous = NORMAL');
+    d.pragma('temp_store = MEMORY');
+    d.pragma(`busy_timeout = ${safeInt(cfg.busy_timeout_ms, 30000)}`);
+    d.pragma(`wal_autocheckpoint = ${safeInt(cfg.wal_autocheckpoint, 1000)}`);
+    d.pragma('foreign_keys = ON');
+    return d;
+  } catch (e) {
+    // Preserve the REAL failure (ABI mismatch, EACCES, SQLITE_BUSY, Bun's
+    // ERR_DLOPEN_FAILED, missing .node binary, etc.) instead of swallowing it.
+    // The previous code returned null and let openDb() emit a generic
+    // "run npm install" message that was almost always wrong.
+    _lastBackendError = e;
+    const code = e && e.code ? ` [${e.code}]` : '';
+    console.error(`[db] better-sqlite3 failed${code}: ${e && e.message ? e.message : e}`);
+    return null;
+  }
+}
+function openDb() {
+  const db = openBetterSqlite3();
+  if (db) {
+    _engine = 'better-sqlite3';
+    _db = db;
+    return db;
+  }
+  const lapisRoot = findLapisRoot(),
+    why = _lastBackendError
+      ? ` Reason: ${_lastBackendError.code ? `[${_lastBackendError.code}] ` : ''}${_lastBackendError.message || String(_lastBackendError)}`
+      : '',
+    hint = (() => {
+      const code = _lastBackendError && _lastBackendError.code,
+        msg = (_lastBackendError && _lastBackendError.message) || '';
+      // Don't tell the user to `npm install` when the module clearly loads but
+      // Failed at runtime (ABI / open / Bun). Those need different fixes.
+      if (code === 'ERR_DLOPEN_FAILED' || /not yet supported in Bun/i.test(msg)) {
+        return `  better-sqlite3 cannot load under this runtime. If pi is running under Bun, run pi under Node instead, or build a Node-compatible backend.\n`;
+      }
+      if (code === 'SQLITE_BUSY' || /database is locked|SQLITE_BUSY/i.test(msg)) {
+        return `  The memory DB is locked by another process. Close other pi/LaPis processes or raise busy_timeout_ms.\n`;
+      }
+      if (code === 'MODULE_NOT_FOUND') {
+        return `  Run: cd ${lapisRoot} && npm install\n`;
+      }
+      return `  If better-sqlite3 is not installed: cd ${lapisRoot} && npm install\n`;
+    })(),
+    msg = `No SQLite backend found. LaPis does not install dependencies at runtime.${why}\n${hint}`;
+  throw new Error(msg);
+}
+function isBusyError(e) {
+  if (e && e.code === 'SQLITE_BUSY') {
+    return true;
+  }
+  const msg = (e && e.message) || '';
+  return /database is locked|SQLITE_BUSY/i.test(msg);
+}
+function sleepMs(ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    /* Spin */
+  }
+}
+function retryOnBusy(fn, label) {
+  const maxRetries = safeInt(getConfig().busy_retry_max, 5);
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return fn();
+    } catch (e) {
+      lastError = e;
+      if (!isBusyError(e) || attempt >= maxRetries) {
+        break;
+      }
+      const delay = 100 * 2 ** attempt;
+      if (label) {
+        console.warn(`[db] SQLITE_BUSY on ${label}, retry ${attempt + 1}/${maxRetries} in ${delay}ms`);
+      }
+      sleepMs(delay);
+    }
+  }
+  throw lastError;
+}
+function _sqlJson(query, params = []) {
+  return retryOnBusy(() => {
+    try {
+      const stmt = _db.prepare(query);
+      return stmt.all(...params);
+    } catch (e) {
+      throw new Error(`SQL error: ${e.message}\nQuery: ${query}`, { cause: e });
+    }
+  }, 'sqlJson');
+}
+function _sqlRun(query, params = []) {
+  return retryOnBusy(() => {
+    try {
+      const stmt = _db.prepare(query);
+      return stmt.run(...params);
+    } catch (e) {
+      throw new Error(`SQL error: ${e.message}\nQuery: ${query}`, { cause: e });
+    }
+  }, 'sqlRun');
+}
+function _sqlExec(sql) {
+  return retryOnBusy(() => {
+    try {
+      _db.exec(sql);
+    } catch (e) {
+      throw new Error(`SQL exec error: ${e.message}`, { cause: e });
+    }
+  }, 'sqlExec');
+}
+function withTransaction(fn, onRollbackError) {
+  if (!_db) {
+    throw new MemoryError('Database not initialized. Call ensureDb() first.');
+  }
+  if (typeof _db.transaction === 'function') {
+    return _db.transaction(fn)();
+  }
+  _db.exec('BEGIN');
+  try {
+    const result = fn();
+    _db.exec('COMMIT');
+    return result;
+  } catch (e) {
+    try {
+      _db.exec('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('[db] ROLLBACK failed:', rollbackErr.message);
+      try {
+        if (typeof onRollbackError === 'function') {
+          onRollbackError(rollbackErr);
+        }
+      } catch {}
+    }
+    throw e;
+  }
+}
+function ensureDb() {
+  const dbPath = getDbPath(),
+    dir = path.dirname(dbPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  if (!_db) {
+    openDb();
+  }
+
+  if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
+    const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
+    try {
+      _db.exec(schema);
+    } catch {
+      const stmts = schema
+        .split(/;\s*\n/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0 && !s.startsWith('--') && !/^\s*PRAGMA/i.test(s));
+      for (const stmt of stmts) {
+        try {
+          _sqlExec(stmt);
+        } catch (inner) {
+          if (!/already exists|duplicate column/i.test(inner.message)) {
+            console.error(`[db] Schema statement error: ${inner.message}`);
+          }
+        }
+      }
+    }
+  }
+
+  runMigrations();
+
+  ensureCriticalTables();
+
+  return { ok: true, db: dbPath, engine: _engine };
+}
+function ensureCriticalTables() {
+  for (const [name, createSql] of _CRITICAL_TABLES) {
+    try {
+      const exists = _db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").all(name);
+      if (!exists.length) {
+        _db.exec(createSql);
+        // Create indexes
+        _createTableIndexes(name, _db);
+      }
+    } catch (e) {
+      console.error(`[db] Failed to ensure critical table ${name}: ${e.message}`);
+    }
+  }
+}
+function _createTableIndexes(name, db) {
+  const indexMap = {
+    code_repos: ['CREATE INDEX IF NOT EXISTS idx_cr_branch ON code_repos(current_branch)'],
+    code_files: [
+      'CREATE INDEX IF NOT EXISTS idx_cf_repo ON code_files(repo_id)',
+      'CREATE INDEX IF NOT EXISTS idx_cf_hash ON code_files(repo_id, content_hash)',
+    ],
+    code_file_diagnostics: [
+      'CREATE INDEX IF NOT EXISTS idx_cfd_repo ON code_file_diagnostics(repo_id)',
+      'CREATE INDEX IF NOT EXISTS idx_cfd_status ON code_file_diagnostics(repo_id, status)',
+    ],
+    code_symbols: [
+      'CREATE INDEX IF NOT EXISTS idx_cs_repo ON code_symbols(repo_id)',
+      'CREATE INDEX IF NOT EXISTS idx_cs_name ON code_symbols(name)',
+      'CREATE INDEX IF NOT EXISTS idx_cs_file ON code_symbols(file_id)',
+      'CREATE INDEX IF NOT EXISTS idx_cs_stable ON code_symbols(repo_id, stable_symbol_id)',
+    ],
+    code_imports: [
+      'CREATE INDEX IF NOT EXISTS idx_ci_source ON code_imports(source_file_id)',
+      'CREATE INDEX IF NOT EXISTS idx_ci_target ON code_imports(target_file_id)',
+      'CREATE INDEX IF NOT EXISTS idx_ci_repo ON code_imports(repo_id)',
+    ],
+    code_calls: [
+      'CREATE INDEX IF NOT EXISTS idx_cc_caller ON code_calls(caller_symbol_id)',
+      'CREATE INDEX IF NOT EXISTS idx_cc_callee_name ON code_calls(repo_id, callee_name)',
+      'CREATE INDEX IF NOT EXISTS idx_cc_callee ON code_calls(callee_symbol_id)',
+    ],
+    symbol_complexity: ['CREATE INDEX IF NOT EXISTS idx_sc_symbol ON symbol_complexity(symbol_id)'],
+    churn_metrics: ['CREATE INDEX IF NOT EXISTS idx_cm_repo ON churn_metrics(repo_id)'],
+    file_scope_bindings: [
+      'CREATE INDEX IF NOT EXISTS idx_fsb_file_name ON file_scope_bindings(repo_id, file_id, name, line_start)',
+      'CREATE INDEX IF NOT EXISTS idx_fsb_file_range ON file_scope_bindings(repo_id, file_id, line_start, line_end)',
+      'CREATE INDEX IF NOT EXISTS idx_fsb_file_depth ON file_scope_bindings(file_id, scope_depth)',
+    ],
+    scope_resolution: [
+      'CREATE INDEX IF NOT EXISTS idx_sr_binding ON scope_resolution(binding_id)',
+      'CREATE INDEX IF NOT EXISTS idx_sr_symbol ON scope_resolution(resolved_symbol_id)',
+      'CREATE INDEX IF NOT EXISTS idx_sr_status ON scope_resolution(status)',
+      'CREATE INDEX IF NOT EXISTS idx_sr_pass ON scope_resolution(resolved_at_pass)',
+    ],
+    repo_index_locks: ['CREATE INDEX IF NOT EXISTS idx_repo_index_locks_acquired ON repo_index_locks(acquired_at)'],
+    doc_sections: [
+      'CREATE INDEX IF NOT EXISTS idx_ds_file ON doc_sections(file_id)',
+      'CREATE INDEX IF NOT EXISTS idx_ds_parent ON doc_sections(parent_id)',
+      'CREATE INDEX IF NOT EXISTS idx_ds_repo ON doc_sections(repo_id)',
+      'CREATE INDEX IF NOT EXISTS idx_ds_level ON doc_sections(level)',
+    ],
+    doc_links: [
+      'CREATE INDEX IF NOT EXISTS idx_dl_source ON doc_links(source_section_id)',
+      'CREATE INDEX IF NOT EXISTS idx_dl_target ON doc_links(target_section_id)',
+      'CREATE INDEX IF NOT EXISTS idx_dl_broken ON doc_links(is_broken)',
+    ],
+    doc_terms: [
+      'CREATE INDEX IF NOT EXISTS idx_dt_term ON doc_terms(term)',
+      'CREATE INDEX IF NOT EXISTS idx_dt_repo ON doc_terms(repo_id)',
+    ],
+    doc_code_blocks: [
+      'CREATE INDEX IF NOT EXISTS idx_dcb_section ON doc_code_blocks(section_id)',
+      'CREATE INDEX IF NOT EXISTS idx_dcb_lang ON doc_code_blocks(lang)',
+    ],
+  };
+  for (const sql of indexMap[name] || []) {
+    try {
+      db.exec(sql);
+    } catch {}
+  }
+}
+}
+}

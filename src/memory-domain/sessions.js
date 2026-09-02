@@ -1,6 +1,6 @@
-const { sqlJson, jsonErrNoExit, withTransaction } = require('../../db');
-const { TIME_WINDOWS } = require('../../constants');
-const { getConfig } = require('../../config');
+const { sqlJson, jsonErrNoExit, withTransaction } = require('../../db'), { TIME_WINDOWS } = require('../../constants'), { getConfig } = require('../../config');
+
+
 
 function findLatestSession(project) {
   const q = project
@@ -60,7 +60,8 @@ function sessionStart(deps, args) {
     recoveredSession = autoRecoverInternal(String(incompleteSession[0].id));
   }
 
-  const tierConfig = deps._readTierConfig ? deps._readTierConfig() : { tier: 'full' },
+  {
+const tierConfig = deps._readTierConfig ? deps._readTierConfig() : { tier: 'full' },
     tier = tierConfig.tier || 'full',
     TOOL_TIERS = deps.TOOL_TIERS,
     tierSet = TOOL_TIERS[tier],
@@ -83,6 +84,7 @@ function sessionStart(deps, args) {
     available_commands_count: finalCommands.length,
   };
 }
+}
 
 function sessionEnd(deps, args) {
   const id = args.id,
@@ -92,7 +94,7 @@ function sessionEnd(deps, args) {
     return jsonErrNoExit('Missing --id');
   }
 
-  let trustRecoveryResult = null;
+  let trustRecoveryResult = null, vacuumResult = null;
   if (auto) {
     trustRecoveryResult = deps.trustRecovery({ session: id });
   }
@@ -105,9 +107,10 @@ function sessionEnd(deps, args) {
   // Always run the cheap, lock-light cleanup (DELETEs + trust decay).
   // The expensive VACUUM + FTS 'optimize' is gated by per-project session count
   // (same query as sessionStart) so heavy work lands on the same cadence.
-  const cheapResult = deps.runCompactCheap ? deps.runCompactCheap() : null;
+  {
+const cheapResult = deps.runCompactCheap ? deps.runCompactCheap() : null;
 
-  let vacuumResult = null;
+  
   if (deps.runVacuum) {
     let vacuumDue = true;
     try {
@@ -128,7 +131,8 @@ function sessionEnd(deps, args) {
     }
   }
 
-  const result = { ok: true, sessionId: parseInt(id, 10) };
+  {
+const result = { ok: true, sessionId: parseInt(id, 10) };
   if (trustRecoveryResult) {
     result.trustRecovery = trustRecoveryResult;
   }
@@ -142,6 +146,8 @@ function sessionEnd(deps, args) {
       : cheapResult;
   }
   return result;
+}
+}
 }
 
 function sessionSummary(deps, args) {

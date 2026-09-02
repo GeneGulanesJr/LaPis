@@ -8,9 +8,9 @@
  * Issue #32: Duplicated utility functions across multiple files
  */
 
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
+const crypto = require('crypto'), fs = require('fs'), path = require('path');
+
+
 
 /* ── native DB guard ───────────────────────────────────────── */
 
@@ -50,6 +50,7 @@ function withDb(fn, featureName) {
 
 /* ── ignore directories ────────────────────────────────────── */
 
+{
 const IGNORE_DIRS_COMMON = new Set(['node_modules', '.git', '.next', '.nuxt', 'dist', 'build']),
   IGNORE_DIRS_CODE = new Set([...IGNORE_DIRS_COMMON, '.venv', 'coverage']),
   IGNORE_DIRS_DOCS = new Set([...IGNORE_DIRS_COMMON, '.svn', '.hg', '__pycache__', '.cache', '.pi', 'vendor']),
@@ -158,6 +159,7 @@ function hashContent(content) {
 
 /* ── skip callee names (shared between code-analysis and parse-code) ── */
 
+{
 const SKIP_CALLEE_NAMES = new Set([
   'if',
   'else',
@@ -227,3 +229,5 @@ module.exports = {
   SKIP_CALLEE_NAMES,
   estimateTokens,
 };
+}
+}

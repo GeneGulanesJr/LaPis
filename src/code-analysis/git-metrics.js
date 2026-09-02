@@ -1,7 +1,7 @@
-const gitAnalysis = require('../../git-analysis');
-const legacy = require('./legacy-core');
-const { createCodeIndexReadRepository } = require('./read-model');
-const { runAnalyzer } = require('./analyzer-runner');
+const gitAnalysis = require('../../git-analysis'), legacy = require('./legacy-core'), { createCodeIndexReadRepository } = require('./read-model'), { runAnalyzer } = require('./analyzer-runner');
+
+
+
 
 function withRepo(db, analyzer, fn) {
   const codeIndex = createCodeIndexReadRepository(db),

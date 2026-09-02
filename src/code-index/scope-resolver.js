@@ -5,16 +5,7 @@
 
 // Lazy load for import-graph-impl to avoid circular dependency issues
 let _importGraph = null;
-function _getImportGraph() {
-  if (!_importGraph) {
-    try {
-      _importGraph = require('../analysis/import-graph-impl');
-    } catch {
-      _importGraph = {};
-    }
-  }
-  return _importGraph;
-}
+
 
 const _path = require('path'),
   MAX_RESOLUTION_PASSES = 10,
@@ -51,11 +42,13 @@ function resolveScopeBindings(db, repoId, opts = {}) {
   const { onProgress } = opts,
     warnings = [];
   let totalResolved = 0,
-    totalUnresolved = 0;
+    totalUnresolved = 0, passNum = 3,
+    newResolved = 0;
 
   // ── Pass 2: Direct resolution ──────────────────────────
 
-  const pass2Result = runDirectResolution(db, repoId);
+  {
+const pass2Result = runDirectResolution(db, repoId);
   totalResolved += pass2Result.resolved;
   totalUnresolved += pass2Result.unresolved;
 
@@ -65,8 +58,7 @@ function resolveScopeBindings(db, repoId, opts = {}) {
 
   // ── Pass 3: Re-export chain resolution (fixed-point) ───
 
-  let passNum = 3,
-    newResolved = 0;
+  
 
   do {
     const passResult = runReexportResolution(db, repoId, passNum);
@@ -86,7 +78,8 @@ function resolveScopeBindings(db, repoId, opts = {}) {
   }
 
   // Count final unresolved
-  const unresolvedRow = db
+  {
+const unresolvedRow = db
     .prepare(
       `SELECT COUNT(*) as cnt FROM scope_resolution WHERE status = 'unresolved' AND binding_id IN (SELECT id FROM file_scope_bindings WHERE repo_id = ?)`,
     )
@@ -99,6 +92,8 @@ function resolveScopeBindings(db, repoId, opts = {}) {
     passes: passNum - 1,
     warnings,
   };
+}
+}
 }
 
 /**
@@ -586,3 +581,13 @@ module.exports = {
   resolveScopeBindings,
   resolveScopeBindingsForFiles,
 };
+function _getImportGraph() {
+  if (!_importGraph) {
+    try {
+      _importGraph = require('../analysis/import-graph-impl');
+    } catch {
+      _importGraph = {};
+    }
+  }
+  return _importGraph;
+}

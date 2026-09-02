@@ -24,15 +24,15 @@
 // F22: src/memory-domain/compaction.js — dream stats persist failure was
 //      Silently swallowed.
 
-const dbModule = require('../db');
-const { getDeadCode } = require('../src/code-analysis/dead-code-impl');
-const { ingestCoverage, classifyTraffic } = require('../src/agent-intel/runtime-ingest');
-const { listWorkspaces, createWorkspace, archiveWorkspace } = require('../src/memory-domain/workspaces');
-const { blastRadius } = require('../src/agent-intel/blast');
-const { getPrRiskProfile } = require('../src/code-analysis/risk-impl');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const dbModule = require('../db'), { getDeadCode } = require('../src/code-analysis/dead-code-impl'), { ingestCoverage, classifyTraffic } = require('../src/agent-intel/runtime-ingest'), { listWorkspaces, createWorkspace, archiveWorkspace } = require('../src/memory-domain/workspaces'), { blastRadius } = require('../src/agent-intel/blast'), { getPrRiskProfile } = require('../src/code-analysis/risk-impl'), fs = require('fs'), path = require('path'), os = require('os');
+
+
+
+
+
+
+
+
 
 function uniqueRepoName(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -147,6 +147,7 @@ describe('correctness review fixes (round 2) — source-level', () => {
 
 // Integration tests below require better-sqlite3 native binding. They are
 // Skipped (not failed) when the binding is unavailable in the runtime.
+{
 const describeIfSqlite = sqliteReady() ? describe : describe.skip;
 
 describeIfSqlite('correctness review fixes (round 2) — integration', () => {
@@ -290,7 +291,8 @@ expect(result).toBeDefined();
           expected = { hot: 1, warm: 1, cold: 1 };
         expect(result.traffic_breakdown).toEqual(expected);
 
-        const dbRows = dbModule.sqlJson(
+        {
+const dbRows = dbModule.sqlJson(
             'SELECT traffic, COUNT(*) as cnt FROM runtime_symbols WHERE repo_id = ? GROUP BY traffic',
             [repoId],
           ),
@@ -299,7 +301,8 @@ expect(result).toBeDefined();
           persisted[row.traffic] = row.cnt;
         }
         expect(persisted).toEqual(expected);
-      } finally {
+      }
+} finally {
         try {
           fs.unlinkSync(tmpPath);
         } catch {}
@@ -335,10 +338,12 @@ expect(result).toBeDefined();
       expect(active.archived_at).toBeNull();
       expect(archived.archived_at).not.toBeNull();
 
-      const activeIdx = result.workspaces.findIndex((w) => w.name === w1),
+      {
+const activeIdx = result.workspaces.findIndex((w) => w.name === w1),
         archivedIdx = result.workspaces.findIndex((w) => w.name === w2);
       expect(activeIdx).toBeLessThan(archivedIdx);
-    });
+    }
+});
   });
 
   // ── F17 integration: blastRadius tests_likely_affected ──
@@ -449,3 +454,4 @@ expect(result).toBeDefined();
     });
   });
 });
+}

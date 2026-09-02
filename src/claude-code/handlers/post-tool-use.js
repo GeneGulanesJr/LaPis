@@ -21,25 +21,25 @@
  * or clobber each other. git-trust is read-only and never writes back.
  */
 
-const path = require('node:path');
-const {
+const path = require('node:path'), {
   parseSearchResultIds,
   parseMemoryIds,
   wasSaveSuccessful,
   extractToolResponseText,
-} = require('../../hooks-engine/tool-response-parse');
-const { resolveIndexedRepo } = require('../../hooks-engine/project');
-const { resolveProjectForCwd } = require('../project-resolve');
-const { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils');
-const { addNormalized } = require('../file-keys');
-const { postToolRole } = require('../tool-map');
-
-const { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust'),
+} = require('../../hooks-engine/tool-response-parse'), { resolveIndexedRepo } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils'), { addNormalized } = require('../file-keys'), { postToolRole } = require('../tool-map'), { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust'),
   // Harvest relative code paths from a memory-code response (parity with the Pi
   // tool_result handler in tool-guardrails.ts). The extension alternation is the
   // same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
   // classifier (#230).
   CODE_PATH_RE = new RegExp(`[\\w/.-]+\\.(${CODE_EXTENSIONS.join('|')})`, 'g');
+
+
+
+
+
+
+
+
 
 function addEditedFile(state, filePath) {
   if (!filePath) {
@@ -106,7 +106,8 @@ async function gitTrustSync({ input, dispatch, repos, state, cwd }) {
   if (!cmd || !matchesGitTrustOperation(cmd)) {
     return;
   }
-  const repo = resolveIndexedRepo(path.resolve(cwd), repos, state.currentProject);
+  {
+const repo = resolveIndexedRepo(path.resolve(cwd), repos, state.currentProject);
   if (!repo) {
     return;
   }
@@ -115,6 +116,7 @@ async function gitTrustSync({ input, dispatch, repos, state, cwd }) {
   } catch {
     // Trust sync is best-effort; a failure must not surface to Claude Code.
   }
+}
 }
 
 async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, roleFilter }) {
@@ -130,7 +132,8 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
     return null;
   }
 
-  const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
+  {
+const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
     toolResponse = payload.tool_response,
     claudeSessionId = payload.session_id,
     { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
@@ -148,7 +151,8 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
   // All other roles are read-modify-write: route through mutateState so two
   // Parallel PostToolUse hooks can't both read N and both write N+1 (lost
   // Increment / clobbered set) (#228).
-  const mutate = stateStore.mutateState
+  {
+const mutate = stateStore.mutateState
     ? (mutator) => stateStore.mutateState(claudeSessionId, mutator)
     : (mutator) => {
         const state = stateStore.loadState(claudeSessionId),
@@ -196,6 +200,8 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
     }
   });
   return null; // Silent — PostToolUse injects nothing
+}
+}
 }
 
 module.exports = {

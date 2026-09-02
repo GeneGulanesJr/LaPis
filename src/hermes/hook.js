@@ -27,16 +27,16 @@
  * (the `{"action":"block","message":…}` alias is accepted too).
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { spawn, spawnSync } = require('node:child_process');
+const fs = require('node:fs'), path = require('node:path'), { spawn, spawnSync } = require('node:child_process'), { isCodeFile } = require('../code-index/scanner'), { resolveIndexedRepo, normalizeRepoPath } = require('../hooks-engine/project'), { CONFIG_FILENAMES, isTargetedGrepLookup } = require('../hooks-engine/guardrail-utils'), { loadState, saveState, sessionStateDir } = require('./state-store'), { CONTEXT } = require('../../constants'), { capInjectedContext, buildContextBlock } = require('../hooks-engine/context-builder');
 
-const { isCodeFile } = require('../code-index/scanner');
-const { resolveIndexedRepo, normalizeRepoPath } = require('../hooks-engine/project');
-const { CONFIG_FILENAMES, isTargetedGrepLookup } = require('../hooks-engine/guardrail-utils');
-const { loadState, saveState, sessionStateDir } = require('./state-store');
-const { CONTEXT } = require('../../constants');
-const { capInjectedContext, buildContextBlock } = require('../hooks-engine/context-builder');
+
+
+
+
+
+
+
+
 
 /** Absolute path to this repo's `memory-store.js` entry point. */
 function lapisEntry() {
@@ -117,12 +117,14 @@ function readGuardReason(payload, deps) {
     return null;
   }
 
-  const rel = path.relative(matched.path || matched.name, absPath);
+  {
+const rel = path.relative(matched.path || matched.name, absPath);
   return (
     `Blocked by LaPis read guard: ${rel} is indexed code in repo "${matched.path || matched.name}". ` +
     'Whole-file reads are discouraged — use mcp__lapis__memory_code with mode "outline" (or "search") ' +
     'for this file first; targeted reads with offset/limit are allowed for editing.'
   );
+}
 }
 
 /** Tool-aware guard dispatcher: read_file → read guard, search_files → search guard. */
@@ -157,13 +159,15 @@ function searchGuardReason(payload, deps) {
   if (absNorm !== rp && !absNorm.startsWith(`${rp}/`)) {
     return null;
   }
-  const name = matched.name || matched.path;
+  {
+const name = matched.name || matched.path;
   return (
     `Blocked by LaPis search guard: broad code search in indexed repo "${name}". ` +
     'Use mcp__lapis__memory_code instead: mode "search" for semantic queries, ' +
     '"outline" for file structure, "callers"/"callees" for hierarchy. ' +
     'For a single-symbol lookup, use a plain symbol pattern (no regex) or scope to one file.'
   );
+}
 }
 
 /** Decide what the hook should do for a payload. Returns null for no-op. */
@@ -282,9 +286,11 @@ function injectContext(payload) {
     if (!Array.isArray(lines) || lines.length === 0) {
       return null;
     }
-    const block = capInjectedContext(lines.join('\n'));
+    {
+const block = capInjectedContext(lines.join('\n'));
     return { context: block };
-  } catch {
+  }
+} catch {
     return null;
   }
 }
@@ -326,7 +332,8 @@ function runHook(io = {}) {
   } catch {
     return null;
   }
-  const decision = handlePayload(payload, io);
+  {
+const decision = handlePayload(payload, io);
   if (!decision) {
     return null;
   }
@@ -352,6 +359,7 @@ function runHook(io = {}) {
     startSession(payload);
   }
   return decision;
+}
 }
 
 module.exports = {

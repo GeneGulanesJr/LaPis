@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const { execFileSync } = require('child_process');
+const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
+
+
 
 /**
  * Map git-relative paths to absolute paths stored in the code index.
@@ -39,7 +39,8 @@ function parseGitDiffNameStatus(output) {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    const parts = trimmed.split('\t'),
+    {
+const parts = trimmed.split('\t'),
       status = parts[0];
     if (status.startsWith('R') && parts[1] && parts[2]) {
       changed.add(parts[1]);
@@ -50,6 +51,7 @@ function parseGitDiffNameStatus(output) {
       changed.add(parts[1]);
     }
   }
+}
   return [...changed];
 }
 
@@ -85,7 +87,7 @@ function detectChangedSymbols(deps, repoName) {
   const { id: repoId, path: repoPath, head_commit: storedHead } = repoRow[0];
 
   // Get current HEAD commit
-  let currentHead = null;
+  let currentHead = null, changedFiles = [];
   try {
     currentHead = execFileSync('git', ['rev-parse', 'HEAD'], {
       cwd: repoPath,
@@ -125,7 +127,7 @@ function detectChangedSymbols(deps, repoName) {
   const baseCommit = storedHead;
 
   // Get changed files via git diff (name-status captures renames and deletes).
-  let changedFiles = [];
+  
   try {
     const diffRange = `${baseCommit}..HEAD`,
       output = execFileSync('git', ['diff', '--name-status', diffRange], {
@@ -167,7 +169,8 @@ function detectChangedSymbols(deps, repoName) {
       changedSet,
     };
   }
-  const placeholders = indexedPaths.map(() => '?').join(','),
+  {
+const placeholders = indexedPaths.map(() => '?').join(','),
     changedSymbols = sqlJson(
       `SELECT DISTINCT name, qualified_name FROM code_symbols
      WHERE repo_id = ? AND file_path IN (${placeholders})`,
@@ -189,6 +192,7 @@ function detectChangedSymbols(deps, repoName) {
     changed_symbols: changedSet.size,
     changedSet,
   };
+}
 }
 
 // --- Legacy functions (kept for backward compat with existing tests) ---

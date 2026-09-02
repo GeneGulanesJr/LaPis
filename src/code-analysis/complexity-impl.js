@@ -2,20 +2,8 @@
 const path = require('path');
 
 // oxlint-disable-next-line no-unused-vars
-const { codeParser, _requireNativeDb, COMPLEXITY } = require('./shared-deps');
-
-// Escape SQL LIKE wildcard characters.
-function _likeEscape(str) {
-  return str.replace(/!/g, '!!').replace(/%/g, '!%').replace(/_/g, '!_');
-}
-
-// PERF(issue #133): Decision-point patterns hoisted to module scope. Previously
-// This 10-element RegExp array was re-allocated once per symbol inside
-// BuildComplexity, i.e. 10N regex allocations for N functions in the repo. The
-// Patterns carry the /g flag and lastIndex is reset before each use below, so
-// Reuse across iterations is safe (single-threaded synchronous scan).
-// Do NOT move this array back into the per-symbol loop body.
-const DECISION_PATTERNS = [
+{
+const { codeParser, _requireNativeDb, COMPLEXITY } = require('./shared-deps'), DECISION_PATTERNS = [
     // (?<!else\s+) excludes the `if` token in `else if` (with any whitespace —
     // Space, tab, newline, or multiple) so it's counted once by the dedicated
     // /else\s+if/ pattern below, not double-counted.
@@ -35,6 +23,19 @@ const DECISION_PATTERNS = [
   // .exec() loop below.
   TERNARY_RE = /\?(?:\s*[^.:])/g;
 
+// Escape SQL LIKE wildcard characters.
+function _likeEscape(str) {
+  return str.replace(/!/g, '!!').replace(/%/g, '!%').replace(/_/g, '!_');
+}
+
+// PERF(issue #133): Decision-point patterns hoisted to module scope. Previously
+// This 10-element RegExp array was re-allocated once per symbol inside
+// BuildComplexity, i.e. 10N regex allocations for N functions in the repo. The
+// Patterns carry the /g flag and lastIndex is reset before each use below, so
+// Reuse across iterations is safe (single-threaded synchronous scan).
+// Do NOT move this array back into the per-symbol loop body.
+
+
 function normalizeRepoPath(filePath, repoRoot = null) {
   const normalized = String(filePath || '')
     .replace(/\\/g, '/')
@@ -43,8 +44,10 @@ function normalizeRepoPath(filePath, repoRoot = null) {
   if (!repoRoot || !path.isAbsolute(normalized)) {
     return normalized;
   }
-  const relative = path.relative(repoRoot, normalized).replace(/\\/g, '/');
+  {
+const relative = path.relative(repoRoot, normalized).replace(/\\/g, '/');
   return relative && !relative.startsWith('..') && relative !== '.' ? relative : normalized;
+}
 }
 
 function getRepoRoot(db, repoId) {
@@ -83,7 +86,11 @@ function buildComplexity(db, repoId) {
       continue;
     }
 
-    let cyclomatic = 1;
+    let cyclomatic = 1, maxDepth = 0,
+      currentDepth = 0,
+      inString = false,
+      stringCharCode = 0,
+      templateDepth = 0, assessment = 'high';
     // Note: optional chaining (?.) is NOT a decision point per spec
     for (const pattern of DECISION_PATTERNS) {
       pattern.lastIndex = 0;
@@ -103,11 +110,7 @@ function buildComplexity(db, repoId) {
     // Instead of string boxing. body.substring() replaced with charCodeAt to avoid allocation.
     // Do NOT replace charCode checks with string comparisons; the integer path is the
     // Performance-critical fast path. Template depth tracking logic is preserved as-is.
-    let maxDepth = 0,
-      currentDepth = 0,
-      inString = false,
-      stringCharCode = 0,
-      templateDepth = 0;
+    
     for (let i = 0; i < body.length; i++) {
       const code = body.charCodeAt(i);
 
@@ -167,11 +170,12 @@ function buildComplexity(db, repoId) {
       }
     }
 
-    const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null,
+    {
+const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null,
       paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0,
       lines = body.split('\n'),
       codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
-    let assessment = 'high';
+    
     if (cyclomatic <= COMPLEXITY.LOW_THRESHOLD) {
       assessment = 'low';
     } else if (cyclomatic <= COMPLEXITY.MEDIUM_THRESHOLD) {
@@ -181,6 +185,7 @@ function buildComplexity(db, repoId) {
     insertStmt.run(sym.id, cyclomatic, maxDepth, paramCount, codeLines, assessment);
     count++;
   }
+}
 
   return { success: true, symbols: count };
 }
@@ -304,3 +309,4 @@ function getFileOutline(db, repoId, filePath) {
 }
 
 module.exports = { buildComplexity, getComplexity, getFileOutline, DECISION_PATTERNS };
+}

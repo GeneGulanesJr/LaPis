@@ -13,13 +13,13 @@
 //    Caller-supplied `warn` sink (stderr in production) and are reported in
 //    The returned result object.
 
-const fs = require('fs');
-const path = require('path'),
+const fs = require('fs'), path = require('path'),
   DEFAULT_HTML_SRC_REL = path.join('tree-sitter-html', 'tree-sitter-html.wasm'),
   DEFAULT_HTML_DEST_NAME = 'tree-sitter-html.wasm',
   // Minimum size in bytes below which a .wasm file is treated as truncated/corrupt.
   // The real HTML grammar is ~18KB; anything tiny is a failed or partial copy.
   MIN_GRAMMAR_BYTES = 1024;
+
 
 /**
  * Copy a single bundled WASM grammar from a source path to a destination
@@ -56,7 +56,7 @@ function copyGrammar(opts) {
     warn(`postinstall: grammar source not found, skipping copy: ${src}`);
     return { copied: false, skipped: true, ok: false, reason: 'src_missing' };
   }
-  let srcSize = 0;
+  let srcSize = 0, destSize = 0;
   try {
     srcSize = fsys.statSync(src).size;
   } catch (err) {
@@ -73,19 +73,19 @@ function copyGrammar(opts) {
   //    Repair). An existing-but-too-small destination is treated as stale and
   //    Repaired only when forced; otherwise warned.
   if (fsys.existsSync(dest)) {
-    let destSize = 0;
+    let existingSize = 0;
     try {
-      destSize = fsys.statSync(dest).size;
+      existingSize = fsys.statSync(dest).size;
     } catch (err) {
       warn(`postinstall: could not stat existing grammar ${dest}: ${err && err.message}`);
-      destSize = -1;
+      existingSize = -1;
     }
-    if (destSize >= MIN_GRAMMAR_BYTES && !opts.force) {
+    if (existingSize >= MIN_GRAMMAR_BYTES && !opts.force) {
       return { copied: false, skipped: true, ok: true, reason: 'already_present' };
     }
-    if (destSize < MIN_GRAMMAR_BYTES && !opts.force) {
+    if (existingSize < MIN_GRAMMAR_BYTES && !opts.force) {
       warn(
-        `postinstall: existing grammar looks stale/truncated (${destSize} bytes), not overwriting without --force: ${dest}`,
+        `postinstall: existing grammar looks stale/truncated (${existingSize} bytes), not overwriting without --force: ${dest}`,
       );
       return { copied: false, skipped: false, ok: false, reason: 'dest_stale' };
     }
@@ -107,7 +107,7 @@ function copyGrammar(opts) {
     warn(`postinstall: grammar copy reported success but destination is missing: ${dest}`);
     return { copied: true, skipped: false, ok: false, reason: 'dest_missing_after_copy' };
   }
-  let destSize = 0;
+  
   try {
     destSize = fsys.statSync(dest).size;
   } catch (err) {

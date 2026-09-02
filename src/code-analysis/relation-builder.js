@@ -119,7 +119,8 @@ function buildReexportEdges(db, repoId) {
     count++;
   }
 
-  const fileById = new Map();
+  {
+const fileById = new Map();
   for (const row of reexports) {
     const targets = fileById.get(row.source_file_id) || [];
     targets.push(row.target_file_id);
@@ -161,6 +162,7 @@ function buildReexportEdges(db, repoId) {
 
   return { success: true, count };
 }
+}
 
 /**
  * Extract reference edges from scope_resolution.
@@ -193,7 +195,8 @@ function buildReferenceEdges(db, repoId) {
     );
 
   let count = 0;
-  const seen = new Set();
+  {
+const seen = new Set();
 
   for (const row of resolved) {
     const key = `${row.source_file_id}:${row.resolved_symbol_id}`;
@@ -205,6 +208,7 @@ function buildReferenceEdges(db, repoId) {
   }
 
   return { success: true, count };
+}
 }
 
 /**

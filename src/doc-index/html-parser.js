@@ -1,10 +1,10 @@
-const path = require('path');
-const { hashContent } = require('../../utils');
-const { classifyRole } = require('./markdown-parser'),
+const path = require('path'), { hashContent } = require('../../utils'), { classifyRole } = require('./markdown-parser'),
   HTML_ROLE_PATTERNS = [
     { pattern: /navigation|sidebar|menu/i, role: 'navigation' },
     { pattern: /landing|hero|banner|jumbotron/i, role: 'landing' },
   ];
+
+
 
 function classifyHtmlRole(title, content, classAttrs) {
   const text = `${title} ${(content || '').slice(0, 200)} ${(classAttrs || '').slice(0, 100)}`;
@@ -52,7 +52,8 @@ function extractHtmlSections(content, filePath) {
     return sections;
   }
 
-  const headingRanges = findHeadings(content);
+  {
+const headingRanges = findHeadings(content);
   if (headingRanges.length === 0) {
     const textContent = stripHtmlTags(content);
     sections.push({
@@ -68,7 +69,8 @@ function extractHtmlSections(content, filePath) {
     return sections;
   }
 
-  const title = extractTitle(content) || path.basename(filePath);
+  {
+const title = extractTitle(content) || path.basename(filePath);
 
   if (headingRanges[0].start > 0) {
     const preamble = content.slice(0, headingRanges[0].start),
@@ -106,6 +108,8 @@ function extractHtmlSections(content, filePath) {
 
   return sections;
 }
+}
+}
 
 function findHeadings(content) {
   const headings = [],
@@ -126,11 +130,13 @@ function extractTitle(content) {
   if (match) {
     return stripHtmlTags(match[1]).trim();
   }
-  const h1 = content.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  {
+const h1 = content.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   if (h1) {
     return stripHtmlTags(h1[1]).trim();
   }
   return null;
+}
 }
 
 function extractHtmlTags(content) {
@@ -149,7 +155,8 @@ function extractHtmlTags(content) {
       }
     }
   }
-  const metaKeywords = content.match(/<meta\s+name\s*=\s*["']keywords["']\s+content\s*=\s*["']([^"']+)["']/i);
+  {
+const metaKeywords = content.match(/<meta\s+name\s*=\s*["']keywords["']\s+content\s*=\s*["']([^"']+)["']/i);
   if (metaKeywords) {
     for (const kw of metaKeywords[1].split(/[,;]/)) {
       const t = kw.trim().toLowerCase().replace(/\s+/g, '-');
@@ -159,6 +166,7 @@ function extractHtmlTags(content) {
     }
   }
   return [...tags].join(',');
+}
 }
 
 function extractHtmlLinks(content) {

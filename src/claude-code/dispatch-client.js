@@ -15,8 +15,8 @@
  * both can be stubbed; nothing here touches the real DB unless invoked.
  */
 
-const { resolveDaemonUrl } = require('./daemon');
-const { getKnownRepos, getKnownProjects } = require('../platform/project-db');
+const { resolveDaemonUrl } = require('./daemon'), { getKnownRepos, getKnownProjects } = require('../platform/project-db');
+
 
 /**
  * Coerce an args bag into the string-only record the gateway expects.
@@ -53,7 +53,8 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
   // StringifyArgs; the server's mergeDispatchArgs reads it from there. A
   // Redundant top-level `project` field was never consumed and only obscured
   // The real source of truth (#229).
-  const payload = { cmd, args: stringifyArgs(args) },
+  {
+const payload = { cmd, args: stringifyArgs(args) },
     res = await fetchFn(`${baseUrl.replace(/\/$/, '')}/dispatch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -72,6 +73,7 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
     throw new Error(message);
   }
   return res.json();
+}
 }
 
 /**
@@ -92,8 +94,10 @@ async function dispatch(cmd, args, opts = {}) {
       );
     }
   }
-  const directFn = opts.directDispatch || loadDirectDispatch();
+  {
+const directFn = opts.directDispatch || loadDirectDispatch();
   return directFn(cmd, stringifyArgs(args));
+}
 }
 
 /**

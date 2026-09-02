@@ -1,7 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process'),
+const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js');
+
+
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {

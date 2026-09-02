@@ -1,7 +1,4 @@
-const { getConfig } = require('../../config');
-const { RESULT_LIMITS, RANKING, CONTEXT } = require('../../constants');
-const { estimateTokens } = require('../../utils');
-const { TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE } = require('./search'),
+const { getConfig } = require('../../config'), { RESULT_LIMITS, RANKING, CONTEXT } = require('../../constants'), { estimateTokens } = require('../../utils'), { TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE } = require('./search'),
   TOPIC_QUERY_STOP_WORDS = new Set([
     'the',
     'and',
@@ -24,6 +21,9 @@ const { TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE } = require('./search'),
     'concise',
   ]);
 
+
+
+
 function topicQueryNeedles(query) {
   const normalized = String(query || '')
     .toLowerCase()
@@ -32,13 +32,15 @@ function topicQueryNeedles(query) {
     return [];
   }
 
-  const phrase = normalized.length <= 120 ? [normalized] : [],
+  {
+const phrase = normalized.length <= 120 ? [normalized] : [],
     terms = normalized
       .match(/[a-z0-9_.\/-]+/g)
       ?.filter((term) => term.length >= 3 && !TOPIC_QUERY_STOP_WORDS.has(term))
       .slice(0, 16),
     needles = [...new Set([...phrase, ...(terms || [])])];
   return needles.length > 0 ? needles : [normalized.slice(0, 120)];
+}
 }
 
 function buildTopicQueryMatch(needles) {
@@ -82,7 +84,8 @@ function context(deps, args) {
     return jsonErrNoExit('Missing --project');
   }
 
-  const sessions = project
+  {
+const sessions = project
       ? sqlJson(
           `
     SELECT id, project, started_at, ended_at, memories_saved
@@ -103,7 +106,7 @@ function context(deps, args) {
     LIMIT ${RESULT_LIMITS.PERSONAL_OBSERVATIONS}
   `);
 
-  let obsQuery, obsParams;
+  let obsQuery, obsParams, crossProjectSuggestions = [];
   if (crossProject) {
     const crossLimit = deep
       ? Math.min(fetchCeiling * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
@@ -184,7 +187,8 @@ function context(deps, args) {
     `;
     obsParams = [project, fetchCeiling];
   }
-  const observations = sqlJson(obsQuery, obsParams),
+  {
+const observations = sqlJson(obsQuery, obsParams),
     excludedSet = new Set(CONTEXT.EXCLUDED_TYPES),
     filtered = observations.filter((o) => !excludedSet.has(o.type)),
     budgeted = tokenBudget > 0 ? applyTokenBudget(filtered, tokenBudget) : filtered,
@@ -195,7 +199,7 @@ function context(deps, args) {
 
   // Supplemental cross-project suggestions: when project-scoped, also find
   // Relevant memories from other projects so insights transfer across projects.
-  let crossProjectSuggestions = [];
+  
   if (!crossProject && project && filtered.length > 0 && topicQuery) {
     const supplementLimit = CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3,
       match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
@@ -217,7 +221,8 @@ function context(deps, args) {
     );
   }
 
-  const totalAll = countObservationsByProjectAndType(crossProject ? null : project);
+  {
+const totalAll = countObservationsByProjectAndType(crossProject ? null : project);
 
   return {
     sessions,
@@ -241,6 +246,9 @@ function context(deps, args) {
         : {}),
     },
   };
+}
+}
+}
 }
 
 function applyTokenBudget(observations, budget) {

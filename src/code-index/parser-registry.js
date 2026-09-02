@@ -1,6 +1,4 @@
-const path = require('path');
-const codeParser = require('../../parse-code');
-const { CODE_EXTENSIONS } = require('../../utils'),
+const path = require('path'), codeParser = require('../../parse-code'), { CODE_EXTENSIONS } = require('../../utils'),
   LANGUAGE_BY_EXTENSION = Object.freeze({
     '.js': 'javascript',
     '.jsx': 'javascript',
@@ -25,6 +23,8 @@ const { CODE_EXTENSIONS } = require('../../utils'),
     '.scss': 'scss',
     '.sql': 'sql',
   });
+
+
 
 function getLanguageForFile(filePath) {
   return LANGUAGE_BY_EXTENSION[path.extname(filePath).toLowerCase()] || null;

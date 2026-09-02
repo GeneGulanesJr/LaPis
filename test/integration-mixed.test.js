@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const fs = require('fs'), path = require('path'), os = require('os');
+
+
 
 let parseCode;
 async function getParser() {
@@ -81,7 +81,8 @@ $primary: #333;
 `,
     );
 
-    const jsResult = parser.parseContent('app.js', fs.readFileSync(path.join(tmpDir, 'app.js'), 'utf8')),
+    {
+const jsResult = parser.parseContent('app.js', fs.readFileSync(path.join(tmpDir, 'app.js'), 'utf8')),
       cssResult = parser.parseContent('style.css', fs.readFileSync(path.join(tmpDir, 'style.css'), 'utf8')),
       scssResult = parser.parseContent('theme.scss', fs.readFileSync(path.join(tmpDir, 'theme.scss'), 'utf8')),
       htmlResult = parser.parseContent('index.html', fs.readFileSync(path.join(tmpDir, 'index.html'), 'utf8'));
@@ -97,5 +98,6 @@ $primary: #333;
     expect(htmlResult.map((s) => s.kind)).toContain('id');
     expect(htmlResult.map((s) => s.kind)).toContain('component');
     expect(htmlResult.map((s) => s.kind)).toContain('script');
-  });
+  }
+});
 });

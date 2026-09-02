@@ -18,11 +18,7 @@
  * Hermes process was launched (see db.js LAPIS_HOME resolution).
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-
-const {
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), {
     yamlScalar,
     upsertSubBlock,
     upsertListItem,
@@ -44,6 +40,10 @@ const {
     { event: 'on_session_start', matcher: null, timeout: 20 },
     { event: 'on_session_end', matcher: null, timeout: 20 },
   ];
+
+
+
+
 
 function parseFlags(argv) {
   const flags = {
