@@ -506,10 +506,10 @@ describe('search.js related()', () => {
 describe('search.js _extractFtsTerms', () => {
   it('removes stop words and limits to 5', () => {
     // _extractFtsTerms is not exported — test indirectly via search
-    const sqlJson = vi.fn(() => [baseObs({ id: 1, snippet: 't', rank: -1 })]),
-      ftsCall = sqlJson.mock.calls[0],
-      ftsQuery = ftsCall[1][0];
+    const sqlJson = vi.fn(() => [baseObs({ id: 1, snippet: 't', rank: -1 })]);
     search(mockDeps({ sqlJson }), { query: 'the one two three four five six seven eight' });
+    const ftsCall = sqlJson.mock.calls[0];
+    const ftsQuery = ftsCall[1][0];
     // The MATCH parameter
     // Should be at most 5 space-separated terms
     expect(ftsQuery.split(' ').length).toBeLessThanOrEqual(5);
@@ -2102,11 +2102,11 @@ describe('search.js FTS special path', () => {
   });
 
   it('search function: FTS LIMIT multiplier is SEARCH_MULTIPLIER', () => {
-    const sqlJson = vi.fn(() => [baseObs({ id: 1, snippet: 't', rank: -1 })]),
-      ftsCall = sqlJson.mock.calls[0],
-      // Last param is the FTS limit
-      limit = ftsCall[1][ftsCall[1].length - 1];
+    const sqlJson = vi.fn(() => [baseObs({ id: 1, snippet: 't', rank: -1 })]);
     search(mockDeps({ sqlJson }), { query: 'test', limit: '3' });
+    const ftsCall = sqlJson.mock.calls[0];
+    // Last param is the FTS limit
+    const limit = ftsCall[1][ftsCall[1].length - 1];
 
     expect(limit).toBe(Math.min(3 * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
   });
@@ -2114,12 +2114,12 @@ describe('search.js FTS special path', () => {
   it('search function: LIKE fallback LIMIT also uses multiplier', () => {
     let n = 0;
     const sqlJson = vi.fn(() => {
-        n++;
-        return n === 1 ? [] : [baseObs({ id: 1 })];
-      }),
-      likeCall = sqlJson.mock.calls[1],
-      limit = likeCall[1][likeCall[1].length - 1];
+      n++;
+      return n === 1 ? [] : [baseObs({ id: 1 })];
+    });
     search(mockDeps({ sqlJson }), { query: 'normal', limit: '3' });
+    const likeCall = sqlJson.mock.calls[1];
+    const limit = likeCall[1][likeCall[1].length - 1];
     // FTS returns empty → LIKE fallback. The LIKE call (index 1) has the multiplier.
 
     expect(limit).toBe(Math.min(3 * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));

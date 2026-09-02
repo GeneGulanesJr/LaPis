@@ -69,12 +69,12 @@ describe('services/dedup: checkDuplicate', () => {
 
   it('should respect project filter', () => {
     const deps = {
-        sqlJson: vi.fn(() => []),
-      },
-      call = deps.sqlJson.mock.calls[0],
-      query = call[0],
-      params = call[1];
+      sqlJson: vi.fn(() => []),
+    };
     checkDuplicate(deps, 'Test title', 'decision', 'my-project', null);
+    const call = deps.sqlJson.mock.calls[0];
+    const query = call[0];
+    const params = call[1];
 
     expect(query).toContain('AND project = ?');
     expect(params).toContain('my-project');
