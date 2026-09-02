@@ -3,7 +3,8 @@ const { jsonOk, jsonCreated, jsonError } = require('../errors');
 function writeHandoff(repo) {
   return async (req, res, ctx) => {
     const body = ctx.body || {},
-      errors = [], unitId = ctx.params.unitId;
+      errors = [],
+      unitId = ctx.params.unitId;
     if (!body.featureName) {
       errors.push('featureName is required');
     }
@@ -20,7 +21,7 @@ function writeHandoff(repo) {
     // Resolve the unit's milestone + mission so the handoff can be queried
     // By either dimension. Falls back to empty strings if the unit has been
     // Pruned (rare, but defensive — handoff data should never be lost).
-    
+
     let missionId = body.missionId || '',
       milestoneId = body.milestoneId || '';
     try {

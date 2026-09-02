@@ -1,6 +1,6 @@
-const path = require('path'), { execSync } = require('child_process'),
+const path = require('path'),
+  { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js');
-
 
 function run(cmd, extraArgs = '') {
   const out = execSync(`node "${STORE}" ${cmd} ${extraArgs}`, {
@@ -55,14 +55,13 @@ describe('memory-store: save', () => {
 
   it('should require --title and --content', () => {
     const result = runFail(`save --title "Only title" --project ${testProject}`),
-    result2 = (() => {
+      result2 = (() => {
+        expect(result.error).toBeDefined();
+        expect(result.error).toContain('Missing');
 
-      expect(result.error).toBeDefined();
-      expect(result.error).toContain('Missing');
-  
-      
-  return (runFail(`save --content "Only content" --project ${testProject}`));
-})();expect(result2.error).toBeDefined();
+        return runFail(`save --content "Only content" --project ${testProject}`);
+      })();
+    expect(result2.error).toBeDefined();
   });
 
   it('should save with all optional fields', () => {
@@ -93,12 +92,12 @@ describe('memory-store: save', () => {
     expect(result.expires_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     // Should be roughly 7 days from now (within ±2 hours to account for clock skew)
     {
-const expMs = Date.parse(`${result.expires_at.replace(' ', 'T')}Z`),
-      days = (expMs - Date.now()) / 86400000;
-    expect(days).toBeGreaterThan(6.9);
-    expect(days).toBeLessThan(7.1);
-  }
-});
+      const expMs = Date.parse(`${result.expires_at.replace(' ', 'T')}Z`),
+        days = (expMs - Date.now()) / 86400000;
+      expect(days).toBeGreaterThan(6.9);
+      expect(days).toBeLessThan(7.1);
+    }
+  });
 
   it('should reject invalid --expires-in values', () => {
     const result = runFail(
@@ -207,14 +206,14 @@ describe('memory-store: search', () => {
 
   it('should exclude soft-deleted observations from search', () => {
     const saved = run(
-      `save --title "Will be deleted soon" --content "Temporary content" --project ${testProject} --force`,
-    ),
-    result = (() => {
+        `save --title "Will be deleted soon" --content "Temporary content" --project ${testProject} --force`,
+      ),
+      result = (() => {
+        run(`delete --id ${saved.id}`);
 
-      run(`delete --id ${saved.id}`);
-      
-  return (run(`search --query "Will be deleted soon" --project ${testProject}`));
-})();expect(result.results.every((r) => r.id !== saved.id)).toBe(true);
+        return run(`search --query "Will be deleted soon" --project ${testProject}`);
+      })();
+    expect(result.results.every((r) => r.id !== saved.id)).toBe(true);
   });
 
   it('should record recall tracking when session-id is provided', () => {
@@ -321,12 +320,12 @@ describe('memory-store: update', () => {
 
   it('should clear expiry with --clear-expiry', () => {
     const saved = run(`save --title "Will lose its TTL" --content "x" --project ${testProject} --expires-in 5d`),
-    result = (() => {
+      result = (() => {
+        expect(saved.expires_at).toBeTruthy();
 
-      expect(saved.expires_at).toBeTruthy();
-      
-  return (run(`update --id ${saved.id} --clear-expiry true`));
-})();expect(result.expires_at).toBeNull();
+        return run(`update --id ${saved.id} --clear-expiry true`);
+      })();
+    expect(result.expires_at).toBeNull();
   });
 
   it('should reject invalid --expires-in on update', () => {
@@ -485,14 +484,15 @@ describe('memory-store: suggest-topic-key', () => {
 describe('memory-store: search ranking quality', () => {
   it('should rank decisions higher than session summaries', () => {
     const proj = `test-ranking-${Date.now()}`,
-    result = (() => {
+      result = (() => {
+        run(`save --title "Important decision" --content "Use PostgreSQL" --project ${proj} --type decision --force`);
+        run(
+          `save --title "Session summary" --content "Worked on stuff" --project ${proj} --type session_summary --force`,
+        );
 
-      run(`save --title "Important decision" --content "Use PostgreSQL" --project ${proj} --type decision --force`);
-      run(`save --title "Session summary" --content "Worked on stuff" --project ${proj} --type session_summary --force`);
-  
-      
-  return (run(`search --query "Important" --project ${proj}`));
-})();if (result.results.length >= 2) {
+        return run(`search --query "Important" --project ${proj}`);
+      })();
+    if (result.results.length >= 2) {
       const decisionIdx = result.results.findIndex((r) => r.type === 'decision'),
         summaryIdx = result.results.findIndex((r) => r.type === 'session_summary');
       if (decisionIdx >= 0 && summaryIdx >= 0) {
@@ -503,12 +503,12 @@ describe('memory-store: search ranking quality', () => {
 
   it('should produce valid numeric scores (no NaN)', () => {
     const proj = `test-nan-${Date.now()}`,
-    result = (() => {
+      result = (() => {
+        run(`save --title "NaN test" --content "Check for NaN" --project ${proj} --force`);
 
-      run(`save --title "NaN test" --content "Check for NaN" --project ${proj} --force`);
-      
-  return (run(`search --query "NaN test" --project ${proj}`));
-})();for (const r of result.results) {
+        return run(`search --query "NaN test" --project ${proj}`);
+      })();
+    for (const r of result.results) {
       expect(typeof r._score).toBe('number');
       expect(isNaN(r._score)).toBe(false);
     }

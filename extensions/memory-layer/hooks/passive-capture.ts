@@ -57,19 +57,19 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
     }
 
     {
-const capture = shouldAutoCapture(text),
-      payload = buildAutoDecisionPayload({
-        text,
-        capture,
-        project: deps.state.currentProject,
-        sessionId: deps.state.sessionId,
-      });
-    if (payload) {
-      deps.state.lastAutoDecisionSave = Date.now();
-      await deps.mem('save', payload);
+      const capture = shouldAutoCapture(text),
+        payload = buildAutoDecisionPayload({
+          text,
+          capture,
+          project: deps.state.currentProject,
+          sessionId: deps.state.sessionId,
+        });
+      if (payload) {
+        deps.state.lastAutoDecisionSave = Date.now();
+        await deps.mem('save', payload);
+      }
     }
-  }
-});
+  });
 
   pi.on('turn_end', async (_event, _ctx) => {
     deps.state.turnCount++;

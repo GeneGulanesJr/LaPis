@@ -21,7 +21,9 @@
  * gracefully instead of cross-contaminating state.
  */
 
-const fs = require('node:fs'), path = require('node:path'), os = require('node:os'),
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
   HOME = process.env.HOME || process.env.USERPROFILE || os.homedir(),
   DEFAULT_DIR = path.join(HOME, '.pi', 'memory', 'claude-sessions'),
   DEFAULT_TTL_HOURS = 24,
@@ -34,8 +36,6 @@ const fs = require('node:fs'), path = require('node:path'), os = require('node:o
   // Placeholders that String(...) of a missing session_id collapses to; refusing
   // them prevents every keyless session sharing one file (#224).
   PLACEHOLDER_KEYS = new Set(['undefined', 'null', 'nan', '', '_', '__', '___']);
-
-
 
 // Field set mirrors extensions/memory-layer/state.ts (session-relevant subset;
 // Caches like cachedRepos/compressionStats are intentionally excluded).
@@ -72,7 +72,7 @@ function sanitizeKey(sessionId) {
     return null;
   }
   const raw = String(sessionId).trim(),
-  safe = raw ? (raw.replace(/[^\w.-]/g, '_')) : undefined;
+    safe = raw ? raw.replace(/[^\w.-]/g, '_') : undefined;
   if (!raw) {
     return null;
   }
@@ -121,7 +121,6 @@ function readStateFile(filePath) {
     return defaultState();
   }
 
-  
   try {
     parsed = JSON.parse(raw);
   } catch {
@@ -152,12 +151,12 @@ function saveState(sessionId, state, opts) {
 
 function atomicWrite(filePath, state) {
   const dir = path.dirname(filePath),
-  tmpPath = (() => {
+    tmpPath = (() => {
+      fs.mkdirSync(dir, { recursive: true });
 
-    fs.mkdirSync(dir, { recursive: true });
-    
-  return (`${filePath}.${process.pid}.tmp`);
-})();fs.writeFileSync(tmpPath, JSON.stringify(state, null, 0), 'utf8');
+      return `${filePath}.${process.pid}.tmp`;
+    })();
+  fs.writeFileSync(tmpPath, JSON.stringify(state, null, 0), 'utf8');
   fs.renameSync(tmpPath, filePath);
 }
 
@@ -188,25 +187,25 @@ function clearState(sessionId, opts) {
  */
 async function mutateState(sessionId, mutator, opts) {
   const filePath = statePath(sessionId, opts),
-  dir = filePath ? (path.dirname(filePath)) : undefined;
+    dir = filePath ? path.dirname(filePath) : undefined;
   if (!filePath) {
     return mutator(defaultState());
   }
   fs.mkdirSync(dir, { recursive: true });
   {
-const lockPath = `${filePath}.lock`,
-    acquired = await acquireLock(lockPath, opts);
-  try {
-    const state = readStateFile(filePath),
-      result = await mutator(state);
-    atomicWrite(filePath, state);
-    return result;
-  } finally {
-    if (acquired) {
-      releaseLock(lockPath);
+    const lockPath = `${filePath}.lock`,
+      acquired = await acquireLock(lockPath, opts);
+    try {
+      const state = readStateFile(filePath),
+        result = await mutator(state);
+      atomicWrite(filePath, state);
+      return result;
+    } finally {
+      if (acquired) {
+        releaseLock(lockPath);
+      }
     }
   }
-}
 }
 
 async function acquireLock(lockPath, opts = {}) {
@@ -263,7 +262,8 @@ function sweepStaleSessions(maxAgeHours, opts) {
 
 function sweepSessions(maxAgeHours, opts) {
   const dir = resolveDir(opts);
-  let entries, swept = 0;
+  let entries,
+    swept = 0;
   try {
     entries = fs.readdirSync(dir);
   } catch {
@@ -271,25 +271,25 @@ function sweepSessions(maxAgeHours, opts) {
   }
 
   {
-const cutoff = Date.now() - maxAgeHours * 3600 * 1000;
-  
-  for (const entry of entries) {
-    if (!entry.endsWith('.json')) {
-      continue;
-    }
-    const full = path.join(dir, entry);
-    try {
-      const stat = fs.statSync(full);
-      if (stat.mtimeMs < cutoff) {
-        fs.unlinkSync(full);
-        swept++;
+    const cutoff = Date.now() - maxAgeHours * 3600 * 1000;
+
+    for (const entry of entries) {
+      if (!entry.endsWith('.json')) {
+        continue;
       }
-    } catch {
-      // Skip unreadable / already-removed files.
+      const full = path.join(dir, entry);
+      try {
+        const stat = fs.statSync(full);
+        if (stat.mtimeMs < cutoff) {
+          fs.unlinkSync(full);
+          swept++;
+        }
+      } catch {
+        // Skip unreadable / already-removed files.
+      }
     }
+    return { swept };
   }
-  return { swept };
-}
 }
 
 /**

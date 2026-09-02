@@ -2,7 +2,8 @@
 // Ingests Istanbul/NYC coverage JSON and stores runtime hotness per symbol.
 // Must not mutate code indexes or memory.
 
-const path = require('path'), fs = require('fs'),
+const path = require('path'),
+  fs = require('fs'),
   /**
    * Istanbul coverage JSON shape:
    * {
@@ -21,7 +22,6 @@ const path = require('path'), fs = require('fs'),
     warm: 100, // >= 100 hits
     cold: 0, // < 100 hits
   };
-
 
 function classifyTraffic(hitCount) {
   if (hitCount >= TRAFFIC_THRESHOLDS.hot) {
@@ -92,77 +92,77 @@ function ingestCoverage(db, repoId, coveragePath, sourceFile = '') {
   }
 
   {
-const insertStmt = db.prepare(`
+    const insertStmt = db.prepare(`
     INSERT OR REPLACE INTO runtime_symbols
       (repo_id, symbol_id, file_path, function_name, line_start, hit_count, traffic, last_seen, source_file)
     VALUES
       (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
   `),
-    upsert = db.transaction((fnList) => {
-      let inserted = 0,
-        linked = 0;
-      for (const fn of fnList) {
-        // Look up symbol_id from code_symbols
-        let symbolId = null;
-        const key = `${fn.filePath}:${fn.functionName}`;
-        if (symbolLookup.has(key)) {
-          symbolId = symbolLookup.get(key);
-          linked++;
+      upsert = db.transaction((fnList) => {
+        let inserted = 0,
+          linked = 0;
+        for (const fn of fnList) {
+          // Look up symbol_id from code_symbols
+          let symbolId = null;
+          const key = `${fn.filePath}:${fn.functionName}`;
+          if (symbolLookup.has(key)) {
+            symbolId = symbolLookup.get(key);
+            linked++;
+          }
+
+          insertStmt.run(
+            repoId,
+            symbolId,
+            fn.filePath,
+            fn.functionName,
+            fn.lineStart,
+            fn.hitCount,
+            fn.traffic,
+            sourceFile,
+          );
+          inserted++;
         }
+        return { inserted, linked };
+      }),
+      result = upsert(functions);
 
-        insertStmt.run(
-          repoId,
-          symbolId,
-          fn.filePath,
-          fn.functionName,
-          fn.lineStart,
-          fn.hitCount,
-          fn.traffic,
-          sourceFile,
-        );
-        inserted++;
+    // Aggregate traffic_breakdown from the PERSISTED state, not the just-ingested
+    // File. `INSERT OR REPLACE` overwrites the rows for functions in this file
+    // On every call but does not delete orphans from previously ingested files
+    // (or earlier versions of the same coverage report). Counting only
+    // `functions` would under-count hot/warm symbols after the second ingest
+    // And produce misleading dashboards that show a single-file snapshot.
+    let breakdown = { hot: 0, warm: 0, cold: 0 };
+    try {
+      const breakdownRows = db
+        .prepare('SELECT traffic, COUNT(*) as cnt FROM runtime_symbols WHERE repo_id = ? GROUP BY traffic')
+        .all(repoId);
+      for (const row of breakdownRows) {
+        if (row.traffic === 'hot') {
+          breakdown.hot = row.cnt;
+        } else if (row.traffic === 'warm') {
+          breakdown.warm = row.cnt;
+        } else if (row.traffic === 'cold') {
+          breakdown.cold = row.cnt;
+        }
       }
-      return { inserted, linked };
-    }),
-    result = upsert(functions);
-
-  // Aggregate traffic_breakdown from the PERSISTED state, not the just-ingested
-  // File. `INSERT OR REPLACE` overwrites the rows for functions in this file
-  // On every call but does not delete orphans from previously ingested files
-  // (or earlier versions of the same coverage report). Counting only
-  // `functions` would under-count hot/warm symbols after the second ingest
-  // And produce misleading dashboards that show a single-file snapshot.
-  let breakdown = { hot: 0, warm: 0, cold: 0 };
-  try {
-    const breakdownRows = db
-      .prepare('SELECT traffic, COUNT(*) as cnt FROM runtime_symbols WHERE repo_id = ? GROUP BY traffic')
-      .all(repoId);
-    for (const row of breakdownRows) {
-      if (row.traffic === 'hot') {
-        breakdown.hot = row.cnt;
-      } else if (row.traffic === 'warm') {
-        breakdown.warm = row.cnt;
-      } else if (row.traffic === 'cold') {
-        breakdown.cold = row.cnt;
-      }
+    } catch {
+      // Runtime_symbols table may not exist yet — keep the function-level counts
+      // As a best-effort fallback so the return value is still defined.
+      breakdown = {
+        hot: functions.filter((f) => f.traffic === 'hot').length,
+        warm: functions.filter((f) => f.traffic === 'warm').length,
+        cold: functions.filter((f) => f.traffic === 'cold').length,
+      };
     }
-  } catch {
-    // Runtime_symbols table may not exist yet — keep the function-level counts
-    // As a best-effort fallback so the return value is still defined.
-    breakdown = {
-      hot: functions.filter((f) => f.traffic === 'hot').length,
-      warm: functions.filter((f) => f.traffic === 'warm').length,
-      cold: functions.filter((f) => f.traffic === 'cold').length,
+
+    return {
+      functions_ingested: result.inserted,
+      symbols_linked: result.linked,
+      traffic_breakdown: breakdown,
+      source_file: coveragePath,
     };
   }
-
-  return {
-    functions_ingested: result.inserted,
-    symbols_linked: result.linked,
-    traffic_breakdown: breakdown,
-    source_file: coveragePath,
-  };
-}
 }
 
 function getHotSymbols(db, repoId, limit = 20) {

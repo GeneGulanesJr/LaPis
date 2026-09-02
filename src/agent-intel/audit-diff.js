@@ -1,7 +1,7 @@
 'use strict';
 
-const path = require('path'), { AUDIT_DIFF: CFG } = require('../../constants');
-
+const path = require('path'),
+  { AUDIT_DIFF: CFG } = require('../../constants');
 
 function _requireNativeDb(db) {
   if (!db || !db.prepare) {
@@ -15,9 +15,9 @@ function _requireNativeDb(db) {
  */
 function auditDiff(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db),
-  { files = [], task = '' } = !(guard) ? (opts) : undefined,
-  violations = !(guard) && !(files.length === 0) ? ([]) : undefined,
-  weights = !(guard) && !(files.length === 0) ? (CFG.RISK_WEIGHTS) : undefined;
+    { files = [], task = '' } = !guard ? opts : undefined,
+    violations = !guard && !(files.length === 0) ? [] : undefined,
+    weights = !guard && !(files.length === 0) ? CFG.RISK_WEIGHTS : undefined;
   if (guard) {
     return guard;
   }
@@ -37,37 +37,35 @@ function auditDiff(db, repoId, opts = {}) {
 
     for (const sym of symbols) {
       const dupes = _checkDuplicateCreation(db, repoId, sym),
-      constraint = (() => {
+        constraint = (() => {
+          if (dupes) {
+            violations.push(dupes);
+            riskScore += weights.duplicate;
+          }
 
-        if (dupes) {
-          violations.push(dupes);
-          riskScore += weights.duplicate;
-        }
-  
-        
-  return (_checkConstraintViolation(db, sym));
-})();if (constraint) {
+          return _checkConstraintViolation(db, sym);
+        })();
+      if (constraint) {
         violations.push(constraint);
         riskScore += weights.constraint;
       }
 
       {
-const untested = _checkUntestedPublic(db, repoId, sym),
-      hotPath = (() => {
+        const untested = _checkUntestedPublic(db, repoId, sym),
+          hotPath = (() => {
+            if (untested) {
+              violations.push(untested);
+              riskScore += weights.untested;
+            }
 
-        if (untested) {
-          violations.push(untested);
-          riskScore += weights.untested;
+            return _checkHotPath(db, repoId, sym);
+          })();
+        if (hotPath) {
+          violations.push(hotPath);
+          riskScore += weights.hot_path;
         }
-  
-        
-  return (_checkHotPath(db, repoId, sym));
-})();if (hotPath) {
-        violations.push(hotPath);
-        riskScore += weights.hot_path;
       }
     }
-}
   }
 
   if (task) {
@@ -79,17 +77,17 @@ const untested = _checkUntestedPublic(db, repoId, sym),
   }
 
   {
-const risk = _scoreToRisk(riskScore);
+    const risk = _scoreToRisk(riskScore);
 
-  _persistAudit(db, repoId, task, files, violations, risk);
+    _persistAudit(db, repoId, task, files, violations, risk);
 
-  return {
-    violations,
-    risk,
-    files_checked: files.length,
-    risk_score: Math.round(riskScore * 100) / 100,
-  };
-}
+    return {
+      violations,
+      risk,
+      files_checked: files.length,
+      risk_score: Math.round(riskScore * 100) / 100,
+    };
+  }
 }
 
 function _checkDuplicateCreation(db, repoId, sym) {
@@ -103,33 +101,33 @@ function _checkDuplicateCreation(db, repoId, sym) {
   }
 
   {
-const similar = db
-    .prepare(
-      `SELECT name, file_path FROM code_symbols
+    const similar = db
+      .prepare(
+        `SELECT name, file_path FROM code_symbols
        WHERE repo_id = ? AND file_path != ? AND name != ?
        AND (name LIKE ? OR name LIKE ?)
        LIMIT 3`,
-    )
-    .all(repoId, sym.file_path, sym.name, `%${nameParts.join('%')}%`, `%${nameParts[nameParts.length - 1]}%`);
+      )
+      .all(repoId, sym.file_path, sym.name, `%${nameParts.join('%')}%`, `%${nameParts[nameParts.length - 1]}%`);
 
-  if (similar.length === 0) {
-    return null;
+    if (similar.length === 0) {
+      return null;
+    }
+
+    return {
+      type: 'duplicate_creation',
+      severity: 'warning',
+      message: `New symbol "${sym.name}" may duplicate existing: ${similar.map((s) => `${s.name} in ${s.file_path}`).join(', ')}`,
+      file: sym.file_path,
+      symbol: sym.name,
+    };
   }
-
-  return {
-    type: 'duplicate_creation',
-    severity: 'warning',
-    message: `New symbol "${sym.name}" may duplicate existing: ${similar.map((s) => `${s.name} in ${s.file_path}`).join(', ')}`,
-    file: sym.file_path,
-    symbol: sym.name,
-  };
-}
 }
 
 function _checkConstraintViolation(db, sym) {
   try {
     const meta = db.prepare(`SELECT constraints FROM symbol_metadata WHERE symbol_id = ?`).get(sym.id),
-    constraints = !(!meta || !meta.constraints) ? (JSON.parse(meta.constraints)) : undefined;
+      constraints = !(!meta || !meta.constraints) ? JSON.parse(meta.constraints) : undefined;
     if (!meta || !meta.constraints) {
       return null;
     }

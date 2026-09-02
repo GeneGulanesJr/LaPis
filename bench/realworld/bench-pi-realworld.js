@@ -12,86 +12,54 @@
 
 'use strict';
 
-const fs = require('fs'), os = require('os'), path = require('path'), { execSync } = require('child_process'), { spawn } = require('child_process'), { parsePiOutput } = require('../bench-pi-paired'), { runTests } = require('./graders/run-tests'), { checkDiff } = require('./graders/check-diff'), { checkAnswer } = require('./graders/check-answer'), { checkTrajectory } = require('./graders/check-trajectory'), { checkConstraints } = require('./graders/check-constraints'),
+const fs = require('fs'),
+  os = require('os'),
+  path = require('path'),
+  { execSync } = require('child_process'),
+  { spawn } = require('child_process'),
+  { parsePiOutput } = require('../bench-pi-paired'),
+  { runTests } = require('./graders/run-tests'),
+  { checkDiff } = require('./graders/check-diff'),
+  { checkAnswer } = require('./graders/check-answer'),
+  { checkTrajectory } = require('./graders/check-trajectory'),
+  { checkConstraints } = require('./graders/check-constraints'),
   TASKS_DIR = path.join(__dirname, 'tasks'),
   FIXTURES_DIR = path.join(__dirname, 'fixtures'),
   DEFAULT_RUNS = 3,
   DEFAULT_TIMEOUT_MS = 30 * 60 * 1000,
   PI_CONFIG_FILES = ['models.json', 'settings.json', 'auth.json'];
 
-
-
-
-
-
-
-
-
-
-
 // ══════════════════════════════════════════════════════════
 // ARG PARSING
 // ══════════════════════════════════════════════════════════
-
-
-
-
 
 // ══════════════════════════════════════════════════════════
 // GIT WORKTREE MANAGEMENT
 // ══════════════════════════════════════════════════════════
 
-
-
-
-
-
-
 // ══════════════════════════════════════════════════════════
 // SETUP: PATCH APPLICATION
 // ══════════════════════════════════════════════════════════
-
-
 
 // ══════════════════════════════════════════════════════════
 // SETUP: MEMORY SEEDING
 // ══════════════════════════════════════════════════════════
 
-
-
-
-
 // ══════════════════════════════════════════════════════════
 // SETUP: NO-MEMORY HOME
 // ══════════════════════════════════════════════════════════
-
-
-
-
-
-
 
 // ══════════════════════════════════════════════════════════
 // PI INVOCATION
 // ══════════════════════════════════════════════════════════
 
-
-
-
-
 // ══════════════════════════════════════════════════════════
 // GRADING
 // ══════════════════════════════════════════════════════════
 
-
-
 // ══════════════════════════════════════════════════════════
 // TASK DISCOVERY
 // ══════════════════════════════════════════════════════════
-
-
-
-
 
 // ══════════════════════════════════════════════════════════
 // MAIN LOOP
@@ -135,59 +103,60 @@ async function runTaskSide(task, side, runIndex, args, repoRoot, noMemoryHome, m
 
     // Run Pi with the appropriate HOME
     const homeDir = side === 'memory-off' ? noMemoryHome : memoryOnHome,
-    command = (() => {
+      command = (() => {
+        benchLog(`[${runId}] Starting Pi (${side})`);
 
-      benchLog(`[${runId}] Starting Pi (${side})`);
-      
-  return (buildPiCommand(homeDir, task.prompt, outFile));
-})();fs.mkdirSync(path.dirname(outFile), { recursive: true });
+        return buildPiCommand(homeDir, task.prompt, outFile);
+      })();
+    fs.mkdirSync(path.dirname(outFile), { recursive: true });
     {
-const run = await runCommand(command, worktreePath, args.timeoutMs);
-    benchLog(`[${runId}] Pi finished in ${run.elapsed_ms}ms`);
+      const run = await runCommand(command, worktreePath, args.timeoutMs);
+      benchLog(`[${runId}] Pi finished in ${run.elapsed_ms}ms`);
 
-    // Parse output
-    let raw = '', grade;
-    if (fs.existsSync(outFile)) {
-      raw = fs.readFileSync(outFile, 'utf-8');
-    }
-    if (!raw && (run.stdout || run.stderr)) {
-      raw = `${run.stdout}\n${run.stderr}`;
-    }
-    {
-const parsed = parsePiOutput(raw);
+      // Parse output
+      let raw = '',
+        grade;
+      if (fs.existsSync(outFile)) {
+        raw = fs.readFileSync(outFile, 'utf-8');
+      }
+      if (!raw && (run.stdout || run.stderr)) {
+        raw = `${run.stdout}\n${run.stderr}`;
+      }
+      {
+        const parsed = parsePiOutput(raw);
 
-    // Grade (skip if Pi timed out or crashed)
-    
-    if (run.error) {
-      grade = {
-        tests: { passed: 0, failed: 0, total: 0, skipped: true },
-        diff: { passed: false, touched: [], violations: [], missed: [], linesChanged: 0 },
-        answer: { matched: 0, total: 0, score: 0, facts: [], skipped: true },
-        trajectory: checkTrajectory(parsed),
-        constraints: checkConstraints(task, worktreePath),
-        overall: false,
-        incomplete: true,
-      };
-    } else {
-      grade = gradeRun(task, worktreePath, parsed);
-    }
-    benchLog(
-      `[${runId}] Grade: overall=${grade.overall}, tests=${grade.tests.passed}/${grade.tests.total}, diff=${grade.diff.passed}`,
-    );
+        // Grade (skip if Pi timed out or crashed)
 
-    return {
-      side,
-      run_index: runIndex,
-      elapsed_ms: run.elapsed_ms,
-      error: run.error,
-      usage: parsed.usage,
-      tool_counts: parsed.tool_counts,
-      behavior: parsed.behavior,
-      grade,
-    };
-  }
-}
-} finally {
+        if (run.error) {
+          grade = {
+            tests: { passed: 0, failed: 0, total: 0, skipped: true },
+            diff: { passed: false, touched: [], violations: [], missed: [], linesChanged: 0 },
+            answer: { matched: 0, total: 0, score: 0, facts: [], skipped: true },
+            trajectory: checkTrajectory(parsed),
+            constraints: checkConstraints(task, worktreePath),
+            overall: false,
+            incomplete: true,
+          };
+        } else {
+          grade = gradeRun(task, worktreePath, parsed);
+        }
+        benchLog(
+          `[${runId}] Grade: overall=${grade.overall}, tests=${grade.tests.passed}/${grade.tests.total}, diff=${grade.diff.passed}`,
+        );
+
+        return {
+          side,
+          run_index: runIndex,
+          elapsed_ms: run.elapsed_ms,
+          error: run.error,
+          usage: parsed.usage,
+          tool_counts: parsed.tool_counts,
+          behavior: parsed.behavior,
+          grade,
+        };
+      }
+    }
+  } finally {
     if (!args.noCleanup) {
       removeWorktree(repoRoot, worktreePath);
     }
@@ -197,14 +166,6 @@ const parsed = parsePiOutput(raw);
 // ══════════════════════════════════════════════════════════
 // REPORTING
 // ══════════════════════════════════════════════════════════
-
-
-
-
-
-
-
-
 
 // ══════════════════════════════════════════════════════════
 // MAIN
@@ -237,12 +198,12 @@ async function runWarmup(warmupFile, repoRoot, outDir, warmupHome) {
 
   for (const prompt of warmup) {
     const warmupOut = path.join(outDir, 'warmup', `warmup-${Date.now()}.jsonl`),
-    command = (() => {
+      command = (() => {
+        fs.mkdirSync(path.dirname(warmupOut), { recursive: true });
 
-      fs.mkdirSync(path.dirname(warmupOut), { recursive: true });
-      
-  return (buildPiCommand(warmupHome, prompt, warmupOut));
-})();benchLog(`[warmup] Running: ${prompt.slice(0, 80)}...`);
+        return buildPiCommand(warmupHome, prompt, warmupOut);
+      })();
+    benchLog(`[warmup] Running: ${prompt.slice(0, 80)}...`);
     // eslint-disable-next-line no-await-in-loop
     await runCommand(command, repoRoot, 120_000);
   }
@@ -256,17 +217,15 @@ async function main() {
       onlyShort: args.onlyShort,
       category: args.category,
     }),
-  outDir = (() => {
+    outDir = (() => {
+      if (tasks.length === 0) {
+        console.error('No tasks found. Add task JSON files to bench/realworld/tasks/');
+        process.exit(2);
+      }
 
-  
-    if (tasks.length === 0) {
-      console.error('No tasks found. Add task JSON files to bench/realworld/tasks/');
-      process.exit(2);
-    }
-  
-    
-  return (path.resolve(args.outDir));
-})();fs.mkdirSync(outDir, { recursive: true });
+      return path.resolve(args.outDir);
+    })();
+  fs.mkdirSync(outDir, { recursive: true });
   const repoRoot = getRepoRoot(),
     noMemoryHome = prepareNoMemoryHome(outDir);
 
@@ -277,74 +236,74 @@ async function main() {
   }
 
   {
-const longCount = tasks.filter((t) => t.horizon === 'long').length,
-    shortCount = tasks.length - longCount,
-  allResults = (() => {
+    const longCount = tasks.filter((t) => t.horizon === 'long').length,
+      shortCount = tasks.length - longCount,
+      allResults = (() => {
+        benchLog(`[bench] Realworld Pi Memory Benchmark`);
+        benchLog(
+          `[bench] Tasks: ${tasks.length} (${longCount} long, ${shortCount} short), Runs per side: ${args.runs}`,
+        );
+        benchLog(`[bench] Output: ${outDir}`);
+        benchLog(`[bench] memory-off HOME: ${noMemoryHome}`);
+        if (args.accumulate) {
+          benchLog(`[bench] Accumulate mode ON — shared memory-on HOME across tasks`);
+          benchLog(`[bench] memory-on HOME: ${accumulateMemoryOnHome}`);
+        } else {
+          benchLog(`[bench] memory-on: isolated HOME per task (seeded from fixtures)`);
+        }
+        if (args.warmup) {
+          benchLog(`[bench] Warmup: ${args.warmup}`);
+        }
+        benchLog('');
 
-    benchLog(`[bench] Realworld Pi Memory Benchmark`);
-    benchLog(`[bench] Tasks: ${tasks.length} (${longCount} long, ${shortCount} short), Runs per side: ${args.runs}`);
-    benchLog(`[bench] Output: ${outDir}`);
-    benchLog(`[bench] memory-off HOME: ${noMemoryHome}`);
-    if (args.accumulate) {
-      benchLog(`[bench] Accumulate mode ON — shared memory-on HOME across tasks`);
-      benchLog(`[bench] memory-on HOME: ${accumulateMemoryOnHome}`);
-    } else {
-      benchLog(`[bench] memory-on: isolated HOME per task (seeded from fixtures)`);
-    }
+        return [];
+      })(); // Warmup once before all tasks (builds organic memory for memory-on side)
     if (args.warmup) {
-      benchLog(`[bench] Warmup: ${args.warmup}`);
+      const warmupHome = accumulateMemoryOnHome || prepareMemoryOnHome(outDir, 'warmup');
+      benchLog(`[warmup] Running warmup prompts into ${warmupHome}`);
+      await runWarmup(args.warmup, repoRoot, outDir, warmupHome);
     }
-    benchLog('');
-  
-    
-  return ([]);
-})(); // Warmup once before all tasks (builds organic memory for memory-on side)
-  if (args.warmup) {
-    const warmupHome = accumulateMemoryOnHome || prepareMemoryOnHome(outDir, 'warmup');
-    benchLog(`[warmup] Running warmup prompts into ${warmupHome}`);
-    await runWarmup(args.warmup, repoRoot, outDir, warmupHome);
-  }
 
-  for (const task of tasks) {
-    for (let runIndex = 0; runIndex < args.runs; runIndex++) {
-      // Create or reuse memory-on HOME
-      let memoryOnHome;
-      if (args.accumulate) {
-        memoryOnHome = accumulateMemoryOnHome;
-      } else if (runIndex === 0) {
-        memoryOnHome = prepareMemoryOnHome(outDir, task.id);
-      } else {
-        memoryOnHome = prepareMemoryOnHome(outDir, `${task.id}-run${runIndex}`);
-      }
+    for (const task of tasks) {
+      for (let runIndex = 0; runIndex < args.runs; runIndex++) {
+        // Create or reuse memory-on HOME
+        let memoryOnHome;
+        if (args.accumulate) {
+          memoryOnHome = accumulateMemoryOnHome;
+        } else if (runIndex === 0) {
+          memoryOnHome = prepareMemoryOnHome(outDir, task.id);
+        } else {
+          memoryOnHome = prepareMemoryOnHome(outDir, `${task.id}-run${runIndex}`);
+        }
 
-      // Memory-off first, then memory-on
-      // eslint-disable-next-line no-await-in-loop
-      const off = await runTaskSide(task, 'memory-off', runIndex, args, repoRoot, noMemoryHome, memoryOnHome),
+        // Memory-off first, then memory-on
         // eslint-disable-next-line no-await-in-loop
-        on = await runTaskSide(task, 'memory-on', runIndex, args, repoRoot, noMemoryHome, memoryOnHome);
+        const off = await runTaskSide(task, 'memory-off', runIndex, args, repoRoot, noMemoryHome, memoryOnHome),
+          // eslint-disable-next-line no-await-in-loop
+          on = await runTaskSide(task, 'memory-on', runIndex, args, repoRoot, noMemoryHome, memoryOnHome);
 
-      allResults.push({ task_id: task.id, category: task.category, ...off });
-      allResults.push({ task_id: task.id, category: task.category, ...on });
+        allResults.push({ task_id: task.id, category: task.category, ...off });
+        allResults.push({ task_id: task.id, category: task.category, ...on });
+      }
+    }
+
+    // Save full results
+    {
+      const report = {
+          generated_at: new Date().toISOString(),
+          host: os.hostname(),
+          runs: args.runs,
+          tasks: tasks.map((t) => t.id),
+          results: allResults,
+        },
+        reportPath = path.join(outDir, 'report.json');
+      fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+      // Print report
+      printReport(allResults);
+      benchLog(`Report saved to: ${reportPath}`);
     }
   }
-
-  // Save full results
-  {
-const report = {
-      generated_at: new Date().toISOString(),
-      host: os.hostname(),
-      runs: args.runs,
-      tasks: tasks.map((t) => t.id),
-      results: allResults,
-    },
-    reportPath = path.join(outDir, 'report.json');
-  fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
-
-  // Print report
-  printReport(allResults);
-  benchLog(`Report saved to: ${reportPath}`);
-}
-}
 }
 
 if (require.main === module) {
@@ -491,29 +450,28 @@ function seedMemory(memorySeedPath, memoryOnHome) {
   }
 
   {
-const lapisRoot = findLapisRoot(),
-    msPath = path.join(lapisRoot, 'memory-store.js');
+    const lapisRoot = findLapisRoot(),
+      msPath = path.join(lapisRoot, 'memory-store.js');
 
-  for (const seed of seeds) {
-    const args = ['save', '--type', seed.type || 'architecture', '--title', seed.title, '--content', seed.content],
-    homeEnv = (() => {
+    for (const seed of seeds) {
+      const args = ['save', '--type', seed.type || 'architecture', '--title', seed.title, '--content', seed.content],
+        homeEnv = (() => {
+          if (seed.project) {
+            args.push('--project', seed.project);
+          }
+          if (seed.scope) {
+            args.push('--scope', seed.scope);
+          }
 
-      if (seed.project) {
-        args.push('--project', seed.project);
-      }
-      if (seed.scope) {
-        args.push('--scope', seed.scope);
-      }
-  
-      
-  return (memoryOnHome ? `HOME=${shellQuote(memoryOnHome)} ` : '');
-})();execSync(`${homeEnv}node "${msPath}" ${args.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(' ')}`, {
-      cwd: lapisRoot,
-      encoding: 'utf-8',
-      timeout: 10_000,
-    });
+          return memoryOnHome ? `HOME=${shellQuote(memoryOnHome)} ` : '';
+        })();
+      execSync(`${homeEnv}node "${msPath}" ${args.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(' ')}`, {
+        cwd: lapisRoot,
+        encoding: 'utf-8',
+        timeout: 10_000,
+      });
+    }
   }
-}
 }
 function prepareNoMemoryHome(outDir) {
   const sourceAgentDir = path.join(os.homedir(), '.pi', 'agent'),
@@ -555,12 +513,12 @@ function prepareMemoryOnHome(outDir, taskId) {
   }
 
   {
-const dbPath = path.join(targetMemoryDir, 'memory.db'),
-    configContent = JSON.stringify({ db_path: dbPath }, null, 2);
-  fs.writeFileSync(path.join(targetMemoryDir, 'config.jsonc'), `${configContent}\n`);
+    const dbPath = path.join(targetMemoryDir, 'memory.db'),
+      configContent = JSON.stringify({ db_path: dbPath }, null, 2);
+    fs.writeFileSync(path.join(targetMemoryDir, 'config.jsonc'), `${configContent}\n`);
 
-  return homeDir;
-}
+    return homeDir;
+  }
 }
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
@@ -691,7 +649,7 @@ function fmtMs(ms) {
     return 'n/a';
   }
   const s = Math.round(ms / 1000),
-  m = !(s < 60) ? (Math.floor(s / 60)) : undefined;
+    m = !(s < 60) ? Math.floor(s / 60) : undefined;
   if (s < 60) {
     return `${s}s`;
   }
@@ -738,74 +696,79 @@ function printReport(results) {
 
   // Print table
   {
-const col1 = 24,
-    colN = 12,
-  rows = (() => {
+    const col1 = 24,
+      colN = 12,
+      rows = (() => {
+        benchLog('');
+        benchLog(`╔${'═'.repeat(col1 + 2)}╤${'═'.repeat(colN + 2)}╤${'═'.repeat(colN + 2)}╗`);
+        benchLog(
+          `║${'Metric'.padEnd(col1 + 2)}│${'Memory Off'.padStart(colN + 1)} │${'Memory On'.padStart(colN + 1)} ║`,
+        );
+        benchLog(`╟${'─'.repeat(col1 + 2)}┼${'─'.repeat(colN + 2)}┼${'─'.repeat(colN + 2)}╢`);
 
-    benchLog('');
-    benchLog(`╔${'═'.repeat(col1 + 2)}╤${'═'.repeat(colN + 2)}╤${'═'.repeat(colN + 2)}╗`);
-    benchLog(`║${'Metric'.padEnd(col1 + 2)}│${'Memory Off'.padStart(colN + 1)} │${'Memory On'.padStart(colN + 1)} ║`);
-    benchLog(`╟${'─'.repeat(col1 + 2)}┼${'─'.repeat(colN + 2)}┼${'─'.repeat(colN + 2)}╢`);
-  
-    
-  return ([
-    ['Tasks solved', bySide['memory-off'].solved, bySide['memory-on'].solved],
-    ['Tests passed', bySide['memory-off'].testPassed, bySide['memory-on'].testPassed],
-    ['Median active tokens', fmtNum(bySide['memory-off'].medianTokens), fmtNum(bySide['memory-on'].medianTokens)],
-    ['Median wall time', fmtMs(bySide['memory-off'].medianWallTime), fmtMs(bySide['memory-on'].medianWallTime)],
-    ['Median tool calls', fmtNum(bySide['memory-off'].medianToolCalls), fmtNum(bySide['memory-on'].medianToolCalls)],
-    ['Wrong-file edits', String(bySide['memory-off'].wrongFileEdits), String(bySide['memory-on'].wrongFileEdits)],
-    [
-      'Constraint violations',
-      String(bySide['memory-off'].constraintViolations),
-      String(bySide['memory-on'].constraintViolations),
-    ],
-    [
-      'Median trajectory score',
-      String(bySide['memory-off'].medianTrajectoryScore),
-      String(bySide['memory-on'].medianTrajectoryScore),
-    ],
-    [
-      'Median lines changed',
-      String(bySide['memory-off'].medianLinesChanged),
-      String(bySide['memory-on'].medianLinesChanged),
-    ],
-    [
-      'Median read-before-edit',
-      String(bySide['memory-off'].medianReadEditRatio),
-      String(bySide['memory-on'].medianReadEditRatio),
-    ],
-  ]);
-})(); for (const [label, offVal, onVal] of rows) {
-    benchLog(
-      `║ ${label.padEnd(col1)} ` +
-        `│${String(offVal).padStart(colN + 1)} ` +
-        `│${String(onVal).padStart(colN + 1)} ` +
-        `║`,
-    );
-  }
-
-  benchLog(`╚${'═'.repeat(col1 + 2)}╧${'═'.repeat(colN + 2)}╧${'═'.repeat(colN + 2)}╝`);
-  benchLog('');
-
-  // Per-task detail
-  benchLog('Per-task results:');
-  for (const taskId of taskIds) {
-    for (const side of sides) {
-      const taskResults = results.filter((r) => r.task_id === taskId && r.side === side),
-        overall = taskResults.filter((r) => r.grade.overall).length,
-        tokens = taskResults.map((r) => r.usage.active_tokens || 0),
-        tools = taskResults.map((r) => r.behavior?.tool_calls || 0),
-        trajScore = taskResults.map((r) => r.grade.trajectory?.score || 0),
-        constraints = taskResults.filter((r) => !r.grade.constraints.passed).length,
-        lines = taskResults.map((r) => r.grade.diff?.linesChanged || 0);
+        return [
+          ['Tasks solved', bySide['memory-off'].solved, bySide['memory-on'].solved],
+          ['Tests passed', bySide['memory-off'].testPassed, bySide['memory-on'].testPassed],
+          ['Median active tokens', fmtNum(bySide['memory-off'].medianTokens), fmtNum(bySide['memory-on'].medianTokens)],
+          ['Median wall time', fmtMs(bySide['memory-off'].medianWallTime), fmtMs(bySide['memory-on'].medianWallTime)],
+          [
+            'Median tool calls',
+            fmtNum(bySide['memory-off'].medianToolCalls),
+            fmtNum(bySide['memory-on'].medianToolCalls),
+          ],
+          ['Wrong-file edits', String(bySide['memory-off'].wrongFileEdits), String(bySide['memory-on'].wrongFileEdits)],
+          [
+            'Constraint violations',
+            String(bySide['memory-off'].constraintViolations),
+            String(bySide['memory-on'].constraintViolations),
+          ],
+          [
+            'Median trajectory score',
+            String(bySide['memory-off'].medianTrajectoryScore),
+            String(bySide['memory-on'].medianTrajectoryScore),
+          ],
+          [
+            'Median lines changed',
+            String(bySide['memory-off'].medianLinesChanged),
+            String(bySide['memory-on'].medianLinesChanged),
+          ],
+          [
+            'Median read-before-edit',
+            String(bySide['memory-off'].medianReadEditRatio),
+            String(bySide['memory-on'].medianReadEditRatio),
+          ],
+        ];
+      })();
+    for (const [label, offVal, onVal] of rows) {
       benchLog(
-        `  ${taskId} (${side}): ${overall}/${taskResults.length} solved, ` +
-          `median ${fmtNum(median(tokens))} tokens, ${fmtNum(median(tools))} tools, ` +
-          `traj=${median(trajScore).toFixed(2)}, lines=${fmtNum(median(lines))}, ` +
-          `constraint_violations=${constraints}`,
+        `║ ${label.padEnd(col1)} ` +
+          `│${String(offVal).padStart(colN + 1)} ` +
+          `│${String(onVal).padStart(colN + 1)} ` +
+          `║`,
       );
     }
+
+    benchLog(`╚${'═'.repeat(col1 + 2)}╧${'═'.repeat(colN + 2)}╧${'═'.repeat(colN + 2)}╝`);
+    benchLog('');
+
+    // Per-task detail
+    benchLog('Per-task results:');
+    for (const taskId of taskIds) {
+      for (const side of sides) {
+        const taskResults = results.filter((r) => r.task_id === taskId && r.side === side),
+          overall = taskResults.filter((r) => r.grade.overall).length,
+          tokens = taskResults.map((r) => r.usage.active_tokens || 0),
+          tools = taskResults.map((r) => r.behavior?.tool_calls || 0),
+          trajScore = taskResults.map((r) => r.grade.trajectory?.score || 0),
+          constraints = taskResults.filter((r) => !r.grade.constraints.passed).length,
+          lines = taskResults.map((r) => r.grade.diff?.linesChanged || 0);
+        benchLog(
+          `  ${taskId} (${side}): ${overall}/${taskResults.length} solved, ` +
+            `median ${fmtNum(median(tokens))} tokens, ${fmtNum(median(tools))} tools, ` +
+            `traj=${median(trajScore).toFixed(2)}, lines=${fmtNum(median(lines))}, ` +
+            `constraint_violations=${constraints}`,
+        );
+      }
+    }
   }
-}
 }

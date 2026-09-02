@@ -88,10 +88,10 @@ function collectIds(text, re) {
  */
 function parseMemoryIds(toolResponse) {
   const text = extractToolResponseText(toolResponse),
-  bracketed = text ? (collectIds(text, BRACKETED_ID_RE)) : undefined,
-  bare = text ? (collectIds(text, BARE_ID_RE)) : undefined,
-  seen = text ? (new Set(bracketed)) : undefined,
-  merged = text ? ([...bracketed]) : undefined;
+    bracketed = text ? collectIds(text, BRACKETED_ID_RE) : undefined,
+    bare = text ? collectIds(text, BARE_ID_RE) : undefined,
+    seen = text ? new Set(bracketed) : undefined,
+    merged = text ? [...bracketed] : undefined;
   if (!text) {
     return [];
   }
@@ -117,7 +117,7 @@ function parseMemoryIds(toolResponse) {
  */
 function parseSearchResultIds(toolResponse) {
   const text = extractToolResponseText(toolResponse),
-  bracketed = text ? (collectIds(text, BRACKETED_ID_RE)) : undefined;
+    bracketed = text ? collectIds(text, BRACKETED_ID_RE) : undefined;
   if (!text) {
     return [];
   }

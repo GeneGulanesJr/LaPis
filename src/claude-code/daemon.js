@@ -9,7 +9,11 @@
  * daemon URL for clients is LAPIS_DAEMON_URL or derived from the lockfile.
  */
 
-const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), http = require('node:http'), { spawn } = require('node:child_process'),
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  http = require('node:http'),
+  { spawn } = require('node:child_process'),
   HOME = process.env.HOME || process.env.USERPROFILE || os.homedir(),
   DEFAULT_LOCKFILE = path.join(HOME, '.pi', 'memory', 'claude-daemon.json'),
   DEFAULT_HOST = '127.0.0.1',
@@ -17,10 +21,6 @@ const fs = require('node:fs'), path = require('node:path'), os = require('node:o
   HEALTH_POLL_MS = 100,
   HEALTH_TIMEOUT_MS = 15_000,
   STOP_GRACE_MS = 5_000;
-
-
-
-
 
 function defaultLockfilePath() {
   return process.env.LAPIS_DAEMON_LOCKFILE || DEFAULT_LOCKFILE;
@@ -121,8 +121,8 @@ function daemonUrlFromLock(info) {
  */
 function resolveDaemonUrl(opts = {}) {
   const envUrl = process.env.LAPIS_DAEMON_URL,
-  lockfilePath = !(envUrl) ? (opts.lockfilePath || defaultLockfilePath()) : undefined,
-  info = !(envUrl) ? (readLockfile(lockfilePath)) : undefined;
+    lockfilePath = !envUrl ? opts.lockfilePath || defaultLockfilePath() : undefined,
+    info = !envUrl ? readLockfile(lockfilePath) : undefined;
   if (envUrl) {
     return envUrl.replace(/\/$/, '');
   }
@@ -249,29 +249,28 @@ async function runStart(argv, io = {}) {
   }
 
   const info = {
-    pid: process.pid,
-    port: flags.port,
-    host: flags.host,
-    startedAt: new Date().toISOString(),
-  },
-  cleanup = (() => {
+      pid: process.pid,
+      port: flags.port,
+      host: flags.host,
+      startedAt: new Date().toISOString(),
+    },
+    cleanup = (() => {
+      writeLockfile(info, lockfilePath);
 
-    writeLockfile(info, lockfilePath);
-  
-    
-  return (() => {
-    removeLockfile(lockfilePath);
-  });
-})();process.on('SIGINT', cleanup);
+      return () => {
+        removeLockfile(lockfilePath);
+      };
+    })();
+  process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
   process.on('exit', cleanup);
 
   {
-const { startHttpServer } = require('../http/server');
-  log(`LaPis daemon listening on http://${flags.host}:${flags.port}`);
-  await startHttpServer({ host: flags.host, port: flags.port });
-  return info;
-}
+    const { startHttpServer } = require('../http/server');
+    log(`LaPis daemon listening on http://${flags.host}:${flags.port}`);
+    await startHttpServer({ host: flags.host, port: flags.port });
+    return info;
+  }
 }
 
 async function stopProcess(pid, opts = {}) {

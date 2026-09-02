@@ -6,9 +6,9 @@
 // Session ids never collapse onto one shared file; corrupt files degrade to
 // Defaults. No locking needed for v1 (single-writer-per-event, best-effort).
 
-const fs = require('node:fs'), path = require('node:path'),
+const fs = require('node:fs'),
+  path = require('node:path'),
   PLACEHOLDERS = new Set(['', 'none', 'null', 'undefined', 'None', 'NULL']);
-
 
 function isUsableSessionId(id) {
   return id !== undefined && id !== null && !PLACEHOLDERS.has(String(id).trim());

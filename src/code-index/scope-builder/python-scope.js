@@ -27,34 +27,34 @@ function buildPythonScopeBindings(tree, _source, _filePath) {
       // ── Function declarations ──────────────────────────────
       case 'function_definition': {
         const nameNode = node.childForFieldName('name'),
-        params = (() => {
+          params = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
+            // Parameters
 
-          if (nameNode) {
-            addBinding(bindings, {
-              name: nameNode.text,
-              kind: 'declaration',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: node.startPosition.row + 1,
-              lineEnd: node.endPosition.row + 1,
-              scopeDepth,
-              byteStart: node.startIndex,
-              byteEnd: node.endIndex,
-            });
-          }
-          // Parameters
-          
-  return (node.childForFieldName('parameters'));
-})(),
-        body = (() => {
-if (params) {
-            extractPyParameters(params, scopeDepth + 1);
-          }
-          // Walk body at deeper scope
-          
-  return (node.childForFieldName('body'));
-})();if (body) {
+            return node.childForFieldName('parameters');
+          })(),
+          body = (() => {
+            if (params) {
+              extractPyParameters(params, scopeDepth + 1);
+            }
+            // Walk body at deeper scope
+
+            return node.childForFieldName('body');
+          })();
+        if (body) {
           walkChildren(body, scopeDepth + 1);
         }
         return;
@@ -63,33 +63,33 @@ if (params) {
       // ── Class declarations ─────────────────────────────────
       case 'class_definition': {
         const nameNode = node.childForFieldName('name'),
-        decorator = (() => {
+          decorator = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
+            // Decorators
 
-          if (nameNode) {
-            addBinding(bindings, {
-              name: nameNode.text,
-              kind: 'declaration',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: node.startPosition.row + 1,
-              lineEnd: node.endPosition.row + 1,
-              scopeDepth,
-              byteStart: node.startIndex,
-              byteEnd: node.endIndex,
-            });
-          }
-          // Decorators
-          
-  return (node.childForFieldName('decorator'));
-})(),
-        body = (() => {
-if (decorator) {
-            handleDecorator(decorator, bindings, scopeDepth);
-          }
-          
-  return (node.childForFieldName('body'));
-})();if (body) {
+            return node.childForFieldName('decorator');
+          })(),
+          body = (() => {
+            if (decorator) {
+              handleDecorator(decorator, bindings, scopeDepth);
+            }
+
+            return node.childForFieldName('body');
+          })();
+        if (body) {
           walkChildren(body, scopeDepth + 1);
         }
         return;
@@ -176,7 +176,7 @@ if (decorator) {
       // Find module name: from foo.bar import baz
       moduleNode = node.childForFieldName('module_name'),
       modulePath = moduleNode ? moduleNode.text : null,
-    isPackage = modulePath ? (!modulePath.startsWith('.')) : undefined;
+      isPackage = modulePath ? !modulePath.startsWith('.') : undefined;
     if (!modulePath) {
       return;
     }

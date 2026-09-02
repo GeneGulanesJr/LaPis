@@ -1,9 +1,9 @@
 // Tests for relation-builder: buildExtendsEdges and buildImplementsEdges
-const path = require('path'), fs = require('fs'), Database = require('better-sqlite3'), { buildExtendsEdges, buildImplementsEdges } = require('../src/code-analysis/relation-builder'),
+const path = require('path'),
+  fs = require('fs'),
+  Database = require('better-sqlite3'),
+  { buildExtendsEdges, buildImplementsEdges } = require('../src/code-analysis/relation-builder'),
   TMP_DB = path.join('/tmp', 'relation-builder-test.db');
-
-
-
 
 let db, repoId;
 
@@ -91,14 +91,13 @@ describe('buildExtendsEdges', () => {
         },
       ]),
       result = buildExtendsEdges(testDb, rid),
-    rows = (() => {
+      rows = (() => {
+        expect(result.success).toBe(true);
+        expect(result.count).toBe(1);
 
-      expect(result.success).toBe(true);
-      expect(result.count).toBe(1);
-  
-      
-  return (testDb.prepare("SELECT * FROM code_relations WHERE kind = 'extends'").all());
-})();expect(rows).toHaveLength(1);
+        return testDb.prepare("SELECT * FROM code_relations WHERE kind = 'extends'").all();
+      })();
+    expect(rows).toHaveLength(1);
     expect(rows[0].kind).toBe('extends');
     expect(rows[0].weight).toBe(1.0);
   });
@@ -156,14 +155,13 @@ describe('buildImplementsEdges', () => {
         },
       ]),
       result = buildImplementsEdges(testDb, rid),
-    rows = (() => {
+      rows = (() => {
+        expect(result.success).toBe(true);
+        expect(result.count).toBe(1);
 
-      expect(result.success).toBe(true);
-      expect(result.count).toBe(1);
-  
-      
-  return (testDb.prepare("SELECT * FROM code_relations WHERE kind = 'implements'").all());
-})();expect(rows).toHaveLength(1);
+        return testDb.prepare("SELECT * FROM code_relations WHERE kind = 'implements'").all();
+      })();
+    expect(rows).toHaveLength(1);
   });
 
   it('should extract multiple implements edges', () => {
@@ -220,13 +218,13 @@ describe('buildReexportEdges', () => {
     insertImport.run(rid, Number(fA.lastInsertRowid), './impl', Number(fB.lastInsertRowid), 're-export');
     const { buildReexportEdges } = require('../src/code-analysis/relation-builder'),
       result = buildReexportEdges(testDb, rid),
-    rows = (() => {
+      rows = (() => {
+        expect(result.success).toBe(true);
+        expect(result.count).toBeGreaterThanOrEqual(1);
 
-      expect(result.success).toBe(true);
-      expect(result.count).toBeGreaterThanOrEqual(1);
-      
-  return (testDb.prepare("SELECT * FROM code_relations WHERE kind = 'reexport'").all());
-})();expect(rows).toHaveLength(1);
+        return testDb.prepare("SELECT * FROM code_relations WHERE kind = 'reexport'").all();
+      })();
+    expect(rows).toHaveLength(1);
     expect(Number(rows[0].source_file_id)).toBe(Number(fA.lastInsertRowid));
   });
 
@@ -305,25 +303,25 @@ describe('buildReferenceEdges', () => {
         'typescript',
         'MyType',
       ),
-    binding = (() => {
+      binding = (() => {
+        insertSymbol.run(
+          rid,
+          Number(fA.lastInsertRowid),
+          'process',
+          'function',
+          'function process()',
+          'consumer.ts',
+          1,
+          10,
+          0,
+          200,
+          'typescript',
+          'process',
+        );
 
-      insertSymbol.run(
-        rid,
-        Number(fA.lastInsertRowid),
-        'process',
-        'function',
-        'function process()',
-        'consumer.ts',
-        1,
-        10,
-        0,
-        200,
-        'typescript',
-        'process',
-      );
-      
-  return (insertBinding.run(rid, Number(fA.lastInsertRowid), 'MyType', 'class', 'import', 1, 1));
-})();insertResolution.run(
+        return insertBinding.run(rid, Number(fA.lastInsertRowid), 'MyType', 'class', 'import', 1, 1);
+      })();
+    insertResolution.run(
       Number(binding.lastInsertRowid),
       Number(typeSym.lastInsertRowid),
       Number(fB.lastInsertRowid),
@@ -333,13 +331,13 @@ describe('buildReferenceEdges', () => {
     );
     const { buildReferenceEdges } = require('../src/code-analysis/relation-builder'),
       result = buildReferenceEdges(testDb, rid),
-    rows = (() => {
+      rows = (() => {
+        expect(result.success).toBe(true);
+        expect(result.count).toBe(1);
 
-      expect(result.success).toBe(true);
-      expect(result.count).toBe(1);
-      
-  return (testDb.prepare("SELECT * FROM code_relations WHERE kind = 'references'").all());
-})();expect(rows).toHaveLength(1);
+        return testDb.prepare("SELECT * FROM code_relations WHERE kind = 'references'").all();
+      })();
+    expect(rows).toHaveLength(1);
     expect(rows[0].weight).toBe(0.8);
   });
 

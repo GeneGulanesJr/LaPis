@@ -107,18 +107,19 @@ function isPreflightWorthyPrompt(prompt) {
   if (isSourceAuthoritativePrompt(prompt) || isHistoricalMemoryPrompt(prompt) || isNavigationPrompt(prompt)) {
     return false;
   }
-  const normalized = prompt.toLowerCase(), codingSignals = [
-    /\b(add|create|build|implement|fix|refactor|modify|update|change|remove|delete)\b/,
-    /\b(write|extend|extract|move|rename|migrate|wire up|integrate)\b/,
-    /\b(feature|bug|issue|test|function|module|component|endpoint|route)\b/,
-    /\b(make it|ensure|so that|need to|should|let's|let me)\b/,
-  ];
+  const normalized = prompt.toLowerCase(),
+    codingSignals = [
+      /\b(add|create|build|implement|fix|refactor|modify|update|change|remove|delete)\b/,
+      /\b(write|extend|extract|move|rename|migrate|wire up|integrate)\b/,
+      /\b(feature|bug|issue|test|function|module|component|endpoint|route)\b/,
+      /\b(make it|ensure|so that|need to|should|let's|let me)\b/,
+    ];
   // Heavily question-shaped prompts (starts with question words and no action verbs)
   if (/^(what|where|when|who|how many|does|is there|can you explain|tell me about)\b/.test(normalized)) {
     return false;
   }
   // Must contain at least one action/coding signal
-  
+
   return codingSignals.some((re) => re.test(normalized));
 }
 

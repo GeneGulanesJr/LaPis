@@ -3,24 +3,24 @@ const IMPORTANT_KEYWORDS =
 
 function compressGeneric({ stdout, stderr }) {
   const combined = `${stdout}\n${stderr}`.trim(),
-  lines = combined ? (combined.split('\n')) : undefined,
-  headLimit = combined ? (120) : undefined,
-  tailLimit = combined ? (120) : undefined,
-  head = combined && !(lines.length <= headLimit + tailLimit) ? (lines.slice(0, headLimit)) : undefined,
-  tail = combined && !(lines.length <= headLimit + tailLimit) ? (lines.slice(-tailLimit)) : undefined,
-  important = combined && !(lines.length <= headLimit + tailLimit) ? ([]) : undefined,
-  omitted = combined && !(lines.length <= headLimit + tailLimit) ? ((() => {
+    lines = combined ? combined.split('\n') : undefined,
+    headLimit = combined ? 120 : undefined,
+    tailLimit = combined ? 120 : undefined,
+    head = combined && !(lines.length <= headLimit + tailLimit) ? lines.slice(0, headLimit) : undefined,
+    tail = combined && !(lines.length <= headLimit + tailLimit) ? lines.slice(-tailLimit) : undefined,
+    important = combined && !(lines.length <= headLimit + tailLimit) ? [] : undefined,
+    omitted =
+      combined && !(lines.length <= headLimit + tailLimit)
+        ? (() => {
+            for (let i = 0; i < lines.length; i++) {
+              if (IMPORTANT_KEYWORDS.test(lines[i])) {
+                important.push(`line ${i + 1}: ${lines[i]}`);
+              }
+            }
 
-  
-    for (let i = 0; i < lines.length; i++) {
-      if (IMPORTANT_KEYWORDS.test(lines[i])) {
-        important.push(`line ${i + 1}: ${lines[i]}`);
-      }
-    }
-  
-    
-  return (lines.length - headLimit - tailLimit);
-})()) : undefined;
+            return lines.length - headLimit - tailLimit;
+          })()
+        : undefined;
   if (!combined) {
     return {
       summary: 'No output.',
@@ -28,7 +28,6 @@ function compressGeneric({ stdout, stderr }) {
       omittedLines: 0,
     };
   }
-
 
   if (lines.length <= headLimit + tailLimit) {
     return {
@@ -38,7 +37,7 @@ function compressGeneric({ stdout, stderr }) {
     };
   }
 
-let output = head.join('\n');
+  let output = head.join('\n');
   output += `\n\n... ${omitted} lines omitted ...\n\n`;
 
   if (important.length > 0) {

@@ -1,8 +1,8 @@
 // Integration tests for index-repo (WASM-based)
-const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js');
-
-
 
 function writeTmpRepo(repoPath, files) {
   fs.mkdirSync(repoPath, { recursive: true });
@@ -92,27 +92,30 @@ describe('index-repo (WASM)', () => {
       expect(relResult.symbol).toBe('main');
 
       {
-const absOut = execSync(`node "${STORE}" get-code-source --repo test-wasm-integ --file ${absFile} --name main`, {
-          encoding: 'utf8',
-          timeout: 10000,
-        }),
-        absResult = JSON.parse(absOut);
-      expect(absResult.success).toBe(true);
-      expect(absResult.symbol).toBe('main');
+        const absOut = execSync(
+            `node "${STORE}" get-code-source --repo test-wasm-integ --file ${absFile} --name main`,
+            {
+              encoding: 'utf8',
+              timeout: 10000,
+            },
+          ),
+          absResult = JSON.parse(absOut);
+        expect(absResult.success).toBe(true);
+        expect(absResult.symbol).toBe('main');
 
-      let missErr = '';
-      try {
-        execSync(`node "${STORE}" get-code-source --repo test-wasm-integ --file app.js --name doesNotExist`, {
-          encoding: 'utf8',
-          timeout: 10000,
-        });
-      } catch (err) {
-        missErr = JSON.parse(err.stderr || '').error || '';
+        let missErr = '';
+        try {
+          execSync(`node "${STORE}" get-code-source --repo test-wasm-integ --file app.js --name doesNotExist`, {
+            encoding: 'utf8',
+            timeout: 10000,
+          });
+        } catch (err) {
+          missErr = JSON.parse(err.stderr || '').error || '';
+        }
+        expect(missErr).toContain(absFile);
+        expect(missErr).toMatch(/resolved against the repo root/);
       }
-      expect(missErr).toContain(absFile);
-      expect(missErr).toMatch(/resolved against the repo root/);
-    }
-});
+    });
 
     it('should not mention Python in error messages', () => {
       let stderr = '';
@@ -195,12 +198,12 @@ const absOut = execSync(`node "${STORE}" get-code-source --repo test-wasm-integ 
           timeout: 10000,
         }),
         result = JSON.parse(out),
-      first = (() => {
+        first = (() => {
+          expect(result.repos.length).toBeGreaterThanOrEqual(1);
 
-        expect(result.repos.length).toBeGreaterThanOrEqual(1);
-        
-  return (result.repos[0]);
-})();expect(first.name).toBeTruthy();
+          return result.repos[0];
+        })();
+      expect(first.name).toBeTruthy();
       expect(typeof first.file_count).toBe('number');
       expect(typeof first.symbol_count).toBe('number');
     });

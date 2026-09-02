@@ -1,7 +1,7 @@
-const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), stateStore = require('../../src/claude-code/state-store');
-
-
-
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  stateStore = require('../../src/claude-code/state-store');
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-state-'));
@@ -30,28 +30,28 @@ describe('claude-code state-store', () => {
 
   test('saveState round-trips all fields', () => {
     const state = {
-      ...stateStore.defaultState(),
-      sessionId: 42,
-      currentProject: 'myproj',
-      projectSessionCount: 3,
-      memoriesSavedThisSession: 7,
-      editedFiles: ['a.js', 'b.ts'],
-      exploredFiles: ['c.js'],
-      turnCount: 5,
-      dreamTriggeredThisSession: false,
-      lastMemoryToolCall: 1000,
-      callsSinceLastMemory: 2,
-      lastAutoDecisionSave: 2000,
-      hasInjectedContext: true,
-      pendingRecallFeedback: [[11, { sessionId: 42, query: 'q' }]],
-      nativeChecked: true,
-    },
-    loaded = (() => {
+        ...stateStore.defaultState(),
+        sessionId: 42,
+        currentProject: 'myproj',
+        projectSessionCount: 3,
+        memoriesSavedThisSession: 7,
+        editedFiles: ['a.js', 'b.ts'],
+        exploredFiles: ['c.js'],
+        turnCount: 5,
+        dreamTriggeredThisSession: false,
+        lastMemoryToolCall: 1000,
+        callsSinceLastMemory: 2,
+        lastAutoDecisionSave: 2000,
+        hasInjectedContext: true,
+        pendingRecallFeedback: [[11, { sessionId: 42, query: 'q' }]],
+        nativeChecked: true,
+      },
+      loaded = (() => {
+        stateStore.saveState('s1', state, { dir });
 
-      stateStore.saveState('s1', state, { dir });
-      
-  return (stateStore.loadState('s1', { dir }));
-})();expect(loaded.sessionId).toBe(42);
+        return stateStore.loadState('s1', { dir });
+      })();
+    expect(loaded.sessionId).toBe(42);
     expect(loaded.editedFiles).toEqual(['a.js', 'b.ts']);
     expect(loaded.pendingRecallFeedback).toEqual([[11, { sessionId: 42, query: 'q' }]]);
     expect(loaded.nativeChecked).toBe(true);
@@ -91,21 +91,20 @@ describe('claude-code state-store', () => {
   test('sweepStaleSessions removes files older than the threshold', () => {
     const fresh = { ...stateStore.defaultState(), sessionId: 1 },
       stale = { ...stateStore.defaultState(), sessionId: 2 },
-    oldTime = (() => {
+      oldTime = (() => {
+        stateStore.saveState('fresh', fresh, { dir });
+        stateStore.saveState('stale', stale, { dir });
 
-      stateStore.saveState('fresh', fresh, { dir });
-      stateStore.saveState('stale', stale, { dir });
-  
-      // Backdate the stale file by 25h.
-      
-  return (new Date(Date.now() - 25 * 3600 * 1000).getTime() / 1000);
-})(),
-    result = (() => {
-fs.utimesSync(path.join(dir, 'stale.json'), oldTime, oldTime);
-  
-      
-  return (stateStore.sweepStaleSessions(24, { dir }));
-})();expect(result.swept).toBe(1);
+        // Backdate the stale file by 25h.
+
+        return new Date(Date.now() - 25 * 3600 * 1000).getTime() / 1000;
+      })(),
+      result = (() => {
+        fs.utimesSync(path.join(dir, 'stale.json'), oldTime, oldTime);
+
+        return stateStore.sweepStaleSessions(24, { dir });
+      })();
+    expect(result.swept).toBe(1);
     expect(fs.existsSync(path.join(dir, 'stale.json'))).toBe(false);
     expect(fs.existsSync(path.join(dir, 'fresh.json'))).toBe(true);
   });
@@ -227,12 +226,12 @@ describe('claude-code state-store: locked mutateState', () => {
   test('mutateState proceeds unlocked when the lock cannot be acquired', async () => {
     stateStore.saveState('m4', { ...stateStore.defaultState(), memoriesSavedThisSession: 0 }, { dir });
     const lockPath = path.join(dir, 'm4.lock'),
-    now = (() => {
+      now = (() => {
+        fs.writeFileSync(lockPath, '99999', 'utf8');
 
-      fs.writeFileSync(lockPath, '99999', 'utf8');
-      
-  return (Date.now());
-})();fs.utimesSync(lockPath, now / 1000, now / 1000);
+        return Date.now();
+      })();
+    fs.utimesSync(lockPath, now / 1000, now / 1000);
 
     await stateStore.mutateState(
       'm4',

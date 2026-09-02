@@ -14,7 +14,7 @@ function matchRoute(method, pathname, routes) {
 function matchPath(pattern, pathname) {
   const patternParts = pattern.split('/'),
     pathParts = pathname.split('/'),
-  params = !(patternParts.length !== pathParts.length) ? ({}) : undefined;
+    params = !(patternParts.length !== pathParts.length) ? {} : undefined;
   if (patternParts.length !== pathParts.length) {
     return null;
   }

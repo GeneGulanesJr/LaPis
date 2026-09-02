@@ -85,59 +85,59 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
     }
 
     {
-const effectiveContext = contextResult || crossProjectResult,
-      isNewProject = !hasProjectContext && crossProjectResult !== null,
-      effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : contextObservations,
-      stats = effectiveContext.stats as any,
-      personal = (effectiveContext.personal as any[]) || [],
-      lines: string[] = ['## Memory Context (re-injected after compaction)', ''];
+      const effectiveContext = contextResult || crossProjectResult,
+        isNewProject = !hasProjectContext && crossProjectResult !== null,
+        effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : contextObservations,
+        stats = effectiveContext.stats as any,
+        personal = (effectiveContext.personal as any[]) || [],
+        lines: string[] = ['## Memory Context (re-injected after compaction)', ''];
 
-    if (isNewProject) {
-      lines.push(`Project: **${deps.state.currentProject}** | 🆕 new project`);
-      if (effectiveObservations.length > 0) {
-        lines.push('');
-        lines.push('### 🔗 Related memories from other projects');
-        for (const o of effectiveObservations.slice(0, 5)) {
-          lines.push(`- [${o.type}] ${o.title}`);
-        }
-      }
-    } else {
-      lines.push(`Project: **${deps.state.currentProject}** | ${stats?.total_memories || 0} memories`);
-      if (effectiveObservations.length > 0) {
-        lines.push('');
-        lines.push('### Recent Relevant Memory');
-        for (const o of effectiveObservations) {
-          let trust = '';
-          if (o.trust_score < 0.5) {
-            trust = '⚠️';
-          } else if (o.trust_score < 0.8) {
-            trust = '🔎';
+      if (isNewProject) {
+        lines.push(`Project: **${deps.state.currentProject}** | 🆕 new project`);
+        if (effectiveObservations.length > 0) {
+          lines.push('');
+          lines.push('### 🔗 Related memories from other projects');
+          for (const o of effectiveObservations.slice(0, 5)) {
+            lines.push(`- [${o.type}] ${o.title}`);
           }
-          lines.push(`- [${o.type}] ${o.title} ${trust}`);
+        }
+      } else {
+        lines.push(`Project: **${deps.state.currentProject}** | ${stats?.total_memories || 0} memories`);
+        if (effectiveObservations.length > 0) {
+          lines.push('');
+          lines.push('### Recent Relevant Memory');
+          for (const o of effectiveObservations) {
+            let trust = '';
+            if (o.trust_score < 0.5) {
+              trust = '⚠️';
+            } else if (o.trust_score < 0.8) {
+              trust = '🔎';
+            }
+            lines.push(`- [${o.type}] ${o.title} ${trust}`);
+          }
         }
       }
-    }
 
-    if (personal.length > 0) {
-      lines.push('');
-      lines.push('### Your Preferences (cross-project)');
-      for (const p of personal.slice(0, 3)) {
-        lines.push(`- ${p.title}`);
+      if (personal.length > 0) {
+        lines.push('');
+        lines.push('### Your Preferences (cross-project)');
+        for (const p of personal.slice(0, 3)) {
+          lines.push(`- ${p.title}`);
+        }
       }
+
+      lines.push('');
+      lines.push('Use `memory-save`, `memory-search`, and `memory-get` tools to interact with memory.');
+
+      return {
+        message: {
+          customType: 'memory-context',
+          content: lines.join('\n'),
+          display: false,
+        },
+      };
     }
-
-    lines.push('');
-    lines.push('Use `memory-save`, `memory-search`, and `memory-get` tools to interact with memory.');
-
-    return {
-      message: {
-        customType: 'memory-context',
-        content: lines.join('\n'),
-        display: false,
-      },
-    };
-  }
-});
+  });
 }
 
 export function registerSessionShutdown(pi: ExtensionAPI, deps: SessionDeps) {

@@ -1,5 +1,5 @@
-const { jsonOk, jsonCreated, jsonError } = require('../errors'), { mapSearchRows } = require('./memory');
-
+const { jsonOk, jsonCreated, jsonError } = require('../errors'),
+  { mapSearchRows } = require('./memory');
 
 function createMissionLedger(repo) {
   return async (req, res, ctx) => {
@@ -222,17 +222,17 @@ function getContextForTodo(repo, deps) {
       return;
     }
     {
-const searchDeps = { sqlJson: deps.sqlJson, sqlRun: deps.sqlRun, jsonErrNoExit: (msg) => ({ error: msg }) },
-      search = require('../../memory-domain/search').search,
-      limit = ctx.query.get('limit') || '10',
-      result = search(searchDeps, { query: todo.lapisContextQuery, limit });
-    if (result?.error) {
-      jsonError(res, 400, 'search_failed', result.error);
-      return;
+      const searchDeps = { sqlJson: deps.sqlJson, sqlRun: deps.sqlRun, jsonErrNoExit: (msg) => ({ error: msg }) },
+        search = require('../../memory-domain/search').search,
+        limit = ctx.query.get('limit') || '10',
+        result = search(searchDeps, { query: todo.lapisContextQuery, limit });
+      if (result?.error) {
+        jsonError(res, 400, 'search_failed', result.error);
+        return;
+      }
+      jsonOk(res, { todoId: todo.id, query: todo.lapisContextQuery, context: mapSearchRows(result?.results) });
     }
-    jsonOk(res, { todoId: todo.id, query: todo.lapisContextQuery, context: mapSearchRows(result?.results) });
-  }
-};
+  };
 }
 
 function recordTodoEvent(repo) {

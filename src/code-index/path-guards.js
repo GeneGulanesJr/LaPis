@@ -1,6 +1,6 @@
-const fs = require('fs'), path = require('path'), { pathIsInside, SECRET_FILE_RE } = require('./scanner');
-
-
+const fs = require('fs'),
+  path = require('path'),
+  { pathIsInside, SECRET_FILE_RE } = require('./scanner');
 
 /**
  * Resolve a changed-path entry to an absolute path inside repoRoot.
@@ -24,29 +24,29 @@ function resolveRepoScopedPath(repoPath, filePath, rejections) {
   }
   const abs = path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(absRoot, filePath);
   {
-let resolved = abs;
-  try {
-    resolved = fs.realpathSync(abs);
-  } catch {
-    if (rejections) {
-      rejections.push({ path: filePath, reason: 'unreadable' });
+    let resolved = abs;
+    try {
+      resolved = fs.realpathSync(abs);
+    } catch {
+      if (rejections) {
+        rejections.push({ path: filePath, reason: 'unreadable' });
+      }
+      return null;
     }
-    return null;
-  }
-  if (!pathIsInside(absRoot, resolved)) {
-    if (rejections) {
-      rejections.push({ path: filePath, reason: 'outside_repo' });
+    if (!pathIsInside(absRoot, resolved)) {
+      if (rejections) {
+        rejections.push({ path: filePath, reason: 'outside_repo' });
+      }
+      return null;
     }
-    return null;
-  }
-  if (SECRET_FILE_RE.test(resolved.replace(/\\/g, '/'))) {
-    if (rejections) {
-      rejections.push({ path: filePath, reason: 'secret_file' });
+    if (SECRET_FILE_RE.test(resolved.replace(/\\/g, '/'))) {
+      if (rejections) {
+        rejections.push({ path: filePath, reason: 'secret_file' });
+      }
+      return null;
     }
-    return null;
+    return resolved;
   }
-  return resolved;
-}
 }
 
 /**

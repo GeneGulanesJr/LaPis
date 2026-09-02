@@ -33,7 +33,8 @@ function formatCodeResult(mode: string, result: any): string {
     }
     case 'blast-radius': {
       const aFiles = result.affected_files || [],
-        isNewFormat = result.seed_file !== undefined || (aFiles.length > 0 && aFiles[0].reachability !== undefined), callers = result.callers || [],
+        isNewFormat = result.seed_file !== undefined || (aFiles.length > 0 && aFiles[0].reachability !== undefined),
+        callers = result.callers || [],
         importers = result.file_importers || [];
       if (isNewFormat) {
         const aSyms = result.affected_symbols || [],
@@ -56,7 +57,7 @@ function formatCodeResult(mode: string, result: any): string {
         }
         return lines.join('\n');
       }
-      
+
       return [
         `**Blast radius of ${result.symbol ?? '?'}** (${result.file ?? '?'})`,
         `Affected files: ${aFiles.length}`,
@@ -405,10 +406,10 @@ function formatCodeResult(mode: string, result: any): string {
         return `✅ Repo "${result.name || result.repo}" already up-to-date: ${result.file_count || 0} files, ${reindexSymbols} symbols (no changes since last index)`;
       }
       {
-const extractedNote = reindexExtracted !== null ? ` (${reindexExtracted} new)` : '';
-      return `✅ Repo "${result.name || result.repo}" reindexed: ${result.file_count || 0} files, ${reindexSymbols} symbols${extractedNote} (${result.mode || 'incremental'})`;
+        const extractedNote = reindexExtracted !== null ? ` (${reindexExtracted} new)` : '';
+        return `✅ Repo "${result.name || result.repo}" reindexed: ${result.file_count || 0} files, ${reindexSymbols} symbols${extractedNote} (${result.mode || 'incremental'})`;
+      }
     }
-}
     case 'index-docs': {
       if (result.error) {
         return `Error: ${result.error}`;

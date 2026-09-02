@@ -23,33 +23,32 @@ function autoRecoverInternal(deps, sessionId) {
   }
 
   const types = {},
-  lines = (() => {
+    lines = (() => {
+      for (const o of obs) {
+        if (!types[o.type]) {
+          types[o.type] = [];
+        }
+        types[o.type].push(o.title);
+      }
 
-    for (const o of obs) {
-      if (!types[o.type]) {
-        types[o.type] = [];
-      }
-      types[o.type].push(o.title);
-    }
-  
-    
-  return (['## Auto-Recovered Session Summary', '']);
-})(),
-  summary = (() => {
-lines.push(`**Session:** ${sessionId}`);
-    lines.push(`**Started:** ${session[0].started_at}`);
-    lines.push(`**Observations:** ${obs.length}`);
-    lines.push('');
-    for (const [type, titles] of Object.entries(types)) {
-      lines.push(`### ${type}`);
-      for (const t of titles) {
-        lines.push(`- ${t}`);
-      }
+      return ['## Auto-Recovered Session Summary', ''];
+    })(),
+    summary = (() => {
+      lines.push(`**Session:** ${sessionId}`);
+      lines.push(`**Started:** ${session[0].started_at}`);
+      lines.push(`**Observations:** ${obs.length}`);
       lines.push('');
-    }
-    
-  return (lines.join('\n'));
-})(); sqlJson(
+      for (const [type, titles] of Object.entries(types)) {
+        lines.push(`### ${type}`);
+        for (const t of titles) {
+          lines.push(`- ${t}`);
+        }
+        lines.push('');
+      }
+
+      return lines.join('\n');
+    })();
+  sqlJson(
     `
     INSERT INTO observations (session_id, type, title, content, project, scope)
     VALUES (?, 'session_summary', 'Auto-Recovered Session Summary', ?, ?, 'project')
@@ -70,7 +69,7 @@ lines.push(`**Session:** ${sessionId}`);
 function autoRecover(deps, args) {
   const { jsonErrNoExit } = deps,
     sessionId = args.session,
-  result = sessionId ? (autoRecoverInternal(deps, sessionId)) : undefined;
+    result = sessionId ? autoRecoverInternal(deps, sessionId) : undefined;
   if (!sessionId) {
     return jsonErrNoExit('Missing --session');
   }
@@ -83,8 +82,8 @@ function autoRecover(deps, args) {
 function recoverOrphans(deps) {
   const { sqlJson, softDeleteObservation } = deps,
     orphans = sqlJson('SELECT id, project FROM session_log WHERE ended_at IS NULL ORDER BY started_at DESC'),
-  recovered = !(orphans.length === 0) ? ([]) : undefined,
-  allObservations = !(orphans.length === 0) ? ([]) : undefined;
+    recovered = !(orphans.length === 0) ? [] : undefined,
+    allObservations = !(orphans.length === 0) ? [] : undefined;
   if (orphans.length === 0) {
     return { recovered: [], total: 0 };
   }
@@ -109,26 +108,24 @@ function recoverOrphans(deps) {
 
     if (recentSummaries.length > 1) {
       const lines = ['## Consolidated Recovery Summary', ''],
-      projects = (() => {
+        projects = (() => {
+          lines.push(`**Sessions recovered:** ${recentSummaries.length}`);
+          lines.push(`**Total observations:** ${allObservations.reduce((a, b) => a + b, 0)}`);
+          lines.push('');
 
-        lines.push(`**Sessions recovered:** ${recentSummaries.length}`);
-        lines.push(`**Total observations:** ${allObservations.reduce((a, b) => a + b, 0)}`);
-        lines.push('');
-  
-        
-  return ([...new Set(recovered)]);
-})(),
-      consolidatedContent = (() => {
-lines.push(`**Projects:** ${projects.join(', ')}`);
-        lines.push('');
-  
-        for (const s of recentSummaries) {
-          softDeleteObservation(s.id);
-        }
-  
-        
-  return (lines.join('\n'));
-})();sqlJson(
+          return [...new Set(recovered)];
+        })(),
+        consolidatedContent = (() => {
+          lines.push(`**Projects:** ${projects.join(', ')}`);
+          lines.push('');
+
+          for (const s of recentSummaries) {
+            softDeleteObservation(s.id);
+          }
+
+          return lines.join('\n');
+        })();
+      sqlJson(
         `INSERT INTO observations (session_id, type, title, content, project, scope)
          VALUES (?, 'session_summary', 'Consolidated Recovery Summary', ?, ?, 'project')
          RETURNING id`,

@@ -18,19 +18,19 @@
  *     user-scope mcpServers in ~/.claude.json.
  */
 
-const fs = require('node:fs'), {
-  parseFlags,
-  stripLapisHooks,
-  removeAutoAllow,
-  isLapisMcpEntry,
-  readJson,
-  writeJson,
-  writeJsonOrRemove,
-  removeClaudeMdBlock,
-  resolveIo,
-  configPaths,
-} = require('./install');
-
+const fs = require('node:fs'),
+  {
+    parseFlags,
+    stripLapisHooks,
+    removeAutoAllow,
+    isLapisMcpEntry,
+    readJson,
+    writeJson,
+    writeJsonOrRemove,
+    removeClaudeMdBlock,
+    resolveIo,
+    configPaths,
+  } = require('./install');
 
 /**
  * Strip LaPis hooks + auto-allow rules for every removed server name from one
@@ -163,14 +163,14 @@ async function runUninstall(argv, io) {
     // MCP first so auto-allow cleanup covers whatever names were removed
     // (an install renamed via --mcp-name is still fully reversed).
     const removedNames = cleanClaudeJson(paths.claudeJson, { user: true }),
-    mcpNames = (() => {
+      mcpNames = (() => {
+        if (removedNames.length > 0) {
+          cleaned.push(paths.claudeJson);
+        }
 
-      if (removedNames.length > 0) {
-        cleaned.push(paths.claudeJson);
-      }
-      
-  return ([...new Set([flags.mcpName, ...removedNames])]);
-})();if (cleanSettingsFile(paths.userSettings, mcpNames)) {
+        return [...new Set([flags.mcpName, ...removedNames])];
+      })();
+    if (cleanSettingsFile(paths.userSettings, mcpNames)) {
       cleaned.push(paths.userSettings);
     }
     if (removeClaudeMdBlock(paths.userClaudeMd)) {
@@ -178,21 +178,21 @@ async function runUninstall(argv, io) {
     }
   } else {
     const removedNames = cleanProjectMcp(paths.projectMcp),
-    removedLocal = (() => {
+      removedLocal = (() => {
+        if (removedNames.length > 0) {
+          cleaned.push(paths.projectMcp);
+        }
 
-      if (removedNames.length > 0) {
-        cleaned.push(paths.projectMcp);
-      }
-      
-  return (cleanClaudeJson(paths.claudeJson, { projectKey: cwd }));
-})(),
-    mcpNames = (() => {
-if (removedLocal.length > 0) {
-        cleaned.push(paths.claudeJson);
-      }
-      
-  return ([...new Set([flags.mcpName, ...removedNames, ...removedLocal])]);
-})();if (cleanSettingsFile(paths.projectSettings, mcpNames)) {
+        return cleanClaudeJson(paths.claudeJson, { projectKey: cwd });
+      })(),
+      mcpNames = (() => {
+        if (removedLocal.length > 0) {
+          cleaned.push(paths.claudeJson);
+        }
+
+        return [...new Set([flags.mcpName, ...removedNames, ...removedLocal])];
+      })();
+    if (cleanSettingsFile(paths.projectSettings, mcpNames)) {
       cleaned.push(paths.projectSettings);
     }
     if (cleanSettingsFile(paths.localSettings, mcpNames)) {

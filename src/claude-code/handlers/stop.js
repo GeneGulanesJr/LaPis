@@ -16,7 +16,15 @@
  * the file lock so PostToolUse hooks are not blocked for the dispatch duration.
  */
 
-const path = require('node:path'), { uniqueEditedPaths } = require('../file-keys'), { makeMutate } = require('../state-mutate'), { resolveCwd } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), { extractMessageText } = require('../../hooks-engine/prompt-classifiers'), { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher'), { readTranscriptStream } = require('../hooks-engine/transcript-reader'), {
+const path = require('node:path'),
+  { uniqueEditedPaths } = require('../file-keys'),
+  { makeMutate } = require('../state-mutate'),
+  { resolveCwd } = require('../../hooks-engine/project'),
+  { resolveProjectForCwd } = require('../project-resolve'),
+  { extractMessageText } = require('../../hooks-engine/prompt-classifiers'),
+  { shouldAutoCapture } = require('../../hooks-engine/pattern-matcher'),
+  { readTranscriptStream } = require('../hooks-engine/transcript-reader'),
+  {
     buildAutoDecisionPayload,
     shouldCheckpoint,
     shouldDream,
@@ -26,14 +34,6 @@ const path = require('node:path'), { uniqueEditedPaths } = require('../file-keys
   // AUTO_DECISION_COOLDOWN) and the hooks-engine passive-capture defaults.
   CHECKPOINT_EVERY = 10,
   COOLDOWN_MS = 60000;
-
-
-
-
-
-
-
-
 
 function extractInlineAssistantText(payload) {
   // Preferred inline field (#207). Newer Claude Code builds may ship the last
@@ -199,56 +199,56 @@ async function runStopCapture({
 
     // Dream: claim the once-per-session flag under lock, dispatch outside it.
     {
-const runDream = await mutate((state) => {
-      if (!shouldDream(turnCount, state.dreamTriggeredThisSession)) {
-        return false;
+      const runDream = await mutate((state) => {
+        if (!shouldDream(turnCount, state.dreamTriggeredThisSession)) {
+          return false;
+        }
+        state.dreamTriggeredThisSession = true;
+        return true;
+      });
+      if (runDream) {
+        try {
+          await dispatch('dream', {});
+        } catch {
+          // Auto-dream is best-effort.
+        }
       }
-      state.dreamTriggeredThisSession = true;
-      return true;
-    });
-    if (runDream) {
-      try {
-        await dispatch('dream', {});
-      } catch {
-        // Auto-dream is best-effort.
-      }
-    }
 
-    // Negative recall: drain the queue under lock, dispatch outside it.
-    {
-const recallEntries = await mutate((state) => {
-      if (!state.pendingRecallFeedback || state.pendingRecallFeedback.length === 0) {
-        return null;
-      }
-      const entries = state.pendingRecallFeedback.map(([memoryId, meta]) => ({
-        memoryId,
-        sessionId: meta?.sessionId,
-        query: meta?.query,
-        wasUseful: false,
-      }));
-      state.pendingRecallFeedback = [];
-      return entries;
-    });
-    if (recallEntries) {
-      try {
-        await dispatch('log-negative-recall', { entries: JSON.stringify(recallEntries) });
-      } catch {
-        // Negative-recall flush is best-effort.
-      }
-    }
+      // Negative recall: drain the queue under lock, dispatch outside it.
+      {
+        const recallEntries = await mutate((state) => {
+          if (!state.pendingRecallFeedback || state.pendingRecallFeedback.length === 0) {
+            return null;
+          }
+          const entries = state.pendingRecallFeedback.map(([memoryId, meta]) => ({
+            memoryId,
+            sessionId: meta?.sessionId,
+            query: meta?.query,
+            wasUseful: false,
+          }));
+          state.pendingRecallFeedback = [];
+          return entries;
+        });
+        if (recallEntries) {
+          try {
+            await dispatch('log-negative-recall', { entries: JSON.stringify(recallEntries) });
+          } catch {
+            // Negative-recall flush is best-effort.
+          }
+        }
 
-    if (shouldCheckpoint(turnCount, CHECKPOINT_EVERY)) {
-      const snapshot = await mutate((state) => ({
-        sessionId: state.sessionId,
-        turnCount: state.turnCount,
-        memoriesSavedThisSession: state.memoriesSavedThisSession,
-        editedFiles: state.editedFiles,
-      }));
-      await checkpoint({ dispatch, state: snapshot, project });
+        if (shouldCheckpoint(turnCount, CHECKPOINT_EVERY)) {
+          const snapshot = await mutate((state) => ({
+            sessionId: state.sessionId,
+            turnCount: state.turnCount,
+            memoriesSavedThisSession: state.memoriesSavedThisSession,
+            editedFiles: state.editedFiles,
+          }));
+          await checkpoint({ dispatch, state: snapshot, project });
+        }
+      }
     }
-  }
-}
-} catch {
+  } catch {
     // Never throw out of a Stop handler.
   }
 }

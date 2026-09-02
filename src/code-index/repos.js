@@ -3,7 +3,8 @@ function first(rows) {
 }
 
 function createCodeIndexRepository(deps) {
-  const { sqlJson, sqlRun, withTransaction: tx } = deps, _symbolInsertSql = `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
+  const { sqlJson, sqlRun, withTransaction: tx } = deps,
+    _symbolInsertSql = `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
     start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
     stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -18,8 +19,6 @@ function createCodeIndexRepository(deps) {
     }
     return fn();
   }
-
-  
 
   function _insertSymbolsPrepared(symbols) {
     const db = require('../../db').getDb(),
@@ -79,14 +78,14 @@ function createCodeIndexRepository(deps) {
         return byName.id;
       }
       {
-const byPath = this.findRepoByPath(path);
-      if (byPath) {
-        this.updateRepoName(byPath.id, name);
-        return byPath.id;
+        const byPath = this.findRepoByPath(path);
+        if (byPath) {
+          this.updateRepoName(byPath.id, name);
+          return byPath.id;
+        }
+        return this.createRepo({ name, path });
       }
-      return this.createRepo({ name, path });
-    }
-},
+    },
     clearRepoIndexCore(repoId, options = {}) {
       const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null,
         emit = (message, extra = {}) => {
@@ -95,72 +94,72 @@ const byPath = this.findRepoByPath(path);
           }
         },
         totals = {},
-      complexityResult = (() => {
+        complexityResult = (() => {
+          emit('Clearing complexity rows...');
 
-        emit('Clearing complexity rows...');
-        
-  return (sqlRun(
-        'DELETE FROM symbol_complexity WHERE symbol_id IN (SELECT id FROM code_symbols WHERE repo_id = ?)',
-        [repoId],
-      ));
-})();totals.symbolComplexity = complexityResult.changes || 0;
+          return sqlRun(
+            'DELETE FROM symbol_complexity WHERE symbol_id IN (SELECT id FROM code_symbols WHERE repo_id = ?)',
+            [repoId],
+          );
+        })();
+      totals.symbolComplexity = complexityResult.changes || 0;
 
       emit('Clearing call edges...');
       {
-const callsResult = sqlRun('DELETE FROM code_calls WHERE repo_id = ?', [repoId]),
-      importsResult = (() => {
+        const callsResult = sqlRun('DELETE FROM code_calls WHERE repo_id = ?', [repoId]),
+          importsResult = (() => {
+            totals.calls = callsResult.changes || 0;
 
-        totals.calls = callsResult.changes || 0;
-  
-        emit('Clearing import edges...');
-        
-  return (sqlRun('DELETE FROM code_imports WHERE repo_id = ?', [repoId]));
-})();totals.imports = importsResult.changes || 0;
+            emit('Clearing import edges...');
 
-      emit('Clearing churn rows...');
-      {
-const churnResult = sqlRun('DELETE FROM churn_metrics WHERE repo_id = ?', [repoId]),
-      diagResult = (() => {
+            return sqlRun('DELETE FROM code_imports WHERE repo_id = ?', [repoId]);
+          })();
+        totals.imports = importsResult.changes || 0;
 
-        totals.churn = churnResult.changes || 0;
-  
-        emit('Clearing diagnostics...');
-        
-  return (sqlRun('DELETE FROM code_file_diagnostics WHERE repo_id = ?', [repoId]));
-})();totals.diagnostics = diagResult.changes || 0;
+        emit('Clearing churn rows...');
+        {
+          const churnResult = sqlRun('DELETE FROM churn_metrics WHERE repo_id = ?', [repoId]),
+            diagResult = (() => {
+              totals.churn = churnResult.changes || 0;
 
-      emit('Clearing scope resolutions...');
-      {
-const scopeResResult = sqlRun(
-        'DELETE FROM scope_resolution WHERE binding_id IN (SELECT id FROM file_scope_bindings WHERE repo_id = ?)',
-        [repoId],
-      ),
-      scopeBindResult = (() => {
+              emit('Clearing diagnostics...');
 
-        totals.scopeResolution = scopeResResult.changes || 0;
-  
-        emit('Clearing scope bindings...');
-        
-  return (sqlRun('DELETE FROM file_scope_bindings WHERE repo_id = ?', [repoId]));
-})();totals.scopeBindings = scopeBindResult.changes || 0;
+              return sqlRun('DELETE FROM code_file_diagnostics WHERE repo_id = ?', [repoId]);
+            })();
+          totals.diagnostics = diagResult.changes || 0;
 
-      emit('Clearing symbols...');
-      {
-const symbolsResult = sqlRun('DELETE FROM code_symbols WHERE repo_id = ?', [repoId]),
-      filesResult = (() => {
+          emit('Clearing scope resolutions...');
+          {
+            const scopeResResult = sqlRun(
+                'DELETE FROM scope_resolution WHERE binding_id IN (SELECT id FROM file_scope_bindings WHERE repo_id = ?)',
+                [repoId],
+              ),
+              scopeBindResult = (() => {
+                totals.scopeResolution = scopeResResult.changes || 0;
 
-        totals.symbols = symbolsResult.changes || 0;
-  
-        emit('Clearing files...');
-        
-  return (sqlRun('DELETE FROM code_files WHERE repo_id = ?', [repoId]));
-})();totals.files = filesResult.changes || 0;
-      return totals;
-    }
-}
-}
-}
-},
+                emit('Clearing scope bindings...');
+
+                return sqlRun('DELETE FROM file_scope_bindings WHERE repo_id = ?', [repoId]);
+              })();
+            totals.scopeBindings = scopeBindResult.changes || 0;
+
+            emit('Clearing symbols...');
+            {
+              const symbolsResult = sqlRun('DELETE FROM code_symbols WHERE repo_id = ?', [repoId]),
+                filesResult = (() => {
+                  totals.symbols = symbolsResult.changes || 0;
+
+                  emit('Clearing files...');
+
+                  return sqlRun('DELETE FROM code_files WHERE repo_id = ?', [repoId]);
+                })();
+              totals.files = filesResult.changes || 0;
+              return totals;
+            }
+          }
+        }
+      }
+    },
     clearRepoIndex(repoId, options = {}) {
       const totals = {};
       _withTransaction(() => {
@@ -204,16 +203,16 @@ const symbolsResult = sqlRun('DELETE FROM code_symbols WHERE repo_id = ?', [repo
         values,
       );
       {
-const fallback = sqlJson('SELECT id FROM code_files WHERE repo_id = ? AND path = ?', [
-        params.repoId,
-        params.path,
-      ]);
-      if (!fallback.length) {
-        throw new Error(`insertFile: file not found after insert (repo ${params.repoId}, ${params.path})`);
+        const fallback = sqlJson('SELECT id FROM code_files WHERE repo_id = ? AND path = ?', [
+          params.repoId,
+          params.path,
+        ]);
+        if (!fallback.length) {
+          throw new Error(`insertFile: file not found after insert (repo ${params.repoId}, ${params.path})`);
+        }
+        return fallback[0].id;
       }
-      return fallback[0].id;
-    }
-},
+    },
     insertFileBatch(records) {
       const ids = [],
         self = this;

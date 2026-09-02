@@ -122,8 +122,8 @@ function jaccardSimilarity(sig1, sig2) {
 function lshBands(signature, rowsPerBand = CFG.LSH_ROWS_PER_BAND) {
   const len = signature.length,
     r = rowsPerBand > 0 ? rowsPerBand : CFG.LSH_ROWS_PER_BAND,
-  numBands = !(len < r) ? (Math.ceil(len / r)) : undefined,
-  keys = !(len < r) ? (new Array(numBands)) : undefined;
+    numBands = !(len < r) ? Math.ceil(len / r) : undefined,
+    keys = !(len < r) ? new Array(numBands) : undefined;
   if (len < r) {
     return [];
   }
@@ -144,8 +144,8 @@ function fingerprintSymbol(symbol) {
   const body = symbol.body_preview || '',
     normalized = normalizeBody(body),
     tokens = tokenize(normalized),
-  shingles = !(tokens.length < 5) ? (shingle(tokens)) : undefined,
-  signature = !(tokens.length < 5) && !(shingles.length === 0) ? (minhashSignature(shingles)) : undefined;
+    shingles = !(tokens.length < 5) ? shingle(tokens) : undefined,
+    signature = !(tokens.length < 5) && !(shingles.length === 0) ? minhashSignature(shingles) : undefined;
   if (tokens.length < 5) {
     return null;
   }
@@ -153,7 +153,6 @@ function fingerprintSymbol(symbol) {
   if (shingles.length === 0) {
     return null;
   }
-
 
   return {
     symbolName: symbol.name,

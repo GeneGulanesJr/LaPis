@@ -18,14 +18,10 @@
  * Hermes process was launched (see db.js LAPIS_HOME resolution).
  */
 
-const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), {
-    yamlScalar,
-    upsertSubBlock,
-    upsertListItem,
-    upsertScalar,
-    readText,
-    writeTextAtomic,
-  } = require('./config-editor'),
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  { yamlScalar, upsertSubBlock, upsertListItem, upsertScalar, readText, writeTextAtomic } = require('./config-editor'),
   DEFAULT_MCP_NAME = 'lapis',
   ALLOWLIST_FILENAME = 'shell-hooks-allowlist.json',
   SKILL_SOURCE = path.resolve(__dirname, '..', '..', 'hermes', 'SKILL.md'),
@@ -40,10 +36,6 @@ const fs = require('node:fs'), path = require('node:path'), os = require('node:o
     { event: 'on_session_start', matcher: null, timeout: 20 },
     { event: 'on_session_end', matcher: null, timeout: 20 },
   ];
-
-
-
-
 
 function parseFlags(argv) {
   const flags = {
@@ -179,29 +171,27 @@ async function runInstall(argv, io = {}) {
   // Write. A corrupt/absent config starts empty — install never crashes the
   // User's config, and only touches the keys LaPis owns.
   let text = readText(paths.config),
-  skillInstalled = (() => {
-
-  
-    text = upsertSubBlock(text, 'mcp_servers', flags.mcpName, mcpBodyLines(flags, home));
-    written.push(paths.config);
-  
-    if (flags.hooks) {
-      for (const hook of HOOK_EVENTS) {
-        text = upsertListItem(text, 'hooks', hook.event, hookItemLines(hook), command);
-      }
-      text = upsertScalar(text, 'hooks_auto_accept', 'true');
+    skillInstalled = (() => {
+      text = upsertSubBlock(text, 'mcp_servers', flags.mcpName, mcpBodyLines(flags, home));
       written.push(paths.config);
-      mergeAllowlist(paths.allowlist, command);
-      written.push(paths.allowlist);
-    }
-  
-    if (text.trim() !== '') {
-      writeTextAtomic(paths.config, text);
-    }
-  
-    
-  return (false);
-})();if (flags.skill && fs.existsSync(SKILL_SOURCE)) {
+
+      if (flags.hooks) {
+        for (const hook of HOOK_EVENTS) {
+          text = upsertListItem(text, 'hooks', hook.event, hookItemLines(hook), command);
+        }
+        text = upsertScalar(text, 'hooks_auto_accept', 'true');
+        written.push(paths.config);
+        mergeAllowlist(paths.allowlist, command);
+        written.push(paths.allowlist);
+      }
+
+      if (text.trim() !== '') {
+        writeTextAtomic(paths.config, text);
+      }
+
+      return false;
+    })();
+  if (flags.skill && fs.existsSync(SKILL_SOURCE)) {
     fs.mkdirSync(path.dirname(paths.skillFile), { recursive: true });
     fs.copyFileSync(SKILL_SOURCE, paths.skillFile);
     written.push(paths.skillFile);

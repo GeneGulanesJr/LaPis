@@ -1,4 +1,7 @@
-const { getConfig } = require('../../config'), { RESULT_LIMITS, RANKING, CONTEXT } = require('../../constants'), { estimateTokens } = require('../../utils'), { TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE } = require('./search'),
+const { getConfig } = require('../../config'),
+  { RESULT_LIMITS, RANKING, CONTEXT } = require('../../constants'),
+  { estimateTokens } = require('../../utils'),
+  { TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE } = require('./search'),
   TOPIC_QUERY_STOP_WORDS = new Set([
     'the',
     'and',
@@ -21,9 +24,6 @@ const { getConfig } = require('../../config'), { RESULT_LIMITS, RANKING, CONTEXT
     'concise',
   ]);
 
-
-
-
 function topicQueryNeedles(query) {
   const normalized = String(query || '')
     .toLowerCase()
@@ -33,14 +33,14 @@ function topicQueryNeedles(query) {
   }
 
   {
-const phrase = normalized.length <= 120 ? [normalized] : [],
-    terms = normalized
-      .match(/[a-z0-9_.\/-]+/g)
-      ?.filter((term) => term.length >= 3 && !TOPIC_QUERY_STOP_WORDS.has(term))
-      .slice(0, 16),
-    needles = [...new Set([...phrase, ...(terms || [])])];
-  return needles.length > 0 ? needles : [normalized.slice(0, 120)];
-}
+    const phrase = normalized.length <= 120 ? [normalized] : [],
+      terms = normalized
+        .match(/[a-z0-9_.\/-]+/g)
+        ?.filter((term) => term.length >= 3 && !TOPIC_QUERY_STOP_WORDS.has(term))
+        .slice(0, 16),
+      needles = [...new Set([...phrase, ...(terms || [])])];
+    return needles.length > 0 ? needles : [normalized.slice(0, 120)];
+  }
 }
 
 function buildTopicQueryMatch(needles) {
@@ -85,19 +85,19 @@ function context(deps, args) {
   }
 
   {
-const sessions = project
-      ? sqlJson(
-          `
+    const sessions = project
+        ? sqlJson(
+            `
     SELECT id, project, started_at, ended_at, memories_saved
     FROM session_log
     WHERE project = ?
     ORDER BY started_at DESC
     LIMIT ${RESULT_LIMITS.RECENT_SESSIONS}
   `,
-          [project],
-        )
-      : [],
-    personal = sqlJson(`
+            [project],
+          )
+        : [],
+      personal = sqlJson(`
     SELECT id, title, type, scope, topic_key, expires_at, created_at
     FROM observations
     WHERE scope = 'personal' AND deleted_at IS NULL
@@ -106,12 +106,14 @@ const sessions = project
     LIMIT ${RESULT_LIMITS.PERSONAL_OBSERVATIONS}
   `);
 
-  let obsQuery, obsParams, crossProjectSuggestions = [];
-  if (crossProject) {
-    const crossLimit = deep
-      ? Math.min(fetchCeiling * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
-      : fetchCeiling;
-    obsQuery = `
+    let obsQuery,
+      obsParams,
+      crossProjectSuggestions = [];
+    if (crossProject) {
+      const crossLimit = deep
+        ? Math.min(fetchCeiling * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
+        : fetchCeiling;
+      obsQuery = `
       SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.project, o.created_at,
              COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
              COALESCE(rl.recall_count, 0) as recall_count,
@@ -123,14 +125,14 @@ const sessions = project
       ORDER BY recall_count DESC, trust_score DESC, type_priority DESC, o.created_at DESC
       LIMIT ?
     `;
-    obsParams = [crossLimit];
-  } else if (topicKey || topicQuery) {
-    const topicLimit = deep
-      ? Math.min(fetchCeiling * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
-      : fetchCeiling;
-    if (topicQuery) {
-      const match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
-      obsQuery = `
+      obsParams = [crossLimit];
+    } else if (topicKey || topicQuery) {
+      const topicLimit = deep
+        ? Math.min(fetchCeiling * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
+        : fetchCeiling;
+      if (topicQuery) {
+        const match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
+        obsQuery = `
         WITH topic_matches AS (
           SELECT id, ${match.scoreSql} as match_score
           FROM observations o
@@ -149,9 +151,9 @@ const sessions = project
         ${TRUST_RECALL_JOINS}
         ORDER BY tm.match_score DESC, recall_count DESC, trust_score DESC, type_priority DESC, o.created_at DESC
       `;
-      obsParams = [...match.scoreParams, project, ...match.whereParams, topicLimit];
-    } else {
-      obsQuery = `
+        obsParams = [...match.scoreParams, project, ...match.whereParams, topicLimit];
+      } else {
+        obsQuery = `
         SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.created_at,
                COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
                COALESCE(rl.recall_count, 0) as recall_count,
@@ -170,10 +172,10 @@ const sessions = project
         ORDER BY recall_count DESC, CASE WHEN o.topic_key = ? THEN ${CONTEXT.TOPIC_MATCH_BOOST} ELSE type_priority END DESC, trust_score DESC, o.created_at DESC
         LIMIT ?
       `;
-      obsParams = [topicKey, project, topicKey, topicLimit];
-    }
-  } else {
-    obsQuery = `
+        obsParams = [topicKey, project, topicKey, topicLimit];
+      }
+    } else {
+      obsQuery = `
       SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.created_at,
              COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
              COALESCE(rl.recall_count, 0) as recall_count,
@@ -185,26 +187,26 @@ const sessions = project
       ORDER BY recall_count DESC, type_priority DESC, trust_score DESC, o.created_at DESC
       LIMIT ?
     `;
-    obsParams = [project, fetchCeiling];
-  }
-  {
-const observations = sqlJson(obsQuery, obsParams),
-    excludedSet = new Set(CONTEXT.EXCLUDED_TYPES),
-    filtered = observations.filter((o) => !excludedSet.has(o.type)),
-    budgeted = tokenBudget > 0 ? applyTokenBudget(filtered, tokenBudget) : filtered,
-    truncatedCount = budgeted.filter((o) => o._truncated).length;
+      obsParams = [project, fetchCeiling];
+    }
+    {
+      const observations = sqlJson(obsQuery, obsParams),
+        excludedSet = new Set(CONTEXT.EXCLUDED_TYPES),
+        filtered = observations.filter((o) => !excludedSet.has(o.type)),
+        budgeted = tokenBudget > 0 ? applyTokenBudget(filtered, tokenBudget) : filtered,
+        truncatedCount = budgeted.filter((o) => o._truncated).length;
 
-  // Passive context injection does not write to recall_log — it is not a search
-  // Recall and logging here (even as was_useful=0) poisons ranking useful_ratio.
+      // Passive context injection does not write to recall_log — it is not a search
+      // Recall and logging here (even as was_useful=0) poisons ranking useful_ratio.
 
-  // Supplemental cross-project suggestions: when project-scoped, also find
-  // Relevant memories from other projects so insights transfer across projects.
-  
-  if (!crossProject && project && filtered.length > 0 && topicQuery) {
-    const supplementLimit = CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3,
-      match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
-    crossProjectSuggestions = sqlJson(
-      `
+      // Supplemental cross-project suggestions: when project-scoped, also find
+      // Relevant memories from other projects so insights transfer across projects.
+
+      if (!crossProject && project && filtered.length > 0 && topicQuery) {
+        const supplementLimit = CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3,
+          match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
+        crossProjectSuggestions = sqlJson(
+          `
         SELECT o.id, o.title, o.type, o.project, o.created_at,
                COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
                ${match.scoreSql} as match_score
@@ -217,38 +219,38 @@ const observations = sqlJson(obsQuery, obsParams),
         GROUP BY o.id
         ORDER BY match_score DESC, trust_score DESC, o.created_at DESC
         LIMIT ?`,
-      [...match.scoreParams, project, ...match.whereParams, supplementLimit],
-    );
+          [...match.scoreParams, project, ...match.whereParams, supplementLimit],
+        );
+      }
+
+      {
+        const totalAll = countObservationsByProjectAndType(crossProject ? null : project);
+
+        return {
+          sessions,
+          personal,
+          observations: budgeted,
+          cross_project_suggestions: crossProjectSuggestions,
+          project: project || null,
+          cross_project: crossProject,
+          topic: topicKey || topicQuery || null,
+          stats: {
+            total_memories: totalAll,
+            total_personal: personal.length,
+            cross_project_suggestions: crossProjectSuggestions.length,
+            ...(tokenBudget > 0
+              ? {
+                  budget_used: budgeted.reduce((sum, o) => sum + (o._tokens || 0), 0),
+                  budget_tokens: tokenBudget,
+                  truncated_count: truncatedCount,
+                  total_count: filtered.length,
+                }
+              : {}),
+          },
+        };
+      }
+    }
   }
-
-  {
-const totalAll = countObservationsByProjectAndType(crossProject ? null : project);
-
-  return {
-    sessions,
-    personal,
-    observations: budgeted,
-    cross_project_suggestions: crossProjectSuggestions,
-    project: project || null,
-    cross_project: crossProject,
-    topic: topicKey || topicQuery || null,
-    stats: {
-      total_memories: totalAll,
-      total_personal: personal.length,
-      cross_project_suggestions: crossProjectSuggestions.length,
-      ...(tokenBudget > 0
-        ? {
-            budget_used: budgeted.reduce((sum, o) => sum + (o._tokens || 0), 0),
-            budget_tokens: tokenBudget,
-            truncated_count: truncatedCount,
-            total_count: filtered.length,
-          }
-        : {}),
-    },
-  };
-}
-}
-}
 }
 
 function applyTokenBudget(observations, budget) {

@@ -1,7 +1,7 @@
-const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
-
-
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -56,18 +56,17 @@ function savePreferences(userId, prefs) {
   it('audits a diff for violations', () => {
     // Add a new file that may be considered duplicate
     const newFile = path.join(tmpRepo, 'src', 'notification-prefs.js'),
-    result = (() => {
-
-      fs.writeFileSync(
-        newFile,
-        `function getNotificationPreferences(userId) {
+      result = (() => {
+        fs.writeFileSync(
+          newFile,
+          `function getNotificationPreferences(userId) {
     return db.query("SELECT * FROM prefs WHERE user_id = ?", [userId]);
   }`,
-      );
-  
-      
-  return (run(`audit-diff --repo ${repoName} --files src/notification-prefs.js`));
-})();expect(result.error).toBeUndefined();
+        );
+
+        return run(`audit-diff --repo ${repoName} --files src/notification-prefs.js`);
+      })();
+    expect(result.error).toBeUndefined();
     expect(result).toHaveProperty('violations');
     expect(result).toHaveProperty('risk');
     expect(result).toHaveProperty('files_checked');
@@ -81,13 +80,12 @@ function savePreferences(userId, prefs) {
 
   it('reports low risk for unrelated changes', () => {
     const newFile = path.join(tmpRepo, 'src', 'utils.js'),
-    result = (() => {
+      result = (() => {
+        fs.writeFileSync(newFile, `function formatDate(d) { return d.toISOString().split('T')[0]; }`);
 
-      fs.writeFileSync(newFile, `function formatDate(d) { return d.toISOString().split('T')[0]; }`);
-  
-      
-  return (run(`audit-diff --repo ${repoName} --files src/utils.js`));
-})();expect(result.error).toBeUndefined();
+        return run(`audit-diff --repo ${repoName} --files src/utils.js`);
+      })();
+    expect(result.error).toBeUndefined();
     expect(result.files_checked).toBe(1);
 
     try {

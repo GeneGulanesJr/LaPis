@@ -1,5 +1,5 @@
-const { createHttpServer } = require('../src/http/server'), http = require('http');
-
+const { createHttpServer } = require('../src/http/server'),
+  http = require('http');
 
 function request(server, { method = 'GET', path = '/health', headers = {} } = {}) {
   return new Promise((resolve, reject) => {

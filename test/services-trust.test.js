@@ -1,5 +1,5 @@
-const { syncCodeTrust } = require('../src/trust-sync/symbol-links'), { TRUST_DELTA: _TRUST_DELTA } = require('../constants');
-
+const { syncCodeTrust } = require('../src/trust-sync/symbol-links'),
+  { TRUST_DELTA: _TRUST_DELTA } = require('../constants');
 
 describe('services/trust: syncCodeTrust', () => {
   it('should require --repo', () => {
@@ -27,15 +27,15 @@ describe('services/trust: syncCodeTrust', () => {
 
     // Mock execSync to return the same HEAD
     {
-const Module = require('module'),
-      _originalLoad = Module._load,
-      // We can't easily mock execSync in unit tests, so test the early-exit path
-      // By simulating detectChangedSymbols returning HEAD unchanged
-      _result = syncCodeTrust(deps, { repo: 'my-repo' });
-    // Since we can't mock execSync, the test verifies the repo lookup path
-    // In real usage, execSync would return the same commit
-  }
-});
+      const Module = require('module'),
+        _originalLoad = Module._load,
+        // We can't easily mock execSync in unit tests, so test the early-exit path
+        // By simulating detectChangedSymbols returning HEAD unchanged
+        _result = syncCodeTrust(deps, { repo: 'my-repo' });
+      // Since we can't mock execSync, the test verifies the repo lookup path
+      // In real usage, execSync would return the same commit
+    }
+  });
 
   it('should adjust trust for changed symbols', () => {
     const headCommit = 'abc123',

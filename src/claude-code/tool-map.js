@@ -46,83 +46,81 @@ const MCP_PREFIX = 'mcp__lapis__',
  * `memory-code`) or null when the tool is not an MCP tool.
  */
 
-
 /** True for any LaPis memory-* MCP tool (memory-save, memory-search, …). */
 
-
 {
-const EDIT_TOOLS = new Set(['Write', 'MultiEdit', 'Edit']);
+  const EDIT_TOOLS = new Set(['Write', 'MultiEdit', 'Edit']);
 
-/**
- * Classify a tool for the PreToolUse hook.
- * @returns {string|null} role or null (no-op)
- */
-function preToolRole(toolName) {
-  const bare = mcpToolName(toolName);
-  if (bare === 'memory-code') {
-    return 'memory-code-seed';
+  /**
+   * Classify a tool for the PreToolUse hook.
+   * @returns {string|null} role or null (no-op)
+   */
+  function preToolRole(toolName) {
+    const bare = mcpToolName(toolName);
+    if (bare === 'memory-code') {
+      return 'memory-code-seed';
+    }
+    if (bare && bare.startsWith('memory-')) {
+      return 'memory-reminder-reset';
+    }
+    switch (toolName) {
+      case 'Read':
+        return 'read-guardrail';
+      case 'Grep':
+        return 'search-guardrail';
+      case 'Glob':
+        return 'glob-guardrail';
+      case 'Bash':
+        return 'bash-guardrail';
+      default:
+        return null;
+    }
   }
-  if (bare && bare.startsWith('memory-')) {
-    return 'memory-reminder-reset';
+
+  /**
+   * Classify a tool for the PostToolUse hook.
+   * @returns {string|null} role or null (no-op)
+   */
+  function postToolRole(toolName) {
+    if (EDIT_TOOLS.has(toolName)) {
+      return 'edit-track';
+    }
+    if (toolName === 'Bash') {
+      return 'git-trust';
+    }
+    const bare = mcpToolName(toolName);
+    switch (bare) {
+      case 'memory-save':
+        return 'memory-save-mirror';
+      case 'memory-search':
+        return 'memory-search-mirror';
+      case 'memory-get':
+      case 'memory-delete':
+        return 'memory-get-mirror';
+      case 'memory-code':
+        return 'memory-code-harvest';
+      default:
+        return null;
+    }
   }
-  switch (toolName) {
-    case 'Read':
-      return 'read-guardrail';
-    case 'Grep':
-      return 'search-guardrail';
-    case 'Glob':
-      return 'glob-guardrail';
-    case 'Bash':
-      return 'bash-guardrail';
-    default:
+
+  module.exports = {
+    MCP_PREFIX,
+    mcpToolName,
+    isMemoryMcpTool,
+    preToolRole,
+    postToolRole,
+    EDIT_TOOLS,
+  };
+  function mcpToolName(toolName) {
+    if (typeof toolName !== 'string') {
       return null;
+    }
+    const match = MCP_TOOL_RE.exec(toolName);
+    return match ? match[1] : null;
   }
-}
-
-/**
- * Classify a tool for the PostToolUse hook.
- * @returns {string|null} role or null (no-op)
- */
-function postToolRole(toolName) {
-  if (EDIT_TOOLS.has(toolName)) {
-    return 'edit-track';
+  function isMemoryMcpTool(toolName) {
+    const bare = mcpToolName(toolName);
+    return bare !== null && bare.startsWith('memory-');
   }
-  if (toolName === 'Bash') {
-    return 'git-trust';
-  }
-  const bare = mcpToolName(toolName);
-  switch (bare) {
-    case 'memory-save':
-      return 'memory-save-mirror';
-    case 'memory-search':
-      return 'memory-search-mirror';
-    case 'memory-get':
-    case 'memory-delete':
-      return 'memory-get-mirror';
-    case 'memory-code':
-      return 'memory-code-harvest';
-    default:
-      return null;
-  }
-}
-
-module.exports = {
-  MCP_PREFIX,
-  mcpToolName,
-  isMemoryMcpTool,
-  preToolRole,
-  postToolRole,
-  EDIT_TOOLS,
-};
-function mcpToolName(toolName) {
-  if (typeof toolName !== 'string') {
-    return null;
-  }
-  const match = MCP_TOOL_RE.exec(toolName);
-  return match ? match[1] : null;
-}
-function isMemoryMcpTool(toolName) {
-  const bare = mcpToolName(toolName);
-  return bare !== null && bare.startsWith('memory-');
-}
 }

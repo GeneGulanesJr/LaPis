@@ -1,7 +1,7 @@
-const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
-
-
 
 function run(cmd, timeout = 45000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -74,23 +74,22 @@ function loadTemplate(name) {
 
   it('audit-diff detects symbols in changed files', () => {
     const dupFile = path.join(tmpRepo, 'src', 'email-service.js'),
-    result = (() => {
-
-      fs.writeFileSync(
-        dupFile,
-        `
+      result = (() => {
+        fs.writeFileSync(
+          dupFile,
+          `
   function sendVerificationEmail(userId, token) {
     const tpl = getTemplate('verify');
     const user = findUser(userId);
     return sendMail(user.email, tpl.render({ token }));
   }`,
-      );
-      // Re-index to pick up the new file
-      run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
-  
-      
-  return (run(`audit-diff --repo ${repoName} --files src/email-service.js --task "send verification email"`));
-})();expect(result.error).toBeUndefined();
+        );
+        // Re-index to pick up the new file
+        run(`index-repo --path "${tmpRepo}" --name ${repoName}`);
+
+        return run(`audit-diff --repo ${repoName} --files src/email-service.js --task "send verification email"`);
+      })();
+    expect(result.error).toBeUndefined();
     expect(result).toHaveProperty('violations');
     expect(result.files_checked).toBe(1);
 

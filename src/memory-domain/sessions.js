@@ -1,6 +1,6 @@
-const { sqlJson, jsonErrNoExit, withTransaction } = require('../../db'), { TIME_WINDOWS } = require('../../constants'), { getConfig } = require('../../config');
-
-
+const { sqlJson, jsonErrNoExit, withTransaction } = require('../../db'),
+  { TIME_WINDOWS } = require('../../constants'),
+  { getConfig } = require('../../config');
 
 function findLatestSession(project) {
   const q = project
@@ -61,29 +61,29 @@ function sessionStart(deps, args) {
   }
 
   {
-const tierConfig = deps._readTierConfig ? deps._readTierConfig() : { tier: 'full' },
-    tier = tierConfig.tier || 'full',
-    TOOL_TIERS = deps.TOOL_TIERS,
-    tierSet = TOOL_TIERS[tier],
-    commands = deps.commands,
-    availableCommands = tierSet ? Object.keys(commands).filter((c) => tierSet.has(c)) : Object.keys(commands),
-    extra = tierConfig.extra_commands || [],
-    hidden = tierConfig.hidden_commands || [],
-    finalCommands = [...new Set([...availableCommands, ...extra])].filter((c) => !hidden.includes(c)).sort();
+    const tierConfig = deps._readTierConfig ? deps._readTierConfig() : { tier: 'full' },
+      tier = tierConfig.tier || 'full',
+      TOOL_TIERS = deps.TOOL_TIERS,
+      tierSet = TOOL_TIERS[tier],
+      commands = deps.commands,
+      availableCommands = tierSet ? Object.keys(commands).filter((c) => tierSet.has(c)) : Object.keys(commands),
+      extra = tierConfig.extra_commands || [],
+      hidden = tierConfig.hidden_commands || [],
+      finalCommands = [...new Set([...availableCommands, ...extra])].filter((c) => !hidden.includes(c)).sort();
 
-  return {
-    sessionId,
-    sessionCount,
-    consolidateDue,
-    archiveCandidates,
-    recoveredSession,
-    hasIncompletePreviousSession: incompleteSession.length > 0,
-    incompleteSessionId: incompleteSession.length > 0 ? incompleteSession[0].id : null,
-    tool_tier: tier,
-    available_commands: finalCommands,
-    available_commands_count: finalCommands.length,
-  };
-}
+    return {
+      sessionId,
+      sessionCount,
+      consolidateDue,
+      archiveCandidates,
+      recoveredSession,
+      hasIncompletePreviousSession: incompleteSession.length > 0,
+      incompleteSessionId: incompleteSession.length > 0 ? incompleteSession[0].id : null,
+      tool_tier: tier,
+      available_commands: finalCommands,
+      available_commands_count: finalCommands.length,
+    };
+  }
 }
 
 function sessionEnd(deps, args) {
@@ -94,7 +94,8 @@ function sessionEnd(deps, args) {
     return jsonErrNoExit('Missing --id');
   }
 
-  let trustRecoveryResult = null, vacuumResult = null;
+  let trustRecoveryResult = null,
+    vacuumResult = null;
   if (auto) {
     trustRecoveryResult = deps.trustRecovery({ session: id });
   }
@@ -108,46 +109,45 @@ function sessionEnd(deps, args) {
   // The expensive VACUUM + FTS 'optimize' is gated by per-project session count
   // (same query as sessionStart) so heavy work lands on the same cadence.
   {
-const cheapResult = deps.runCompactCheap ? deps.runCompactCheap() : null;
+    const cheapResult = deps.runCompactCheap ? deps.runCompactCheap() : null;
 
-  
-  if (deps.runVacuum) {
-    let vacuumDue = true;
-    try {
-      const sessionRows = deps.sqlJson('SELECT project FROM session_log WHERE id = ?', [parseInt(id, 10)]),
-        project = sessionRows[0]?.project,
-        compactInterval = getConfig().compact_every_n_sessions || 5,
-        row = project
-          ? deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [project])
-          : deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log'),
-        sessionCount = row && row[0] ? parseInt(row[0].cnt, 10) : 0;
-      vacuumDue = sessionCount > 0 && sessionCount % compactInterval === 0;
-    } catch (_e) {
-      // If the count query fails, skip vacuum rather than block exit.
-      vacuumDue = false;
+    if (deps.runVacuum) {
+      let vacuumDue = true;
+      try {
+        const sessionRows = deps.sqlJson('SELECT project FROM session_log WHERE id = ?', [parseInt(id, 10)]),
+          project = sessionRows[0]?.project,
+          compactInterval = getConfig().compact_every_n_sessions || 5,
+          row = project
+            ? deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [project])
+            : deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log'),
+          sessionCount = row && row[0] ? parseInt(row[0].cnt, 10) : 0;
+        vacuumDue = sessionCount > 0 && sessionCount % compactInterval === 0;
+      } catch (_e) {
+        // If the count query fails, skip vacuum rather than block exit.
+        vacuumDue = false;
+      }
+      if (vacuumDue) {
+        vacuumResult = deps.runVacuum();
+      }
     }
-    if (vacuumDue) {
-      vacuumResult = deps.runVacuum();
-    }
-  }
 
-  {
-const result = { ok: true, sessionId: parseInt(id, 10) };
-  if (trustRecoveryResult) {
-    result.trustRecovery = trustRecoveryResult;
+    {
+      const result = { ok: true, sessionId: parseInt(id, 10) };
+      if (trustRecoveryResult) {
+        result.trustRecovery = trustRecoveryResult;
+      }
+      if (cheapResult) {
+        result.compacted = vacuumResult
+          ? {
+              startedAt: cheapResult.startedAt,
+              ok: cheapResult.ok && vacuumResult.ok,
+              steps: { ...cheapResult.steps, ...vacuumResult.steps },
+            }
+          : cheapResult;
+      }
+      return result;
+    }
   }
-  if (cheapResult) {
-    result.compacted = vacuumResult
-      ? {
-          startedAt: cheapResult.startedAt,
-          ok: cheapResult.ok && vacuumResult.ok,
-          steps: { ...cheapResult.steps, ...vacuumResult.steps },
-        }
-      : cheapResult;
-  }
-  return result;
-}
-}
 }
 
 function sessionSummary(deps, args) {

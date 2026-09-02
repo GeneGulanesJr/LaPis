@@ -13,25 +13,25 @@
  * rejecting — best-effort, never blocks the prompt.
  */
 
-const path = require('node:path'), { CONTEXT } = require('../../../constants'), { findMatchingRepo } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), { isPreflightWorthyPrompt } = require('../../hooks-engine/prompt-classifiers'), {
-  appendPreflightBlock,
-  chooseCodingContextTarget,
-  appendCodingContextBlock,
-  unwrapAnalysisData,
-} = require('../../hooks-engine/preflight-assembly'), { capInjectedContext } = require('../../hooks-engine/context-builder'), { assembleContextLines } = require('../context-inject'), { makeMutate } = require('../state-mutate'),
+const path = require('node:path'),
+  { CONTEXT } = require('../../../constants'),
+  { findMatchingRepo } = require('../../hooks-engine/project'),
+  { resolveProjectForCwd } = require('../project-resolve'),
+  { isPreflightWorthyPrompt } = require('../../hooks-engine/prompt-classifiers'),
+  {
+    appendPreflightBlock,
+    chooseCodingContextTarget,
+    appendCodingContextBlock,
+    unwrapAnalysisData,
+  } = require('../../hooks-engine/preflight-assembly'),
+  { capInjectedContext } = require('../../hooks-engine/context-builder'),
+  { assembleContextLines } = require('../context-inject'),
+  { makeMutate } = require('../state-mutate'),
   BUDGET_MS = 30000,
   REMINDER_INTERVAL = 5, // MEMORY_REMINDER_INTERVAL (state.ts:107)
   REMINDER_RECENT_MS = 180000, // 3min (context-injection.ts:235)
   REMINDER_TEXT =
     '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.';
-
-
-
-
-
-
-
-
 
 /**
  * Append preflight + coding-context blocks (best-effort). Mutates lines.
@@ -43,21 +43,20 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt }) {
 
   try {
     const preflightResult = await dispatch('preflight', {
-      repo: cwdRepo.name,
-      task: prompt,
-      'code-limit': String(CONTEXT.PREFLIGHT_CODE_LIMIT || 3),
-      'memory-limit': String(CONTEXT.PREFLIGHT_MEMORY_LIMIT || 2),
-      'doc-limit': String(CONTEXT.PREFLIGHT_DOC_LIMIT || 1),
-    }),
-    target = (() => {
+        repo: cwdRepo.name,
+        task: prompt,
+        'code-limit': String(CONTEXT.PREFLIGHT_CODE_LIMIT || 3),
+        'memory-limit': String(CONTEXT.PREFLIGHT_MEMORY_LIMIT || 2),
+        'doc-limit': String(CONTEXT.PREFLIGHT_DOC_LIMIT || 1),
+      }),
+      target = (() => {
+        if (preflightResult && !preflightResult.error) {
+          appendPreflightBlock(lines, preflightResult);
+        }
 
-      if (preflightResult && !preflightResult.error) {
-        appendPreflightBlock(lines, preflightResult);
-      }
-  
-      
-  return (chooseCodingContextTarget(prompt, preflightResult));
-})();if (target) {
+        return chooseCodingContextTarget(prompt, preflightResult);
+      })();
+    if (target) {
       const codingContextResult = await dispatch('coding-context', {
         repo: cwdRepo.name,
         ...target,
@@ -104,59 +103,59 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
   }
 
   {
-const lines = assembled ? assembled.lines : [],
-    cwdRepo = assembled ? assembled.cwdRepo : findMatchingRepo(resolvedCwd, repos);
+    const lines = assembled ? assembled.lines : [],
+      cwdRepo = assembled ? assembled.cwdRepo : findMatchingRepo(resolvedCwd, repos);
 
-  // Preflight / coding context (best-effort, timeout-safe).
-  await appendPreflight({ lines, dispatch, cwdRepo, prompt });
+    // Preflight / coding context (best-effort, timeout-safe).
+    await appendPreflight({ lines, dispatch, cwdRepo, prompt });
 
-  if (isCancelled?.()) {
-    return null;
-  }
-
-  // Cadence-gated reminder (parity of Pi's context-event reminder).
-  // Routed through mutateState so parallel memory-tool hooks cannot be
-  // Clobbered by an unlocked load/save (#228).
-  let shouldRemind = false;
-  {
-const mutate = makeMutate(stateStore, claudeSessionId);
-  await mutate((s) => {
     if (isCancelled?.()) {
-      return;
+      return null;
     }
-    s.callsSinceLastMemory += 1;
-    const recentMemory = Date.now() - s.lastMemoryToolCall < REMINDER_RECENT_MS;
-    if (s.callsSinceLastMemory >= REMINDER_INTERVAL && !recentMemory) {
-      s.callsSinceLastMemory = 0;
-      shouldRemind = true;
+
+    // Cadence-gated reminder (parity of Pi's context-event reminder).
+    // Routed through mutateState so parallel memory-tool hooks cannot be
+    // Clobbered by an unlocked load/save (#228).
+    let shouldRemind = false;
+    {
+      const mutate = makeMutate(stateStore, claudeSessionId);
+      await mutate((s) => {
+        if (isCancelled?.()) {
+          return;
+        }
+        s.callsSinceLastMemory += 1;
+        const recentMemory = Date.now() - s.lastMemoryToolCall < REMINDER_RECENT_MS;
+        if (s.callsSinceLastMemory >= REMINDER_INTERVAL && !recentMemory) {
+          s.callsSinceLastMemory = 0;
+          shouldRemind = true;
+        }
+        s.hasInjectedContext = true;
+      });
+
+      if (isCancelled?.()) {
+        return null;
+      }
+
+      if (shouldRemind) {
+        lines.push('');
+        lines.push(REMINDER_TEXT);
+      }
+
+      {
+        const additionalContext = capInjectedContext(lines.join('\n'));
+        if (!additionalContext) {
+          return null;
+        }
+
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'UserPromptSubmit',
+            additionalContext,
+          },
+        };
+      }
     }
-    s.hasInjectedContext = true;
-  });
-
-  if (isCancelled?.()) {
-    return null;
   }
-
-  if (shouldRemind) {
-    lines.push('');
-    lines.push(REMINDER_TEXT);
-  }
-
-  {
-const additionalContext = capInjectedContext(lines.join('\n'));
-  if (!additionalContext) {
-    return null;
-  }
-
-  return {
-    hookSpecificOutput: {
-      hookEventName: 'UserPromptSubmit',
-      additionalContext,
-    },
-  };
-}
-}
-}
 }
 
 async function handleUserPromptSubmit(ctx) {

@@ -41,13 +41,14 @@ export function invalidateRepoCache(): void {
 
 export function isRepoStale(repo: RepoInfo): boolean {
   try {
-    const fs = require('fs'), pathMod = require('path'),
+    const fs = require('fs'),
+      pathMod = require('path'),
       indexedTime = new Date(repo.indexed_at).getTime() + 3600000, // 1h grace
       // Sample up to 50 source files for mtime changes
-      extensions = new Set(['.js', '.ts', '.tsx', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java']), maxCheck = 50;
-    
+      extensions = new Set(['.js', '.ts', '.tsx', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java']),
+      maxCheck = 50;
+
     let checked = 0;
-    
 
     function checkDir(dir) {
       if (checked >= maxCheck) {
@@ -94,7 +95,8 @@ export function isRepoStale(repo: RepoInfo): boolean {
 export async function detectProject(cwd: string): Promise<string> {
   const resolved = path.resolve(cwd);
 
-  let knownProjects: string[] = [], dir = resolved;
+  let knownProjects: string[] = [],
+    dir = resolved;
   try {
     const result = await mem('list-projects', {});
     if (result && (result as any).projects) {
@@ -129,7 +131,6 @@ export async function detectProject(cwd: string): Promise<string> {
     /* Code repos may not be available */
   }
 
-  
   const root = path.parse(dir).root;
   while (dir !== root && dir !== path.dirname(dir)) {
     const name = path.basename(dir),

@@ -43,16 +43,16 @@ function insertSymbolLink(deps, { memoryId, symbolId, repo, trustScore }) {
  */
 function adjustTrust(deps, { memoryId, delta, reason }) {
   const { sqlRun, sqlJson } = deps,
-  updated = (() => {
+    updated = (() => {
+      sqlRun('UPDATE symbol_links SET trust_score = MIN(1.0, MAX(0.0, trust_score + ?)) WHERE memory_id = ?', [
+        delta,
+        memoryId,
+      ]);
+      sqlRun('INSERT INTO trust_adjustments (memory_id, reason, delta) VALUES (?, ?, ?)', [memoryId, reason, delta]);
 
-    sqlRun('UPDATE symbol_links SET trust_score = MIN(1.0, MAX(0.0, trust_score + ?)) WHERE memory_id = ?', [
-      delta,
-      memoryId,
-    ]);
-    sqlRun('INSERT INTO trust_adjustments (memory_id, reason, delta) VALUES (?, ?, ?)', [memoryId, reason, delta]);
-    
-  return (sqlJson('SELECT trust_score FROM symbol_links WHERE memory_id = ? LIMIT 1', [memoryId]));
-})();return updated.length > 0 ? updated[0].trust_score : null;
+      return sqlJson('SELECT trust_score FROM symbol_links WHERE memory_id = ? LIMIT 1', [memoryId]);
+    })();
+  return updated.length > 0 ? updated[0].trust_score : null;
 }
 
 function recordRecall(deps, { sessionId, memoryId }) {
@@ -122,7 +122,8 @@ function getSymbolsForMemory(deps, memoryId) {
 }
 
 function getSymbolCluster(deps, { symbolId, repo }) {
-  const { sqlJson } = deps, params = [symbolId];
+  const { sqlJson } = deps,
+    params = [symbolId];
   let q = `
     SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
            sl.trust_score
@@ -131,7 +132,7 @@ function getSymbolCluster(deps, { symbolId, repo }) {
     WHERE sl.symbol_id = ?
       AND o.deleted_at IS NULL
   `;
-  
+
   if (repo) {
     q += ' AND sl.repo = ?';
     params.push(repo);

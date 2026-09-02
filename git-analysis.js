@@ -4,17 +4,18 @@
  * Uses git CLI (zero native deps). Gracefully degrades if git unavailable.
  */
 
-const { execFileSync } = require('child_process'), path = require('path'), { requireNativeDb: _requireNativeDb } = require('./utils'), CLASSIFICATION_RULES = [
-  { pattern: /^Initial commit|first commit/i, classification: 'creation' },
-  { pattern: /^Add\b|^Implement\b|^Create\b/i, classification: 'feature' },
-  { pattern: /\bfix(?:es)?\b|\bbug\b|\bhotfix\b|\bpatch\b/i, classification: 'bugfix' },
-  { pattern: /\brefactor\b|\bclean\s*up\b|\breorganize\b/i, classification: 'refactor' },
-  { pattern: /\bperf(?:ormance)?\b|\boptimize\b|\bspeed\b/i, classification: 'perf' },
-  { pattern: /\brename\b|\bmove\b|\brelocate\b/i, classification: 'rename' },
-  { pattern: /\brevert\b|\brollback\b/i, classification: 'revert' },
-];
-
-
+const { execFileSync } = require('child_process'),
+  path = require('path'),
+  { requireNativeDb: _requireNativeDb } = require('./utils'),
+  CLASSIFICATION_RULES = [
+    { pattern: /^Initial commit|first commit/i, classification: 'creation' },
+    { pattern: /^Add\b|^Implement\b|^Create\b/i, classification: 'feature' },
+    { pattern: /\bfix(?:es)?\b|\bbug\b|\bhotfix\b|\bpatch\b/i, classification: 'bugfix' },
+    { pattern: /\brefactor\b|\bclean\s*up\b|\breorganize\b/i, classification: 'refactor' },
+    { pattern: /\bperf(?:ormance)?\b|\boptimize\b|\bspeed\b/i, classification: 'perf' },
+    { pattern: /\brename\b|\bmove\b|\brelocate\b/i, classification: 'rename' },
+    { pattern: /\brevert\b|\brollback\b/i, classification: 'revert' },
+  ];
 
 function isGitAvailable() {
   try {
@@ -67,7 +68,7 @@ function resolveTarget(repoId, target, db) {
 // eslint-disable-next-line max-statements -- churn computation inherently requires many steps
 function getChurn(db, repoId, target, days, refresh) {
   const guard = _requireNativeDb(db),
-  resolved = !(guard) ? (resolveTarget(repoId, target, db)) : undefined;
+    resolved = !guard ? resolveTarget(repoId, target, db) : undefined;
   if (guard) {
     return guard;
   }
@@ -111,12 +112,12 @@ function getChurn(db, repoId, target, days, refresh) {
   }
 
   {
-const since = computeSince(days);
-  if (resolved.filePath) {
-    return computeFileChurn(db, resolved.repo, resolved.filePath, days, since);
+    const since = computeSince(days);
+    if (resolved.filePath) {
+      return computeFileChurn(db, resolved.repo, resolved.filePath, days, since);
+    }
+    return computeRepoChurn(db, resolved.repo, days, since);
   }
-  return computeRepoChurn(db, resolved.repo, days, since);
-}
 }
 
 function getFirstSeen(repoPath, filePath) {
@@ -257,8 +258,6 @@ function upsertChurn(db, repoId, filePath, windowDays, metrics) {
 // SYMBOL PROVENANCE (v6 — Git archaeology for single symbol)
 // ══════════════════════════════════════════════════════════
 
-
-
 function classifyCommit(message) {
   for (const rule of CLASSIFICATION_RULES) {
     if (rule.pattern.test(message)) {
@@ -296,8 +295,10 @@ function getProvenance(db, repoId, symbolName) {
     return { error: `Repo ${repoId} not found` };
   }
 
-  let logEntries = [], creationDate = null,
-    lastModifiedDate = null, summary = `${symbol.kind} "${symbolName}" in ${symbol.file_path}:${symbol.start_line}-${symbol.end_line}. `;
+  let logEntries = [],
+    creationDate = null,
+    lastModifiedDate = null,
+    summary = `${symbol.kind} "${symbolName}" in ${symbol.file_path}:${symbol.start_line}-${symbol.end_line}. `;
   try {
     const logOutput = execFileSync(
       'git',
@@ -349,9 +350,9 @@ function getProvenance(db, repoId, symbolName) {
       logEntries.length > 50 && logEntries.some((e) => e.touches_symbol)
         ? logEntries.filter((e) => e.touches_symbol).slice(0, 50)
         : logEntries.slice(0, 50),
-    classifications = {}, authors = new Set();
-  
-  
+    classifications = {},
+    authors = new Set();
+
   for (const c of relevantCommits) {
     classifications[c.classification] = (classifications[c.classification] || 0) + 1;
     if (c.classification === 'creation' && !creationDate) {
@@ -363,7 +364,6 @@ function getProvenance(db, repoId, symbolName) {
     }
   }
 
-  
   summary += `${relevantCommits.length} commits by ${authors.size} author(s). `;
   if (creationDate) {
     summary += `First seen: ${creationDate.split('T')[0]}. `;
@@ -372,26 +372,26 @@ function getProvenance(db, repoId, symbolName) {
     summary += `Last modified: ${lastModifiedDate.split('T')[0]}. `;
   }
   {
-const clsSummary = Object.entries(classifications)
-    .sort((a, b) => b[1] - a[1])
-    .map(([cls, count]) => `${cls}(${count})`)
-    .join(', ');
-  summary += `Activity: ${clsSummary || 'unknown'}.`;
+    const clsSummary = Object.entries(classifications)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cls, count]) => `${cls}(${count})`)
+      .join(', ');
+    summary += `Activity: ${clsSummary || 'unknown'}.`;
 
-  return {
-    symbol: symbolName,
-    file: symbol.file_path,
-    kind: symbol.kind,
-    lines: `${symbol.start_line}-${symbol.end_line}`,
-    commits: relevantCommits,
-    total_commits: logEntries.length,
-    authors: [...authors],
-    creation_date: creationDate,
-    last_modified: lastModifiedDate,
-    classification_summary: classifications,
-    summary,
-  };
-}
+    return {
+      symbol: symbolName,
+      file: symbol.file_path,
+      kind: symbol.kind,
+      lines: `${symbol.start_line}-${symbol.end_line}`,
+      commits: relevantCommits,
+      total_commits: logEntries.length,
+      authors: [...authors],
+      creation_date: creationDate,
+      last_modified: lastModifiedDate,
+      classification_summary: classifications,
+      summary,
+    };
+  }
 }
 
 module.exports = { getChurn, isGitAvailable, getProvenance, classifyCommit };

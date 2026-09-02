@@ -1,7 +1,7 @@
-const utils = require('../utils'), fs = require('fs'), path = require('path'), os = require('os');
-
-
-
+const utils = require('../utils'),
+  fs = require('fs'),
+  path = require('path'),
+  os = require('os');
 
 describe('utils.js', () => {
   describe('requireNativeDb', () => {
@@ -104,12 +104,12 @@ describe('utils.js', () => {
 
     it('should find code files in src but skip node_modules', () => {
       const files = utils.walkDirForCode(tmpDir),
-      basenames = (() => {
+        basenames = (() => {
+          expect(files.length).toBe(3);
 
-        expect(files.length).toBe(3);
-        
-  return (files.map((f) => path.basename(f)).sort());
-})();expect(basenames).toEqual(['app.ts', 'index.js', 'style.css']);
+          return files.map((f) => path.basename(f)).sort();
+        })();
+      expect(basenames).toEqual(['app.ts', 'index.js', 'style.css']);
     });
 
     it('should skip hidden directories', () => {
@@ -121,15 +121,15 @@ describe('utils.js', () => {
 
     it('should find .py, .go, .rs files', () => {
       const pyDir = path.join(tmpDir, 'scripts'),
-      files = (() => {
+        files = (() => {
+          fs.mkdirSync(pyDir, { recursive: true });
+          fs.writeFileSync(path.join(pyDir, 'run.py'), 'print("hi")');
+          fs.writeFileSync(path.join(pyDir, 'main.go'), 'package main');
+          fs.writeFileSync(path.join(pyDir, 'lib.rs'), 'fn main(){}');
 
-        fs.mkdirSync(pyDir, { recursive: true });
-        fs.writeFileSync(path.join(pyDir, 'run.py'), 'print("hi")');
-        fs.writeFileSync(path.join(pyDir, 'main.go'), 'package main');
-        fs.writeFileSync(path.join(pyDir, 'lib.rs'), 'fn main(){}');
-        
-  return (utils.walkDirForCode(tmpDir));
-})();expect(files.length).toBeGreaterThanOrEqual(3);
+          return utils.walkDirForCode(tmpDir);
+        })();
+      expect(files.length).toBeGreaterThanOrEqual(3);
     });
   });
 

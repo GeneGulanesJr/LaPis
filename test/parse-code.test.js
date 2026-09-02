@@ -1,7 +1,7 @@
 // Unit tests for parse-code (WASM tree-sitter)
-const path = require('path'), fs = require('fs'), codeParser = require('../parse-code');
-
-
+const path = require('path'),
+  fs = require('fs'),
+  codeParser = require('../parse-code');
 
 function writeTmpTest(filePath, content) {
   fs.writeFileSync(filePath, content);
@@ -29,13 +29,12 @@ describe('parse-code (WASM tree-sitter)', () => {
     it('should extract JS function declarations', () => {
       const tmpFile = path.join('/tmp', 'test-parse-fn.js'),
         symbols = writeTmpTest(tmpFile, 'function hello(name) {\n  return name;\n}'),
-      fn = (() => {
+        fn = (() => {
+          fs.unlinkSync(tmpFile);
 
-        fs.unlinkSync(tmpFile);
-  
-        
-  return (symbols.find((s) => s.name === 'hello'));
-})();expect(fn.kind).toBe('function');
+          return symbols.find((s) => s.name === 'hello');
+        })();
+      expect(fn.kind).toBe('function');
       expect(fn.start_line).toBe(1);
       expect(fn.signature).toContain('hello');
       expect(fn.language).toBe('javascript');
@@ -43,108 +42,103 @@ describe('parse-code (WASM tree-sitter)', () => {
 
     it('should extract JS class declarations and methods', () => {
       const tmpFile = path.join('/tmp', 'test-class.js'),
-      symbols = (() => {
+        symbols = (() => {
+          fs.writeFileSync(tmpFile, 'class MyClass {\n  greet() {\n    return "hi";\n  }\n}');
 
-        fs.writeFileSync(tmpFile, 'class MyClass {\n  greet() {\n    return "hi";\n  }\n}');
-        
-  return (codeParser.parseFile(tmpFile));
-})();fs.unlinkSync(tmpFile);
+          return codeParser.parseFile(tmpFile);
+        })();
+      fs.unlinkSync(tmpFile);
 
       {
-const cls = symbols.find((s) => s.name === 'MyClass' && s.kind === 'class'),
-      method = (() => {
+        const cls = symbols.find((s) => s.name === 'MyClass' && s.kind === 'class'),
+          method = (() => {
+            expect(cls).toBeDefined();
 
-        expect(cls).toBeDefined();
-  
-        
-  return (symbols.find((s) => s.name === 'greet' && s.kind === 'method'));
-})();expect(method).toBeDefined();
-      expect(method.parent_name).toBe('MyClass');
-      expect(method.qualified_name).toBe('MyClass.greet');
-    }
-});
+            return symbols.find((s) => s.name === 'greet' && s.kind === 'method');
+          })();
+        expect(method).toBeDefined();
+        expect(method.parent_name).toBe('MyClass');
+        expect(method.qualified_name).toBe('MyClass.greet');
+      }
+    });
 
     it('should extract arrow function variables', () => {
       const tmpFile = path.join('/tmp', 'test-arrow.js'),
-      symbols = (() => {
+        symbols = (() => {
+          fs.writeFileSync(tmpFile, 'const add = (a, b) => a + b;');
 
-        fs.writeFileSync(tmpFile, 'const add = (a, b) => a + b;');
-        
-  return (codeParser.parseFile(tmpFile));
-})(),
-      fn = (() => {
-fs.unlinkSync(tmpFile);
-  
-        
-  return (symbols.find((s) => s.name === 'add' && s.kind === 'function'));
-})();expect(fn).toBeDefined();
+          return codeParser.parseFile(tmpFile);
+        })(),
+        fn = (() => {
+          fs.unlinkSync(tmpFile);
+
+          return symbols.find((s) => s.name === 'add' && s.kind === 'function');
+        })();
+      expect(fn).toBeDefined();
     });
 
     it('should extract docstrings from JSDoc comments', () => {
       const tmpFile = path.join('/tmp', 'test-docstring.js'),
-      symbols = (() => {
+        symbols = (() => {
+          fs.writeFileSync(tmpFile, '/** A greeter function */\nfunction greet(who) {\n  return "Hello " + who;\n}');
 
-        fs.writeFileSync(tmpFile, '/** A greeter function */\nfunction greet(who) {\n  return "Hello " + who;\n}');
-        
-  return (codeParser.parseFile(tmpFile));
-})(),
-      fn = (() => {
-fs.unlinkSync(tmpFile);
-  
-        
-  return (symbols.find((s) => s.name === 'greet'));
-})();expect(fn).toBeDefined();
+          return codeParser.parseFile(tmpFile);
+        })(),
+        fn = (() => {
+          fs.unlinkSync(tmpFile);
+
+          return symbols.find((s) => s.name === 'greet');
+        })();
+      expect(fn).toBeDefined();
       expect(fn.docstring).toContain('greeter');
     });
 
     it('should extract JSX components from .jsx files', () => {
       const tmpFile = path.join('/tmp', 'test-comp.jsx'),
-      symbols = (() => {
+        symbols = (() => {
+          fs.writeFileSync(tmpFile, 'export function Card({ title }) {\n  return <section>{title}</section>;\n}');
 
-        fs.writeFileSync(tmpFile, 'export function Card({ title }) {\n  return <section>{title}</section>;\n}');
-        
-  return (codeParser.parseFile(tmpFile));
-})(),
-      fn = (() => {
-fs.unlinkSync(tmpFile);
-  
-        
-  return (symbols.find((sym) => sym.name === 'Card'));
-})();expect(fn).toBeDefined();
+          return codeParser.parseFile(tmpFile);
+        })(),
+        fn = (() => {
+          fs.unlinkSync(tmpFile);
+
+          return symbols.find((sym) => sym.name === 'Card');
+        })();
+      expect(fn).toBeDefined();
       expect(fn.language).toBe('javascript');
     });
 
     it('should return output with all required fields', () => {
       const tmpFile = path.join('/tmp', 'test-schema.js'),
-      symbols = (() => {
+        symbols = (() => {
+          fs.writeFileSync(tmpFile, 'function myFunc(x) { return x; }');
 
-        fs.writeFileSync(tmpFile, 'function myFunc(x) { return x; }');
-        
-  return (codeParser.parseFile(tmpFile));
-})();fs.unlinkSync(tmpFile);
+          return codeParser.parseFile(tmpFile);
+        })();
+      fs.unlinkSync(tmpFile);
 
       const fn = symbols.find((s) => s.name === 'myFunc'),
-      requiredFields = (() => {
+        requiredFields = (() => {
+          expect(fn).toBeDefined();
 
-        expect(fn).toBeDefined();
-  
-        
-  return ([
-        'name',
-        'kind',
-        'language',
-        'file',
-        'signature',
-        'qualified_name',
-        'start_line',
-        'end_line',
-        'start_byte',
-        'end_byte',
-        'docstring',
-        'body_preview',
-        'parent_name',
-      ]);
-})();for (const field of requiredFields) {
+          return [
+            'name',
+            'kind',
+            'language',
+            'file',
+            'signature',
+            'qualified_name',
+            'start_line',
+            'end_line',
+            'start_byte',
+            'end_byte',
+            'docstring',
+            'body_preview',
+            'parent_name',
+          ];
+        })();
+      for (const field of requiredFields) {
         expect(field in fn).toBe(true);
       }
     });
@@ -153,43 +147,41 @@ fs.unlinkSync(tmpFile);
   describe('parse-code: TypeScript', () => {
     it('should extract TS interface and type alias', () => {
       const tmpFile = path.join('/tmp', 'test-types.ts'),
-      symbols = (() => {
+        symbols = (() => {
+          fs.writeFileSync(tmpFile, 'interface User {\n  name: string;\n  age: number;\n}\n\ntype ID = string;');
 
-        fs.writeFileSync(tmpFile, 'interface User {\n  name: string;\n  age: number;\n}\n\ntype ID = string;');
-        
-  return (codeParser.parseFile(tmpFile));
-})();fs.unlinkSync(tmpFile);
+          return codeParser.parseFile(tmpFile);
+        })();
+      fs.unlinkSync(tmpFile);
 
       {
-const iface = symbols.find((s) => s.name === 'User' && s.kind === 'interface'),
-      typeAlias = (() => {
+        const iface = symbols.find((s) => s.name === 'User' && s.kind === 'interface'),
+          typeAlias = (() => {
+            expect(iface).toBeDefined();
+            expect(iface.language).toBe('typescript');
 
-        expect(iface).toBeDefined();
-        expect(iface.language).toBe('typescript');
-  
-        
-  return (symbols.find((s) => s.name === 'ID' && s.kind === 'type'));
-})();expect(typeAlias).toBeDefined();
-    }
-});
+            return symbols.find((s) => s.name === 'ID' && s.kind === 'type');
+          })();
+        expect(typeAlias).toBeDefined();
+      }
+    });
 
     it('should extract TSX component', () => {
       const tmpFile = path.join('/tmp', 'test-comp.tsx'),
-      symbols = (() => {
+        symbols = (() => {
+          fs.writeFileSync(
+            tmpFile,
+            'export function Header({ title }: { title: string }) {\n  return <h1>{title}</h1>;\n}',
+          );
 
-        fs.writeFileSync(
-          tmpFile,
-          'export function Header({ title }: { title: string }) {\n  return <h1>{title}</h1>;\n}',
-        );
-        
-  return (codeParser.parseFile(tmpFile));
-})(),
-      fn = (() => {
-fs.unlinkSync(tmpFile);
-  
-        
-  return (symbols.find((s) => s.name === 'Header'));
-})();expect(fn).toBeDefined();
+          return codeParser.parseFile(tmpFile);
+        })(),
+        fn = (() => {
+          fs.unlinkSync(tmpFile);
+
+          return symbols.find((s) => s.name === 'Header');
+        })();
+      expect(fn).toBeDefined();
       expect(fn.language).toBe('typescript');
     });
   });
@@ -219,13 +211,13 @@ fs.unlinkSync(tmpFile);
           tmpFile,
           'def greet(name):\n    """Say hello."""\n    return f"Hello {name}"\n\nclass Animal:\n    def speak(self):\n        return "roar"',
         ),
-      greet = (() => {
+        greet = (() => {
+          fs.unlinkSync(tmpFile);
+          expect(symbols.length).toBeGreaterThanOrEqual(2);
 
-        fs.unlinkSync(tmpFile);
-        expect(symbols.length).toBeGreaterThanOrEqual(2);
-        
-  return (symbols.find((s) => s.name === 'greet' && s.kind === 'function'));
-})();expect(greet).toBeDefined();
+          return symbols.find((s) => s.name === 'greet' && s.kind === 'function');
+        })();
+      expect(greet).toBeDefined();
       expect(greet.language).toBe('python');
       expect(greet.docstring).toBeDefined();
       expect(typeof greet.docstring).toBe('string');
@@ -242,12 +234,12 @@ fs.unlinkSync(tmpFile);
       );
       try {
         const symbols = codeParser.parseFile(tmpFile),
-        greet = (() => {
+          greet = (() => {
+            expect(symbols.length).toBeGreaterThanOrEqual(2);
 
-          expect(symbols.length).toBeGreaterThanOrEqual(2);
-          
-  return (symbols.find((s) => s.name === 'Greet' && s.kind === 'function'));
-})();expect(greet).toBeDefined();
+            return symbols.find((s) => s.name === 'Greet' && s.kind === 'function');
+          })();
+        expect(greet).toBeDefined();
         expect(greet.language).toBe('go');
       } finally {
         fs.unlinkSync(tmpFile);
@@ -262,12 +254,12 @@ fs.unlinkSync(tmpFile);
       );
       try {
         const symbols = codeParser.parseFile(tmpFile),
-        add = (() => {
+          add = (() => {
+            expect(symbols.length).toBeGreaterThanOrEqual(2);
 
-          expect(symbols.length).toBeGreaterThanOrEqual(2);
-          
-  return (symbols.find((s) => s.name === 'add' && s.kind === 'function'));
-})();expect(add).toBeDefined();
+            return symbols.find((s) => s.name === 'add' && s.kind === 'function');
+          })();
+        expect(add).toBeDefined();
         expect(add.language).toBe('rust');
       } finally {
         fs.unlinkSync(tmpFile);

@@ -1,8 +1,8 @@
-const { runCommand } = require('./run-command'), { classifyCommand } = require('./classify-command'), { estimateTokens } = require('./estimate-tokens'), { compressOutput } = require('./compress-output'), { recordRun } = require('./savings-store');
-
-
-
-
+const { runCommand } = require('./run-command'),
+  { classifyCommand } = require('./classify-command'),
+  { estimateTokens } = require('./estimate-tokens'),
+  { compressOutput } = require('./compress-output'),
+  { recordRun } = require('./savings-store');
 
 async function executeAndCompress(commandArgs, options = {}) {
   const command = commandArgs.join(' '),
@@ -38,40 +38,40 @@ async function executeAndCompress(commandArgs, options = {}) {
   }
 
   {
-const compressed = compressOutput({
-      commandType,
-      commandArgs,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      exitCode: result.exitCode,
-    }),
-    compressedChars = compressed.importantOutput.length,
-    estimatedCompressedTokens = estimateTokens(compressed.importantOutput),
-    estimatedSavedTokens = Math.max(0, estimatedOriginalTokens - estimatedCompressedTokens),
-    savingsPercent =
-      estimatedOriginalTokens > 0 ? Math.round((estimatedSavedTokens / estimatedOriginalTokens) * 1000) / 10 : 0,
-    finalResult = {
-      command,
-      exitCode: result.exitCode,
-      commandType,
-      originalChars,
-      compressedChars,
-      estimatedOriginalTokens,
-      estimatedCompressedTokens,
-      estimatedSavedTokens,
-      savingsPercent,
-      summary: compressed.summary,
-      importantOutput: compressed.importantOutput,
-      truncated: result.truncated,
-      timedOut: result.timedOut,
-    };
+    const compressed = compressOutput({
+        commandType,
+        commandArgs,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+      }),
+      compressedChars = compressed.importantOutput.length,
+      estimatedCompressedTokens = estimateTokens(compressed.importantOutput),
+      estimatedSavedTokens = Math.max(0, estimatedOriginalTokens - estimatedCompressedTokens),
+      savingsPercent =
+        estimatedOriginalTokens > 0 ? Math.round((estimatedSavedTokens / estimatedOriginalTokens) * 1000) / 10 : 0,
+      finalResult = {
+        command,
+        exitCode: result.exitCode,
+        commandType,
+        originalChars,
+        compressedChars,
+        estimatedOriginalTokens,
+        estimatedCompressedTokens,
+        estimatedSavedTokens,
+        savingsPercent,
+        summary: compressed.summary,
+        importantOutput: compressed.importantOutput,
+        truncated: result.truncated,
+        timedOut: result.timedOut,
+      };
 
-  try {
-    recordRun(finalResult);
-  } catch {}
+    try {
+      recordRun(finalResult);
+    } catch {}
 
-  return finalResult;
-}
+    return finalResult;
+  }
 }
 
 function formatTextOutput(result) {

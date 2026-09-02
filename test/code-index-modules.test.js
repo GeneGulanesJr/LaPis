@@ -1,13 +1,13 @@
-const fs = require('fs'), os = require('os'), path = require('path'), { getLanguageForFile, canParseFile } = require('../src/code-index/parser-registry'), { normalizeSymbol, extractSymbolsFromFile } = require('../src/code-index/symbol-extractor'), { sourceSliceFromRow } = require('../src/code-index/source-retrieval'), { parsePhase, reindexRepository } = require('../src/code-index/incremental-indexer'), { scanRepository } = require('../src/code-index/scanner'), { createCodeIndexRepository } = require('../src/code-index/repos'), { hashContent } = require('../utils');
-
-
-
-
-
-
-
-
-
+const fs = require('fs'),
+  os = require('os'),
+  path = require('path'),
+  { getLanguageForFile, canParseFile } = require('../src/code-index/parser-registry'),
+  { normalizeSymbol, extractSymbolsFromFile } = require('../src/code-index/symbol-extractor'),
+  { sourceSliceFromRow } = require('../src/code-index/source-retrieval'),
+  { parsePhase, reindexRepository } = require('../src/code-index/incremental-indexer'),
+  { scanRepository } = require('../src/code-index/scanner'),
+  { createCodeIndexRepository } = require('../src/code-index/repos'),
+  { hashContent } = require('../utils');
 
 describe('code-index parser registry', () => {
   it('maps supported file extensions to parser languages', () => {
@@ -29,10 +29,11 @@ describe('code-index parser registry', () => {
 describe('code-index parse progress', () => {
   it('reports what parsing sub-step is currently running', async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-parse-progress-')),
-      filePath = path.join(tmp, 'app.js'), progress = [],
+      filePath = path.join(tmp, 'app.js'),
+      progress = [],
       originalWrite = process.stderr.write;
     fs.writeFileSync(filePath, 'function app() { return 1; }');
-    
+
     process.stderr.write = (chunk, encoding, cb) => {
       progress.push(JSON.parse(String(chunk)));
       if (typeof cb === 'function') {
@@ -234,17 +235,16 @@ describe('code-index source retrieval', () => {
 describe('code-index scanner hardening', () => {
   it('skips unsafe or noisy files and reports skip reasons', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-scan-hardening-')),
-    result = (() => {
+      result = (() => {
+        fs.mkdirSync(path.join(tmp, 'src'));
+        fs.writeFileSync(path.join(tmp, 'src', 'app.js'), 'function app() {}');
+        fs.writeFileSync(path.join(tmp, '.env.js'), 'TOKEN=secret');
+        fs.writeFileSync(path.join(tmp, 'large.js'), 'x'.repeat(128));
+        fs.writeFileSync(path.join(tmp, 'binary.js'), Buffer.from([0, 1, 2, 3]));
 
-      fs.mkdirSync(path.join(tmp, 'src'));
-      fs.writeFileSync(path.join(tmp, 'src', 'app.js'), 'function app() {}');
-      fs.writeFileSync(path.join(tmp, '.env.js'), 'TOKEN=secret');
-      fs.writeFileSync(path.join(tmp, 'large.js'), 'x'.repeat(128));
-      fs.writeFileSync(path.join(tmp, 'binary.js'), Buffer.from([0, 1, 2, 3]));
-  
-      
-  return (scanRepository(tmp, { maxFileSize: 32 }));
-})(); expect(result.files.map((f) => path.basename(f))).toEqual(['app.js']);
+        return scanRepository(tmp, { maxFileSize: 32 });
+      })();
+    expect(result.files.map((f) => path.basename(f))).toEqual(['app.js']);
     expect(result.skipReport.tooLarge).toBe(1);
     expect(result.skipReport.binary).toBe(1);
     expect(result.skipReport.secret).toBe(1);
@@ -252,23 +252,22 @@ describe('code-index scanner hardening', () => {
 
   it('skips lock files and auto-generated non-code files', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-scan-lock-')),
-    result = (() => {
+      result = (() => {
+        fs.mkdirSync(path.join(tmp, 'src'));
+        fs.writeFileSync(path.join(tmp, 'src', 'app.js'), 'function app() {}');
+        fs.writeFileSync(path.join(tmp, 'package-lock.json'), '{}');
+        fs.writeFileSync(path.join(tmp, 'package.json'), '{}');
+        fs.writeFileSync(path.join(tmp, 'tsconfig.json'), '{}');
+        fs.writeFileSync(path.join(tmp, 'pnpm-lock.yaml'), 'lockfileVersion: 1');
+        fs.writeFileSync(path.join(tmp, 'Gemfile.lock'), 'GEM');
+        fs.writeFileSync(path.join(tmp, 'poetry.lock'), '[metadata]');
+        fs.writeFileSync(path.join(tmp, 'Cargo.lock'), '[package]');
+        fs.writeFileSync(path.join(tmp, 'composer.lock'), '{}');
+        fs.writeFileSync(path.join(tmp, 'go.sum'), 'module hash');
 
-      fs.mkdirSync(path.join(tmp, 'src'));
-      fs.writeFileSync(path.join(tmp, 'src', 'app.js'), 'function app() {}');
-      fs.writeFileSync(path.join(tmp, 'package-lock.json'), '{}');
-      fs.writeFileSync(path.join(tmp, 'package.json'), '{}');
-      fs.writeFileSync(path.join(tmp, 'tsconfig.json'), '{}');
-      fs.writeFileSync(path.join(tmp, 'pnpm-lock.yaml'), 'lockfileVersion: 1');
-      fs.writeFileSync(path.join(tmp, 'Gemfile.lock'), 'GEM');
-      fs.writeFileSync(path.join(tmp, 'poetry.lock'), '[metadata]');
-      fs.writeFileSync(path.join(tmp, 'Cargo.lock'), '[package]');
-      fs.writeFileSync(path.join(tmp, 'composer.lock'), '{}');
-      fs.writeFileSync(path.join(tmp, 'go.sum'), 'module hash');
-  
-      
-  return (scanRepository(tmp, {}));
-})(); expect(result.files.map((f) => path.basename(f))).toEqual(['app.js']);
+        return scanRepository(tmp, {});
+      })();
+    expect(result.files.map((f) => path.basename(f))).toEqual(['app.js']);
     expect(result.skipReport.lock).toBe(4);
     expect(result.skipReport.unsupportedExt).toBe(5);
   });

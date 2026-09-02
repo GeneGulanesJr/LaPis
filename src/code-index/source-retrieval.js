@@ -1,7 +1,7 @@
-const path = require('path'), { ensureDb, sqlJson, sqlRaw } = require('../../db'), { estimateTokens } = require('../../utils'), { createCodeIndexRepository } = require('./repos');
-
-
-
+const path = require('path'),
+  { ensureDb, sqlJson, sqlRaw } = require('../../db'),
+  { estimateTokens } = require('../../utils'),
+  { createCodeIndexRepository } = require('./repos');
 
 function sourceSliceFromRow(row) {
   const buf = Buffer.from(row.content, 'utf-8');
@@ -119,24 +119,22 @@ function searchCodeLike(query, repoName, kind, maxResults) {
     WHERE (s.name LIKE ? OR s.qualified_name LIKE ? OR s.signature LIKE ? OR s.summary LIKE ?)
   `;
   const params = [likeQuery, likeQuery, likeQuery, likeQuery],
-  rows = (() => {
+    rows = (() => {
+      if (repoName) {
+        sql += ' AND r.name = ?';
+        params.push(repoName);
+      }
+      if (kind) {
+        sql += ' AND s.kind = ?';
+        params.push(kind);
+      }
 
-  
-    if (repoName) {
-      sql += ' AND r.name = ?';
-      params.push(repoName);
-    }
-    if (kind) {
-      sql += ' AND s.kind = ?';
-      params.push(kind);
-    }
-  
-    sql += ' LIMIT ?';
-    params.push(maxResults);
-  
-    
-  return (sqlJson(sql, params));
-})();return {
+      sql += ' LIMIT ?';
+      params.push(maxResults);
+
+      return sqlJson(sql, params);
+    })();
+  return {
     query,
     results: rows.map(mapSearchRow),
     total: rows.length,
@@ -171,7 +169,8 @@ function searchCode(query, repoName, kind, maxResults) {
     JOIN code_symbols s ON s.id = code_symbols_fts.rowid
     JOIN code_repos r ON r.id = s.repo_id
     WHERE code_symbols_fts MATCH ?
-  `, rows;
+  `,
+    rows;
   const params = [ftsQuery];
 
   if (repoName) {
@@ -186,7 +185,6 @@ function searchCode(query, repoName, kind, maxResults) {
   sql += ' ORDER BY bm25(code_symbols_fts) LIMIT ?';
   params.push(Math.max(maxResults * 4, maxResults));
 
-  
   try {
     rows = sqlJson(sql, params);
   } catch {
@@ -223,54 +221,54 @@ function rankedContext(query, repoName, options = {}) {
       continue;
     }
     {
-const text = [result.signature, result.summary, source.source].filter(Boolean).join('\n'),
-      tokens = estimateTokens(text);
-    if (items.length > 0 && totalTokens + tokens > tokenBudget) {
-      // oxlint-disable-next-line no-continue
-      continue;
-    }
-    items.push({
-      repo: result.repo,
-      file: result.file,
-      symbol: result.symbol,
-      qualified_name: result.qualified_name,
-      kind: result.kind,
-      score: result.score,
-      start_line: result.line,
-      end_line: result.end_line,
-      signature: result.signature,
-      summary: result.summary,
-      tokens,
-      source: source.source,
-    });
-    totalTokens += tokens;
-    if (totalTokens >= tokenBudget) {
-      break;
+      const text = [result.signature, result.summary, source.source].filter(Boolean).join('\n'),
+        tokens = estimateTokens(text);
+      if (items.length > 0 && totalTokens + tokens > tokenBudget) {
+        // oxlint-disable-next-line no-continue
+        continue;
+      }
+      items.push({
+        repo: result.repo,
+        file: result.file,
+        symbol: result.symbol,
+        qualified_name: result.qualified_name,
+        kind: result.kind,
+        score: result.score,
+        start_line: result.line,
+        end_line: result.end_line,
+        signature: result.signature,
+        summary: result.summary,
+        tokens,
+        source: source.source,
+      });
+      totalTokens += tokens;
+      if (totalTokens >= tokenBudget) {
+        break;
+      }
     }
   }
-}
 
   {
-const response = {
-    query,
-    repo: repoName || null,
-    context_items: items,
-    total_tokens: totalTokens,
-    budget_tokens: tokenBudget,
-    items_included: items.length,
-    items_considered: considered,
-    search_strategy: search.strategy,
-  };
-  if (items.length === 0) {
-    response.negative_evidence = {
-      verdict: 'no_implementation_found',
-      scanned_results: (search.results || []).length,
-      best_match_score: search.results && search.results[0] ? search.results[0].score : 0,
+    const response = {
+      query,
+      repo: repoName || null,
+      context_items: items,
+      total_tokens: totalTokens,
+      budget_tokens: tokenBudget,
+      items_included: items.length,
+      items_considered: considered,
+      search_strategy: search.strategy,
     };
-    response.warning = `No implementation found for '${query.slice(0, 80)}'.`;
+    if (items.length === 0) {
+      response.negative_evidence = {
+        verdict: 'no_implementation_found',
+        scanned_results: (search.results || []).length,
+        best_match_score: search.results && search.results[0] ? search.results[0].score : 0,
+      };
+      response.warning = `No implementation found for '${query.slice(0, 80)}'.`;
+    }
+    return response;
   }
-  return response;
-}
 }
 
 function listCodeRepos(repository = null) {

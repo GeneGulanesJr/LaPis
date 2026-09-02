@@ -1,4 +1,5 @@
-const path = require('path'), docIndexer = require('../../doc-index'),
+const path = require('path'),
+  docIndexer = require('../../doc-index'),
   USAGE = {
     'doc-orphans': '--repo X [--include-same-doc]',
     'stale-pages': '--repo X',
@@ -15,7 +16,6 @@ const path = require('path'), docIndexer = require('../../doc-index'),
     'doc-coverage': '--repo X [--doc-repo X]',
     'list-doc-repos': '',
   };
-
 
 function _dispatchDoc(cmd, repoName, fn, deps) {
   if (!repoName) {
@@ -46,19 +46,19 @@ function register(commands, deps) {
       return jsonErrNoExit('Missing --repo');
     }
     {
-const codeRepoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [codeRepo]);
-    if (!codeRepoRow.length) {
-      return jsonErrNoExit(`Code repo "${codeRepo}" not found. Run index-repo first.`);
+      const codeRepoRow = sqlJson('SELECT id FROM code_repos WHERE name = ?', [codeRepo]);
+      if (!codeRepoRow.length) {
+        return jsonErrNoExit(`Code repo "${codeRepo}" not found. Run index-repo first.`);
+      }
+      {
+        const docRepoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [docRepo]);
+        if (!docRepoRow.length) {
+          return jsonErrNoExit(`Doc repo "${docRepo}" not found. Run index-docs first.`);
+        }
+        return docIndexer.getDocCoverage(getDb(), codeRepoRow[0].id, docRepoRow[0].id);
+      }
     }
-    {
-const docRepoRow = sqlJson('SELECT id FROM doc_repos WHERE name = ?', [docRepo]);
-    if (!docRepoRow.length) {
-      return jsonErrNoExit(`Doc repo "${docRepo}" not found. Run index-docs first.`);
-    }
-    return docIndexer.getDocCoverage(getDb(), codeRepoRow[0].id, docRepoRow[0].id);
-  }
-}
-};
+  };
   commands['stale-pages'] = (args) =>
     _dispatchDoc('stale-pages', args.repo, (r) => docIndexer.getStalePages(getDb(), r.id), dispatchDeps);
   commands['doc-duplicates'] = (args) =>

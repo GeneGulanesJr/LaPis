@@ -76,19 +76,19 @@ function extractConstraints(symbol) {
     docstring = symbol.docstring || '',
     // Extract from line comments
     lineMatches = body.matchAll(/(?:\/\/|#)\s*(?:do not|don't|never|must not|should not|avoid)\s+(.+)/gi),
-  docLines = (() => {
-
-    for (const m of lineMatches) {
-      const text = m[1].trim().replace(/\s*$/, '');
-      if (text.length > 0 && text.length <= CFG.MAX_CONSTRAINT_LENGTH) {
-        constraints.push(`Do not ${text.toLowerCase()}`);
+    docLines = (() => {
+      for (const m of lineMatches) {
+        const text = m[1].trim().replace(/\s*$/, '');
+        if (text.length > 0 && text.length <= CFG.MAX_CONSTRAINT_LENGTH) {
+          constraints.push(`Do not ${text.toLowerCase()}`);
+        }
       }
-    }
-  
-    // Extract from docstring
-    
-  return (docstring.split('\n'));
-})();for (const line of docLines) {
+
+      // Extract from docstring
+
+      return docstring.split('\n');
+    })();
+  for (const line of docLines) {
     const trimmed = line.replace(/\s*\*\s*/g, '').trim(),
       m = trimmed.match(/^(?:do not|don't|never|must not|should not|avoid)\s+(.+)/i);
     if (m) {
@@ -147,28 +147,28 @@ function enrichSymbols(db, repoId, opts = {}) {
     skipped = 0;
 
   {
-const tx = db.transaction(() => {
-    for (const sym of symbols) {
-      const intent = extractIntent(sym),
-        constraints = extractConstraints(sym),
-        behaviorSummary = _buildBehaviorSummary(sym);
+    const tx = db.transaction(() => {
+      for (const sym of symbols) {
+        const intent = extractIntent(sym),
+          constraints = extractConstraints(sym),
+          behaviorSummary = _buildBehaviorSummary(sym);
 
-      if (intent.length > 0 || constraints.length > 0 || behaviorSummary.length > 0) {
-        insertMeta.run(sym.id, intent, behaviorSummary, JSON.stringify(constraints));
-        enriched++;
-      } else {
-        skipped++;
+        if (intent.length > 0 || constraints.length > 0 || behaviorSummary.length > 0) {
+          insertMeta.run(sym.id, intent, behaviorSummary, JSON.stringify(constraints));
+          enriched++;
+        } else {
+          skipped++;
+        }
       }
-    }
-  });
-  tx();
+    });
+    tx();
 
-  return {
-    total_symbols: symbols.length,
-    enriched_count: enriched,
-    skipped_count: skipped,
-  };
-}
+    return {
+      total_symbols: symbols.length,
+      enriched_count: enriched,
+      skipped_count: skipped,
+    };
+  }
 }
 
 /**

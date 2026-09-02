@@ -1,5 +1,5 @@
-const { parentPort } = require('worker_threads'), codeParser = require('../../parse-code');
-
+const { parentPort } = require('worker_threads'),
+  codeParser = require('../../parse-code');
 
 async function init() {
   try {

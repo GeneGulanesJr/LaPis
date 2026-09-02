@@ -1,7 +1,7 @@
 'use strict';
 
-const { DUPLICATE_DETECTION: CFG } = require('../../constants'), { fingerprintSymbol, jaccardSimilarity, lshBands } = require('../code-analysis/fingerprint');
-
+const { DUPLICATE_DETECTION: CFG } = require('../../constants'),
+  { fingerprintSymbol, jaccardSimilarity, lshBands } = require('../code-analysis/fingerprint');
 
 function _requireNativeDb(db) {
   if (!db || !db.prepare) {
@@ -29,7 +29,7 @@ function findDupes(db, repoId, opts = {}) {
        WHERE repo_id = ? AND body_preview IS NOT NULL AND length(body_preview) >= ?`,
       )
       .all(repoId, minBodyLength),
-  fingerprints = !(symbols.length === 0) ? ([]) : undefined;
+    fingerprints = !(symbols.length === 0) ? [] : undefined;
 
   if (symbols.length === 0) {
     return { duplicate_groups: [], total_symbols_scanned: 0, groups_found: 0, scan_duration_ms: 0 };
@@ -51,24 +51,24 @@ function findDupes(db, repoId, opts = {}) {
   // This preserves the reported threshold (exact Jaccard is still applied to
   // Every candidate) while collapsing the comparison set from O(n^2) to ~O(n).
   const buckets = new Map(),
-  neighbors = (() => {
-
-    for (let i = 0; i < fingerprints.length; i++) {
-      const keys = lshBands(fingerprints[i].signature, CFG.LSH_ROWS_PER_BAND);
-      for (const key of keys) {
-        let bucket = buckets.get(key);
-        if (!bucket) {
-          bucket = [];
-          buckets.set(key, bucket);
+    neighbors = (() => {
+      for (let i = 0; i < fingerprints.length; i++) {
+        const keys = lshBands(fingerprints[i].signature, CFG.LSH_ROWS_PER_BAND);
+        for (const key of keys) {
+          let bucket = buckets.get(key);
+          if (!bucket) {
+            bucket = [];
+            buckets.set(key, bucket);
+          }
+          bucket.push(i);
         }
-        bucket.push(i);
       }
-    }
-  
-    // Build threshold neighbor map from candidate pairs only.
-    
-  return (new Array(fingerprints.length));
-})();for (let i = 0; i < fingerprints.length; i++) {
+
+      // Build threshold neighbor map from candidate pairs only.
+
+      return new Array(fingerprints.length);
+    })();
+  for (let i = 0; i < fingerprints.length; i++) {
     neighbors[i] = null;
   }
   // Deduplicate candidate pairs with a compact integer key (lo * N + hi)
@@ -111,69 +111,67 @@ function findDupes(db, repoId, opts = {}) {
   // Semantics but now only over verified-similar pairs.
   const groups = [],
     assigned = new Set(),
-  duplicateGroups = (() => {
+    duplicateGroups = (() => {
+      for (let i = 0; i < fingerprints.length; i++) {
+        if (assigned.has(i)) {
+          continue;
+        }
+        const nbrs = neighbors[i],
+          cluster = [i];
+        if (!nbrs || nbrs.length === 0) {
+          continue;
+        }
 
-  
-    for (let i = 0; i < fingerprints.length; i++) {
-      if (assigned.has(i)) {
-        continue;
-      }
-      const nbrs = neighbors[i], cluster = [i];
-      if (!nbrs || nbrs.length === 0) {
-        continue;
-      }
-  
-      
-      for (const j of nbrs) {
-        if (!assigned.has(j)) {
-          cluster.push(j);
+        for (const j of nbrs) {
+          if (!assigned.has(j)) {
+            cluster.push(j);
+          }
+        }
+
+        if (cluster.length >= 2) {
+          for (const idx of cluster) {
+            assigned.add(idx);
+          }
+          groups.push(cluster);
         }
       }
-  
-      if (cluster.length >= 2) {
-        for (const idx of cluster) {
-          assigned.add(idx);
+
+      // Build output
+
+      return groups.slice(0, topK).map((cluster) => {
+        const instances = cluster.map((idx) => ({
+          symbol_id: fingerprints[idx].symbolId,
+          symbol_name: fingerprints[idx].symbolName,
+          file_path: fingerprints[idx].filePath,
+          line_start: fingerprints[idx].startLine,
+        }));
+
+        let maxSim = 0;
+        for (let a = 0; a < cluster.length; a++) {
+          for (let b = a + 1; b < cluster.length; b++) {
+            const sim = jaccardSimilarity(fingerprints[cluster[a]].signature, fingerprints[cluster[b]].signature);
+            if (sim > maxSim) {
+              maxSim = sim;
+            }
+          }
         }
-        groups.push(cluster);
-      }
-    }
-  
-    // Build output
-    
-  return (groups.slice(0, topK).map((cluster) => {
-    const instances = cluster.map((idx) => ({
-      symbol_id: fingerprints[idx].symbolId,
-      symbol_name: fingerprints[idx].symbolName,
-      file_path: fingerprints[idx].filePath,
-      line_start: fingerprints[idx].startLine,
-    }));
 
-    let maxSim = 0;
-    for (let a = 0; a < cluster.length; a++) {
-      for (let b = a + 1; b < cluster.length; b++) {
-        const sim = jaccardSimilarity(fingerprints[cluster[a]].signature, fingerprints[cluster[b]].signature);
-        if (sim > maxSim) {
-          maxSim = sim;
+        {
+          const risk = maxSim > 0.85 ? 'high' : maxSim > 0.7 ? 'medium' : 'low',
+            primaryName = instances[0].symbol_name,
+            recommendation = `Consider merging ${instances.map((i) => i.symbol_name).join(' and ')} into a single implementation.`;
+
+          return {
+            intent: `Similar behavior to ${primaryName}`,
+            risk,
+            detection_type: 'structural',
+            recommendation,
+            similarity: Math.round(maxSim * 100) / 100,
+            instances,
+          };
         }
-      }
-    }
-
-    {
-const risk = maxSim > 0.85 ? 'high' : maxSim > 0.7 ? 'medium' : 'low',
-      primaryName = instances[0].symbol_name,
-      recommendation = `Consider merging ${instances.map((i) => i.symbol_name).join(' and ')} into a single implementation.`;
-
-    return {
-      intent: `Similar behavior to ${primaryName}`,
-      risk,
-      detection_type: 'structural',
-      recommendation,
-      similarity: Math.round(maxSim * 100) / 100,
-      instances,
-    };
-  }
-}));
-})(); // Persist to duplicate_groups / duplicate_instances
+      });
+    })(); // Persist to duplicate_groups / duplicate_instances
   _persistGroups(db, repoId, duplicateGroups);
 
   return {

@@ -1,8 +1,8 @@
-const { createDb, sqlJson, sqlRun } = require('../db'), { createAurexRepository } = require('../src/platform/storage/repositories'),
+const { createDb, sqlJson, sqlRun } = require('../db'),
+  { createAurexRepository } = require('../src/platform/storage/repositories'),
   // Wires an isolated in-memory DB (with full schema) onto the global sqlJson/sqlRun.
   // The aurex repository accepts that same { sqlJson, sqlRun } shape.
   deps = { sqlJson, sqlRun };
-
 
 let initialized = false;
 beforeAll(() => {
@@ -32,15 +32,15 @@ describe('claimNextReadyTodo priority ordering', () => {
     ]);
 
     {
-const first = repo.claimNextReadyTodo('m1', 'w1')[0],
-      second = repo.claimNextReadyTodo('m1', 'w1')[0],
-      third = repo.claimNextReadyTodo('m1', 'w1')[0];
+      const first = repo.claimNextReadyTodo('m1', 'w1')[0],
+        second = repo.claimNextReadyTodo('m1', 'w1')[0],
+        third = repo.claimNextReadyTodo('m1', 'w1')[0];
 
-    expect(first.id).toBe('td-high');
-    expect(second.id).toBe('td-med');
-    expect(third.id).toBe('td-low');
-  }
-});
+      expect(first.id).toBe('td-high');
+      expect(second.id).toBe('td-med');
+      expect(third.id).toBe('td-low');
+    }
+  });
 
   it('returns empty when no ready todos remain', () => {
     const repo = createAurexRepository(deps);

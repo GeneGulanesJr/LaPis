@@ -3,8 +3,12 @@ const { jsonOk, jsonCreated, jsonError } = require('../errors');
 function createCheckpoint(repo) {
   return async (req, res, ctx) => {
     const { missionId, trigger, milestoneId, summary } = ctx.body,
-    id = !(!missionId || !trigger || !milestoneId) ? (`cp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`) : undefined,
-    rows = !(!missionId || !trigger || !milestoneId) ? (repo.createCheckpoint({ id, missionId, trigger, milestoneId, summary: summary || '' })) : undefined;
+      id = !(!missionId || !trigger || !milestoneId)
+        ? `cp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        : undefined,
+      rows = !(!missionId || !trigger || !milestoneId)
+        ? repo.createCheckpoint({ id, missionId, trigger, milestoneId, summary: summary || '' })
+        : undefined;
     if (!missionId || !trigger || !milestoneId) {
       return jsonError(res, 400, 'bad_request', 'missionId, trigger, and milestoneId are required');
     }
@@ -25,8 +29,11 @@ function getCheckpoint(repo) {
 function resolveCheckpoint(repo) {
   return async (req, res, ctx) => {
     const { decision, guidance, reason, rescopeGuidance } = ctx.body,
-    existing = decision ? (repo.getCheckpoint(ctx.params.id)) : undefined,
-    rows = decision && !(!existing || existing.length === 0) && !(existing[0].status === 'resolved') ? (repo.resolveCheckpoint(ctx.params.id, decision, guidance, reason, rescopeGuidance)) : undefined;
+      existing = decision ? repo.getCheckpoint(ctx.params.id) : undefined,
+      rows =
+        decision && !(!existing || existing.length === 0) && !(existing[0].status === 'resolved')
+          ? repo.resolveCheckpoint(ctx.params.id, decision, guidance, reason, rescopeGuidance)
+          : undefined;
     if (!decision) {
       return jsonError(res, 400, 'bad_request', 'decision is required');
     }

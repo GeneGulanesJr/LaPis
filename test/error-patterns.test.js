@@ -1,12 +1,11 @@
 // Test coverage for standardized error patterns (Issue #34)
 // And test isolation / atomic migrations (Issues #35, #36)
-const path = require('path'), os = require('os'), fs = require('fs'), dbModule = require('../db'),
-  { MemoryError } = dbModule, { resetConfigCache } = require('../config');
-
-
-
-
-
+const path = require('path'),
+  os = require('os'),
+  fs = require('fs'),
+  dbModule = require('../db'),
+  { MemoryError } = dbModule,
+  { resetConfigCache } = require('../config');
 
 describe('Error patterns and DB isolation', () => {
   beforeAll(() => {
@@ -131,13 +130,12 @@ describe('Error patterns and DB isolation', () => {
   describe('db.js — atomic migrations (Issue #35)', () => {
     it('should report migration status when up-to-date', () => {
       const result = dbModule.ensureDb(),
-      rows = (() => {
+        rows = (() => {
+          expect(result.ok).toBe(true);
 
-        expect(result.ok).toBe(true);
-  
-        
-  return (dbModule.sqlJson('PRAGMA user_version'));
-})();expect(rows[0].user_version).toBeGreaterThanOrEqual(6);
+          return dbModule.sqlJson('PRAGMA user_version');
+        })();
+      expect(rows[0].user_version).toBeGreaterThanOrEqual(6);
     });
 
     it('migrations should not silently swallow errors', () => {

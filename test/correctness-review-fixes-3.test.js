@@ -12,24 +12,24 @@
 //      Candidate; a deleted file throws ENOENT and is rejected before it can
 //      Be recorded as deleted, so incremental reindex left orphaned rows.
 
-const fs = require('fs'), path = require('path'), os = require('os');
-
-
+const fs = require('fs'),
+  path = require('path'),
+  os = require('os');
 
 describe('correctness review fixes (round 3) — F23-F26', () => {
   // ── F23: LIKE escape clauses carry ESCAPE '\' ──────────────────────────
   it('F23a: search.js LIKE fallback includes ESCAPE clause with a backslash', () => {
     const src = fs.readFileSync(require.resolve('../src/memory-domain/search'), 'utf8'),
-    m = (() => {
+      m = (() => {
+        // The fallback WHERE must use LIKE ? ESCAPE so escaped %/_ are literals.
+        expect(src).toMatch(/LIKE \? ESCAPE/);
+        // The escape char in the generated SQL must be a real backslash, not the
+        // Empty string produced by a JS-escaped quote ('\' -> ''). In source the
+        // Backslash is doubled ('\\'), so the captured group contains a backslash.
 
-      // The fallback WHERE must use LIKE ? ESCAPE so escaped %/_ are literals.
-      expect(src).toMatch(/LIKE \? ESCAPE/);
-      // The escape char in the generated SQL must be a real backslash, not the
-      // Empty string produced by a JS-escaped quote ('\' -> ''). In source the
-      // Backslash is doubled ('\\'), so the captured group contains a backslash.
-      
-  return (src.match(/LIKE \? ESCAPE '([^']*)'/));
-})();expect(m).not.toBeNull();
+        return src.match(/LIKE \? ESCAPE '([^']*)'/);
+      })();
+    expect(m).not.toBeNull();
     expect(m[1]).toContain('\\');
     expect(m[1].length).toBeGreaterThan(0);
   });
@@ -39,14 +39,14 @@ describe('correctness review fixes (round 3) — F23-F26', () => {
       // Every LIKE clause (where + score) must carry ESCAPE.
       likeClauses = src.match(/LIKE \?/g) || [],
       escapedClauses = src.match(/LIKE \? ESCAPE/g) || [],
-    m = (() => {
+      m = (() => {
+        expect(escapedClauses.length).toBe(likeClauses.length);
+        expect(likeClauses.length).toBeGreaterThan(0);
+        // And the escape char must be a real backslash (doubled in source).
 
-      expect(escapedClauses.length).toBe(likeClauses.length);
-      expect(likeClauses.length).toBeGreaterThan(0);
-      // And the escape char must be a real backslash (doubled in source).
-      
-  return (src.match(/LIKE \? ESCAPE '([^']*)'/));
-})();expect(m).not.toBeNull();
+        return src.match(/LIKE \? ESCAPE '([^']*)'/);
+      })();
+    expect(m).not.toBeNull();
     expect(m[1]).toContain('\\');
     expect(m[1].length).toBeGreaterThan(0);
   });

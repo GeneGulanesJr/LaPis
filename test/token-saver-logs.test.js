@@ -8,17 +8,16 @@ describe('compress-logs', () => {
 
   it('deduplicates recurring lines and extracts errors', () => {
     const lines = [],
-    result = (() => {
+      result = (() => {
+        for (let i = 0; i < 42; i++) {
+          lines.push('2026-06-05 12:00:00 Database is locked');
+        }
+        lines.push('2026-06-05 12:01:00 HTTP 500 error at /api/users');
+        lines.push('2026-06-05 12:01:22 Server started successfully');
 
-      for (let i = 0; i < 42; i++) {
-        lines.push('2026-06-05 12:00:00 Database is locked');
-      }
-      lines.push('2026-06-05 12:01:00 HTTP 500 error at /api/users');
-      lines.push('2026-06-05 12:01:22 Server started successfully');
-  
-      
-  return (compressLogs({ stdout: lines.join('\n'), stderr: '', exitCode: 0 }));
-})();expect(result.summary).toContain('44 log');
+        return compressLogs({ stdout: lines.join('\n'), stderr: '', exitCode: 0 });
+      })();
+    expect(result.summary).toContain('44 log');
     expect(result.summary).toContain('error');
     expect(result.summary).toContain('recurring');
     expect(result.importantOutput).toContain('42x');

@@ -16,20 +16,20 @@ export function renderCompactToolResult(result: any, options: any, theme: any) {
   }
 
   {
-const limit = options?.expanded ? EXPANDED_LINES : COLLAPSED_LINES,
-    shown = lines.slice(0, limit).map(compactLine),
-    hidden = lines.length - shown.length;
-  let text = shown.join('\n');
+    const limit = options?.expanded ? EXPANDED_LINES : COLLAPSED_LINES,
+      shown = lines.slice(0, limit).map(compactLine),
+      hidden = lines.length - shown.length;
+    let text = shown.join('\n');
 
-  if (hidden > 0) {
-    const suffix = options?.expanded
-      ? `... ${hidden} more terminal lines hidden`
-      : `... ${hidden} more terminal lines hidden (expand to preview more)`;
-    text += `\n${theme.fg('muted', suffix)}`;
+    if (hidden > 0) {
+      const suffix = options?.expanded
+        ? `... ${hidden} more terminal lines hidden`
+        : `... ${hidden} more terminal lines hidden (expand to preview more)`;
+      text += `\n${theme.fg('muted', suffix)}`;
+    }
+
+    return compactText(theme.fg(isError ? 'error' : 'toolOutput', text));
   }
-
-  return compactText(theme.fg(isError ? 'error' : 'toolOutput', text));
-}
 }
 
 function extractTextLines(result: any): string[] {

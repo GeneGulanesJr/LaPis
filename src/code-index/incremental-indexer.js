@@ -1,28 +1,28 @@
-const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process'), { RESULT_LIMITS, WORKER_POOL } = require('../../constants'), { hashContent } = require('../../utils'), { createCodeIndexRepository } = require('./repos'), { scanRepository } = require('./scanner'), { SKIP_FILE_RE } = require('./scanner'), { resolveRepoScopedPath, resolveRepoScopedDeletedPath } = require('./path-guards'), { withRepoIndexLock } = require('./repo-lock'), { createParserRegistry, getLanguageForFile } = require('./parser-registry'), { extractSymbolsSplit, normalizeSymbolHot } = require('./symbol-extractor'), {
-  buildImportEdges,
-  buildImportEdgesForFiles,
-  buildCallEdges,
-  buildCallEdgesForFiles,
-  buildComplexityMetrics,
-  buildComplexityMetricsForFiles,
-  buildRelationEdges,
-  buildCochangeEdges,
-} = require('./edge-extractor'), { createParsePool } = require('./worker-pool'), { buildScopeBindings: _buildScopeBindings } = require('./scope-builder'), { resolveScopeBindings, resolveScopeBindingsForFiles } = require('./scope-resolver');
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+const fs = require('fs'),
+  path = require('path'),
+  { execFileSync } = require('child_process'),
+  { RESULT_LIMITS, WORKER_POOL } = require('../../constants'),
+  { hashContent } = require('../../utils'),
+  { createCodeIndexRepository } = require('./repos'),
+  { scanRepository } = require('./scanner'),
+  { SKIP_FILE_RE } = require('./scanner'),
+  { resolveRepoScopedPath, resolveRepoScopedDeletedPath } = require('./path-guards'),
+  { withRepoIndexLock } = require('./repo-lock'),
+  { createParserRegistry, getLanguageForFile } = require('./parser-registry'),
+  { extractSymbolsSplit, normalizeSymbolHot } = require('./symbol-extractor'),
+  {
+    buildImportEdges,
+    buildImportEdgesForFiles,
+    buildCallEdges,
+    buildCallEdgesForFiles,
+    buildComplexityMetrics,
+    buildComplexityMetricsForFiles,
+    buildRelationEdges,
+    buildCochangeEdges,
+  } = require('./edge-extractor'),
+  { createParsePool } = require('./worker-pool'),
+  { buildScopeBindings: _buildScopeBindings } = require('./scope-builder'),
+  { resolveScopeBindings, resolveScopeBindingsForFiles } = require('./scope-resolver');
 
 /**
  * Insert scope bindings for a file using delete-then-insert strategy.
@@ -339,21 +339,21 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
   let importEdges = 0,
     callEdges = 0,
     complexityCount = 0,
-  scopeResolved = (() => {
-
-    try {
-      const ig = buildImportEdges(db, repoId);
-      if (ig.success) {
-        importEdges = ig.edges;
+    scopeResolved = (() => {
+      try {
+        const ig = buildImportEdges(db, repoId);
+        if (ig.success) {
+          importEdges = ig.edges;
+        }
+      } catch (e) {
+        logDerivedError('import-graph', e);
       }
-    } catch (e) {
-      logDerivedError('import-graph', e);
-    }
-  
-    // ── Scope resolution (v10) ────────────────────────────────
-    
-  return (0);
-})();emitProgress(args, 'analysis', { step: 'resolve-scopes', message: 'Step 5/5: resolving scope bindings...' }, stats);
+
+      // ── Scope resolution (v10) ────────────────────────────────
+
+      return 0;
+    })();
+  emitProgress(args, 'analysis', { step: 'resolve-scopes', message: 'Step 5/5: resolving scope bindings...' }, stats);
   try {
     const sr = resolveScopeBindings(db, repoId, {
       onProgress: (p) => {
@@ -410,21 +410,25 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
   }
 
   let relationEdges = 0,
-  cochangeEdges = (() => {
-
-    emitProgress(args, 'analysis', { step: 'build-relations', message: 'Step 5/5: building relation edges...' }, stats);
-    try {
-      const re = buildRelationEdges(db, repoId);
-      if (re.success) {
-        relationEdges = re.count;
+    cochangeEdges = (() => {
+      emitProgress(
+        args,
+        'analysis',
+        { step: 'build-relations', message: 'Step 5/5: building relation edges...' },
+        stats,
+      );
+      try {
+        const re = buildRelationEdges(db, repoId);
+        if (re.success) {
+          relationEdges = re.count;
+        }
+      } catch (e) {
+        logDerivedError('relations', e);
       }
-    } catch (e) {
-      logDerivedError('relations', e);
-    }
-  
-    
-  return (0);
-})();emitProgress(args, 'analysis', { step: 'build-cochange', message: 'Step 5/5: building co-change edges...' }, stats);
+
+      return 0;
+    })();
+  emitProgress(args, 'analysis', { step: 'build-cochange', message: 'Step 5/5: building co-change edges...' }, stats);
   try {
     const cc2 = buildCochangeEdges(db, repoId);
     if (cc2.success) {
@@ -459,90 +463,88 @@ function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, dele
   let importEdges = 0,
     callEdges = 0,
     complexityCount = 0,
-  scopeResolved = (() => {
+    scopeResolved = (() => {
+      try {
+        const ig = buildImportEdgesForFiles(db, repoId, changedFileIds, deletedFileIds);
+        if (ig.success) {
+          importEdges = ig.edges;
+        }
+      } catch (e) {
+        logDerivedError('import-graph-incremental', e);
+      }
 
-  
-    try {
-      const ig = buildImportEdgesForFiles(db, repoId, changedFileIds, deletedFileIds);
-      if (ig.success) {
-        importEdges = ig.edges;
-      }
-    } catch (e) {
-      logDerivedError('import-graph-incremental', e);
-    }
-  
-    // ── Scope resolution (v10) ────────────────────────────────
-    
-  return (0);
-})(),
-  relationEdges = (() => {
-emitProgress(
-      args,
-      'analysis',
-      {
-        step: 'resolve-scopes',
-        message: 'Step 5/5: incrementally resolving scope bindings for affected files...',
-      },
-      stats,
-    );
-    try {
-      const sr = resolveScopeBindingsForFiles(db, repoId, changedFileIds, deletedFileIds);
-      scopeResolved = sr.resolved || 0;
-    } catch (e) {
-      logDerivedError('scope-resolution-incremental', e);
-    }
-  
-    emitProgress(
-      args,
-      'analysis',
-      {
-        step: 'build-call-graph',
-        message: `Step 5/5: incrementally rebuilding call graph for affected files...`,
-      },
-      stats,
-    );
-    try {
-      const cg = buildCallEdgesForFiles(db, repoId, changedFileIds, deletedFileIds, {
-        onProgress: (p) => {
-          emitProgress(
-            args,
-            'analysis',
-            {
-              step: 'build-call-graph',
-              message: `Step 5/5: rebuilding call graph... ${p.filesProcessed}/${p.totalFiles} files, ${p.callsFound} calls`,
-            },
-            stats,
-          );
+      // ── Scope resolution (v10) ────────────────────────────────
+
+      return 0;
+    })(),
+    relationEdges = (() => {
+      emitProgress(
+        args,
+        'analysis',
+        {
+          step: 'resolve-scopes',
+          message: 'Step 5/5: incrementally resolving scope bindings for affected files...',
         },
-      });
-      if (cg.success) {
-        callEdges = cg.calls;
+        stats,
+      );
+      try {
+        const sr = resolveScopeBindingsForFiles(db, repoId, changedFileIds, deletedFileIds);
+        scopeResolved = sr.resolved || 0;
+      } catch (e) {
+        logDerivedError('scope-resolution-incremental', e);
       }
-    } catch (e) {
-      logDerivedError('call-graph-incremental', e);
-    }
-  
-    emitProgress(
-      args,
-      'analysis',
-      {
-        step: 'compute-complexity',
-        message: 'Step 5/5: incrementally computing complexity metrics...',
-      },
-      stats,
-    );
-    try {
-      const cc = buildComplexityMetricsForFiles(db, repoId, changedFileIds, deletedFileIds);
-      if (cc.success) {
-        complexityCount = cc.symbols;
+
+      emitProgress(
+        args,
+        'analysis',
+        {
+          step: 'build-call-graph',
+          message: `Step 5/5: incrementally rebuilding call graph for affected files...`,
+        },
+        stats,
+      );
+      try {
+        const cg = buildCallEdgesForFiles(db, repoId, changedFileIds, deletedFileIds, {
+          onProgress: (p) => {
+            emitProgress(
+              args,
+              'analysis',
+              {
+                step: 'build-call-graph',
+                message: `Step 5/5: rebuilding call graph... ${p.filesProcessed}/${p.totalFiles} files, ${p.callsFound} calls`,
+              },
+              stats,
+            );
+          },
+        });
+        if (cg.success) {
+          callEdges = cg.calls;
+        }
+      } catch (e) {
+        logDerivedError('call-graph-incremental', e);
       }
-    } catch (e) {
-      logDerivedError('complexity-incremental', e);
-    }
-  
-    
-  return (0);
-})();try {
+
+      emitProgress(
+        args,
+        'analysis',
+        {
+          step: 'compute-complexity',
+          message: 'Step 5/5: incrementally computing complexity metrics...',
+        },
+        stats,
+      );
+      try {
+        const cc = buildComplexityMetricsForFiles(db, repoId, changedFileIds, deletedFileIds);
+        if (cc.success) {
+          complexityCount = cc.symbols;
+        }
+      } catch (e) {
+        logDerivedError('complexity-incremental', e);
+      }
+
+      return 0;
+    })();
+  try {
     const re = buildRelationEdges(db, repoId);
     if (re.success) {
       relationEdges = re.count;
@@ -723,7 +725,8 @@ async function parsePhase(files, deps, repoId, args) {
     repoRoot = args.repoRoot || args.repoPath || null;
 
   let useWorkers = totalFiles >= WORKER_POOL.MIN_FILES_FOR_PARALLEL && !args.noWorkers,
-    pool = null, symbolCount = 0,
+    pool = null,
+    symbolCount = 0,
     fileCount = 0;
 
   if (useWorkers) {
@@ -743,7 +746,6 @@ async function parsePhase(files, deps, repoId, args) {
     }
   }
 
-  
   const skipped = [],
     deferredBatches = [],
     deferIndexWrites = Boolean(args.deferIndexWrites),
@@ -795,22 +797,21 @@ async function parsePhase(files, deps, repoId, args) {
           }),
         ),
         validReads = reads.filter((r) => r !== null),
-      parsedRecords = (() => {
+        parsedRecords = (() => {
+          emitProgress(
+            args,
+            'parsing',
+            {
+              step: 'extract-symbols',
+              current_file: validReads[0] ? progressPath(validReads[0].filePath, repoRoot) : firstBatchPath,
+              message: `Extracting symbols for batch ${batchNum}/${totalBatches}: ${validReads.length} readable files${useWorkers ? ' with workers' : ' sequentially'}`,
+            },
+            { files_total: totalFiles, files_done: fileCount, symbols: symbolCount },
+          );
 
-        emitProgress(
-          args,
-          'parsing',
-          {
-            step: 'extract-symbols',
-            current_file: validReads[0] ? progressPath(validReads[0].filePath, repoRoot) : firstBatchPath,
-            message: `Extracting symbols for batch ${batchNum}/${totalBatches}: ${validReads.length} readable files${useWorkers ? ' with workers' : ' sequentially'}`,
-          },
-          { files_total: totalFiles, files_done: fileCount, symbols: symbolCount },
-        );
-  
-        
-  return ([]);
-})();if (useWorkers && pool) {
+          return [];
+        })();
+      if (useWorkers && pool) {
         try {
           const workerInputs = validReads.map((r) => ({ filePath: r.filePath, content: r.content })),
             // oxlint-disable-next-line no-await-in-loop
@@ -818,23 +819,23 @@ async function parsePhase(files, deps, repoId, args) {
             symbolMap = new Map(workerResults.map((r) => [r.filePath, r.symbols]));
           for (const record of validReads) {
             const symbols = symbolMap.get(record.filePath) || [],
-            hotSymbols = (() => {
+              hotSymbols = (() => {
+                validateSymbols(record, symbols);
+                recordDiagnostic(
+                  repository,
+                  repoId,
+                  record,
+                  symbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
+                  symbols.length === 0 && record.content.trim().length > 0
+                    ? 'No symbols extracted from non-empty file'
+                    : '',
+                  symbols.length,
+                  { defer: args.deferIndexWrites },
+                );
 
-              validateSymbols(record, symbols);
-              recordDiagnostic(
-                repository,
-                repoId,
-                record,
-                symbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
-                symbols.length === 0 && record.content.trim().length > 0
-                  ? 'No symbols extracted from non-empty file'
-                  : '',
-                symbols.length,
-                { defer: args.deferIndexWrites },
-              );
-              
-  return (symbols.map((s) => normalizeSymbolHot(s, record.filePath)));
-})();parsedRecords.push({ record, hotSymbols, coldSymbols: symbols, tree: null });
+                return symbols.map((s) => normalizeSymbolHot(s, record.filePath));
+              })();
+            parsedRecords.push({ record, hotSymbols, coldSymbols: symbols, tree: null });
           }
         } catch (e) {
           emitProgress(args, 'parsing', {
@@ -854,23 +855,25 @@ async function parsePhase(files, deps, repoId, args) {
               tree,
             } = extractSymbolsSplit(record.filePath, registry, record.content),
             symbols = hotSymbols,
-          absoluteDone = (() => {
+            absoluteDone = (() => {
+              validateSymbols(record, symbols);
+              recordDiagnostic(
+                repository,
+                repoId,
+                record,
+                symbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
+                symbols.length === 0 && record.content.trim().length > 0
+                  ? 'No symbols extracted from non-empty file'
+                  : '',
+                symbols.length,
+                { defer: args.deferIndexWrites },
+              );
+              parsedRecords.push({ record, hotSymbols, coldSymbols, tree });
+              parsedInBatch++;
 
-            validateSymbols(record, symbols);
-            recordDiagnostic(
-              repository,
-              repoId,
-              record,
-              symbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
-              symbols.length === 0 && record.content.trim().length > 0 ? 'No symbols extracted from non-empty file' : '',
-              symbols.length,
-              { defer: args.deferIndexWrites },
-            );
-            parsedRecords.push({ record, hotSymbols, coldSymbols, tree });
-            parsedInBatch++;
-            
-  return (i + parsedInBatch);
-})();if (shouldEmitFileProgress(absoluteDone, totalFiles)) {
+              return i + parsedInBatch;
+            })();
+          if (shouldEmitFileProgress(absoluteDone, totalFiles)) {
             emitProgress(
               args,
               'parsing',
@@ -973,9 +976,9 @@ async function indexRepository(deps, repoPath, repoName) {
       message: 'Step 2/5: discovering code files to index...',
     });
     const scanResult = await scanPhase(repoPath, {}, args),
-    { files, absPath, skipReport } = !(scanResult.error) ? (scanResult) : undefined,
-    scanMs = !(scanResult.error) ? (Date.now() - t0) : undefined,
-    skipSummary = !(scanResult.error) ? (formatSkipReport(skipReport)) : undefined;
+      { files, absPath, skipReport } = !scanResult.error ? scanResult : undefined,
+      scanMs = !scanResult.error ? Date.now() - t0 : undefined,
+      skipSummary = !scanResult.error ? formatSkipReport(skipReport) : undefined;
     if (scanResult.error) {
       return { error: scanResult.error };
     }
@@ -990,21 +993,21 @@ async function indexRepository(deps, repoPath, repoName) {
     }
 
     const repoId = repository.upsertRepo({ name: repoName, path: absPath }),
-    parseT0 = (() => {
+      parseT0 = (() => {
+        emitProgress(args, 'reset-index', {
+          step: 'clear-index',
+          message: `Step 3/5: will clear existing index rows for ${repoName} immediately before writing rebuilt data...`,
+        });
 
-      emitProgress(args, 'reset-index', {
-        step: 'clear-index',
-        message: `Step 3/5: will clear existing index rows for ${repoName} immediately before writing rebuilt data...`,
-      });
-  
-      emitProgress(args, 'parsing', {
-        step: 'parse-and-store',
-        message: `Step 4/5: reading files, extracting symbols, and storing index rows for ${files.length} files...`,
-        files_total: files.length,
-      });
-      
-  return (Date.now());
-})();let parseResult, derived;
+        emitProgress(args, 'parsing', {
+          step: 'parse-and-store',
+          message: `Step 4/5: reading files, extracting symbols, and storing index rows for ${files.length} files...`,
+          files_total: files.length,
+        });
+
+        return Date.now();
+      })();
+    let parseResult, derived;
     try {
       parseResult = await parsePhase(files, { parserRegistry: registry, repository }, repoId, {
         ...args,
@@ -1074,7 +1077,7 @@ async function indexRepository(deps, repoPath, repoName) {
     });
     const derivedT0 = Date.now(),
       headCommit = getHeadCommit(absPath);
-    
+
     try {
       derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
     } catch (derivedError) {
@@ -1174,7 +1177,8 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
         : null,
       gitDeletedFiles = gitDelta ? gitDelta.deleted : [],
       explicitChangedPathMode = gitDelta && gitDelta.source === 'changed-paths';
-    let scanResult, reindexed = 0,
+    let scanResult,
+      reindexed = 0,
       unchanged = 0,
       symbolCount = 0,
       hashed = 0;
@@ -1192,36 +1196,35 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
     const files = scanResult.files,
       skipReport = scanResult.skipReport,
       skipSummary = formatSkipReport(skipReport),
-    existingFiles = (() => {
-
-      emitProgress(args, 'discovery', {
-        message: gitDelta
-          ? `Git diff from ${String(existing.head_commit || 'unknown').slice(0, 8)} to ${String(gitDelta.currentHead || 'unknown').slice(0, 8)} found ${files.length} changed code files and ${gitDeletedFiles.length} deleted files`
-          : `Found ${files.length} code files to check`,
-        files_total: files.length,
-        detail: skipSummary,
-      });
-      if (skipSummary) {
-        emitProgress(args, 'discovery', { message: skipSummary });
-      }
-      if (gitDelta?.rejected?.length) {
+      existingFiles = (() => {
         emitProgress(args, 'discovery', {
-          message: `Skipped ${gitDelta.rejected.length} git/changed-path entries outside the repo or blocked as secret files`,
-          rejected_paths: gitDelta.rejected,
+          message: gitDelta
+            ? `Git diff from ${String(existing.head_commit || 'unknown').slice(0, 8)} to ${String(gitDelta.currentHead || 'unknown').slice(0, 8)} found ${files.length} changed code files and ${gitDeletedFiles.length} deleted files`
+            : `Found ${files.length} code files to check`,
+          files_total: files.length,
+          detail: skipSummary,
         });
-      }
-  
-      
-  return (new Map(repository.listFiles(existing.id).map((file) => [file.path, file])));
-})(), skipped = [],
+        if (skipSummary) {
+          emitProgress(args, 'discovery', { message: skipSummary });
+        }
+        if (gitDelta?.rejected?.length) {
+          emitProgress(args, 'discovery', {
+            message: `Skipped ${gitDelta.rejected.length} git/changed-path entries outside the repo or blocked as secret files`,
+            rejected_paths: gitDelta.rejected,
+          });
+        }
+
+        return new Map(repository.listFiles(existing.id).map((file) => [file.path, file]));
+      })(),
+      skipped = [],
       totalFiles = files.length,
       changedFileIds = [],
       deletedFileIds = [],
       changedRecords = [];
-    
 
     for (let i = 0; i < files.length; i++) {
-      const filePath = files[i], done = i + 1;
+      const filePath = files[i],
+        done = i + 1;
       if (i % 50 === 0) {
         emitProgress(
           args,
@@ -1239,12 +1242,12 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
         // oxlint-disable-next-line no-await-in-loop
         const record = await readFileRecord(filePath),
           fileParams = fileRecordToParams(existing.id, record),
-        prev = (() => {
+          prev = (() => {
+            hashed++;
 
-          hashed++;
-          
-  return (existingFiles.get(filePath));
-})();if (prev && prev.content_hash === fileParams.contentHash) {
+            return existingFiles.get(filePath);
+          })();
+        if (prev && prev.content_hash === fileParams.contentHash) {
           unchanged++;
         } else {
           changedRecords.push({ filePath, record, fileParams, prev });
@@ -1254,7 +1257,6 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
         recordDiagnostic(repository, existing.id, { filePath, content: '' }, 'error', e.message, 0);
       }
 
-      
       if (shouldEmitFileProgress(done, totalFiles)) {
         emitProgress(
           args,
@@ -1283,100 +1285,102 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
       const allSymbols = [],
         scopeWork = [],
         fileMutations = [],
-      applyMutations = (() => {
+        applyMutations = (() => {
+          for (let ci = 0; ci < changedRecords.length; ci++) {
+            const { filePath, record, fileParams, prev } = changedRecords[ci];
+            try {
+              const {
+                  hot: hotSymbols,
+                  cold: coldSymbols,
+                  tree,
+                } = extractSymbolsSplit(filePath, registry, record.content),
+                mutationIndex = (() => {
+                  recordDiagnostic(
+                    repository,
+                    existing.id,
+                    record,
+                    hotSymbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
+                    hotSymbols.length === 0 && record.content.trim().length > 0
+                      ? 'No symbols extracted from non-empty file'
+                      : '',
+                    hotSymbols.length,
+                  );
 
-  
-        for (let ci = 0; ci < changedRecords.length; ci++) {
-          const { filePath, record, fileParams, prev } = changedRecords[ci];
-          try {
-            const { hot: hotSymbols, cold: coldSymbols, tree } = extractSymbolsSplit(filePath, registry, record.content),
-            mutationIndex = (() => {
-  
-              recordDiagnostic(
-                repository,
-                existing.id,
-                record,
-                hotSymbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
-                hotSymbols.length === 0 && record.content.trim().length > 0
-                  ? 'No symbols extracted from non-empty file'
-                  : '',
-                hotSymbols.length,
-              );
-    
-              fileMutations.push({ prev, fileParams });
-              
-    return (fileMutations.length - 1);
-  })(); for (let si = 0; si < hotSymbols.length; si++) {
-              const hot = hotSymbols[si],
-                cold = coldSymbols[si] || {};
-              allSymbols.push({
-                _mutationIndex: mutationIndex,
-                repoId: existing.id,
-                fileId: -1,
-                filePath,
-                name: hot.name,
-                kind: hot.kind,
-                qualifiedName: hot.qualified_name,
-                startLine: hot.start_line,
-                endLine: hot.end_line,
-                startByte: hot.start_byte,
-                endByte: hot.end_byte,
-                signature: cold.signature || '',
-                docstring: cold.docstring || '',
-                bodyPreview: cold.body_preview || '',
-                language: cold.language || '',
-                parentName: cold.parent_name || '',
-                stableSymbolId: cold.stable_symbol_id || '',
-                contentHash: cold.content_hash || '',
-                summary: cold.summary || '',
-                decoratorsJson: cold.decorators_json || '[]',
-                keywordsJson: cold.keywords_json || '[]',
-                callReferencesJson: cold.call_references_json || '[]',
-                ecosystemContext: cold.ecosystem_context || '',
-              });
+                  fileMutations.push({ prev, fileParams });
+
+                  return fileMutations.length - 1;
+                })();
+              for (let si = 0; si < hotSymbols.length; si++) {
+                const hot = hotSymbols[si],
+                  cold = coldSymbols[si] || {};
+                allSymbols.push({
+                  _mutationIndex: mutationIndex,
+                  repoId: existing.id,
+                  fileId: -1,
+                  filePath,
+                  name: hot.name,
+                  kind: hot.kind,
+                  qualifiedName: hot.qualified_name,
+                  startLine: hot.start_line,
+                  endLine: hot.end_line,
+                  startByte: hot.start_byte,
+                  endByte: hot.end_byte,
+                  signature: cold.signature || '',
+                  docstring: cold.docstring || '',
+                  bodyPreview: cold.body_preview || '',
+                  language: cold.language || '',
+                  parentName: cold.parent_name || '',
+                  stableSymbolId: cold.stable_symbol_id || '',
+                  contentHash: cold.content_hash || '',
+                  summary: cold.summary || '',
+                  decoratorsJson: cold.decorators_json || '[]',
+                  keywordsJson: cold.keywords_json || '[]',
+                  callReferencesJson: cold.call_references_json || '[]',
+                  ecosystemContext: cold.ecosystem_context || '',
+                });
+              }
+              symbolCount += hotSymbols.length;
+              reindexed++;
+              scopeWork.push({ filePath, tree, mutationIndex });
+            } catch (e) {
+              skipped.push({ file: filePath, error: e.message });
+              recordDiagnostic(repository, existing.id, { filePath, content: '' }, 'error', e.message, 0);
             }
-            symbolCount += hotSymbols.length;
-            reindexed++;
-            scopeWork.push({ filePath, tree, mutationIndex });
-          } catch (e) {
-            skipped.push({ file: filePath, error: e.message });
-            recordDiagnostic(repository, existing.id, { filePath, content: '' }, 'error', e.message, 0);
           }
-        }
-  
-        
-  return (() => {
-        const mutationFileIds = new Array(fileMutations.length);
-        for (let mi = 0; mi < fileMutations.length; mi++) {
-          const { prev, fileParams } = fileMutations[mi];
-          let fileId;
-          if (prev) {
-            repository.clearFileSymbols(prev.id);
-            repository.updateFile(prev.id, fileParams);
-            fileId = prev.id;
-          } else {
-            fileId = repository.insertFile(fileParams);
-          }
-          mutationFileIds[mi] = fileId;
-          changedFileIds.push(fileId);
-        }
 
-        for (const sym of allSymbols) {
-          sym.fileId = mutationFileIds[sym._mutationIndex];
-          delete sym._mutationIndex;
-        }
+          return () => {
+            const mutationFileIds = new Array(fileMutations.length);
+            for (let mi = 0; mi < fileMutations.length; mi++) {
+              const { prev, fileParams } = fileMutations[mi];
+              let fileId;
+              if (prev) {
+                repository.clearFileSymbols(prev.id);
+                repository.updateFile(prev.id, fileParams);
+                fileId = prev.id;
+              } else {
+                fileId = repository.insertFile(fileParams);
+              }
+              mutationFileIds[mi] = fileId;
+              changedFileIds.push(fileId);
+            }
 
-        if (allSymbols.length > 0) {
-          if (typeof repository.insertSymbolBulk === 'function') {
-            repository.insertSymbolBulk(allSymbols);
-          } else if (typeof repository.insertSymbolBatch === 'function') {
-            repository.insertSymbolBatch(allSymbols);
-          }
-        }
+            for (const sym of allSymbols) {
+              sym.fileId = mutationFileIds[sym._mutationIndex];
+              delete sym._mutationIndex;
+            }
 
-        return mutationFileIds;
-      });
-})(); let mutationFileIds;
+            if (allSymbols.length > 0) {
+              if (typeof repository.insertSymbolBulk === 'function') {
+                repository.insertSymbolBulk(allSymbols);
+              } else if (typeof repository.insertSymbolBatch === 'function') {
+                repository.insertSymbolBatch(allSymbols);
+              }
+            }
+
+            return mutationFileIds;
+          };
+        })();
+      let mutationFileIds;
       if (typeof repository.withTransaction === 'function') {
         mutationFileIds = repository.withTransaction(applyMutations);
       } else {
@@ -1421,26 +1425,26 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
     if (changedRecords.length === 0 && unchanged === totalFiles && staleFiles.length === 0) {
       const totalMs = Date.now() - t0,
         currentHead = gitDelta?.currentHead || getHeadCommit(existing.path),
-      existingSymbolCount = (() => {
+        existingSymbolCount = (() => {
+          if (currentHead && currentHead !== existing.head_commit) {
+            repository.updateRepoStats({
+              repoId: existing.id,
+              headCommit: currentHead,
+              currentBranch: getCurrentBranch(existing.path),
+              baseHead: existing.head_commit || null,
+            });
+          }
 
-        if (currentHead && currentHead !== existing.head_commit) {
-          repository.updateRepoStats({
-            repoId: existing.id,
-            headCommit: currentHead,
-            currentBranch: getCurrentBranch(existing.path),
-            baseHead: existing.head_commit || null,
-          });
-        }
-        
-  return ((() => {
-        try {
-          const r = db.prepare('SELECT symbol_count FROM code_repos WHERE id = ?').get(existing.id);
-          return r ? r.symbol_count : 0;
-        } catch {
-          return 0;
-        }
-      })());
-})();emitProgress(
+          return (() => {
+            try {
+              const r = db.prepare('SELECT symbol_count FROM code_repos WHERE id = ?').get(existing.id);
+              return r ? r.symbol_count : 0;
+            } catch {
+              return 0;
+            }
+          })();
+        })();
+      emitProgress(
         args,
         'done',
         {
@@ -1486,27 +1490,26 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
       message: 'Step 5/5: rebuilding derived indexes (imports, calls, complexity)...',
     });
     const derived = rebuildDerivedIndexes(
-      db,
-      existing.id,
-      args,
-      totalFiles,
-      totalFiles,
-      symbolCount,
-      changedFileIds,
-      deletedFileIds,
-    ),
-    totalMs = (() => {
+        db,
+        existing.id,
+        args,
+        totalFiles,
+        totalFiles,
+        symbolCount,
+        changedFileIds,
+        deletedFileIds,
+      ),
+      totalMs = (() => {
+        repository.updateRepoStats({
+          repoId: existing.id,
+          headCommit: gitDelta?.currentHead || getHeadCommit(existing.path),
+          currentBranch: getCurrentBranch(existing.path),
+          baseHead: existing.head_commit || null,
+        });
 
-      repository.updateRepoStats({
-        repoId: existing.id,
-        headCommit: gitDelta?.currentHead || getHeadCommit(existing.path),
-        currentBranch: getCurrentBranch(existing.path),
-        baseHead: existing.head_commit || null,
-      });
-  
-      
-  return (Date.now() - t0);
-})();emitProgress(
+        return Date.now() - t0;
+      })();
+    emitProgress(
       args,
       'done',
       { message: `Reindexed: ${reindexed} changed, ${unchanged} unchanged (${(totalMs / 1000).toFixed(1)}s)` },
@@ -1579,31 +1582,34 @@ async function getCodeRepoHealth(deps, repo) {
   }
 
   {
-const parseQuality =
-      existing.file_count > 0
-        ? Math.max(0, 1 - ((diagnosticCounts.error || 0) + (diagnosticCounts.zero_symbols || 0)) / existing.file_count)
-        : 1,
-    healthScore = Math.round((((pathExists ? 1 : 0) + (stale ? 0 : 1) + parseQuality) / 3) * 100) / 100;
+    const parseQuality =
+        existing.file_count > 0
+          ? Math.max(
+              0,
+              1 - ((diagnosticCounts.error || 0) + (diagnosticCounts.zero_symbols || 0)) / existing.file_count,
+            )
+          : 1,
+      healthScore = Math.round((((pathExists ? 1 : 0) + (stale ? 0 : 1) + parseQuality) / 3) * 100) / 100;
 
-  return {
-    ok: true,
-    repo,
-    path: existing.path,
-    path_exists: pathExists,
-    indexed_files: existing.file_count,
-    indexed_symbols: existing.symbol_count,
-    indexed_at: existing.indexed_at,
-    updated_at: existing.updated_at,
-    indexed_head: existing.head_commit,
-    current_head: currentHead,
-    stale,
-    diagnostics: diagnosticCounts,
-    recent_diagnostics: recentDiagnostics,
-    scan,
-    health_score: healthScore,
-    recommendations: buildHealthRecommendations({ pathExists, stale, diagnosticCounts, scan }),
-  };
-}
+    return {
+      ok: true,
+      repo,
+      path: existing.path,
+      path_exists: pathExists,
+      indexed_files: existing.file_count,
+      indexed_symbols: existing.symbol_count,
+      indexed_at: existing.indexed_at,
+      updated_at: existing.updated_at,
+      indexed_head: existing.head_commit,
+      current_head: currentHead,
+      stale,
+      diagnostics: diagnosticCounts,
+      recent_diagnostics: recentDiagnostics,
+      scan,
+      health_score: healthScore,
+      recommendations: buildHealthRecommendations({ pathExists, stale, diagnosticCounts, scan }),
+    };
+  }
 }
 
 function buildHealthRecommendations({ pathExists, stale, diagnosticCounts, scan }) {

@@ -5,11 +5,11 @@
 // Allows multiple readers + one writer concurrently, so the worker's writes
 // To the index_jobs ledger never block the parent's status queries.
 
-const { parentPort, workerData } = require('worker_threads'), dbModule = require('../../db'), { indexRepository, reindexRepository } = require('./incremental-indexer'), { getLanguageForFile } = require('./parser-registry'), jobStore = require('./job-store');
-
-
-
-
+const { parentPort, workerData } = require('worker_threads'),
+  dbModule = require('../../db'),
+  { indexRepository, reindexRepository } = require('./incremental-indexer'),
+  { getLanguageForFile } = require('./parser-registry'),
+  jobStore = require('./job-store');
 
 let cancelled = false;
 parentPort.on('message', (msg) => {
@@ -39,75 +39,73 @@ async function main() {
     dbModule.ensureDb();
     const rawDb = dbModule.getDb(),
       deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun },
-      languageCounters = new Map(), writeThrottleMs = 1000;
-    let lastWrite = 0, result;
-    
-
-    
+      languageCounters = new Map(),
+      writeThrottleMs = 1000;
+    let lastWrite = 0,
+      result;
 
     // We pass the raw better-sqlite3 handle as `db` because the indexer
     // Uses db.exec/db.prepare/db.transaction directly. `args.onProgress` is
     // The new hook Task 4 wires through emitProgress.
     {
-const indexerDeps = { db: rawDb, args: { onProgress, filesTotal: 0 } };
-    
-    if (mode === 'incremental') {
-      result = await reindexRepository(indexerDeps, repoName, 'incremental');
-    } else {
-      // Default to full re-index when mode is 'full' or unspecified.
-      result = await indexRepository(indexerDeps, repoPath, repoName);
-    }
+      const indexerDeps = { db: rawDb, args: { onProgress, filesTotal: 0 } };
 
-    if (cancelled) {
-      try {
-        jobStore.completeJob(deps, jobId, { status: 'cancelled' });
-      } catch (_) {}
-      emit('cancelled');
-      return;
-    }
+      if (mode === 'incremental') {
+        result = await reindexRepository(indexerDeps, repoName, 'incremental');
+      } else {
+        // Default to full re-index when mode is 'full' or unspecified.
+        result = await indexRepository(indexerDeps, repoPath, repoName);
+      }
 
-    // Final progress write with the complete language breakdown.
-    try {
-      jobStore.updateProgress(deps, jobId, {
-        filesDone: (result && (result.file_count || result.filesIndexed || result.fileCount)) || 0,
-        languageBreakdown: Object.fromEntries(languageCounters),
-      });
-      jobStore.completeJob(deps, jobId, { status: result?.error ? 'error' : 'completed', error: result?.error });
-    } catch (_) {
-      /* Best-effort */
-    }
-
-    emit('done', { result, languageBreakdown: Object.fromEntries(languageCounters) });
-  function onProgress({ phase, files_total, files_done, current_file, language }) {
       if (cancelled) {
-        throw new Error('cancelled');
-      }
-      // Derive language from current_file if not provided by the indexer.
-      const lang = language || (current_file ? safeGetLanguage(current_file) : null),
-      now = (() => {
-
-        if (lang) {
-          languageCounters.set(lang, (languageCounters.get(lang) || 0) + 1);
-        }
-        
-  return (Date.now());
-})();// Throttle SQLite writes — at most once per second, plus a final write at completion.
-      if (now - lastWrite >= writeThrottleMs || (files_total && files_done >= files_total)) {
         try {
-          jobStore.updateProgress(deps, jobId, {
-            filesDone: files_done || 0,
-            currentFile: current_file,
-            languageBreakdown: Object.fromEntries(languageCounters),
-          });
-        } catch (_) {
-          /* Best-effort */
-        }
-        lastWrite = now;
+          jobStore.completeJob(deps, jobId, { status: 'cancelled' });
+        } catch (_) {}
+        emit('cancelled');
+        return;
       }
-      emit('progress', { phase, files_total, files_done, current_file, language });
+
+      // Final progress write with the complete language breakdown.
+      try {
+        jobStore.updateProgress(deps, jobId, {
+          filesDone: (result && (result.file_count || result.filesIndexed || result.fileCount)) || 0,
+          languageBreakdown: Object.fromEntries(languageCounters),
+        });
+        jobStore.completeJob(deps, jobId, { status: result?.error ? 'error' : 'completed', error: result?.error });
+      } catch (_) {
+        /* Best-effort */
+      }
+
+      emit('done', { result, languageBreakdown: Object.fromEntries(languageCounters) });
+      function onProgress({ phase, files_total, files_done, current_file, language }) {
+        if (cancelled) {
+          throw new Error('cancelled');
+        }
+        // Derive language from current_file if not provided by the indexer.
+        const lang = language || (current_file ? safeGetLanguage(current_file) : null),
+          now = (() => {
+            if (lang) {
+              languageCounters.set(lang, (languageCounters.get(lang) || 0) + 1);
+            }
+
+            return Date.now();
+          })(); // Throttle SQLite writes — at most once per second, plus a final write at completion.
+        if (now - lastWrite >= writeThrottleMs || (files_total && files_done >= files_total)) {
+          try {
+            jobStore.updateProgress(deps, jobId, {
+              filesDone: files_done || 0,
+              currentFile: current_file,
+              languageBreakdown: Object.fromEntries(languageCounters),
+            });
+          } catch (_) {
+            /* Best-effort */
+          }
+          lastWrite = now;
+        }
+        emit('progress', { phase, files_total, files_done, current_file, language });
+      }
     }
-}
-} catch (e) {
+  } catch (e) {
     const status = cancelled ? 'cancelled' : 'error';
     try {
       const deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };

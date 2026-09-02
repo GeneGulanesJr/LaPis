@@ -1,9 +1,8 @@
 // Test coverage for db.js database layer
-const fs = require('fs'), path = require('path'), os = require('os'), dbModule = require('../db');
-
-
-
-
+const fs = require('fs'),
+  path = require('path'),
+  os = require('os'),
+  dbModule = require('../db');
 
 describe('db.js (database layer)', () => {
   beforeAll(() => {
@@ -27,12 +26,12 @@ describe('db.js (database layer)', () => {
 
     it('should create memory.db in the correct path', () => {
       const dbPath = dbModule.DB_PATH,
-      stat = (() => {
+        stat = (() => {
+          expect(fs.existsSync(dbPath)).toBe(true);
 
-        expect(fs.existsSync(dbPath)).toBe(true);
-        
-  return (fs.statSync(dbPath));
-})();expect(stat.size).toBeGreaterThan(0);
+          return fs.statSync(dbPath);
+        })();
+      expect(stat.size).toBeGreaterThan(0);
     });
   });
 
@@ -64,13 +63,13 @@ describe('db.js (database layer)', () => {
 
     it('runMigrations should not throw on version 5 schema', () => {
       const db = dbModule.getDb(),
-      result = (() => {
+        result = (() => {
+          // Force version to 5
+          db.exec('PRAGMA user_version = 5');
 
-        // Force version to 5
-        db.exec('PRAGMA user_version = 5');
-        
-  return (dbModule.ensureDb());
-})();expect(result.ok).toBe(true);
+          return dbModule.ensureDb();
+        })();
+      expect(result.ok).toBe(true);
     });
   });
 
@@ -160,11 +159,11 @@ describe('db.js (database layer)', () => {
         fs.unlinkSync(`${tmpPath}-shm`);
       } catch {}
       {
-const { resetConfigCache } = require('../config');
-      resetConfigCache();
-      dbModule.ensureDb();
-    }
-});
+        const { resetConfigCache } = require('../config');
+        resetConfigCache();
+        dbModule.ensureDb();
+      }
+    });
   });
 
   describe('MemoryError', () => {

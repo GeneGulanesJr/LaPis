@@ -1,8 +1,8 @@
-const obsService = require('../services/observations'), obsDA = require('../data-access/observations'), dedupService = require('../services/dedup'), sessionsService = require('../services/sessions'), { parseExpiresIn } = require('../src/memory-domain/ttl');
-
-
-
-
+const obsService = require('../services/observations'),
+  obsDA = require('../data-access/observations'),
+  dedupService = require('../services/dedup'),
+  sessionsService = require('../services/sessions'),
+  { parseExpiresIn } = require('../src/memory-domain/ttl');
 
 function getMemoryRepository(deps) {
   if (deps.memoryRepository) {
@@ -45,18 +45,20 @@ function save(deps, args) {
 function get(deps, args) {
   const { jsonErrNoExit } = deps,
     id = args.id,
-  memoryRepository = id ? (getMemoryRepository(deps)) : undefined,
-  rows = id ? (memoryRepository.getObservation(id)) : undefined,
-  obs = id && !(rows.length === 0) ? (rows[0]) : undefined,
-  links = id && !(rows.length === 0) ? (memoryRepository.getSymbolLinksForMemory(id)) : undefined,
-  recallResult = id && !(rows.length === 0) ? ((() => {
+    memoryRepository = id ? getMemoryRepository(deps) : undefined,
+    rows = id ? memoryRepository.getObservation(id) : undefined,
+    obs = id && !(rows.length === 0) ? rows[0] : undefined,
+    links = id && !(rows.length === 0) ? memoryRepository.getSymbolLinksForMemory(id) : undefined,
+    recallResult =
+      id && !(rows.length === 0)
+        ? (() => {
+            if (links.length > 0) {
+              obs.symbols = links;
+            }
 
-    if (links.length > 0) {
-      obs.symbols = links;
-    }
-    
-  return (memoryRepository.getRecallCountForMemory(id));
-})()) : undefined;
+            return memoryRepository.getRecallCountForMemory(id);
+          })()
+        : undefined;
   if (!id) {
     return jsonErrNoExit('Missing --id');
   }
@@ -64,7 +66,7 @@ function get(deps, args) {
     return { error: 'Observation not found' };
   }
 
-obs.recall_count = recallResult[0].cnt;
+  obs.recall_count = recallResult[0].cnt;
   obs.versions = memoryRepository.getObservationVersions ? memoryRepository.getObservationVersions(id) : [];
   obs.relations = memoryRepository.getObservationRelations ? memoryRepository.getObservationRelations(id) : [];
   return obs;
@@ -73,7 +75,7 @@ obs.recall_count = recallResult[0].cnt;
 function update(deps, args) {
   const { jsonErrNoExit } = deps,
     id = args.id,
-  memoryRepository = id ? (getMemoryRepository(deps)) : undefined;
+    memoryRepository = id ? getMemoryRepository(deps) : undefined;
   if (!id) {
     return jsonErrNoExit('Missing --id');
   }
@@ -94,29 +96,29 @@ function update(deps, args) {
   }
 
   {
-const result = memoryRepository.updateObservation({
-    id,
-    title: args.title,
-    content: args.content,
-    type: args.type,
-    project: args.project,
-    scope: args.scope,
-    topicKey: args['topic-key'],
-    expiresAt,
-    clearExpiry,
-  });
-  if (result === null) {
-    return jsonErrNoExit('Nothing to update');
+    const result = memoryRepository.updateObservation({
+      id,
+      title: args.title,
+      content: args.content,
+      type: args.type,
+      project: args.project,
+      scope: args.scope,
+      topicKey: args['topic-key'],
+      expiresAt,
+      clearExpiry,
+    });
+    if (result === null) {
+      return jsonErrNoExit('Nothing to update');
+    }
+    return result.length > 0 ? result[0] : { error: 'Observation not found' };
   }
-  return result.length > 0 ? result[0] : { error: 'Observation not found' };
-}
 }
 
 function del(deps, args) {
   const id = args.id,
     hard = args.hard === 'true' || args.hard === true,
-  memoryRepository = id ? (getMemoryRepository(deps)) : undefined,
-  existing = id ? (memoryRepository.getObservation(id)) : undefined;
+    memoryRepository = id ? getMemoryRepository(deps) : undefined,
+    existing = id ? memoryRepository.getObservation(id) : undefined;
   if (!id) {
     return deps.jsonErrNoExit('Missing --id');
   }
@@ -151,8 +153,8 @@ function savePrompt(deps, args) {
     content = args.content,
     project = args.project || null,
     sessionId = args['session-id'] || sessionsService.findLatestSession(project),
-  memoryRepository = content ? (getMemoryRepository(deps)) : undefined,
-  rows = content ? (memoryRepository.insertUserPrompt({ sessionId, content, project })) : undefined;
+    memoryRepository = content ? getMemoryRepository(deps) : undefined,
+    rows = content ? memoryRepository.insertUserPrompt({ sessionId, content, project }) : undefined;
   if (!content) {
     return jsonErrNoExit('Missing --content');
   }

@@ -13,9 +13,9 @@
  * registerSessionCompact.
  */
 
-const { resolveCwd } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), { buildInjectedContext } = require('../context-inject');
-
-
+const { resolveCwd } = require('../../hooks-engine/project'),
+  { resolveProjectForCwd } = require('../project-resolve'),
+  { buildInjectedContext } = require('../context-inject');
 
 /**
  * Run SessionStart.
@@ -32,12 +32,12 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownPr
   const source = payload.source || 'startup',
     { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
     cwd = resolveCwd(payload.cwd),
-    claudeSessionId = payload.session_id, isCompact = source === 'compact';
+    claudeSessionId = payload.session_id,
+    isCompact = source === 'compact';
 
   let state = stateStore.loadState(claudeSessionId);
 
   // Compact re-uses the existing sessionId and skips session-start entirely.
-  
 
   if (!isCompact) {
     // GC orphaned state files from force-killed sessions before starting fresh.
@@ -89,26 +89,26 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownPr
   // Inject (or re-inject after compact) context. sessionId may be null on a
   // Failed session-start; context still loads without a session binding.
   {
-const additionalContext = await buildInjectedContext({
-    dispatch,
-    getKnownRepos,
-    project,
-    cwd,
-    query: null,
-    sessionId: state.sessionId,
-  }).catch(() => null);
+    const additionalContext = await buildInjectedContext({
+      dispatch,
+      getKnownRepos,
+      project,
+      cwd,
+      query: null,
+      sessionId: state.sessionId,
+    }).catch(() => null);
 
-  if (!additionalContext) {
-    return null;
+    if (!additionalContext) {
+      return null;
+    }
+
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'SessionStart',
+        additionalContext,
+      },
+    };
   }
-
-  return {
-    hookSpecificOutput: {
-      hookEventName: 'SessionStart',
-      additionalContext,
-    },
-  };
-}
 }
 
 module.exports = { handleSessionStart };

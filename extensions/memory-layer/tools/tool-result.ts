@@ -35,16 +35,14 @@ export function normalizeToolResult(result: unknown, fallbackText = 'No output.'
         }
         return item;
       }),
-  details = (() => {
+    details = (() => {
+      if (normalizedContent.length === 0) {
+        normalizedContent.push({ type: 'text', text: fallbackText });
+      }
 
-  
-    if (normalizedContent.length === 0) {
-      normalizedContent.push({ type: 'text', text: fallbackText });
-    }
-  
-    
-  return (candidate.details && typeof candidate.details === 'object' ? candidate.details : {});
-})(); return {
+      return candidate.details && typeof candidate.details === 'object' ? candidate.details : {};
+    })();
+  return {
     ...candidate,
     content: normalizedContent,
     details: details as Record<string, unknown>,

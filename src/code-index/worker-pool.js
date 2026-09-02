@@ -1,8 +1,8 @@
-const { Worker } = require('worker_threads'), os = require('os'), path = require('path'), { WORKER_POOL } = require('../../constants'),
+const { Worker } = require('worker_threads'),
+  os = require('os'),
+  path = require('path'),
+  { WORKER_POOL } = require('../../constants'),
   WORKER_SCRIPT = path.resolve(__dirname, 'parse-worker.js');
-
-
-
 
 class ParsePool {
   constructor(numWorkers) {
@@ -94,11 +94,11 @@ class ParsePool {
     }
 
     {
-const promises = batches.map((batch, i) => this._sendBatch(i % workerCount, batch)),
-      allResults = await Promise.all(promises);
-    return allResults.flat();
+      const promises = batches.map((batch, i) => this._sendBatch(i % workerCount, batch)),
+        allResults = await Promise.all(promises);
+      return allResults.flat();
+    }
   }
-}
 
   _sendBatch(workerIndex, files) {
     return new Promise((resolve, reject) => {

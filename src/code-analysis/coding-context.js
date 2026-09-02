@@ -1,11 +1,11 @@
 // Unified before-edit coding context built from the existing code index analyzers.
 
-const graph = require('./graph'), impact = require('./impact'), quality = require('./quality'), gitMetrics = require('./git-metrics'),
+const graph = require('./graph'),
+  impact = require('./impact'),
+  quality = require('./quality'),
+  gitMetrics = require('./git-metrics'),
   DEFAULT_DEPTH = 2,
   DEFAULT_TOP = 10;
-
-
-
 
 function getCodingContext(db, repoId, opts = {}) {
   const symbolQuery = normalizeText(opts.symbol),
@@ -73,39 +73,39 @@ function getCodingContext(db, repoId, opts = {}) {
   }
 
   {
-const likelyTests = findLikelyTests(db, repoId, target, top),
-    relatedFiles = collectRelatedFiles({ target, imports, callers, callees, blastRadius, likelyTests }, top),
-    summary = summarizeContext({
-      target,
-      callers,
-      callees,
-      blastRadius,
-      complexity,
-      imports,
-      coupling,
-      churn,
-      likelyTests,
-    });
+    const likelyTests = findLikelyTests(db, repoId, target, top),
+      relatedFiles = collectRelatedFiles({ target, imports, callers, callees, blastRadius, likelyTests }, top),
+      summary = summarizeContext({
+        target,
+        callers,
+        callees,
+        blastRadius,
+        complexity,
+        imports,
+        coupling,
+        churn,
+        likelyTests,
+      });
 
-  return {
-    repo: repo.name,
-    target,
-    summary,
-    recommended_next: recommendedNext(summary, target),
-    outline: compactOutline(outline, top),
-    callers: compactCallHierarchy(callers, 'callers', top),
-    callees: compactCallHierarchy(callees, 'callees', top),
-    blast_radius: compactBlastRadius(blastRadius, top),
-    deps: compactDeps(imports, top),
-    complexity: compactComplexity(complexity),
-    churn: compactChurn(churn),
-    coupling: compactCoupling(coupling),
-    provenance: compactProvenance(provenance),
-    likely_tests: likelyTests,
-    related_files: relatedFiles,
-    partial_errors: partialErrors,
-  };
-}
+    return {
+      repo: repo.name,
+      target,
+      summary,
+      recommended_next: recommendedNext(summary, target),
+      outline: compactOutline(outline, top),
+      callers: compactCallHierarchy(callers, 'callers', top),
+      callees: compactCallHierarchy(callees, 'callees', top),
+      blast_radius: compactBlastRadius(blastRadius, top),
+      deps: compactDeps(imports, top),
+      complexity: compactComplexity(complexity),
+      churn: compactChurn(churn),
+      coupling: compactCoupling(coupling),
+      provenance: compactProvenance(provenance),
+      likely_tests: likelyTests,
+      related_files: relatedFiles,
+      partial_errors: partialErrors,
+    };
+  }
 }
 
 function resolveSymbolTarget(db, repoId, symbolQuery, fileHint) {
@@ -138,61 +138,60 @@ function resolveSymbolTarget(db, repoId, symbolQuery, fileHint) {
 
   // Multiple matches — disambiguate by ranking candidates
   {
-const preferredKinds = new Set([
-      'function',
-      'method',
-      'class',
-      'interface',
-      'enum',
-      'type_alias',
-      'arrow_function',
-      'function_expression',
-      'constructor',
-    ]),
-    normalizedHint = fileHint ? fileHint.replace(/\\/g, '/').toLowerCase() : null,
-    ranked = rows.map((row) => {
-      let score = 0;
-      // Strongly prefer if in the hinted file
-      if (normalizedHint && row.file_path) {
-        const normPath = row.file_path.replace(/\\/g, '/').toLowerCase();
-        if (
-          normPath === normalizedHint ||
-          normPath.endsWith(`/${normalizedHint}`) ||
-          normalizedHint.endsWith(`/${normPath}`)
-        ) {
-          score += 1000;
+    const preferredKinds = new Set([
+        'function',
+        'method',
+        'class',
+        'interface',
+        'enum',
+        'type_alias',
+        'arrow_function',
+        'function_expression',
+        'constructor',
+      ]),
+      normalizedHint = fileHint ? fileHint.replace(/\\/g, '/').toLowerCase() : null,
+      ranked = rows.map((row) => {
+        let score = 0;
+        // Strongly prefer if in the hinted file
+        if (normalizedHint && row.file_path) {
+          const normPath = row.file_path.replace(/\\/g, '/').toLowerCase();
+          if (
+            normPath === normalizedHint ||
+            normPath.endsWith(`/${normalizedHint}`) ||
+            normalizedHint.endsWith(`/${normPath}`)
+          ) {
+            score += 1000;
+          }
         }
-      }
-      // Prefer function/method/class over variable/local
-      if (preferredKinds.has(row.kind)) {
-        score += 100;
-      }
-      // Prefer shorter qualified names (more specific, e.g. ClassName.method vs bare method)
-      score -= (row.qualified_name || '').length;
-      // Slightly prefer symbols earlier in the repo (lower file path)
-      score -= row.file_path.length * 0.01;
-      return { row, score };
-    }),
-  best = (() => {
+        // Prefer function/method/class over variable/local
+        if (preferredKinds.has(row.kind)) {
+          score += 100;
+        }
+        // Prefer shorter qualified names (more specific, e.g. ClassName.method vs bare method)
+        score -= (row.qualified_name || '').length;
+        // Slightly prefer symbols earlier in the repo (lower file path)
+        score -= row.file_path.length * 0.01;
+        return { row, score };
+      }),
+      best = (() => {
+        ranked.sort((a, b) => b.score - a.score);
 
-  
-    ranked.sort((a, b) => b.score - a.score);
-    
-  return (ranked[0].row);
-})(); return {
-    symbol: best.name,
-    qualified_name: best.qualified_name,
-    kind: best.kind,
-    file: best.file_path,
-    file_id: best.file_id,
-    symbol_id: best.id,
-    start_line: best.start_line,
-    end_line: best.end_line,
-    signature: best.signature || '',
-    disambiguated: true,
-    alternative_count: rows.length - 1,
-  };
-}
+        return ranked[0].row;
+      })();
+    return {
+      symbol: best.name,
+      qualified_name: best.qualified_name,
+      kind: best.kind,
+      file: best.file_path,
+      file_id: best.file_id,
+      symbol_id: best.id,
+      start_line: best.start_line,
+      end_line: best.end_line,
+      signature: best.signature || '',
+      disambiguated: true,
+      alternative_count: rows.length - 1,
+    };
+  }
 }
 
 function resolveFileTarget(db, repoId, fileQuery) {
@@ -202,28 +201,28 @@ function resolveFileTarget(db, repoId, fileQuery) {
   }
 
   {
-const symbols = db
-    .prepare(
-      `SELECT id, name, qualified_name, kind, start_line, end_line
+    const symbols = db
+      .prepare(
+        `SELECT id, name, qualified_name, kind, start_line, end_line
        FROM code_symbols
        WHERE repo_id = ? AND file_id = ?
        ORDER BY start_line
        LIMIT 50`,
-    )
-    .all(repoId, row.id);
+      )
+      .all(repoId, row.id);
 
-  return {
-    file: row.path,
-    file_id: row.id,
-    symbols: symbols.map((sym) => ({
-      symbol: sym.name,
-      qualified_name: sym.qualified_name,
-      kind: sym.kind,
-      start_line: sym.start_line,
-      end_line: sym.end_line,
-    })),
-  };
-}
+    return {
+      file: row.path,
+      file_id: row.id,
+      symbols: symbols.map((sym) => ({
+        symbol: sym.name,
+        qualified_name: sym.qualified_name,
+        kind: sym.kind,
+        start_line: sym.start_line,
+        end_line: sym.end_line,
+      })),
+    };
+  }
 }
 
 function findFile(db, repoId, fileQuery) {
@@ -256,45 +255,43 @@ function findLikelyTests(db, repoId, target, top) {
         item.line = line;
       }
     },
-  baseName = (() => {
-
-  
-    if (target.symbol_id) {
-      const callers = db
-        .prepare(
-          `SELECT DISTINCT cf.path, cc.line_number
+    baseName = (() => {
+      if (target.symbol_id) {
+        const callers = db
+          .prepare(
+            `SELECT DISTINCT cf.path, cc.line_number
            FROM code_calls cc
            JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
            JOIN code_files cf ON cf.id = cs.file_id
            WHERE cc.repo_id = ? AND cc.callee_symbol_id = ? AND ${testPathSql('cf.path')}
            ORDER BY cf.path
            LIMIT ?`,
-        )
-        .all(repoId, target.symbol_id, top);
-      for (const row of callers) {
-        add(row.path, 'calls target symbol', row.line_number);
+          )
+          .all(repoId, target.symbol_id, top);
+        for (const row of callers) {
+          add(row.path, 'calls target symbol', row.line_number);
+        }
       }
-    }
-  
-    if (target.file_id) {
-      const importers = db
-        .prepare(
-          `SELECT DISTINCT sf.path, ci.line_number
+
+      if (target.file_id) {
+        const importers = db
+          .prepare(
+            `SELECT DISTINCT sf.path, ci.line_number
            FROM code_imports ci
            JOIN code_files sf ON sf.id = ci.source_file_id
            WHERE ci.repo_id = ? AND ci.target_file_id = ? AND ${testPathSql('sf.path')}
            ORDER BY sf.path
            LIMIT ?`,
-        )
-        .all(repoId, target.file_id, top);
-      for (const row of importers) {
-        add(row.path, 'imports target file', row.line_number);
+          )
+          .all(repoId, target.file_id, top);
+        for (const row of importers) {
+          add(row.path, 'imports target file', row.line_number);
+        }
       }
-    }
-  
-    
-  return (basenameWithoutExt(target.file || target.symbol || ''));
-})();if (baseName) {
+
+      return basenameWithoutExt(target.file || target.symbol || '');
+    })();
+  if (baseName) {
     const nameMatches = db
       .prepare(
         `SELECT path FROM code_files
@@ -331,10 +328,12 @@ function summarizeContext({
     complexityLevel = complexity?.assessment || null,
     churnPerWeek = typeof churn?.churn_per_week === 'number' ? churn.churn_per_week : null,
     couplingRows = Array.isArray(coupling?.files) ? coupling.files : coupling?.metrics || [],
-    instability = couplingRows[0] ? couplingRows[0].instability : null, reasons = [];
+    instability = couplingRows[0] ? couplingRows[0].instability : null,
+    reasons = [];
 
-  let risk = 'low', reviewBar = 'normal';
-  
+  let risk = 'low',
+    reviewBar = 'normal';
+
   if (affectedFiles >= 10 || callerCount >= 10) {
     risk = 'high';
     reasons.push('large blast radius');
@@ -360,7 +359,6 @@ function summarizeContext({
     reasons.push('recent churn');
   }
 
-  
   if (risk === 'high') {
     reviewBar = 'high';
   } else if (risk === 'medium') {

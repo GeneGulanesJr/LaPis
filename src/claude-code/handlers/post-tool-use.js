@@ -21,25 +21,24 @@
  * or clobber each other. git-trust is read-only and never writes back.
  */
 
-const path = require('node:path'), {
-  parseSearchResultIds,
-  parseMemoryIds,
-  wasSaveSuccessful,
-  extractToolResponseText,
-} = require('../../hooks-engine/tool-response-parse'), { resolveIndexedRepo } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils'), { addNormalized } = require('../file-keys'), { postToolRole } = require('../tool-map'), { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust'),
+const path = require('node:path'),
+  {
+    parseSearchResultIds,
+    parseMemoryIds,
+    wasSaveSuccessful,
+    extractToolResponseText,
+  } = require('../../hooks-engine/tool-response-parse'),
+  { resolveIndexedRepo } = require('../../hooks-engine/project'),
+  { resolveProjectForCwd } = require('../project-resolve'),
+  { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils'),
+  { addNormalized } = require('../file-keys'),
+  { postToolRole } = require('../tool-map'),
+  { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust'),
   // Harvest relative code paths from a memory-code response (parity with the Pi
   // tool_result handler in tool-guardrails.ts). The extension alternation is the
   // same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
   // classifier (#230).
   CODE_PATH_RE = new RegExp(`[\\w/.-]+\\.(${CODE_EXTENSIONS.join('|')})`, 'g');
-
-
-
-
-
-
-
-
 
 function addEditedFile(state, filePath) {
   if (!filePath) {
@@ -64,7 +63,7 @@ function addExploredPath(state, p) {
 /** Harvest file paths mentioned in a memory-code response into exploredFiles. */
 function harvestExploredFiles(state, toolResponse) {
   const text = extractToolResponseText(toolResponse),
-  matches = text ? (text.match(CODE_PATH_RE) || []) : undefined;
+    matches = text ? text.match(CODE_PATH_RE) || [] : undefined;
   if (!text) {
     return;
   }
@@ -107,16 +106,16 @@ async function gitTrustSync({ input, dispatch, repos, state, cwd }) {
     return;
   }
   {
-const repo = resolveIndexedRepo(path.resolve(cwd), repos, state.currentProject);
-  if (!repo) {
-    return;
+    const repo = resolveIndexedRepo(path.resolve(cwd), repos, state.currentProject);
+    if (!repo) {
+      return;
+    }
+    try {
+      await dispatch('sync-code-trust', { repo: repo.name });
+    } catch {
+      // Trust sync is best-effort; a failure must not surface to Claude Code.
+    }
   }
-  try {
-    await dispatch('sync-code-trust', { repo: repo.name });
-  } catch {
-    // Trust sync is best-effort; a failure must not surface to Claude Code.
-  }
-}
 }
 
 async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, roleFilter }) {
@@ -133,75 +132,75 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
   }
 
   {
-const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
-    toolResponse = payload.tool_response,
-    claudeSessionId = payload.session_id,
-    { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
+    const input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
+      toolResponse = payload.tool_response,
+      claudeSessionId = payload.session_id,
+      { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects);
 
-  // Git-trust only READS state (for currentProject), runs the heavy dispatch,
-  // And never writes back — writing a pre-dispatch snapshot after a slow
-  // Sync-code-trust would clobber whatever the synchronous handler saved.
-  // Falls back to loadState when the injected store lacks mutateState.
-  if (role === 'git-trust') {
-    const state = stateStore.loadState(claudeSessionId);
-    await gitTrustSync({ input, dispatch, repos, state, cwd: resolvedCwd });
-    return null;
-  }
-
-  // All other roles are read-modify-write: route through mutateState so two
-  // Parallel PostToolUse hooks can't both read N and both write N+1 (lost
-  // Increment / clobbered set) (#228).
-  {
-const mutate = stateStore.mutateState
-    ? (mutator) => stateStore.mutateState(claudeSessionId, mutator)
-    : (mutator) => {
-        const state = stateStore.loadState(claudeSessionId),
-          r = mutator(state);
-        stateStore.saveState(claudeSessionId, state);
-        return r;
-      };
-
-  await mutate((state) => {
-    if (!state.currentProject) {
-      state.currentProject = project;
+    // Git-trust only READS state (for currentProject), runs the heavy dispatch,
+    // And never writes back — writing a pre-dispatch snapshot after a slow
+    // Sync-code-trust would clobber whatever the synchronous handler saved.
+    // Falls back to loadState when the injected store lacks mutateState.
+    if (role === 'git-trust') {
+      const state = stateStore.loadState(claudeSessionId);
+      await gitTrustSync({ input, dispatch, repos, state, cwd: resolvedCwd });
+      return null;
     }
-    switch (role) {
-      case 'edit-track':
-        addEditedFile(state, input.file_path || input.path);
-        if (Array.isArray(input.edits)) {
-          for (const edit of input.edits) {
-            if (edit && typeof edit.file_path === 'string') {
-              addEditedFile(state, edit.file_path);
+
+    // All other roles are read-modify-write: route through mutateState so two
+    // Parallel PostToolUse hooks can't both read N and both write N+1 (lost
+    // Increment / clobbered set) (#228).
+    {
+      const mutate = stateStore.mutateState
+        ? (mutator) => stateStore.mutateState(claudeSessionId, mutator)
+        : (mutator) => {
+            const state = stateStore.loadState(claudeSessionId),
+              r = mutator(state);
+            stateStore.saveState(claudeSessionId, state);
+            return r;
+          };
+
+      await mutate((state) => {
+        if (!state.currentProject) {
+          state.currentProject = project;
+        }
+        switch (role) {
+          case 'edit-track':
+            addEditedFile(state, input.file_path || input.path);
+            if (Array.isArray(input.edits)) {
+              for (const edit of input.edits) {
+                if (edit && typeof edit.file_path === 'string') {
+                  addEditedFile(state, edit.file_path);
+                }
+              }
             }
+            return;
+          case 'memory-save-mirror':
+            if (wasSaveSuccessful(toolResponse)) {
+              state.memoriesSavedThisSession = (state.memoriesSavedThisSession || 0) + 1;
+            }
+            return;
+          case 'memory-search-mirror':
+            recordSearchRecall(state, parseSearchResultIds(toolResponse), input.query);
+            return;
+          case 'memory-get-mirror': {
+            // Memory-get / memory-delete both take a single `id`; prefer it, fall
+            // Back to parsing the response for robustness.
+            const targetId = Number(input.id),
+              ids = Number.isFinite(targetId) ? [targetId] : parseMemoryIds(toolResponse);
+            consumeRecall(state, ids);
+            return;
           }
+          case 'memory-code-harvest':
+            harvestExploredFiles(state, toolResponse);
+            return;
+          default:
+            return;
         }
-        return;
-      case 'memory-save-mirror':
-        if (wasSaveSuccessful(toolResponse)) {
-          state.memoriesSavedThisSession = (state.memoriesSavedThisSession || 0) + 1;
-        }
-        return;
-      case 'memory-search-mirror':
-        recordSearchRecall(state, parseSearchResultIds(toolResponse), input.query);
-        return;
-      case 'memory-get-mirror': {
-        // Memory-get / memory-delete both take a single `id`; prefer it, fall
-        // Back to parsing the response for robustness.
-        const targetId = Number(input.id),
-          ids = Number.isFinite(targetId) ? [targetId] : parseMemoryIds(toolResponse);
-        consumeRecall(state, ids);
-        return;
-      }
-      case 'memory-code-harvest':
-        harvestExploredFiles(state, toolResponse);
-        return;
-      default:
-        return;
+      });
+      return null; // Silent — PostToolUse injects nothing
     }
-  });
-  return null; // Silent — PostToolUse injects nothing
-}
-}
+  }
 }
 
 module.exports = {

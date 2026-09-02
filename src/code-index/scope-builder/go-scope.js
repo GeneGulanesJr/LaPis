@@ -22,32 +22,32 @@ function buildGoScopeBindings(tree, _source, _filePath) {
       // ── Function declarations ──────────────────────────────
       case 'function_declaration': {
         const nameNode = node.childForFieldName('name'),
-        params = (() => {
+          params = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
 
-          if (nameNode) {
-            addBinding(bindings, {
-              name: nameNode.text,
-              kind: 'declaration',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: node.startPosition.row + 1,
-              lineEnd: node.endPosition.row + 1,
-              scopeDepth,
-              byteStart: node.startIndex,
-              byteEnd: node.endIndex,
-            });
-          }
-          
-  return (node.childForFieldName('parameters'));
-})(),
-        body = (() => {
-if (params) {
-            extractGoParameters(params, scopeDepth + 1);
-          }
-          
-  return (node.childForFieldName('body'));
-})();if (body) {
+            return node.childForFieldName('parameters');
+          })(),
+          body = (() => {
+            if (params) {
+              extractGoParameters(params, scopeDepth + 1);
+            }
+
+            return node.childForFieldName('body');
+          })();
+        if (body) {
           walkChildren(body, scopeDepth + 1);
         }
         return;
@@ -56,37 +56,37 @@ if (params) {
       // ── Method declarations ────────────────────────────────
       case 'method_declaration': {
         const nameNode = node.childForFieldName('name'),
-        receiver = (() => {
+          receiver = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
+            // Receiver
 
-          if (nameNode) {
-            addBinding(bindings, {
-              name: nameNode.text,
-              kind: 'declaration',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: node.startPosition.row + 1,
-              lineEnd: node.endPosition.row + 1,
-              scopeDepth,
-              byteStart: node.startIndex,
-              byteEnd: node.endIndex,
-            });
-          }
-          // Receiver
-          
-  return (node.childForFieldName('receiver'));
-})();if (receiver) {
+            return node.childForFieldName('receiver');
+          })();
+        if (receiver) {
           extractGoReceiver(receiver, scopeDepth + 1);
         }
         const params = node.childForFieldName('parameters'),
-        body = (() => {
+          body = (() => {
+            if (params) {
+              extractGoParameters(params, scopeDepth + 1);
+            }
 
-          if (params) {
-            extractGoParameters(params, scopeDepth + 1);
-          }
-          
-  return (node.childForFieldName('body'));
-})();if (body) {
+            return node.childForFieldName('body');
+          })();
+        if (body) {
           walkChildren(body, scopeDepth + 1);
         }
         return;
@@ -159,9 +159,11 @@ if (params) {
 
   function handleImportSpec(spec, lineNum, endLine) {
     const pathNode = spec.childForFieldName('path'),
-    importPath = pathNode ? (pathNode.text.replace(/^"|"$/g, '')) : undefined,
-    isInternal = pathNode ? (importPath.startsWith('./') || importPath.startsWith('../') || importPath.startsWith('/')) : undefined,
-    nameNode = pathNode ? (spec.childForFieldName('name')) : undefined;
+      importPath = pathNode ? pathNode.text.replace(/^"|"$/g, '') : undefined,
+      isInternal = pathNode
+        ? importPath.startsWith('./') || importPath.startsWith('../') || importPath.startsWith('/')
+        : undefined,
+      nameNode = pathNode ? spec.childForFieldName('name') : undefined;
     if (!pathNode) {
       return;
     }

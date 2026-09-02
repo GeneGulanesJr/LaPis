@@ -10,28 +10,14 @@
 
 'use strict';
 
-const fs = require('fs'), os = require('os'), path = require('path'), { spawn } = require('child_process'),
+const fs = require('fs'),
+  os = require('os'),
+  path = require('path'),
+  { spawn } = require('child_process'),
   DEFAULT_TASKS = path.join(__dirname, 'fixtures', 'pi-memory-tasks.json'),
   PI_CONFIG_FILES = ['models.json', 'settings.json', 'auth.json'],
   MEMORY_OFF_EMPTY_SETTINGS = new Set(['packages']),
   CACHE_READ_TOKEN_WEIGHT = 0.1;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 let progressActive = false;
 
@@ -156,8 +142,6 @@ function parsePiOutput(raw) {
     };
   let parsedEvents = 0;
 
-  
-
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
     let event;
@@ -186,90 +170,90 @@ function parsePiOutput(raw) {
         assistantText = event.text;
       }
       {
-const hasAssistantAnswerText = message.role === 'assistant' && assistantText.trim().length > 0,
-        eventUsage = message.usage || event.usage;
-      if (eventUsage) {
-        const normalizedUsage = {
-            input_tokens: eventUsage.input || eventUsage.input_tokens || 0,
-            output_tokens: eventUsage.output || eventUsage.output_tokens || 0,
-            cache_read_tokens: eventUsage.cacheRead || eventUsage.cache_read_tokens || 0,
-            cache_write_tokens: eventUsage.cacheWrite || eventUsage.cache_write_tokens || 0,
-          },
-          cost = eventUsage.cost || {},
-          costUsd = cost.total || eventUsage.cost_usd || 0,
-          hasUsage =
-            normalizedUsage.input_tokens ||
-            normalizedUsage.output_tokens ||
-            normalizedUsage.cache_read_tokens ||
-            normalizedUsage.cache_write_tokens ||
-            costUsd,
-          usageKey =
-            message.responseId ||
-            event.responseId ||
-            [
-              normalizedUsage.input_tokens,
-              normalizedUsage.output_tokens,
-              normalizedUsage.cache_read_tokens,
-              normalizedUsage.cache_write_tokens,
-              eventUsage.totalTokens || eventUsage.total_tokens || 0,
+        const hasAssistantAnswerText = message.role === 'assistant' && assistantText.trim().length > 0,
+          eventUsage = message.usage || event.usage;
+        if (eventUsage) {
+          const normalizedUsage = {
+              input_tokens: eventUsage.input || eventUsage.input_tokens || 0,
+              output_tokens: eventUsage.output || eventUsage.output_tokens || 0,
+              cache_read_tokens: eventUsage.cacheRead || eventUsage.cache_read_tokens || 0,
+              cache_write_tokens: eventUsage.cacheWrite || eventUsage.cache_write_tokens || 0,
+            },
+            cost = eventUsage.cost || {},
+            costUsd = cost.total || eventUsage.cost_usd || 0,
+            hasUsage =
+              normalizedUsage.input_tokens ||
+              normalizedUsage.output_tokens ||
+              normalizedUsage.cache_read_tokens ||
+              normalizedUsage.cache_write_tokens ||
               costUsd,
-            ].join(':');
-        if (hasUsage && !seenUsage.has(usageKey)) {
-          seenUsage.add(usageKey);
-          usage.input_tokens += normalizedUsage.input_tokens;
-          usage.output_tokens += normalizedUsage.output_tokens;
-          usage.cache_read_tokens += normalizedUsage.cache_read_tokens;
-          usage.cache_write_tokens += normalizedUsage.cache_write_tokens;
-          usageClassifications.push({
-            responseId: message.responseId || event.responseId || null,
-            activeTokens: normalizedUsage.input_tokens + normalizedUsage.output_tokens,
-            hasAssistantAnswerText,
-          });
-          usage.cost_usd += costUsd;
+            usageKey =
+              message.responseId ||
+              event.responseId ||
+              [
+                normalizedUsage.input_tokens,
+                normalizedUsage.output_tokens,
+                normalizedUsage.cache_read_tokens,
+                normalizedUsage.cache_write_tokens,
+                eventUsage.totalTokens || eventUsage.total_tokens || 0,
+                costUsd,
+              ].join(':');
+          if (hasUsage && !seenUsage.has(usageKey)) {
+            seenUsage.add(usageKey);
+            usage.input_tokens += normalizedUsage.input_tokens;
+            usage.output_tokens += normalizedUsage.output_tokens;
+            usage.cache_read_tokens += normalizedUsage.cache_read_tokens;
+            usage.cache_write_tokens += normalizedUsage.cache_write_tokens;
+            usageClassifications.push({
+              responseId: message.responseId || event.responseId || null,
+              activeTokens: normalizedUsage.input_tokens + normalizedUsage.output_tokens,
+              hasAssistantAnswerText,
+            });
+            usage.cost_usd += costUsd;
+          }
         }
-      }
 
-      if (assistantText) {
-        const responseId = message.responseId || event.responseId;
-        if (responseId) {
-          assistantByResponse.set(responseId, assistantText);
-        } else {
-          assistantParts.push(assistantText);
+        if (assistantText) {
+          const responseId = message.responseId || event.responseId;
+          if (responseId) {
+            assistantByResponse.set(responseId, assistantText);
+          } else {
+            assistantParts.push(assistantText);
+          }
         }
-      }
 
-      if (type === 'message_end' && message.role === 'assistant') {
-        behavior.assistant_turns++;
-      }
-
-      if (type === 'tool_execution_start') {
-        const toolName = event.toolName || event.name || event.tool || event.tool_name || event.input?.tool;
-        countTool(toolName);
-        behavior.tool_calls++;
-        if (toolName && /^memory-/.test(toolName)) {
-          behavior.memory_tool_calls++;
+        if (type === 'message_end' && message.role === 'assistant') {
+          behavior.assistant_turns++;
         }
-        if (toolName === 'memory-code' || toolName === 'read' || toolName === 'bash') {
-          behavior.code_tool_calls++;
-        }
-      }
 
-      if (type === 'tool_execution_end') {
-        const isError = event.isError === true || event.result?.isError === true;
-        if (isError) {
-          behavior.failed_tool_calls++;
+        if (type === 'tool_execution_start') {
+          const toolName = event.toolName || event.name || event.tool || event.tool_name || event.input?.tool;
+          countTool(toolName);
+          behavior.tool_calls++;
+          if (toolName && /^memory-/.test(toolName)) {
+            behavior.memory_tool_calls++;
+          }
+          if (toolName === 'memory-code' || toolName === 'read' || toolName === 'bash') {
+            behavior.code_tool_calls++;
+          }
         }
-      }
 
-      if (
-        message.stopReason === 'error' ||
-        message.errorMessage ||
-        (type === 'auto_retry_end' && event.success === false)
-      ) {
-        behavior.error_events++;
+        if (type === 'tool_execution_end') {
+          const isError = event.isError === true || event.result?.isError === true;
+          if (isError) {
+            behavior.failed_tool_calls++;
+          }
+        }
+
+        if (
+          message.stopReason === 'error' ||
+          message.errorMessage ||
+          (type === 'auto_retry_end' && event.success === false)
+        ) {
+          behavior.error_events++;
+        }
       }
     }
-}
   }
 
   usage.active_tokens = usage.input_tokens + usage.output_tokens;
@@ -284,32 +268,32 @@ const hasAssistantAnswerText = message.role === 'assistant' && assistantText.tri
     usageResponseIds = new Set(
       usageClassifications.map((usageClassification) => usageClassification.responseId).filter(Boolean),
     ),
-  result = (() => {
-
-    behavior.missing_answer_usage_responses = [...answerResponseIds].filter(
-      (responseId) => !usageResponseIds.has(responseId),
-    ).length;
-    for (const usageClassification of usageClassifications) {
-      const isAnswerUsage = usageClassification.responseId
-        ? answerResponseIds.has(usageClassification.responseId)
-        : usageClassification.hasAssistantAnswerText;
-      if (isAnswerUsage) {
-        usage.answer_active_tokens += usageClassification.activeTokens;
-      } else {
-        usage.setup_active_tokens += usageClassification.activeTokens;
+    result = (() => {
+      behavior.missing_answer_usage_responses = [...answerResponseIds].filter(
+        (responseId) => !usageResponseIds.has(responseId),
+      ).length;
+      for (const usageClassification of usageClassifications) {
+        const isAnswerUsage = usageClassification.responseId
+          ? answerResponseIds.has(usageClassification.responseId)
+          : usageClassification.hasAssistantAnswerText;
+        if (isAnswerUsage) {
+          usage.answer_active_tokens += usageClassification.activeTokens;
+        } else {
+          usage.setup_active_tokens += usageClassification.activeTokens;
+        }
       }
-    }
-    
-  return ({
-    usage,
-    answer: answerParts.join('\n').trim() || (parsedEvents === 0 ? raw.trim() : ''),
-    tool_counts: Object.fromEntries(toolCounts.entries()),
-    behavior: {
-      ...behavior,
-      tool_names: toolNames,
-    },
-  });
-})();if (parsedEvents > 0 && answerParts.length === 0 && assistantByResponse.size === 0 && behavior.error_events > 0) {
+
+      return {
+        usage,
+        answer: answerParts.join('\n').trim() || (parsedEvents === 0 ? raw.trim() : ''),
+        tool_counts: Object.fromEntries(toolCounts.entries()),
+        behavior: {
+          ...behavior,
+          tool_names: toolNames,
+        },
+      };
+    })();
+  if (parsedEvents > 0 && answerParts.length === 0 && assistantByResponse.size === 0 && behavior.error_events > 0) {
     result.parse_warning = 'Pi events contained errors and no assistant answer';
   } else if (
     answerParts.length === 0 &&
@@ -320,7 +304,7 @@ const hasAssistantAnswerText = message.role === 'assistant' && assistantText.tri
     result.parse_warning = 'No valid Pi events found in output';
   }
   return result;
-function countTool(name) {
+  function countTool(name) {
     if (name) {
       toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
       toolNames.push(name);
@@ -354,42 +338,42 @@ async function runSide(side, commandTemplate, task, repo, outDir, cwd, timeoutMs
     command = renderCommand(commandTemplate, task, repo, outFile);
   benchLog(`[bench] ${task.id}: starting ${side}`);
   {
-const run = await runCommand(command, cwd, timeoutMs, outFile);
-  benchLog(`[bench] ${task.id}: finished ${side} in ${run.elapsed_ms}ms`);
-  if (run.status !== 0 && run.status != null) {
-    if (!run.error) {
-      run.error = `Command exited with status ${run.status}`;
+    const run = await runCommand(command, cwd, timeoutMs, outFile);
+    benchLog(`[bench] ${task.id}: finished ${side} in ${run.elapsed_ms}ms`);
+    if (run.status !== 0 && run.status != null) {
+      if (!run.error) {
+        run.error = `Command exited with status ${run.status}`;
+      }
+      benchLog(`[bench] WARNING: ${task.id} ${side}: command exited with status ${run.status}`);
     }
-    benchLog(`[bench] WARNING: ${task.id} ${side}: command exited with status ${run.status}`);
-  }
 
-  let raw = '';
-  if (fs.existsSync(outFile)) {
-    raw = fs.readFileSync(outFile, 'utf-8');
-  }
-  if (!raw && (run.stdout || run.stderr)) {
-    raw = `${run.stdout}\n${run.stderr}`;
-  }
+    let raw = '';
+    if (fs.existsSync(outFile)) {
+      raw = fs.readFileSync(outFile, 'utf-8');
+    }
+    if (!raw && (run.stdout || run.stderr)) {
+      raw = `${run.stdout}\n${run.stderr}`;
+    }
 
-  {
-const parsed = parsePiOutput(raw),
-    grade = gradeAnswer(parsed.answer, task.expected_facts || []);
+    {
+      const parsed = parsePiOutput(raw),
+        grade = gradeAnswer(parsed.answer, task.expected_facts || []);
 
-  return {
-    side,
-    command,
-    output_file: outFile,
-    status: run.status,
-    signal: run.signal,
-    elapsed_ms: run.elapsed_ms,
-    error: run.error,
-    usage: parsed.usage,
-    tool_counts: parsed.tool_counts,
-    behavior: parsed.behavior,
-    grade,
-  };
-}
-}
+      return {
+        side,
+        command,
+        output_file: outFile,
+        status: run.status,
+        signal: run.signal,
+        elapsed_ms: run.elapsed_ms,
+        error: run.error,
+        usage: parsed.usage,
+        tool_counts: parsed.tool_counts,
+        behavior: parsed.behavior,
+        grade,
+      };
+    }
+  }
 }
 
 function printTableHeader(taskColumnWidth) {
@@ -467,118 +451,121 @@ async function main() {
     taskPack = JSON.parse(fs.readFileSync(args.tasks, 'utf-8')),
     repo = taskPack.repo || path.basename(process.cwd()),
     tasks = (taskPack.tasks || []).filter((task) => !args.only || task.id === args.only),
-  outDir = (() => {
+    outDir = (() => {
+      if (tasks.length === 0) {
+        console.error(`No tasks matched ${args.only || args.tasks}`);
+        process.exit(2);
+      }
 
-    if (tasks.length === 0) {
-      console.error(`No tasks matched ${args.only || args.tasks}`);
-      process.exit(2);
+      return path.resolve(args.outDir);
+    })();
+  fs.mkdirSync(outDir, { recursive: true });
+  {
+    const noMemoryHome = prepareNoMemoryHome(outDir),
+      offCommand = process.env.BENCH_PI_MEMORY_OFF_CMD || defaultPiCommand(noMemoryHome),
+      onCommand = process.env.BENCH_PI_MEMORY_ON_CMD || defaultPiCommand();
+
+    benchLog(`[bench] memory-off HOME: ${noMemoryHome}`);
+    if (!process.env.BENCH_PI_MEMORY_OFF_CMD || !process.env.BENCH_PI_MEMORY_ON_CMD) {
+      benchLog('[bench] using default Pi commands; set BENCH_PI_MEMORY_OFF_CMD / BENCH_PI_MEMORY_ON_CMD to override');
     }
-  
-    
-  return (path.resolve(args.outDir));
-})();fs.mkdirSync(outDir, { recursive: true });
-  {
-const noMemoryHome = prepareNoMemoryHome(outDir),
-    offCommand = process.env.BENCH_PI_MEMORY_OFF_CMD || defaultPiCommand(noMemoryHome),
-    onCommand = process.env.BENCH_PI_MEMORY_ON_CMD || defaultPiCommand();
-
-  benchLog(`[bench] memory-off HOME: ${noMemoryHome}`);
-  if (!process.env.BENCH_PI_MEMORY_OFF_CMD || !process.env.BENCH_PI_MEMORY_ON_CMD) {
-    benchLog('[bench] using default Pi commands; set BENCH_PI_MEMORY_OFF_CMD / BENCH_PI_MEMORY_ON_CMD to override');
-  }
-  benchLog('');
-  {
-const results = [],
-    taskColumnWidth = Math.max(24, ...tasks.map((task) => task.id.length));
-  printTableHeader(taskColumnWidth);
-  for (const task of tasks) {
-    const taskOutDir = path.join(outDir, task.id);
-    fs.mkdirSync(taskOutDir, { recursive: true });
-    // Sequential runs keep memory-off and memory-on from sharing live Pi state.
-    // eslint-disable-next-line no-await-in-loop
+    benchLog('');
     {
-const off = await runSide('memory-off', offCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs),
-      // eslint-disable-next-line no-await-in-loop
-      on = await runSide('memory-on', onCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs);
-    results.push({
-      task_id: task.id,
-      category: task.category || 'uncategorized',
-      intent: task.intent || null,
-      prompt: task.prompt,
-      memory_off: off,
-      memory_on: on,
-    });
-    printRow(task.id, off, on, taskColumnWidth);
-  }
-}
+      const results = [],
+        taskColumnWidth = Math.max(24, ...tasks.map((task) => task.id.length));
+      printTableHeader(taskColumnWidth);
+      for (const task of tasks) {
+        const taskOutDir = path.join(outDir, task.id);
+        fs.mkdirSync(taskOutDir, { recursive: true });
+        // Sequential runs keep memory-off and memory-on from sharing live Pi state.
+        // eslint-disable-next-line no-await-in-loop
+        {
+          const off = await runSide('memory-off', offCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs),
+            // eslint-disable-next-line no-await-in-loop
+            on = await runSide('memory-on', onCommand, task, repo, taskOutDir, process.cwd(), args.timeoutMs);
+          results.push({
+            task_id: task.id,
+            category: task.category || 'uncategorized',
+            intent: task.intent || null,
+            prompt: task.prompt,
+            memory_off: off,
+            memory_on: on,
+          });
+          printRow(task.id, off, on, taskColumnWidth);
+        }
+      }
 
-  {
-const allFailed = results.every(
-    (r) =>
-      r.memory_off.status !== 0 &&
-      r.memory_off.status != null &&
-      r.memory_on.status !== 0 &&
-      r.memory_on.status != null,
-  );
-  if (allFailed) {
-    benchLog('\n[bench] ERROR: All tasks failed. Are Pi commands available?');
-    benchLog(`[bench]   Off command: ${offCommand}`);
-    benchLog(`[bench]   On command:  ${onCommand}`);
-    process.exit(1);
-  }
+      {
+        const allFailed = results.every(
+          (r) =>
+            r.memory_off.status !== 0 &&
+            r.memory_off.status != null &&
+            r.memory_on.status !== 0 &&
+            r.memory_on.status != null,
+        );
+        if (allFailed) {
+          benchLog('\n[bench] ERROR: All tasks failed. Are Pi commands available?');
+          benchLog(`[bench]   Off command: ${offCommand}`);
+          benchLog(`[bench]   On command:  ${onCommand}`);
+          process.exit(1);
+        }
 
-  {
-const summary = buildSummary(results),
-    report = {
-      generated_at: new Date().toISOString(),
-      host: os.hostname(),
-      task_pack: args.tasks,
-      summary,
-      results,
-    },
-    reportPath = path.join(outDir, 'report.json');
-  fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+        {
+          const summary = buildSummary(results),
+            report = {
+              generated_at: new Date().toISOString(),
+              host: os.hostname(),
+              task_pack: args.tasks,
+              summary,
+              results,
+            },
+            reportPath = path.join(outDir, 'report.json');
+          fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
-  benchLog('\nSummary');
-  benchLog(`  Tasks:             ${summary.tasks}`);
-  benchLog(`  Memory-off facts:  ${summary.memory_off_facts}`);
-  benchLog(`  Memory-on facts:   ${summary.memory_on_facts}`);
-  benchLog(`  Memory-off active: ${summary.memory_off_active_tokens}`);
-  benchLog(`  Memory-on active:  ${summary.memory_on_active_tokens}`);
-  benchLog(`  Memory-off cache:  ${summary.memory_off_cache_read_tokens}`);
-  benchLog(`  Memory-on cache:   ${summary.memory_on_cache_read_tokens}`);
-  benchLog(`  Memory-off effect: ${summary.memory_off_effective_tokens}`);
-  benchLog(`  Memory-on effect:  ${summary.memory_on_effective_tokens}`);
-  benchLog(`  Memory-off adj:    ${summary.memory_off_cache_discounted_tokens}`);
-  benchLog(`  Memory-on adj:     ${summary.memory_on_cache_discounted_tokens}`);
-  benchLog(`  Memory-off answer: ${summary.memory_off_answer_active_tokens}`);
-  benchLog(`  Memory-on answer:  ${summary.memory_on_answer_active_tokens}`);
-  benchLog(`  Memory-off setup:  ${summary.memory_off_setup_active_tokens}`);
-  benchLog(`  Memory-on setup:   ${summary.memory_on_setup_active_tokens}`);
-  benchLog(`  Memory-off cost:   ${summary.memory_off_cost_usd.toFixed(6)}`);
-  benchLog(`  Memory-on cost:    ${summary.memory_on_cost_usd.toFixed(6)}`);
-  benchLog(`  Memory-off tools:  ${summary.memory_off_tool_calls} (${summary.memory_off_failed_tool_calls} failed)`);
-  benchLog(`  Memory-on tools:   ${summary.memory_on_tool_calls} (${summary.memory_on_failed_tool_calls} failed)`);
-  benchLog(`  Memory-on memtools:${summary.memory_on_memory_tool_calls}`);
-  benchLog(`  Memory-on codetools:${summary.memory_on_code_tool_calls}`);
-  benchLog(`  Memory-on turns:   ${summary.memory_on_assistant_turns}`);
-  benchLog(`  Active delta:      ${summary.token_savings_pct}`);
-  benchLog(`  Adjusted delta:    ${summary.cache_discounted_token_savings_pct}`);
-  benchLog(`  Effective delta:   ${summary.effective_token_savings_pct}`);
-  benchLog(`  Answer delta:      ${summary.answer_token_savings_pct}`);
-  benchLog(`  Cost delta:        ${summary.cost_savings_pct}`);
-  benchLog('');
-  benchLog('By category:');
-  for (const category of summary.categories) {
-    benchLog(
-      `  ${category.category}: facts ${category.memory_off_facts} -> ${category.memory_on_facts}, active ${category.memory_off_active_tokens} -> ${category.memory_on_active_tokens} (${category.token_savings_pct}), adjusted ${category.memory_off_cache_discounted_tokens} -> ${category.memory_on_cache_discounted_tokens} (${category.cache_discounted_token_savings_pct}), effective ${category.memory_off_effective_tokens} -> ${category.memory_on_effective_tokens} (${category.effective_token_savings_pct}), answer ${category.memory_off_answer_active_tokens} -> ${category.memory_on_answer_active_tokens} (${category.answer_token_savings_pct}), on-setup ${category.memory_on_setup_active_tokens}`,
-    );
+          benchLog('\nSummary');
+          benchLog(`  Tasks:             ${summary.tasks}`);
+          benchLog(`  Memory-off facts:  ${summary.memory_off_facts}`);
+          benchLog(`  Memory-on facts:   ${summary.memory_on_facts}`);
+          benchLog(`  Memory-off active: ${summary.memory_off_active_tokens}`);
+          benchLog(`  Memory-on active:  ${summary.memory_on_active_tokens}`);
+          benchLog(`  Memory-off cache:  ${summary.memory_off_cache_read_tokens}`);
+          benchLog(`  Memory-on cache:   ${summary.memory_on_cache_read_tokens}`);
+          benchLog(`  Memory-off effect: ${summary.memory_off_effective_tokens}`);
+          benchLog(`  Memory-on effect:  ${summary.memory_on_effective_tokens}`);
+          benchLog(`  Memory-off adj:    ${summary.memory_off_cache_discounted_tokens}`);
+          benchLog(`  Memory-on adj:     ${summary.memory_on_cache_discounted_tokens}`);
+          benchLog(`  Memory-off answer: ${summary.memory_off_answer_active_tokens}`);
+          benchLog(`  Memory-on answer:  ${summary.memory_on_answer_active_tokens}`);
+          benchLog(`  Memory-off setup:  ${summary.memory_off_setup_active_tokens}`);
+          benchLog(`  Memory-on setup:   ${summary.memory_on_setup_active_tokens}`);
+          benchLog(`  Memory-off cost:   ${summary.memory_off_cost_usd.toFixed(6)}`);
+          benchLog(`  Memory-on cost:    ${summary.memory_on_cost_usd.toFixed(6)}`);
+          benchLog(
+            `  Memory-off tools:  ${summary.memory_off_tool_calls} (${summary.memory_off_failed_tool_calls} failed)`,
+          );
+          benchLog(
+            `  Memory-on tools:   ${summary.memory_on_tool_calls} (${summary.memory_on_failed_tool_calls} failed)`,
+          );
+          benchLog(`  Memory-on memtools:${summary.memory_on_memory_tool_calls}`);
+          benchLog(`  Memory-on codetools:${summary.memory_on_code_tool_calls}`);
+          benchLog(`  Memory-on turns:   ${summary.memory_on_assistant_turns}`);
+          benchLog(`  Active delta:      ${summary.token_savings_pct}`);
+          benchLog(`  Adjusted delta:    ${summary.cache_discounted_token_savings_pct}`);
+          benchLog(`  Effective delta:   ${summary.effective_token_savings_pct}`);
+          benchLog(`  Answer delta:      ${summary.answer_token_savings_pct}`);
+          benchLog(`  Cost delta:        ${summary.cost_savings_pct}`);
+          benchLog('');
+          benchLog('By category:');
+          for (const category of summary.categories) {
+            benchLog(
+              `  ${category.category}: facts ${category.memory_off_facts} -> ${category.memory_on_facts}, active ${category.memory_off_active_tokens} -> ${category.memory_on_active_tokens} (${category.token_savings_pct}), adjusted ${category.memory_off_cache_discounted_tokens} -> ${category.memory_on_cache_discounted_tokens} (${category.cache_discounted_token_savings_pct}), effective ${category.memory_off_effective_tokens} -> ${category.memory_on_effective_tokens} (${category.effective_token_savings_pct}), answer ${category.memory_off_answer_active_tokens} -> ${category.memory_on_answer_active_tokens} (${category.answer_token_savings_pct}), on-setup ${category.memory_on_setup_active_tokens}`,
+            );
+          }
+          benchLog(`  Report:            ${reportPath}`);
+        }
+      }
+    }
   }
-  benchLog(`  Report:            ${reportPath}`);
-}
-}
-}
-}
 }
 
 function buildSummary(results) {
@@ -701,33 +688,33 @@ function buildCategorySummary(results) {
   const groups = new Map();
   for (const result of results) {
     const category = result.category || 'uncategorized',
-    group = (() => {
+      group = (() => {
+        if (!groups.has(category)) {
+          groups.set(category, {
+            category,
+            tasks: 0,
+            offMatched: 0,
+            offTotal: 0,
+            onMatched: 0,
+            onTotal: 0,
+            offTokens: 0,
+            onTokens: 0,
+            offCache: 0,
+            onCache: 0,
+            offEffectiveTokens: 0,
+            onEffectiveTokens: 0,
+            offCacheDiscountedTokens: 0,
+            onCacheDiscountedTokens: 0,
+            offAnswerTokens: 0,
+            onAnswerTokens: 0,
+            offSetupTokens: 0,
+            onSetupTokens: 0,
+          });
+        }
 
-      if (!groups.has(category)) {
-        groups.set(category, {
-          category,
-          tasks: 0,
-          offMatched: 0,
-          offTotal: 0,
-          onMatched: 0,
-          onTotal: 0,
-          offTokens: 0,
-          onTokens: 0,
-          offCache: 0,
-          onCache: 0,
-          offEffectiveTokens: 0,
-          onEffectiveTokens: 0,
-          offCacheDiscountedTokens: 0,
-          onCacheDiscountedTokens: 0,
-          offAnswerTokens: 0,
-          onAnswerTokens: 0,
-          offSetupTokens: 0,
-          onSetupTokens: 0,
-        });
-      }
-      
-  return (groups.get(category));
-})();group.tasks++;
+        return groups.get(category);
+      })();
+    group.tasks++;
     group.offMatched += result.memory_off.grade.matched;
     group.offTotal += result.memory_off.grade.total;
     group.onMatched += result.memory_on.grade.matched;

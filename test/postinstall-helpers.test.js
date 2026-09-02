@@ -3,28 +3,28 @@
 // The repo runs vitest with `globals: true` (see vitest.config.mjs), so
 // Describe/it/expect are available without importing — matching every other
 // Test file under test/. Do not `require('vitest')`; that throws under CJS.
-const { copyGrammar, copyHtmlGrammar, MIN_GRAMMAR_BYTES } = require('../scripts/postinstall-helpers'), fs = require('fs'), os = require('os'), path = require('path'),
+const { copyGrammar, copyHtmlGrammar, MIN_GRAMMAR_BYTES } = require('../scripts/postinstall-helpers'),
+  fs = require('fs'),
+  os = require('os'),
+  path = require('path'),
   // Payload well above MIN_GRAMMAR_BYTES so size guards fire only on purpose.
   VALID_WASM = Buffer.alloc(MIN_GRAMMAR_BYTES + 4096, 0x00);
-
-
-
 
 function makeFixture({ srcBytes = VALID_WASM, destBytes = null } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-postinstall-')),
     grammarDir = path.join(root, 'grammars'),
-  src = (() => {
+    src = (() => {
+      fs.mkdirSync(grammarDir, { recursive: true });
 
-    fs.mkdirSync(grammarDir, { recursive: true });
-    
-  return (path.join(root, 'source', 'tree-sitter-html.wasm'));
-})(),
-  dest = (() => {
-fs.mkdirSync(path.dirname(src), { recursive: true });
-    fs.writeFileSync(src, srcBytes);
-    
-  return (path.join(grammarDir, 'tree-sitter-html.wasm'));
-})();if (destBytes !== null) {
+      return path.join(root, 'source', 'tree-sitter-html.wasm');
+    })(),
+    dest = (() => {
+      fs.mkdirSync(path.dirname(src), { recursive: true });
+      fs.writeFileSync(src, srcBytes);
+
+      return path.join(grammarDir, 'tree-sitter-html.wasm');
+    })();
+  if (destBytes !== null) {
     fs.writeFileSync(dest, destBytes);
   }
   return { root, grammarDir, src, destName: 'tree-sitter-html.wasm', dest };
@@ -66,12 +66,12 @@ describe('postinstall grammar copy + verification', () => {
 
   it('warns and skips when the source grammar is missing', () => {
     const f = makeFixture(),
-    res = (() => {
+      res = (() => {
+        fs.rmSync(f.src);
 
-      fs.rmSync(f.src);
-      
-  return (copyGrammar({ ...f, warn: (m) => warns.push(m) }));
-})();expect(res.copied).toBe(false);
+        return copyGrammar({ ...f, warn: (m) => warns.push(m) });
+      })();
+    expect(res.copied).toBe(false);
     expect(res.skipped).toBe(true);
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('src_missing');
@@ -81,12 +81,12 @@ describe('postinstall grammar copy + verification', () => {
 
   it('warns and skips when the destination directory is missing', () => {
     const f = makeFixture(),
-    res = (() => {
+      res = (() => {
+        fs.rmSync(f.grammarDir, { recursive: true, force: true });
 
-      fs.rmSync(f.grammarDir, { recursive: true, force: true });
-      
-  return (copyGrammar({ ...f, warn: (m) => warns.push(m) }));
-})();expect(res.copied).toBe(false);
+        return copyGrammar({ ...f, warn: (m) => warns.push(m) });
+      })();
+    expect(res.copied).toBe(false);
     expect(res.skipped).toBe(true);
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('dest_dir_missing');
@@ -176,12 +176,12 @@ describe('postinstall grammar copy + verification', () => {
 
   it('copyHtmlGrammar wires root -> node_modules/tree-sitter-html -> grammars/', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-pi-html-')),
-    src = (() => {
+      src = (() => {
+        fs.mkdirSync(path.join(root, 'grammars'), { recursive: true });
 
-      fs.mkdirSync(path.join(root, 'grammars'), { recursive: true });
-      
-  return (path.join(root, 'node_modules', 'tree-sitter-html', 'tree-sitter-html.wasm'));
-})();fs.mkdirSync(path.dirname(src), { recursive: true });
+        return path.join(root, 'node_modules', 'tree-sitter-html', 'tree-sitter-html.wasm');
+      })();
+    fs.mkdirSync(path.dirname(src), { recursive: true });
     fs.writeFileSync(src, VALID_WASM);
     const dest = path.join(root, 'grammars', 'tree-sitter-html.wasm'),
       res = copyHtmlGrammar({ root, warn: (m) => warns.push(m) });
@@ -193,12 +193,12 @@ describe('postinstall grammar copy + verification', () => {
 
   it('copyHtmlGrammar warns when node_modules/tree-sitter-html is absent', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-pi-html-')),
-    res = (() => {
+      res = (() => {
+        fs.mkdirSync(path.join(root, 'grammars'), { recursive: true });
 
-      fs.mkdirSync(path.join(root, 'grammars'), { recursive: true });
-      
-  return (copyHtmlGrammar({ root, warn: (m) => warns.push(m) }));
-})();expect(res.ok).toBe(false);
+        return copyHtmlGrammar({ root, warn: (m) => warns.push(m) });
+      })();
+    expect(res.ok).toBe(false);
     expect(res.reason).toBe('src_missing');
     expect(warns).toHaveLength(1);
   });

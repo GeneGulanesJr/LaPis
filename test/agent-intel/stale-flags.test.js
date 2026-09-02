@@ -1,7 +1,7 @@
-const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
-
-
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -67,14 +67,13 @@ function normalFunc() { return true; }
     // Create a clean repo
     const cleanRepoName = `test-clean-${Date.now()}`,
       cleanTmp = path.join('/tmp', cleanRepoName),
-    result = (() => {
+      result = (() => {
+        writeTmpRepo(cleanTmp, { 'src/util.js': 'export function add(a, b) { return a + b; }' });
+        run(`index-repo --path "${cleanTmp}" --name ${cleanRepoName}`);
 
-      writeTmpRepo(cleanTmp, { 'src/util.js': 'export function add(a, b) { return a + b; }' });
-      run(`index-repo --path "${cleanTmp}" --name ${cleanRepoName}`);
-  
-      
-  return (run(`stale-flags --repo ${cleanRepoName}`));
-})();expect(result.stale_flags.length).toBe(0);
+        return run(`stale-flags --repo ${cleanRepoName}`);
+      })();
+    expect(result.stale_flags.length).toBe(0);
 
     try {
       run(`remove-code-repo --repo ${cleanRepoName}`);

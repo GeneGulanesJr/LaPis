@@ -80,10 +80,11 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
         'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
         ...(promptQuery ? { query: promptQuery } : {}),
         ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
-      }), projectContext = contextResult;
+      }),
+      projectContext = contextResult;
 
     let crossProjectResult: MemResult | null = null;
-    
+
     if (!projectContext) {
       crossProjectResult = await deps.mem('context', {
         'all-projects': 'true',
@@ -127,103 +128,101 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
       resolvedCwd = path.resolve(ctx.cwd),
       cwdRepo = resolveIndexedRepo(resolvedCwd, repos, deps.state.currentProject),
       isStale = cwdRepo ? deps.isRepoStale(cwdRepo) : false,
-    isNewProject = (() => {
-
-  
-      // Self-heal stale session-start project key when path-resolved repo name differs.
-      // Context for this turn was fetched with the stale key; counts catch up next turn.
-      if (cwdRepo && cwdRepo.name.toLowerCase() !== (deps.state.currentProject || '').toLowerCase()) {
-        deps.state.currentProject = cwdRepo.name;
-      }
-  
-      
-  return (crossProjectResult !== null && !projectContext);
-})();{
-let effectiveObservations: any[] = [];
-    if (promptQuery) {
-      effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : observations;
-    }
-    const effectiveStats = isNewProject ? (crossProjectResult!.stats as any) : stats;
-
-    deps.state.hasInjectedContext = true;
-
-    {
-const topic = effectiveContext.topic as string | null,
-      projectDir = cwdRepo?.path || ctx.cwd,
-      lines = buildContextBlock({
-        promptQuery,
-        currentProject: deps.state.currentProject,
-        projectDir,
-        cwdRepo,
-        isStale,
-        isNewProject,
-        observations,
-        effectiveObservations,
-        personal,
-        stats,
-        effectiveStats,
-        topic,
-        crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
-      });
-
-    if (!cwdRepo) {
-      lines.push('');
-      lines.push(
-        `⚠️ **Code not indexed:** Project "${deps.state.currentProject}" has no code index yet. Index it first: \`memory-code index-repo --path ${ctx.cwd} --name ${deps.state.currentProject}\``,
-      );
-    } else if (isStale && !isHistoricalMemoryPrompt(promptQuery) && effectiveObservations.length === 0) {
-      lines.push('');
-      lines.push(CONTEXT.STALE_GUIDANCE.replace('{repo}', cwdRepo.name));
-    }
-
-    // Auto-inject preflight intelligence for coding tasks when an indexed repo exists
-    if (cwdRepo && isPreflightWorthyPrompt(promptQuery)) {
-      let preflightResult: any = null;
-      try {
-        preflightResult = await deps.mem('preflight', {
-          repo: cwdRepo.name,
-          task: promptQuery,
-          'code-limit': String(CONTEXT.PREFLIGHT_CODE_LIMIT || 3),
-          'memory-limit': String(CONTEXT.PREFLIGHT_MEMORY_LIMIT || 2),
-          'doc-limit': String(CONTEXT.PREFLIGHT_DOC_LIMIT || 1),
-        });
-        if (preflightResult && !preflightResult.error) {
-          appendPreflightBlock(lines, preflightResult);
+      isNewProject = (() => {
+        // Self-heal stale session-start project key when path-resolved repo name differs.
+        // Context for this turn was fetched with the stale key; counts catch up next turn.
+        if (cwdRepo && cwdRepo.name.toLowerCase() !== (deps.state.currentProject || '').toLowerCase()) {
+          deps.state.currentProject = cwdRepo.name;
         }
-      } catch {
-        // Preflight is best-effort; never block context injection on failure
-      }
 
-      try {
-        const target = chooseCodingContextTarget(promptQuery, preflightResult);
-        if (target) {
-          const codingContextResult = await deps.mem('coding-context', {
-            repo: cwdRepo.name,
-            ...target,
-            depth: '2',
-            top: '5',
+        return crossProjectResult !== null && !projectContext;
+      })();
+    {
+      let effectiveObservations: any[] = [];
+      if (promptQuery) {
+        effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : observations;
+      }
+      const effectiveStats = isNewProject ? (crossProjectResult!.stats as any) : stats;
+
+      deps.state.hasInjectedContext = true;
+
+      {
+        const topic = effectiveContext.topic as string | null,
+          projectDir = cwdRepo?.path || ctx.cwd,
+          lines = buildContextBlock({
+            promptQuery,
+            currentProject: deps.state.currentProject,
+            projectDir,
+            cwdRepo,
+            isStale,
+            isNewProject,
+            observations,
+            effectiveObservations,
+            personal,
+            stats,
+            effectiveStats,
+            topic,
+            crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
           });
-          if (codingContextResult && !codingContextResult.error) {
-            appendCodingContextBlock(lines, unwrapAnalysisData(codingContextResult));
+
+        if (!cwdRepo) {
+          lines.push('');
+          lines.push(
+            `⚠️ **Code not indexed:** Project "${deps.state.currentProject}" has no code index yet. Index it first: \`memory-code index-repo --path ${ctx.cwd} --name ${deps.state.currentProject}\``,
+          );
+        } else if (isStale && !isHistoricalMemoryPrompt(promptQuery) && effectiveObservations.length === 0) {
+          lines.push('');
+          lines.push(CONTEXT.STALE_GUIDANCE.replace('{repo}', cwdRepo.name));
+        }
+
+        // Auto-inject preflight intelligence for coding tasks when an indexed repo exists
+        if (cwdRepo && isPreflightWorthyPrompt(promptQuery)) {
+          let preflightResult: any = null;
+          try {
+            preflightResult = await deps.mem('preflight', {
+              repo: cwdRepo.name,
+              task: promptQuery,
+              'code-limit': String(CONTEXT.PREFLIGHT_CODE_LIMIT || 3),
+              'memory-limit': String(CONTEXT.PREFLIGHT_MEMORY_LIMIT || 2),
+              'doc-limit': String(CONTEXT.PREFLIGHT_DOC_LIMIT || 1),
+            });
+            if (preflightResult && !preflightResult.error) {
+              appendPreflightBlock(lines, preflightResult);
+            }
+          } catch {
+            // Preflight is best-effort; never block context injection on failure
+          }
+
+          try {
+            const target = chooseCodingContextTarget(promptQuery, preflightResult);
+            if (target) {
+              const codingContextResult = await deps.mem('coding-context', {
+                repo: cwdRepo.name,
+                ...target,
+                depth: '2',
+                top: '5',
+              });
+              if (codingContextResult && !codingContextResult.error) {
+                appendCodingContextBlock(lines, unwrapAnalysisData(codingContextResult));
+              }
+            }
+          } catch {
+            // Coding context is best-effort; never block context injection on failure
           }
         }
-      } catch {
-        // Coding context is best-effort; never block context injection on failure
+
+        appendExtensionHint(lines, ctx.cwd);
+
+        return {
+          message: {
+            customType: 'memory-context',
+            content: capInjectedContext(lines.join('\n')),
+            display: false,
+          },
+        };
       }
     }
-
-    appendExtensionHint(lines, ctx.cwd);
-
-    return {
-      message: {
-        customType: 'memory-context',
-        content: capInjectedContext(lines.join('\n')),
-        display: false,
-      },
-    };
-  }
-}
-});
+  });
 }
 
 export function registerContextReminder(pi: ExtensionAPI, deps: ContextDeps) {

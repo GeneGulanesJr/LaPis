@@ -1,5 +1,5 @@
-const observations = require('../../../../data-access/observations'), workspaces = require('../../../memory-domain/workspaces');
-
+const observations = require('../../../../data-access/observations'),
+  workspaces = require('../../../memory-domain/workspaces');
 
 function createMemoryRepository(deps) {
   const repository = {

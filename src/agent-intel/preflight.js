@@ -3,16 +3,16 @@
 // Code-index, doc-index, and static analysis read models into compact
 // Before-coding context. Must not mutate memory or code indexes.
 
-const codeSearch = require('../code-index/source-retrieval'), memorySearch = require('../memory-domain/search'), path = require('path'), docIndex = require('../doc-index'),
+const codeSearch = require('../code-index/source-retrieval'),
+  memorySearch = require('../memory-domain/search'),
+  path = require('path'),
+  docIndex = require('../doc-index'),
   DEFAULT_LIMITS = {
     code: 8,
     memory: 5,
     docs: 5,
     relatedFiles: 8,
   };
-
-
-
 
 function clampInt(value, fallback, min, max) {
   const n = Number(value);
@@ -54,11 +54,13 @@ function taskTerms(task) {
 
 function inferRepoName(db, cwd) {
   const repos = db.prepare('SELECT name, path FROM code_repos ORDER BY updated_at DESC, indexed_at DESC').all(),
-  resolvedCwd = !(repos.length === 0) ? (path.resolve(cwd || process.cwd()).toLowerCase()) : undefined,
-  cwdMatch = !(repos.length === 0) ? (repos.find((repo) => {
-      const repoPath = path.resolve(repo.path).toLowerCase();
-      return resolvedCwd === repoPath || resolvedCwd.startsWith(`${repoPath}${path.sep}`);
-    })) : undefined;
+    resolvedCwd = !(repos.length === 0) ? path.resolve(cwd || process.cwd()).toLowerCase() : undefined,
+    cwdMatch = !(repos.length === 0)
+      ? repos.find((repo) => {
+          const repoPath = path.resolve(repo.path).toLowerCase();
+          return resolvedCwd === repoPath || resolvedCwd.startsWith(`${repoPath}${path.sep}`);
+        })
+      : undefined;
   if (repos.length === 0) {
     return null;
   }
@@ -231,7 +233,7 @@ function getDocMatches(db, task, repoName, limit) {
 function duplicateWarnings(task, codeItems) {
   const terms = taskTerms(task),
     warnings = [],
-  overlapThreshold = !(terms.length === 0) ? (Math.min(2, Math.max(1, terms.length))) : undefined;
+    overlapThreshold = !(terms.length === 0) ? Math.min(2, Math.max(1, terms.length)) : undefined;
   if (terms.length === 0) {
     return warnings;
   }
@@ -283,7 +285,7 @@ function preflight(deps, args) {
   }
   const db = deps.getDb ? deps.getDb() : deps.db,
     repoName = args.repo || inferRepoName(db, process.cwd()),
-  repo = repoName ? (getRepoRow(db, repoName)) : undefined;
+    repo = repoName ? getRepoRow(db, repoName) : undefined;
   if (!repoName) {
     return deps.jsonErrNoExit
       ? deps.jsonErrNoExit('Usage: preflight --task <task> --repo <repo>')
@@ -314,18 +316,18 @@ function preflight(deps, args) {
     warnings = duplicateWarnings(task, codeItems),
     risk = riskLevel({ codeItems, memories, warnings, relatedFiles });
   let duplicateRisk = 'low',
-  structuralDuplicates = (() => {
+    structuralDuplicates = (() => {
+      if (risk === 'high') {
+        duplicateRisk = 'high';
+      } else if (warnings.length) {
+        duplicateRisk = 'medium';
+      }
 
-    if (risk === 'high') {
-      duplicateRisk = 'high';
-    } else if (warnings.length) {
-      duplicateRisk = 'medium';
-    }
-  
-    // Enrich with structural duplicates and symbol metadata
-    
-  return ([]);
-})();try {
+      // Enrich with structural duplicates and symbol metadata
+
+      return [];
+    })();
+  try {
     const dupesModule = require('./dupes'),
       persistedDupes = dupesModule.loadDupes(db, repo.id);
     structuralDuplicates = persistedDupes
@@ -343,117 +345,123 @@ function preflight(deps, args) {
 
   // Enrich top code items with metadata
   {
-let enrichedCodeItems = codeItems,
-  runtimeHotness = (() => {
-
-    try {
-      const enrichment = require('./symbol-enrichment');
-      enrichedCodeItems = codeItems.slice(0, 5).map((item) => {
-        const symRow = symbolRows.find((s) => s.name === item.symbol && s.file_path === item.file);
-        if (symRow) {
-          const meta = enrichment.getSymbolMeta(db, symRow.id);
-          if (meta) {
-            return {
-              ...item,
-              intent: meta.intent || undefined,
-              constraints: meta.constraints ? JSON.parse(meta.constraints) : undefined,
-            };
-          }
+    let enrichedCodeItems = codeItems,
+      runtimeHotness = (() => {
+        try {
+          const enrichment = require('./symbol-enrichment');
+          enrichedCodeItems = codeItems.slice(0, 5).map((item) => {
+            const symRow = symbolRows.find((s) => s.name === item.symbol && s.file_path === item.file);
+            if (symRow) {
+              const meta = enrichment.getSymbolMeta(db, symRow.id);
+              if (meta) {
+                return {
+                  ...item,
+                  intent: meta.intent || undefined,
+                  constraints: meta.constraints ? JSON.parse(meta.constraints) : undefined,
+                };
+              }
+            }
+            return item;
+          });
+        } catch {
+          // Enrichment module may not exist yet
         }
-        return item;
-      });
-    } catch {
-      // Enrichment module may not exist yet
-    }
-  
-    // Enrich with runtime hotness data if available
-    
-  return (null);
-})();try {
-    const runtimeIngest = require('./runtime-ingest'),
-      hotSymbols = runtimeIngest.getHotSymbols(db, repo.id, 50),
-      // Check if any of the top code items are hot paths
-      topFiles = codeItems.slice(0, 3).map((item) => item.file),
-      hotMatches = hotSymbols.filter(
-        (s) => s.file_path && topFiles.some((f) => s.file_path.includes(f) || f.includes(s.file_path)),
-      );
 
-    if (hotMatches.length > 0) {
-      runtimeHotness = {
-        is_hot_path: true,
-        hot_matches: hotMatches.slice(0, 3).map((s) => ({
-          symbol: s.function_name,
-          file: s.file_path,
-          traffic: s.traffic,
-          hit_count: s.hit_count,
-        })),
+        // Enrich with runtime hotness data if available
+
+        return null;
+      })();
+    try {
+      const runtimeIngest = require('./runtime-ingest'),
+        hotSymbols = runtimeIngest.getHotSymbols(db, repo.id, 50),
+        // Check if any of the top code items are hot paths
+        topFiles = codeItems.slice(0, 3).map((item) => item.file),
+        hotMatches = hotSymbols.filter(
+          (s) => s.file_path && topFiles.some((f) => s.file_path.includes(f) || f.includes(s.file_path)),
+        );
+
+      if (hotMatches.length > 0) {
+        runtimeHotness = {
+          is_hot_path: true,
+          hot_matches: hotMatches.slice(0, 3).map((s) => ({
+            symbol: s.function_name,
+            file: s.file_path,
+            traffic: s.traffic,
+            hit_count: s.hit_count,
+          })),
+        };
+      }
+    } catch {
+      // Runtime data not available — graceful degradation
+    }
+
+    // Recalculate risk with runtime consideration
+    {
+      const effectiveRisk =
+        runtimeHotness && runtimeHotness.is_hot_path
+          ? risk === 'low'
+            ? 'medium'
+            : risk === 'medium'
+              ? 'high'
+              : risk
+          : risk;
+
+      return {
+        task_summary: task,
+        repo: repoName,
+        likely_existing_code: enrichedCodeItems,
+        similar_past_tasks: memories,
+        related_files: relatedFiles,
+        tests_likely_affected: likelyTests,
+        relevant_docs: docs,
+        duplicate_risk: duplicateRisk,
+        duplicate_warnings: warnings,
+        structural_duplicates: structuralDuplicates,
+        runtime_hotness: runtimeHotness,
+        risk: effectiveRisk,
+        recommended_action: recommendedAction(effectiveRisk, warnings, codeItems),
+        evidence: {
+          code_search_strategy: codeSearchResult.strategy,
+          code_results_considered: codeItems.length,
+          memory_results_considered: memories.length,
+          doc_results_considered: docs.length,
+          indexed_repo: {
+            files: repo.file_count,
+            symbols: repo.symbol_count,
+            head_commit: repo.head_commit,
+          },
+        },
       };
     }
-  } catch {
-    // Runtime data not available — graceful degradation
   }
-
-  // Recalculate risk with runtime consideration
-  {
-const effectiveRisk =
-    runtimeHotness && runtimeHotness.is_hot_path
-      ? risk === 'low'
-        ? 'medium'
-        : risk === 'medium'
-          ? 'high'
-          : risk
-      : risk;
-
-  return {
-    task_summary: task,
-    repo: repoName,
-    likely_existing_code: enrichedCodeItems,
-    similar_past_tasks: memories,
-    related_files: relatedFiles,
-    tests_likely_affected: likelyTests,
-    relevant_docs: docs,
-    duplicate_risk: duplicateRisk,
-    duplicate_warnings: warnings,
-    structural_duplicates: structuralDuplicates,
-    runtime_hotness: runtimeHotness,
-    risk: effectiveRisk,
-    recommended_action: recommendedAction(effectiveRisk, warnings, codeItems),
-    evidence: {
-      code_search_strategy: codeSearchResult.strategy,
-      code_results_considered: codeItems.length,
-      memory_results_considered: memories.length,
-      doc_results_considered: docs.length,
-      indexed_repo: {
-        files: repo.file_count,
-        symbols: repo.symbol_count,
-        head_commit: repo.head_commit,
-      },
-    },
-  };
-}
-}
 }
 
 function agentPack(deps, args) {
   const result = preflight(deps, args),
-  relevantSymbols = !(result.error) ? (result.likely_existing_code.slice(0, 8).map((item) => ({
-      symbol: item.symbol,
-      file: item.file,
-      line: item.line,
-      reason: item.reason,
-    }))) : undefined,
-  pastDecisions = !(result.error) ? (result.similar_past_tasks.slice(0, 5).map((memory) => ({
-      id: memory.id,
-      title: memory.title,
-      type: memory.type,
-      snippet: memory.snippet,
-    }))) : undefined,
-  mustRead = !(result.error) ? (uniq([
-      ...result.related_files.slice(0, 5),
-      ...result.tests_likely_affected.slice(0, 3),
-      ...result.relevant_docs.slice(0, 3).map((doc) => doc.file),
-    ]).slice(0, 10)) : undefined,
-  suggestedPlan = !(result.error) ? ([]) : undefined;
+    relevantSymbols = !result.error
+      ? result.likely_existing_code.slice(0, 8).map((item) => ({
+          symbol: item.symbol,
+          file: item.file,
+          line: item.line,
+          reason: item.reason,
+        }))
+      : undefined,
+    pastDecisions = !result.error
+      ? result.similar_past_tasks.slice(0, 5).map((memory) => ({
+          id: memory.id,
+          title: memory.title,
+          type: memory.type,
+          snippet: memory.snippet,
+        }))
+      : undefined,
+    mustRead = !result.error
+      ? uniq([
+          ...result.related_files.slice(0, 5),
+          ...result.tests_likely_affected.slice(0, 3),
+          ...result.relevant_docs.slice(0, 3).map((doc) => doc.file),
+        ]).slice(0, 10)
+      : undefined,
+    suggestedPlan = !result.error ? [] : undefined;
   if (result.error) {
     return result;
   }

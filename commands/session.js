@@ -1,6 +1,6 @@
-const recoveryService = require('../services/recovery'), sessionsService = require('../services/sessions'), dreamService = require('../services/dream');
-
-
+const recoveryService = require('../services/recovery'),
+  sessionsService = require('../services/sessions'),
+  dreamService = require('../services/dream');
 
 function sessionStart(deps, args) {
   return sessionsService.sessionStart(

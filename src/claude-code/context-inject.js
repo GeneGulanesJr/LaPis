@@ -13,10 +13,10 @@
  * buildInjectedContext is the capped convenience wrapper for session-start.
  */
 
-const path = require('node:path'), { CONTEXT } = require('../../constants'), { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder'), { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
-
-
-
+const path = require('node:path'),
+  { CONTEXT } = require('../../constants'),
+  { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder'),
+  { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
 
 /**
  * Fetch project context, falling back to cross-project if empty.
@@ -57,54 +57,55 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
       query,
       sessionId,
     }),
-  effectiveContext = !(!contextResult && !crossProjectResult) ? (contextResult || crossProjectResult) : undefined,
-  isNewProject = !(!contextResult && !crossProjectResult) ? (crossProjectResult !== null && !contextResult) : undefined,
-  observations = !(!contextResult && !crossProjectResult) ? ((effectiveContext.observations || []).filter(Boolean)) : undefined,
-  personal = !(!contextResult && !crossProjectResult) ? ((effectiveContext.personal || []).filter(Boolean)) : undefined,
-  stats = !(!contextResult && !crossProjectResult) ? (effectiveContext.stats || {}) : undefined,
-  topic = !(!contextResult && !crossProjectResult) ? (effectiveContext.topic || null) : undefined,
-  repos = !(!contextResult && !crossProjectResult) ? (getKnownRepos()) : undefined,
-  resolvedCwd = !(!contextResult && !crossProjectResult) ? (path.resolve(resolveCwd(cwd))) : undefined,
-  cwdRepo = !(!contextResult && !crossProjectResult) ? (findMatchingRepo(resolvedCwd, repos)) : undefined,
-  isStale = !(!contextResult && !crossProjectResult) ? (false) : undefined;
+    effectiveContext = !(!contextResult && !crossProjectResult) ? contextResult || crossProjectResult : undefined,
+    isNewProject = !(!contextResult && !crossProjectResult) ? crossProjectResult !== null && !contextResult : undefined,
+    observations = !(!contextResult && !crossProjectResult)
+      ? (effectiveContext.observations || []).filter(Boolean)
+      : undefined,
+    personal = !(!contextResult && !crossProjectResult) ? (effectiveContext.personal || []).filter(Boolean) : undefined,
+    stats = !(!contextResult && !crossProjectResult) ? effectiveContext.stats || {} : undefined,
+    topic = !(!contextResult && !crossProjectResult) ? effectiveContext.topic || null : undefined,
+    repos = !(!contextResult && !crossProjectResult) ? getKnownRepos() : undefined,
+    resolvedCwd = !(!contextResult && !crossProjectResult) ? path.resolve(resolveCwd(cwd)) : undefined,
+    cwdRepo = !(!contextResult && !crossProjectResult) ? findMatchingRepo(resolvedCwd, repos) : undefined,
+    isStale = !(!contextResult && !crossProjectResult) ? false : undefined;
 
   if (!contextResult && !crossProjectResult) {
     return null;
   }
-
 
   let effectiveObservations = [];
   if (query) {
     effectiveObservations = isNewProject ? crossProjectResult.observations || [] : observations;
   }
   {
-const effectiveStats = isNewProject ? crossProjectResult.stats || {} : stats,
-    lines = buildContextBlock({
-      promptQuery: query,
-      currentProject: project,
-      projectDir: cwdRepo?.path || resolvedCwd,
-      cwdRepo,
-      isStale,
-      isNewProject,
-      observations,
-      effectiveObservations,
-      personal,
-      stats,
-      effectiveStats,
-      topic,
-      crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
-    });
+    const effectiveStats = isNewProject ? crossProjectResult.stats || {} : stats,
+      lines = buildContextBlock({
+        promptQuery: query,
+        currentProject: project,
+        projectDir: cwdRepo?.path || resolvedCwd,
+        cwdRepo,
+        isStale,
+        isNewProject,
+        observations,
+        effectiveObservations,
+        personal,
+        stats,
+        effectiveStats,
+        topic,
+        crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
+      });
 
-  if (!cwdRepo) {
-    lines.push('');
-    lines.push(
-      `⚠️ **Code not indexed:** Project "${project}" has no code index yet. Index it first: \`memory-code index-repo --path ${resolvedCwd} --name ${project}\``,
-    );
+    if (!cwdRepo) {
+      lines.push('');
+      lines.push(
+        `⚠️ **Code not indexed:** Project "${project}" has no code index yet. Index it first: \`memory-code index-repo --path ${resolvedCwd} --name ${project}\``,
+      );
+    }
+
+    appendExtensionHint(lines, resolvedCwd);
+    return { lines, cwdRepo };
   }
-
-  appendExtensionHint(lines, resolvedCwd);
-  return { lines, cwdRepo };
-}
 }
 
 /** Capped convenience wrapper returning the final markdown string (or null). */

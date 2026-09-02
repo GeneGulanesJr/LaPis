@@ -205,15 +205,15 @@ describe('services/search: symbolCluster', () => {
 
   it('should filter by repo when provided', () => {
     const deps = {
-      sqlJson: vi.fn(() => []),
-      jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
-    },
-    call = (() => {
+        sqlJson: vi.fn(() => []),
+        jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
+      },
+      call = (() => {
+        symbolCluster(deps, { symbol: 'sym1', repo: 'my-repo' });
 
-      symbolCluster(deps, { symbol: 'sym1', repo: 'my-repo' });
-      
-  return (deps.sqlJson.mock.calls[0]);
-})();expect(call[0]).toContain('AND sl.repo = ?');
+        return deps.sqlJson.mock.calls[0];
+      })();
+    expect(call[0]).toContain('AND sl.repo = ?');
     expect(call[1]).toContain('my-repo');
   });
 });

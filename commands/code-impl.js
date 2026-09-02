@@ -1,5 +1,5 @@
-const codeIndexingService = require('../services/code-indexing'), codeSearchService = require('../services/code-search');
-
+const codeIndexingService = require('../services/code-indexing'),
+  codeSearchService = require('../services/code-search');
 
 async function indexRepo(args) {
   const repoPath = args.path;
@@ -15,24 +15,24 @@ async function indexRepo(args) {
     return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
   }
   {
-const { getConfig } = require('../config'),
-    threshold = getConfig().async_index_file_threshold || 500;
-  let fileCount = 0;
-  try {
-    const { scanRepository } = require('../src/code-index/scanner'),
-      scan = scanRepository(repoPath, { ignore: [], respectGitignore: true });
-    fileCount = scan && scan.files ? scan.files.length : 0;
-  } catch (_) {
-    /* Scan errors are not fatal — fall through to sync */
+    const { getConfig } = require('../config'),
+      threshold = getConfig().async_index_file_threshold || 500;
+    let fileCount = 0;
+    try {
+      const { scanRepository } = require('../src/code-index/scanner'),
+        scan = scanRepository(repoPath, { ignore: [], respectGitignore: true });
+      fileCount = scan && scan.files ? scan.files.length : 0;
+    } catch (_) {
+      /* Scan errors are not fatal — fall through to sync */
+    }
+    if (fileCount >= threshold) {
+      process.stderr.write(
+        `${JSON.stringify({ notice: `Repository has ${fileCount} files (threshold ${threshold}); auto-switching to async.`, fileCount, threshold })}\n`,
+      );
+      return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
+    }
+    return codeIndexingService.indexRepoInternal({ db: require('../db').getDb(), args }, repoPath, repoName);
   }
-  if (fileCount >= threshold) {
-    process.stderr.write(
-      `${JSON.stringify({ notice: `Repository has ${fileCount} files (threshold ${threshold}); auto-switching to async.`, fileCount, threshold })}\n`,
-    );
-    return codeIndexingService.indexRepoAsyncInternal({}, repoPath, repoName, { mode: 'full' });
-  }
-  return codeIndexingService.indexRepoInternal({ db: require('../db').getDb(), args }, repoPath, repoName);
-}
 }
 
 async function indexRepoAsync(args) {

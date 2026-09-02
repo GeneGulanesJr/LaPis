@@ -1,11 +1,11 @@
-const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), {
-  readTranscript,
-  parseTranscriptLine,
-  readTranscriptStream,
-} = require('../../../src/claude-code/hooks-engine/transcript-reader');
-
-
-
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  {
+    readTranscript,
+    parseTranscriptLine,
+    readTranscriptStream,
+  } = require('../../../src/claude-code/hooks-engine/transcript-reader');
 
 function writeTranscript(lines) {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-tx-')), 'transcript.jsonl');

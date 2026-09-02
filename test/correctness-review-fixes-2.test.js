@@ -24,15 +24,15 @@
 // F22: src/memory-domain/compaction.js — dream stats persist failure was
 //      Silently swallowed.
 
-const dbModule = require('../db'), { getDeadCode } = require('../src/code-analysis/dead-code-impl'), { ingestCoverage, classifyTraffic } = require('../src/agent-intel/runtime-ingest'), { listWorkspaces, createWorkspace, archiveWorkspace } = require('../src/memory-domain/workspaces'), { blastRadius } = require('../src/agent-intel/blast'), { getPrRiskProfile } = require('../src/code-analysis/risk-impl'), fs = require('fs'), path = require('path'), os = require('os');
-
-
-
-
-
-
-
-
+const dbModule = require('../db'),
+  { getDeadCode } = require('../src/code-analysis/dead-code-impl'),
+  { ingestCoverage, classifyTraffic } = require('../src/agent-intel/runtime-ingest'),
+  { listWorkspaces, createWorkspace, archiveWorkspace } = require('../src/memory-domain/workspaces'),
+  { blastRadius } = require('../src/agent-intel/blast'),
+  { getPrRiskProfile } = require('../src/code-analysis/risk-impl'),
+  fs = require('fs'),
+  path = require('path'),
+  os = require('os');
 
 function uniqueRepoName(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -111,16 +111,16 @@ describe('correctness review fixes (round 2) — source-level', () => {
   // ── F20: user-prompt-submit logs errors on assembleContextLines failure ──
   it('F20: user-prompt-submit logs via console.error for assembleContextLines failures', () => {
     const src = fs.readFileSync(require.resolve('../src/claude-code/handlers/user-prompt-submit'), 'utf8'),
-    assembleIdx = (() => {
+      assembleIdx = (() => {
+        expect(src).toContain('console.error');
+        expect(src).toContain('assembleContextLines failed');
+        // The specific catch on the assembleContextLines(...) call must NOT be a
+        // Silent `() => null` swallow — it must take the error and log it.
 
-      expect(src).toContain('console.error');
-      expect(src).toContain('assembleContextLines failed');
-      // The specific catch on the assembleContextLines(...) call must NOT be a
-      // Silent `() => null` swallow — it must take the error and log it.
-      
-  return (src.indexOf('assembleContextLines({'));
-})(),
-    snippet = !(assembleIdx === -1) ? (src.slice(assembleIdx, assembleIdx + 800)) : undefined;if (assembleIdx === -1) {
+        return src.indexOf('assembleContextLines({');
+      })(),
+      snippet = !(assembleIdx === -1) ? src.slice(assembleIdx, assembleIdx + 800) : undefined;
+    if (assembleIdx === -1) {
       throw new Error('could not locate assembleContextLines({ call');
     }
     // Find the closing `)` of the .catch chained onto that call.
@@ -148,310 +148,302 @@ describe('correctness review fixes (round 2) — source-level', () => {
 // Integration tests below require better-sqlite3 native binding. They are
 // Skipped (not failed) when the binding is unavailable in the runtime.
 {
-const describeIfSqlite = sqliteReady() ? describe : describe.skip;
+  const describeIfSqlite = sqliteReady() ? describe : describe.skip;
 
-describeIfSqlite('correctness review fixes (round 2) — integration', () => {
-  beforeAll(() => {
-    dbModule.ensureDb();
-  });
-
-  // ── F14 integration: re-export detection ──
-
-  describe('F14: dead-code re-export detection', () => {
-    const repoName = uniqueRepoName('f14-reexport'),
-      repoId = 990001;
-
-    afterAll(() => {
-      try {
-        dbModule.sqlRun('DELETE FROM file_scope_bindings WHERE repo_id = ?', [repoId]);
-        dbModule.sqlRun('DELETE FROM code_files WHERE repo_id = ?', [repoId]);
-        dbModule.sqlRun('DELETE FROM code_symbols WHERE repo_id = ?', [repoId]);
-        dbModule.sqlRun('DELETE FROM code_repos WHERE id = ?', [repoId]);
-        dbModule.sqlRun('DELETE FROM code_repos WHERE name = ?', [repoName]);
-      } catch {}
+  describeIfSqlite('correctness review fixes (round 2) — integration', () => {
+    beforeAll(() => {
+      dbModule.ensureDb();
     });
 
-    it('detects symbols that are re-exported via file_scope_bindings (kind=re_export)', () => {
-      dbModule.sqlRun('INSERT INTO code_repos (id, name, path, head_commit) VALUES (?, ?, ?, NULL)', [
-        repoId,
-        repoName,
-        `/tmp/${repoName}`,
-      ]);
-      dbModule.sqlRun(
-        `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
-         VALUES (?, ?, 'javascript', 'export function validateUser() {}', 'h1', 1000, 100, 1)`,
-        [repoId, `/tmp/${repoName}/internal.js`],
-      );
-      const fileId = dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [
-        repoId,
-      ])[0].id,
-      result = (() => {
+    // ── F14 integration: re-export detection ──
 
-  
+    describe('F14: dead-code re-export detection', () => {
+      const repoName = uniqueRepoName('f14-reexport'),
+        repoId = 990001;
+
+      afterAll(() => {
+        try {
+          dbModule.sqlRun('DELETE FROM file_scope_bindings WHERE repo_id = ?', [repoId]);
+          dbModule.sqlRun('DELETE FROM code_files WHERE repo_id = ?', [repoId]);
+          dbModule.sqlRun('DELETE FROM code_symbols WHERE repo_id = ?', [repoId]);
+          dbModule.sqlRun('DELETE FROM code_repos WHERE id = ?', [repoId]);
+          dbModule.sqlRun('DELETE FROM code_repos WHERE name = ?', [repoName]);
+        } catch {}
+      });
+
+      it('detects symbols that are re-exported via file_scope_bindings (kind=re_export)', () => {
+        dbModule.sqlRun('INSERT INTO code_repos (id, name, path, head_commit) VALUES (?, ?, ?, NULL)', [
+          repoId,
+          repoName,
+          `/tmp/${repoName}`,
+        ]);
         dbModule.sqlRun(
-          `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
+          `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
+         VALUES (?, ?, 'javascript', 'export function validateUser() {}', 'h1', 1000, 100, 1)`,
+          [repoId, `/tmp/${repoName}/internal.js`],
+        );
+        const fileId = dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [
+            repoId,
+          ])[0].id,
+          result = (() => {
+            dbModule.sqlRun(
+              `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
             start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
             stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
            VALUES (?, ?, ?, 'validateUser', 'function', '() => void', 'validateUser',
             1, 1, 0, 50, '', '', 'javascript', '', '', 'h1', '', '[]', '[]', '[]', '')`,
-          [repoId, fileId, `/tmp/${repoName}/internal.js`],
-        );
-  
-        dbModule.sqlRun(
-          `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id,
+              [repoId, fileId, `/tmp/${repoName}/internal.js`],
+            );
+
+            dbModule.sqlRun(
+              `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id,
             source_name, source_module, line_start, line_end, scope_depth)
            VALUES (?, ?, 'validateUser', 're_export', 'external_file', ?, 'validateUser',
             './internal', 1, 1, 0)`,
-          [repoId, fileId, fileId],
-        );
-  
-        
-  return (getDeadCode(dbModule.getDb(), repoId, { includeTests: true }));
-})(),
-      sym = (() => {
-expect(result).toBeDefined();
-        expect(Array.isArray(result.dead_symbols)).toBe(true);
-        
-  return (result.dead_symbols.find((s) => s.name === 'validateUser'));
-})();if (sym) {
-        // When the symbol IS re-exported, the dead-code detector must
-        // Either omit it entirely (confidence < threshold) or include the
-        // 're_exported' signal with reduced confidence.
-        expect(
-          sym.signals.includes('re_exported') || sym.confidence < 0.5,
-          're-exported symbol should not be flagged as confidently dead',
-        ).toBe(true);
-      }
-    });
+              [repoId, fileId, fileId],
+            );
 
-    it('still flags truly uncalled, non-reexported symbols', () => {
-      const fileId = dbModule.sqlJson(
-        'SELECT id FROM code_files WHERE repo_id = ? ORDER BY id ASC LIMIT 1',
-        [990001],
-      )[0]?.id;
-      if (!fileId) {
-        return;
-      }
-      dbModule.sqlRun(
-        `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
+            return getDeadCode(dbModule.getDb(), repoId, { includeTests: true });
+          })(),
+          sym = (() => {
+            expect(result).toBeDefined();
+            expect(Array.isArray(result.dead_symbols)).toBe(true);
+
+            return result.dead_symbols.find((s) => s.name === 'validateUser');
+          })();
+        if (sym) {
+          // When the symbol IS re-exported, the dead-code detector must
+          // Either omit it entirely (confidence < threshold) or include the
+          // 're_exported' signal with reduced confidence.
+          expect(
+            sym.signals.includes('re_exported') || sym.confidence < 0.5,
+            're-exported symbol should not be flagged as confidently dead',
+          ).toBe(true);
+        }
+      });
+
+      it('still flags truly uncalled, non-reexported symbols', () => {
+        const fileId = dbModule.sqlJson(
+          'SELECT id FROM code_files WHERE repo_id = ? ORDER BY id ASC LIMIT 1',
+          [990001],
+        )[0]?.id;
+        if (!fileId) {
+          return;
+        }
+        dbModule.sqlRun(
+          `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
           start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
           stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
          VALUES (?, ?, ?, 'orphanSymbol', 'function', '() => void', 'orphanSymbol',
           2, 2, 51, 100, '', '', 'javascript', '', '', 'h1', '', '[]', '[]', '[]', '')`,
-        [990001, fileId, `/tmp/${uniqueRepoName('f14')}/internal.js`],
-      );
-      const result = getDeadCode(dbModule.getDb(), 990001, { includeTests: true }),
-        orphan = result.dead_symbols.find((s) => s.name === 'orphanSymbol');
-      expect(orphan).toBeDefined();
-      expect(orphan.signals).toContain('no_callers');
-    });
-  });
-
-  // ── F15 integration: traffic_breakdown from persisted state ──
-
-  describe('F15: runtime-ingest traffic_breakdown reflects persisted state', () => {
-    const repoName = uniqueRepoName('f15-traffic');
-
-    afterAll(() => {
-      try {
-        dbModule.sqlRun('DELETE FROM runtime_symbols WHERE repo_id IN (SELECT id FROM code_repos WHERE name = ?)', [
-          repoName,
-        ]);
-        dbModule.sqlRun('DELETE FROM code_repos WHERE name = ?', [repoName]);
-      } catch {}
+          [990001, fileId, `/tmp/${uniqueRepoName('f14')}/internal.js`],
+        );
+        const result = getDeadCode(dbModule.getDb(), 990001, { includeTests: true }),
+          orphan = result.dead_symbols.find((s) => s.name === 'orphanSymbol');
+        expect(orphan).toBeDefined();
+        expect(orphan.signals).toContain('no_callers');
+      });
     });
 
-    it('counts persisted hot/warm/cold across multiple ingest calls', () => {
-      const repoId = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
-          repoName,
-          `/tmp/${repoName}`,
-        ])[0].id,
-        coverage = {
-          '/src/first.js': {
-            fnMap: {
-              0: { name: 'hotFn', line: 1, loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } } },
-              1: { name: 'coldFn', line: 2, loc: { start: { line: 2, column: 0 }, end: { line: 2, column: 1 } } },
-            },
-            f: { 0: 5000, 1: 0 },
-          },
-          '/src/second.js': {
-            fnMap: {
-              0: { name: 'warmFn', line: 1, loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } } },
-            },
-            f: { 0: 500 },
-          },
-        },
-        tmpPath = path.join(os.tmpdir(), `${repoName}.json`);
-      fs.writeFileSync(tmpPath, JSON.stringify(coverage), 'utf8');
-      try {
-        ingestCoverage(dbModule.getDb(), repoId, tmpPath);
-        ingestCoverage(dbModule.getDb(), repoId, tmpPath);
+    // ── F15 integration: traffic_breakdown from persisted state ──
 
-        const result = ingestCoverage(dbModule.getDb(), repoId, tmpPath),
-          expected = { hot: 1, warm: 1, cold: 1 };
-        expect(result.traffic_breakdown).toEqual(expected);
+    describe('F15: runtime-ingest traffic_breakdown reflects persisted state', () => {
+      const repoName = uniqueRepoName('f15-traffic');
+
+      afterAll(() => {
+        try {
+          dbModule.sqlRun('DELETE FROM runtime_symbols WHERE repo_id IN (SELECT id FROM code_repos WHERE name = ?)', [
+            repoName,
+          ]);
+          dbModule.sqlRun('DELETE FROM code_repos WHERE name = ?', [repoName]);
+        } catch {}
+      });
+
+      it('counts persisted hot/warm/cold across multiple ingest calls', () => {
+        const repoId = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
+            repoName,
+            `/tmp/${repoName}`,
+          ])[0].id,
+          coverage = {
+            '/src/first.js': {
+              fnMap: {
+                0: { name: 'hotFn', line: 1, loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } } },
+                1: { name: 'coldFn', line: 2, loc: { start: { line: 2, column: 0 }, end: { line: 2, column: 1 } } },
+              },
+              f: { 0: 5000, 1: 0 },
+            },
+            '/src/second.js': {
+              fnMap: {
+                0: { name: 'warmFn', line: 1, loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } } },
+              },
+              f: { 0: 500 },
+            },
+          },
+          tmpPath = path.join(os.tmpdir(), `${repoName}.json`);
+        fs.writeFileSync(tmpPath, JSON.stringify(coverage), 'utf8');
+        try {
+          ingestCoverage(dbModule.getDb(), repoId, tmpPath);
+          ingestCoverage(dbModule.getDb(), repoId, tmpPath);
+
+          const result = ingestCoverage(dbModule.getDb(), repoId, tmpPath),
+            expected = { hot: 1, warm: 1, cold: 1 };
+          expect(result.traffic_breakdown).toEqual(expected);
+
+          {
+            const dbRows = dbModule.sqlJson(
+                'SELECT traffic, COUNT(*) as cnt FROM runtime_symbols WHERE repo_id = ? GROUP BY traffic',
+                [repoId],
+              ),
+              persisted = { hot: 0, warm: 0, cold: 0 };
+            for (const row of dbRows) {
+              persisted[row.traffic] = row.cnt;
+            }
+            expect(persisted).toEqual(expected);
+          }
+        } finally {
+          try {
+            fs.unlinkSync(tmpPath);
+          } catch {}
+        }
+      });
+
+      it('classifyTraffic boundary values are stable', () => {
+        // Thresholds: hot >= 1000, warm >= 100, cold < 100.
+        // Just below hot → warm; just at hot → hot; just at warm → warm;
+        // Well below warm → cold.
+        expect(classifyTraffic(999)).toBe('warm');
+        expect(classifyTraffic(1000)).toBe('hot');
+        expect(classifyTraffic(100)).toBe('warm');
+        expect(classifyTraffic(50)).toBe('cold');
+      });
+    });
+
+    // ── F16 integration: listWorkspaces sorting ──
+
+    describe('F16: listWorkspaces SQL portability', () => {
+      it('listWorkspaces sorts un-archived workspaces before archived ones', () => {
+        const w1 = uniqueRepoName('f16-active'),
+          w2 = uniqueRepoName('f16-archived');
+        createWorkspace(dbModule, w1);
+        createWorkspace(dbModule, w2);
+        archiveWorkspace(dbModule, w2);
+
+        const result = listWorkspaces(dbModule),
+          active = result.workspaces.find((w) => w.name === w1),
+          archived = result.workspaces.find((w) => w.name === w2);
+        expect(active).toBeDefined();
+        expect(archived).toBeDefined();
+        expect(active.archived_at).toBeNull();
+        expect(archived.archived_at).not.toBeNull();
 
         {
-const dbRows = dbModule.sqlJson(
-            'SELECT traffic, COUNT(*) as cnt FROM runtime_symbols WHERE repo_id = ? GROUP BY traffic',
-            [repoId],
-          ),
-          persisted = { hot: 0, warm: 0, cold: 0 };
-        for (const row of dbRows) {
-          persisted[row.traffic] = row.cnt;
+          const activeIdx = result.workspaces.findIndex((w) => w.name === w1),
+            archivedIdx = result.workspaces.findIndex((w) => w.name === w2);
+          expect(activeIdx).toBeLessThan(archivedIdx);
         }
-        expect(persisted).toEqual(expected);
-      }
-} finally {
+      });
+    });
+
+    // ── F17 integration: blastRadius tests_likely_affected ──
+
+    describe('F17: blastRadius tests_likely_affected', () => {
+      const repoName = uniqueRepoName('f17-blast');
+
+      afterAll(() => {
         try {
-          fs.unlinkSync(tmpPath);
+          dbModule.sqlRun('DELETE FROM code_calls WHERE repo_id IN (SELECT id FROM code_repos WHERE name = ?)', [
+            repoName,
+          ]);
+          dbModule.sqlRun('DELETE FROM code_symbols WHERE repo_id IN (SELECT id FROM code_repos WHERE name = ?)', [
+            repoName,
+          ]);
+          dbModule.sqlRun('DELETE FROM code_files WHERE repo_id IN (SELECT id FROM code_repos WHERE name = ?)', [
+            repoName,
+          ]);
+          dbModule.sqlRun('DELETE FROM code_repos WHERE name = ?', [repoName]);
         } catch {}
-      }
-    });
+      });
 
-    it('classifyTraffic boundary values are stable', () => {
-      // Thresholds: hot >= 1000, warm >= 100, cold < 100.
-      // Just below hot → warm; just at hot → hot; just at warm → warm;
-      // Well below warm → cold.
-      expect(classifyTraffic(999)).toBe('warm');
-      expect(classifyTraffic(1000)).toBe('hot');
-      expect(classifyTraffic(100)).toBe('warm');
-      expect(classifyTraffic(50)).toBe('cold');
-    });
-  });
-
-  // ── F16 integration: listWorkspaces sorting ──
-
-  describe('F16: listWorkspaces SQL portability', () => {
-    it('listWorkspaces sorts un-archived workspaces before archived ones', () => {
-      const w1 = uniqueRepoName('f16-active'),
-        w2 = uniqueRepoName('f16-archived');
-      createWorkspace(dbModule, w1);
-      createWorkspace(dbModule, w2);
-      archiveWorkspace(dbModule, w2);
-
-      const result = listWorkspaces(dbModule),
-        active = result.workspaces.find((w) => w.name === w1),
-        archived = result.workspaces.find((w) => w.name === w2);
-      expect(active).toBeDefined();
-      expect(archived).toBeDefined();
-      expect(active.archived_at).toBeNull();
-      expect(archived.archived_at).not.toBeNull();
-
-      {
-const activeIdx = result.workspaces.findIndex((w) => w.name === w1),
-        archivedIdx = result.workspaces.findIndex((w) => w.name === w2);
-      expect(activeIdx).toBeLessThan(archivedIdx);
-    }
-});
-  });
-
-  // ── F17 integration: blastRadius tests_likely_affected ──
-
-  describe('F17: blastRadius tests_likely_affected', () => {
-    const repoName = uniqueRepoName('f17-blast');
-
-    afterAll(() => {
-      try {
-        dbModule.sqlRun('DELETE FROM code_calls WHERE repo_id IN (SELECT id FROM code_repos WHERE name = ?)', [
-          repoName,
-        ]);
-        dbModule.sqlRun('DELETE FROM code_symbols WHERE repo_id IN (SELECT id FROM code_repos WHERE name = ?)', [
-          repoName,
-        ]);
-        dbModule.sqlRun('DELETE FROM code_files WHERE repo_id IN (SELECT id FROM code_repos WHERE name = ?)', [
-          repoName,
-        ]);
-        dbModule.sqlRun('DELETE FROM code_repos WHERE name = ?', [repoName]);
-      } catch {}
-    });
-
-    it('finds tests via call-graph even when their file path does not contain the symbol name', () => {
-      const repoId = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
-        repoName,
-        `/tmp/${repoName}`,
-      ])[0].id,
-      coreFileId = (() => {
-
-  
-        dbModule.sqlRun(
-          `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
+      it('finds tests via call-graph even when their file path does not contain the symbol name', () => {
+        const repoId = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
+            repoName,
+            `/tmp/${repoName}`,
+          ])[0].id,
+          coreFileId = (() => {
+            dbModule.sqlRun(
+              `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
            VALUES (?, ?, 'javascript',
             'export function criticalFunction() { return 1; }',
             'core-h', 1000, 100, 1)`,
-          [repoId, `/tmp/${repoName}/src/core.js`],
-        );
-        
-  return (dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [
-        repoId,
-      ])[0].id);
-})(); dbModule.sqlRun(
-        `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
+              [repoId, `/tmp/${repoName}/src/core.js`],
+            );
+
+            return dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [repoId])[0]
+              .id;
+          })();
+        dbModule.sqlRun(
+          `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
           start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
           stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
          VALUES (?, ?, ?, 'criticalFunction', 'function', '() => 1', 'criticalFunction',
           1, 1, 0, 60, '', '', 'javascript', '', '', 'h-core', '', '[]', '[]', '[]', '')`,
-        [repoId, coreFileId, `/tmp/${repoName}/src/core.js`],
-      );
-      const targetSym = dbModule.sqlJson('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?', [
-        repoId,
-        'criticalFunction',
-      ])[0].id,
-      testFileId = (() => {
-
-  
-        dbModule.sqlRun(
-          `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
+          [repoId, coreFileId, `/tmp/${repoName}/src/core.js`],
+        );
+        const targetSym = dbModule.sqlJson('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?', [
+            repoId,
+            'criticalFunction',
+          ])[0].id,
+          testFileId = (() => {
+            dbModule.sqlRun(
+              `INSERT INTO code_files (repo_id, path, language, content, content_hash, mtime, size_bytes, line_count)
            VALUES (?, ?, 'javascript',
             'test("critical", () => { criticalFunction(); });',
             'api-h', 1000, 100, 1)`,
-          [repoId, `/tmp/${repoName}/test/api.test.js`],
-        );
-        
-  return (dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [
-        repoId,
-      ])[0].id);
-})(); dbModule.sqlRun(
-        `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
+              [repoId, `/tmp/${repoName}/test/api.test.js`],
+            );
+
+            return dbModule.sqlJson('SELECT id FROM code_files WHERE repo_id = ? ORDER BY id DESC LIMIT 1', [repoId])[0]
+              .id;
+          })();
+        dbModule.sqlRun(
+          `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
           start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
           stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
          VALUES (?, ?, ?, 'runApiTest', 'function', '() => void', 'runApiTest',
           1, 1, 0, 60, '', '', 'javascript', '', '', 'h-test', '', '[]', '[]', '[]', '')`,
-        [repoId, testFileId, `/tmp/${repoName}/test/api.test.js`],
-      );
-      const testCaller = dbModule.sqlJson('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?', [
-        repoId,
-        'runApiTest',
-      ])[0].id,
-      result = (() => {
-
-  
-        dbModule.sqlRun(
-          `INSERT INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number)
-           VALUES (?, ?, 'criticalFunction', ?, 1.0, 1)`,
-          [repoId, testCaller, targetSym],
+          [repoId, testFileId, `/tmp/${repoName}/test/api.test.js`],
         );
-  
-        
-  return (blastRadius(dbModule.getDb(), repoId, 'criticalFunction'));
-})();expect(result.error).toBeUndefined();
-      expect(result.tests_likely_affected).toBeDefined();
-      expect(result.tests_likely_affected.length).toBe(1);
-      expect(result.tests_likely_affected[0]).toMatch(/api\.test\.js$/);
+        const testCaller = dbModule.sqlJson('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?', [
+            repoId,
+            'runApiTest',
+          ])[0].id,
+          result = (() => {
+            dbModule.sqlRun(
+              `INSERT INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number)
+           VALUES (?, ?, 'criticalFunction', ?, 1.0, 1)`,
+              [repoId, testCaller, targetSym],
+            );
+
+            return blastRadius(dbModule.getDb(), repoId, 'criticalFunction');
+          })();
+        expect(result.error).toBeUndefined();
+        expect(result.tests_likely_affected).toBeDefined();
+        expect(result.tests_likely_affected.length).toBe(1);
+        expect(result.tests_likely_affected[0]).toMatch(/api\.test\.js$/);
+      });
+    });
+
+    // ── F18 integration: getPrRiskProfile blast-radius branch ──
+
+    describe('F18: getPrRiskProfile blast-radius branch consistency', () => {
+      it('getPrRiskProfile returns consistent blast_radius in [0, 1]', () => {
+        const result = getPrRiskProfile(dbModule.getDb(), 999999, { branch: 'HEAD', base: 'main' });
+        expect(result).toBeDefined();
+        if (result.signals) {
+          expect(result.signals.blast_radius).toBeGreaterThanOrEqual(0);
+          expect(result.signals.blast_radius).toBeLessThanOrEqual(1);
+        }
+      });
     });
   });
-
-  // ── F18 integration: getPrRiskProfile blast-radius branch ──
-
-  describe('F18: getPrRiskProfile blast-radius branch consistency', () => {
-    it('getPrRiskProfile returns consistent blast_radius in [0, 1]', () => {
-      const result = getPrRiskProfile(dbModule.getDb(), 999999, { branch: 'HEAD', base: 'main' });
-      expect(result).toBeDefined();
-      if (result.signals) {
-        expect(result.signals.blast_radius).toBeGreaterThanOrEqual(0);
-        expect(result.signals.blast_radius).toBeLessThanOrEqual(1);
-      }
-    });
-  });
-});
 }

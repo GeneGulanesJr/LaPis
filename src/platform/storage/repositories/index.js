@@ -1,9 +1,9 @@
-const { createMemoryRepository } = require('./memory'), { createCodeIndexRepository } = require('./code-index'), { createDocIndexRepository } = require('./doc-index'), { createTrustSyncRepository } = require('./trust-sync'), { createAnalyticsRepository } = require('./analytics'), { createAurexRepository } = require('./aurex');
-
-
-
-
-
+const { createMemoryRepository } = require('./memory'),
+  { createCodeIndexRepository } = require('./code-index'),
+  { createDocIndexRepository } = require('./doc-index'),
+  { createTrustSyncRepository } = require('./trust-sync'),
+  { createAnalyticsRepository } = require('./analytics'),
+  { createAurexRepository } = require('./aurex');
 
 function createRepositories(deps) {
   return Object.freeze({

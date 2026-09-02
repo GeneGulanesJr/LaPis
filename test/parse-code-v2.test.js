@@ -1,6 +1,6 @@
-const path = require('path'), fs = require('fs'), codeParser = require('../parse-code');
-
-
+const path = require('path'),
+  fs = require('fs'),
+  codeParser = require('../parse-code');
 
 function writeTmp(filePath, content) {
   fs.writeFileSync(filePath, content);
@@ -35,18 +35,18 @@ function outer() {
   return inner(5);
 }`,
         ),
-      outer = (() => {
+        outer = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'outer'));
-})(),
-      inner = (() => {
-expect(outer).toBeDefined();
-        expect(outer.kind).toBe('function');
-        
-  return (syms.find((s) => s.name === 'inner'));
-})();expect(inner).toBeDefined();
+          return syms.find((s) => s.name === 'outer');
+        })(),
+        inner = (() => {
+          expect(outer).toBeDefined();
+          expect(outer.kind).toBe('function');
+
+          return syms.find((s) => s.name === 'inner');
+        })();
+      expect(inner).toBeDefined();
       expect(inner.kind).toBe('function');
     });
 
@@ -59,12 +59,12 @@ const items = [1, 2, 3];
 const filtered = items.filter((x) => x > 1);
 `,
         ),
-      filtered = (() => {
+        filtered = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'filtered'));
-})();expect(filtered).toBeDefined();
+          return syms.find((s) => s.name === 'filtered');
+        })();
+      expect(filtered).toBeDefined();
       expect(filtered.kind).toBe('constant');
     });
 
@@ -79,12 +79,12 @@ function main() {
 }
 `,
         ),
-      apiUrl = (() => {
+        apiUrl = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'API_URL'));
-})();expect(apiUrl).toBeDefined();
+          return syms.find((s) => s.name === 'API_URL');
+        })();
+      expect(apiUrl).toBeDefined();
       expect(apiUrl.kind).toBe('constant');
     });
   });
@@ -107,23 +107,23 @@ impl Foo {
 }
 `,
         ),
-      foo = (() => {
+        foo = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'Foo' && s.kind === 'class'));
-})();expect(foo).toBeDefined();
+          return syms.find((s) => s.name === 'Foo' && s.kind === 'class');
+        })();
+      expect(foo).toBeDefined();
       {
-const bar = syms.find((s) => s.name === 'bar'),
-      baz = (() => {
+        const bar = syms.find((s) => s.name === 'bar'),
+          baz = (() => {
+            expect(bar).toBeDefined();
+            expect(bar.kind).toBe('function');
 
-        expect(bar).toBeDefined();
-        expect(bar.kind).toBe('function');
-        
-  return (syms.find((s) => s.name === 'baz'));
-})();expect(baz).toBeDefined();
-    }
-});
+            return syms.find((s) => s.name === 'baz');
+          })();
+        expect(baz).toBeDefined();
+      }
+    });
 
     it('extracts Rust mod items', () => {
       const f = path.join('/tmp', 'v2-rust-mod.rs'),
@@ -136,17 +136,17 @@ mod handlers {
 }
 `,
         ),
-      models = (() => {
+        models = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'models' && s.kind === 'module'));
-})(),
-      handlers = (() => {
-expect(models).toBeDefined();
-        
-  return (syms.find((s) => s.name === 'handlers' && s.kind === 'module'));
-})();expect(handlers).toBeDefined();
+          return syms.find((s) => s.name === 'models' && s.kind === 'module');
+        })(),
+        handlers = (() => {
+          expect(models).toBeDefined();
+
+          return syms.find((s) => s.name === 'handlers' && s.kind === 'module');
+        })();
+      expect(handlers).toBeDefined();
     });
 
     it('extracts Rust use declarations', () => {
@@ -159,12 +159,12 @@ use serde::{Serialize, Deserialize};
 fn main() {}
 `,
         ),
-      useSym = (() => {
+        useSym = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.kind === 'import'));
-})();expect(useSym).toBeDefined();
+          return syms.find((s) => s.kind === 'import');
+        })();
+      expect(useSym).toBeDefined();
       expect(useSym.name).toContain('std');
     });
 
@@ -186,12 +186,12 @@ macro_rules! vec {
 }
 `,
         ),
-      vec = (() => {
+        vec = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'vec'));
-})();expect(vec).toBeDefined();
+          return syms.find((s) => s.name === 'vec');
+        })();
+      expect(vec).toBeDefined();
       expect(vec.kind).toBe('function');
     });
   });
@@ -202,14 +202,14 @@ macro_rules! vec {
         content = 'result = process(data)\nobj.transform(x)\nprint("hello")\n',
         cal = calleesFor(py, content),
         names = cal.map((c) => c.callee),
-      transform = (() => {
+        transform = (() => {
+          expect(names).toContain('process');
+          expect(names).toContain('transform');
+          expect(names).toContain('print');
 
-        expect(names).toContain('process');
-        expect(names).toContain('transform');
-        expect(names).toContain('print');
-        
-  return (cal.find((c) => c.callee === 'transform'));
-})();expect(transform.is_method).toBe(true);
+          return cal.find((c) => c.callee === 'transform');
+        })();
+      expect(transform.is_method).toBe(true);
       expect(transform.receiver).toBe('obj');
     });
 
@@ -218,13 +218,13 @@ macro_rules! vec {
         content = 'package main\n\nfunc main() {\n\tfmt.Println("hi")\n\tos.Exit(1)\n}\n',
         cal = calleesFor(go, content),
         names = cal.map((c) => c.callee),
-      println = (() => {
+        println = (() => {
+          expect(names).toContain('Println');
+          expect(names).toContain('Exit');
 
-        expect(names).toContain('Println');
-        expect(names).toContain('Exit');
-        
-  return (cal.find((c) => c.callee === 'Println'));
-})();expect(println.is_method).toBe(true);
+          return cal.find((c) => c.callee === 'Println');
+        })();
+      expect(println.is_method).toBe(true);
     });
 
     it('extracts Rust callees from field expressions', () => {
@@ -232,12 +232,12 @@ macro_rules! vec {
         content = 'fn main() {\n    let v = Vec::new();\n    v.push(1);\n    println!("hi");\n}\n',
         cal = calleesFor(rs, content),
         names = cal.map((c) => c.callee),
-      push = (() => {
+        push = (() => {
+          expect(names).toContain('push');
 
-        expect(names).toContain('push');
-        
-  return (cal.find((c) => c.callee === 'push'));
-})();expect(push.is_method).toBe(true);
+          return cal.find((c) => c.callee === 'push');
+        })();
+      expect(push.is_method).toBe(true);
     });
   });
 
@@ -258,25 +258,25 @@ class Animal:
         return "roar"
 `,
         ),
-      greet = (() => {
+        greet = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'greet'));
-})();expect(greet).toBeDefined();
+          return syms.find((s) => s.name === 'greet');
+        })();
+      expect(greet).toBeDefined();
       expect(greet.docstring).toContain('Say hello');
       {
-const animal = syms.find((s) => s.name === 'Animal'),
-      speak = (() => {
+        const animal = syms.find((s) => s.name === 'Animal'),
+          speak = (() => {
+            expect(animal).toBeDefined();
+            expect(animal.docstring).toContain('Base animal');
 
-        expect(animal).toBeDefined();
-        expect(animal.docstring).toContain('Base animal');
-        
-  return (syms.find((s) => s.name === 'speak'));
-})();expect(speak).toBeDefined();
-      expect(speak.docstring).toContain('Make a sound');
-    }
-});
+            return syms.find((s) => s.name === 'speak');
+          })();
+        expect(speak).toBeDefined();
+        expect(speak.docstring).toContain('Make a sound');
+      }
+    });
 
     it('extracts Go doc comments', () => {
       const f = path.join('/tmp', 'v2-go-doc.go'),
@@ -290,12 +290,12 @@ func Greet(name string) string {
 }
 `,
         ),
-      greet = (() => {
+        greet = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'Greet'));
-})();expect(greet).toBeDefined();
+          return syms.find((s) => s.name === 'Greet');
+        })();
+      expect(greet).toBeDefined();
       expect(greet.docstring).toContain('says hello');
     });
 
@@ -310,12 +310,12 @@ fn add(a: i32, b: i32) -> i32 {
 }
 `,
         ),
-      add = (() => {
+        add = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'add'));
-})();expect(add).toBeDefined();
+          return syms.find((s) => s.name === 'add');
+        })();
+      expect(add).toBeDefined();
       expect(add.docstring).toContain('Adds two numbers');
       expect(add.docstring).toContain('Returns the sum');
     });
@@ -331,23 +331,23 @@ MAX_RETRIES = 3
 UserId = int
 `,
         ),
-      config = (() => {
+        config = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'CONFIG'));
-})();expect(config).toBeDefined();
+          return syms.find((s) => s.name === 'CONFIG');
+        })();
+      expect(config).toBeDefined();
       expect(config.kind).toBe('constant');
       {
-const retries = syms.find((s) => s.name === 'MAX_RETRIES'),
-      uid = (() => {
+        const retries = syms.find((s) => s.name === 'MAX_RETRIES'),
+          uid = (() => {
+            expect(retries).toBeDefined();
 
-        expect(retries).toBeDefined();
-        
-  return (syms.find((s) => s.name === 'UserId'));
-})();expect(uid).toBeDefined();
-    }
-});
+            return syms.find((s) => s.name === 'UserId');
+          })();
+        expect(uid).toBeDefined();
+      }
+    });
   });
 
   describe('enrichment: Go var/const and imports', () => {
@@ -361,18 +361,18 @@ const MaxSize = 100
 var DefaultName = "world"
 `,
         ),
-      maxSize = (() => {
+        maxSize = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'MaxSize'));
-})(),
-      name = (() => {
-expect(maxSize).toBeDefined();
-        expect(maxSize.kind).toBe('constant');
-        
-  return (syms.find((s) => s.name === 'DefaultName'));
-})();expect(name).toBeDefined();
+          return syms.find((s) => s.name === 'MaxSize');
+        })(),
+        name = (() => {
+          expect(maxSize).toBeDefined();
+          expect(maxSize.kind).toBe('constant');
+
+          return syms.find((s) => s.name === 'DefaultName');
+        })();
+      expect(name).toBeDefined();
     });
 
     it('extracts Go import declarations', () => {
@@ -388,17 +388,17 @@ import (
 )
 `,
         ),
-      imports = (() => {
+        imports = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.filter((s) => s.kind === 'import'));
-})(),
-      names = (() => {
-expect(imports.length).toBeGreaterThanOrEqual(3);
-        
-  return (imports.map((s) => s.name));
-})();expect(names).toContain('fmt');
+          return syms.filter((s) => s.kind === 'import');
+        })(),
+        names = (() => {
+          expect(imports.length).toBeGreaterThanOrEqual(3);
+
+          return imports.map((s) => s.name);
+        })();
+      expect(names).toContain('fmt');
       expect(names).toContain('os');
       expect(names).toContain('strings');
     });
@@ -416,18 +416,18 @@ expect(imports.length).toBeGreaterThanOrEqual(3);
 }
 `,
         ),
-      color = (() => {
+        color = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.find((s) => s.name === 'Color'));
-})(),
-      red = (() => {
-expect(color).toBeDefined();
-        expect(color.kind).toBe('enum');
-        
-  return (syms.find((s) => s.name === 'Red'));
-})();if (red) {
+          return syms.find((s) => s.name === 'Color');
+        })(),
+        red = (() => {
+          expect(color).toBeDefined();
+          expect(color.kind).toBe('enum');
+
+          return syms.find((s) => s.name === 'Red');
+        })();
+      if (red) {
         expect(red.parent_name).toBe('Color');
       }
     });
@@ -444,12 +444,12 @@ from collections import defaultdict
 from typing import List, Dict
 `,
         ),
-      imports = (() => {
+        imports = (() => {
+          cleanup(f);
 
-        cleanup(f);
-        
-  return (syms.filter((s) => s.kind === 'import'));
-})();expect(imports.length).toBeGreaterThanOrEqual(2);
+          return syms.filter((s) => s.kind === 'import');
+        })();
+      expect(imports.length).toBeGreaterThanOrEqual(2);
     });
   });
 

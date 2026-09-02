@@ -207,7 +207,7 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
         const result = await deps.mem('get', { id: String(params.id) }),
-        id = !(!result || result.error) ? (parseInt(String(params.id), 10)) : undefined;
+          id = !(!result || result.error) ? parseInt(String(params.id), 10) : undefined;
         if (!result || result.error) {
           return { content: [{ type: 'text', text: `Memory #${params.id} not found.` }], details: {}, isError: true };
         }
@@ -242,46 +242,46 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           };
         }
         const lines = [
-          `## #${result.id} — ${result.title}`,
-          `Type: ${result.type} | Scope: ${result.scope} | Project: ${result.project}`,
-          '',
-          result.content,
-        ],
-        versions = (() => {
-
-          if (result.expires_at) {
-            const expMs = Date.parse(`${String(result.expires_at).replace(' ', 'T')}Z`);
-            if (Number.isFinite(expMs)) {
-              const msLeft = expMs - Date.now();
-              if (msLeft <= 0) {
-                lines.push('', `⏰ Status: EXPIRED (${result.expires_at})`);
+            `## #${result.id} — ${result.title}`,
+            `Type: ${result.type} | Scope: ${result.scope} | Project: ${result.project}`,
+            '',
+            result.content,
+          ],
+          versions = (() => {
+            if (result.expires_at) {
+              const expMs = Date.parse(`${String(result.expires_at).replace(' ', 'T')}Z`);
+              if (Number.isFinite(expMs)) {
+                const msLeft = expMs - Date.now();
+                if (msLeft <= 0) {
+                  lines.push('', `⏰ Status: EXPIRED (${result.expires_at})`);
+                } else {
+                  const days = Math.floor(msLeft / 86400000),
+                    hours = Math.floor((msLeft % 86400000) / 3600000),
+                    countdown =
+                      days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h` : `${Math.floor(msLeft / 60000)}m`,
+                    icon = days < 3 ? '⏰' : '🕒';
+                  lines.push('', `${icon} Expires: ${result.expires_at} (in ${countdown})`);
+                }
               } else {
-                const days = Math.floor(msLeft / 86400000),
-                  hours = Math.floor((msLeft % 86400000) / 3600000),
-                  countdown =
-                    days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h` : `${Math.floor(msLeft / 60000)}m`,
-                  icon = days < 3 ? '⏰' : '🕒';
-                lines.push('', `${icon} Expires: ${result.expires_at} (in ${countdown})`);
+                lines.push('', `⏰ Expires: ${result.expires_at}`);
               }
-            } else {
-              lines.push('', `⏰ Expires: ${result.expires_at}`);
             }
-          }
-          
-  return ((result.versions as any[]) || []);
-})(),
-        relations = (() => {
-if (versions.length > 0) {
-            lines.push('', '## Edit History');
-            for (const v of versions) {
-              lines.push(`- **${v.field}** changed (${v.created_at}):`);
-              lines.push(`  from: ${String(v.old_value).slice(0, 100)}`);
-              lines.push(`  to:   ${String(v.new_value).slice(0, 100)}`);
+
+            return (result.versions as any[]) || [];
+          })(),
+          relations = (() => {
+            if (versions.length > 0) {
+              lines.push('', '## Edit History');
+              for (const v of versions) {
+                lines.push(`- **${v.field}** changed (${v.created_at}):`);
+                lines.push(`  from: ${String(v.old_value).slice(0, 100)}`);
+                lines.push(`  to:   ${String(v.new_value).slice(0, 100)}`);
+              }
             }
-          }
-          
-  return ((result.relations as any[]) || []);
-})();if (relations.length > 0) {
+
+            return (result.relations as any[]) || [];
+          })();
+        if (relations.length > 0) {
           lines.push('', '## Relations');
           for (const rel of relations) {
             const otherId = rel.source_id === parseInt(String(params.id), 10) ? rel.target_id : rel.source_id,
@@ -432,11 +432,14 @@ if (versions.length > 0) {
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
         const result = await deps.mem('related', { id: String(params.id) }),
-        related = result ? ((result.related as any[]) || []) : undefined,
-        lines = result && !(related.length === 0) ? (related.flatMap((r: any) => [
-          `### ${r.symbol}`,
-          ...(r.memories || []).map((m: any) => `- [#${m.id}] [${m.type}] ${m.title}`),
-        ])) : undefined;
+          related = result ? (result.related as any[]) || [] : undefined,
+          lines =
+            result && !(related.length === 0)
+              ? related.flatMap((r: any) => [
+                  `### ${r.symbol}`,
+                  ...(r.memories || []).map((m: any) => `- [#${m.id}] [${m.type}] ${m.title}`),
+                ])
+              : undefined;
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to find related memories.' }], details: {}, isError: true };
         }
@@ -485,7 +488,7 @@ if (versions.length > 0) {
             deep: params.deep ? 'true' : 'false',
             ...(deps.state.sessionId ? { 'session-id': String(deps.state.sessionId) } : {}),
           }),
-        observations = result ? ((result.observations as any[]) || []) : undefined;
+          observations = result ? (result.observations as any[]) || [] : undefined;
 
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to load context.' }], details: {}, isError: true };
@@ -537,9 +540,9 @@ if (versions.length > 0) {
     async execute(_id, params, _signal, _onUpdate, _ctx) {
       try {
         const result = await deps.mem('sync-code-trust', {
-          repo: params.repo,
-        }),
-        lines = result && !(result.message) ? ([]) : undefined;
+            repo: params.repo,
+          }),
+          lines = result && !result.message ? [] : undefined;
 
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to sync trust scores.' }], details: {}, isError: true };

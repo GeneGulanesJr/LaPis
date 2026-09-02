@@ -1,12 +1,12 @@
-const { withDb } = require('../../utils'), repos = require('./repos'), markdownParser = require('./markdown-parser'), htmlParser = require('./html-parser'), sections = require('./sections'), links = require('./links'), glossary = require('./glossary'), examples = require('./examples'), analytics = require('./analytics');
-
-
-
-
-
-
-
-
+const { withDb } = require('../../utils'),
+  repos = require('./repos'),
+  markdownParser = require('./markdown-parser'),
+  htmlParser = require('./html-parser'),
+  sections = require('./sections'),
+  links = require('./links'),
+  glossary = require('./glossary'),
+  examples = require('./examples'),
+  analytics = require('./analytics');
 
 module.exports = {
   indexDocs: withDb(repos.indexDocs),

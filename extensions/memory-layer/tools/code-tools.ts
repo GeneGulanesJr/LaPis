@@ -115,7 +115,7 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
             'enrich-symbols': 'enrich-symbols',
           },
           mode = typeof params.mode === 'string' ? params.mode : '',
-        cmd = mode ? (cmdMap[mode]) : undefined;
+          cmd = mode ? cmdMap[mode] : undefined;
         if (!mode) {
           return toolTextResult(codeHelpText());
         }
@@ -125,205 +125,204 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
         }
 
         {
-const codeRepos =
-            mode === 'index-repo' || mode === 'reindex-repo' || mode === 'health' ? [] : await deps.getKnownRepos(),
-          inferredRepo = inferCurrentRepo(params, codeRepos, process.cwd()),
-        validationError = (() => {
+          const codeRepos =
+              mode === 'index-repo' || mode === 'reindex-repo' || mode === 'health' ? [] : await deps.getKnownRepos(),
+            inferredRepo = inferCurrentRepo(params, codeRepos, process.cwd()),
+            validationError = (() => {
+              if (inferredRepo) {
+                params = { ...params, repo: inferredRepo };
+              }
 
-          if (inferredRepo) {
-            params = { ...params, repo: inferredRepo };
+              return validateCodeParams(mode, params);
+            })();
+          if (validationError) {
+            return toolTextResult(validationError, {}, true);
           }
-  
-          
-  return (validateCodeParams(mode, params));
-})();if (validationError) {
-          return toolTextResult(validationError, {}, true);
-        }
 
-        {
-const args: Record<string, string> = {},
-        top = (() => {
+          {
+            const args: Record<string, string> = {},
+              top = (() => {
+                if (params.repo) {
+                  args.repo = params.repo;
+                }
+                if (params.symbol) {
+                  args.symbol = params.symbol;
+                }
+                if (params.query || (mode === 'search' && params.symbol)) {
+                  args.query = String(params.query || params.symbol);
+                }
+                if (params.task || ((mode === 'preflight' || mode === 'agent-pack') && params.query)) {
+                  args.task = String(params.task || params.query);
+                }
+                if (params.file) {
+                  args.file = params.file;
+                }
+                if (params.depth) {
+                  args.depth = String(params.depth);
+                }
+                if (params.direction) {
+                  args.direction = params.direction;
+                }
+                if (cmd === 'call-hierarchy') {
+                  args.direction = mode === 'callers' ? 'callers' : 'callees';
+                }
+                if (params.min_confidence) {
+                  args['min-confidence'] = String(params.min_confidence);
+                }
+                if (params.days) {
+                  args.days = String(params.days);
+                }
+                if (params.refresh) {
+                  args.refresh = 'true';
+                }
 
-          if (params.repo) {
-            args.repo = params.repo;
-          }
-          if (params.symbol) {
-            args.symbol = params.symbol;
-          }
-          if (params.query || (mode === 'search' && params.symbol)) {
-            args.query = String(params.query || params.symbol);
-          }
-          if (params.task || ((mode === 'preflight' || mode === 'agent-pack') && params.query)) {
-            args.task = String(params.task || params.query);
-          }
-          if (params.file) {
-            args.file = params.file;
-          }
-          if (params.depth) {
-            args.depth = String(params.depth);
-          }
-          if (params.direction) {
-            args.direction = params.direction;
-          }
-          if (cmd === 'call-hierarchy') {
-            args.direction = mode === 'callers' ? 'callers' : 'callees';
-          }
-          if (params.min_confidence) {
-            args['min-confidence'] = String(params.min_confidence);
-          }
-          if (params.days) {
-            args.days = String(params.days);
-          }
-          if (params.refresh) {
-            args.refresh = 'true';
-          }
-          
-  return (params.top || (cmd === 'search-code' ? 5 : null));
-})();if (top) {
-          if (cmd === 'search-code') {
-            args['max-results'] = String(top);
-          } else {
-            args.top = String(top);
-          }
-        }
-        if (params.scope) {
-          args.scope = params.scope;
-        }
-        if (params.sort_by) {
-          args['sort-by'] = params.sort_by;
-        }
-        if (params.min_complexity) {
-          args['min-complexity'] = String(params.min_complexity);
-        }
-        if (params.min_callers) {
-          args['min-callers'] = String(params.min_callers);
-        }
-        if (params.direction_hier) {
-          args.direction = params.direction_hier;
-        }
-        if (params.kind) {
-          args.kind = params.kind;
-        }
-        if (params.symbol_chain) {
-          args.symbol = String(params.symbol_chain);
-        }
-        if (params.path) {
-          args.path = params.path;
-        }
-        if (params.name) {
-          args.name = params.name;
-        }
-        if (params.rules) {
-          args.rules = typeof params.rules === 'string' ? params.rules : JSON.stringify(params.rules);
-        }
-        if (params.files) {
-          args.files = params.files;
-        }
+                return params.top || (cmd === 'search-code' ? 5 : null);
+              })();
+            if (top) {
+              if (cmd === 'search-code') {
+                args['max-results'] = String(top);
+              } else {
+                args.top = String(top);
+              }
+            }
+            if (params.scope) {
+              args.scope = params.scope;
+            }
+            if (params.sort_by) {
+              args['sort-by'] = params.sort_by;
+            }
+            if (params.min_complexity) {
+              args['min-complexity'] = String(params.min_complexity);
+            }
+            if (params.min_callers) {
+              args['min-callers'] = String(params.min_callers);
+            }
+            if (params.direction_hier) {
+              args.direction = params.direction_hier;
+            }
+            if (params.kind) {
+              args.kind = params.kind;
+            }
+            if (params.symbol_chain) {
+              args.symbol = String(params.symbol_chain);
+            }
+            if (params.path) {
+              args.path = params.path;
+            }
+            if (params.name) {
+              args.name = params.name;
+            }
+            if (params.rules) {
+              args.rules = typeof params.rules === 'string' ? params.rules : JSON.stringify(params.rules);
+            }
+            if (params.files) {
+              args.files = params.files;
+            }
 
-        if (mode === 'index-repo' || mode === 'reindex-repo') {
-          const ui = (ctx as any)?.ui,
-            result = await deps.memStreaming(cmd, args, (msg: string) => {
-              try {
-                onUpdate(toolProgressResult(msg, { progress: true }));
-              } catch {}
+            if (mode === 'index-repo' || mode === 'reindex-repo') {
+              const ui = (ctx as any)?.ui,
+                result = await deps.memStreaming(cmd, args, (msg: string) => {
+                  try {
+                    onUpdate(toolProgressResult(msg, { progress: true }));
+                  } catch {}
+                  if (ui?.setStatus) {
+                    try {
+                      ui.setStatus('memory-index', `📦 ${msg}`);
+                    } catch {}
+                  }
+                });
               if (ui?.setStatus) {
                 try {
-                  ui.setStatus('memory-index', `📦 ${msg}`);
+                  if (ui.clearStatus) {
+                    ui.clearStatus('memory-index');
+                  } else {
+                    ui.setStatus('memory-index', '');
+                  }
                 } catch {}
               }
-            });
-          if (ui?.setStatus) {
-            try {
-              if (ui.clearStatus) {
-                ui.clearStatus('memory-index');
-              } else {
-                ui.setStatus('memory-index', '');
+              if (!result) {
+                return toolTextResult('Indexing failed or timed out.', {}, true);
               }
-            } catch {}
-          }
-          if (!result) {
-            return toolTextResult('Indexing failed or timed out.', {}, true);
-          }
-          if (result.error) {
-            return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
-          }
-          // Invalidate repo cache so guardrails immediately recognize the new/updated repo
-          deps.invalidateRepoCache();
-          const response = buildCodeToolResponse(mode, result ?? {});
-          let fmt: string | undefined | null;
-          try {
-            fmt = deps.formatCodeResult(mode, response.formatPayload);
-          } catch {
-            fmt = '';
-          }
-          return toolTextResult(fmt || 'Indexing completed.', response.details);
-        }
+              if (result.error) {
+                return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
+              }
+              // Invalidate repo cache so guardrails immediately recognize the new/updated repo
+              deps.invalidateRepoCache();
+              const response = buildCodeToolResponse(mode, result ?? {});
+              let fmt: string | undefined | null;
+              try {
+                fmt = deps.formatCodeResult(mode, response.formatPayload);
+              } catch {
+                fmt = '';
+              }
+              return toolTextResult(fmt || 'Indexing completed.', response.details);
+            }
 
-        if (mode === 'health') {
-          const result = await deps.mem(cmd, args);
-          if (!result) {
-            return toolTextResult('Index health check failed.', {}, true);
-          }
-          if (result.error) {
-            return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
-          }
-          return toolTextResult(formatHealthResult(result), result ?? {});
-        }
+            if (mode === 'health') {
+              const result = await deps.mem(cmd, args);
+              if (!result) {
+                return toolTextResult('Index health check failed.', {}, true);
+              }
+              if (result.error) {
+                return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
+              }
+              return toolTextResult(formatHealthResult(result), result ?? {});
+            }
 
-        const repoMatch = codeRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
-        if (!repoMatch) {
-          const available = codeRepos.map((r) => r.name).join(', ') || 'none',
-            cwd = process.cwd();
-          return normalizeToolResult({
-            content: [
-              {
-                type: 'text',
-                text: `❌ Repo \"${params.repo}\" is not indexed. Available repos: ${available}\n\nTo index this repo, run:\n\`memory-code index-repo --path ${cwd} --name ${params.repo}\``,
-              },
-            ],
-            details: {},
-            isError: true,
-          });
-        }
+            const repoMatch = codeRepos.find((r) => r.name.toLowerCase() === params.repo?.toLowerCase());
+            if (!repoMatch) {
+              const available = codeRepos.map((r) => r.name).join(', ') || 'none',
+                cwd = process.cwd();
+              return normalizeToolResult({
+                content: [
+                  {
+                    type: 'text',
+                    text: `❌ Repo \"${params.repo}\" is not indexed. Available repos: ${available}\n\nTo index this repo, run:\n\`memory-code index-repo --path ${cwd} --name ${params.repo}\``,
+                  },
+                ],
+                details: {},
+                isError: true,
+              });
+            }
 
-        const result = await deps.mem(cmd, args);
-        if (!result) {
-          if (
-            cmd === 'dead-code' ||
-            cmd === 'cycles' ||
-            cmd === 'importance' ||
-            cmd === 'coupling' ||
-            cmd === 'signal-chains' ||
-            cmd === 'import-graph'
-          ) {
-            return normalizeToolResult({
-              content: [
-                {
-                  type: 'text',
-                  text: `Analysis timed out or failed for \"${mode}\". Try reducing scope or depth, or re-index the repo.\nCommand: ${cmd} on repo \"${params.repo}\"`,
-                },
-              ],
-              details: {},
-              isError: true,
-            });
+            const result = await deps.mem(cmd, args);
+            if (!result) {
+              if (
+                cmd === 'dead-code' ||
+                cmd === 'cycles' ||
+                cmd === 'importance' ||
+                cmd === 'coupling' ||
+                cmd === 'signal-chains' ||
+                cmd === 'import-graph'
+              ) {
+                return normalizeToolResult({
+                  content: [
+                    {
+                      type: 'text',
+                      text: `Analysis timed out or failed for \"${mode}\". Try reducing scope or depth, or re-index the repo.\nCommand: ${cmd} on repo \"${params.repo}\"`,
+                    },
+                  ],
+                  details: {},
+                  isError: true,
+                });
+              }
+              return toolTextResult('Analysis failed.', {}, true);
+            }
+            if (result.error) {
+              return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
+            }
+
+            const response = buildCodeToolResponse(mode, result ?? {});
+            let fmt: string | undefined | null;
+            try {
+              fmt = deps.formatCodeResult(mode, response.formatPayload);
+            } catch {
+              fmt = '';
+            }
+            return toolTextResult(fmt || `No ${mode} results found.`, response.details);
           }
-          return toolTextResult('Analysis failed.', {}, true);
         }
-        if (result.error) {
-          return toolTextResult(`Error: ${result.error}`, result ?? {}, true);
-        }
-
-        const response = buildCodeToolResponse(mode, result ?? {});
-        let fmt: string | undefined | null;
-        try {
-          fmt = deps.formatCodeResult(mode, response.formatPayload);
-        } catch {
-          fmt = '';
-        }
-        return toolTextResult(fmt || `No ${mode} results found.`, response.details);
-      }
-}
-} catch (err) {
+      } catch (err) {
         return toolTextResult(`Unexpected error: ${stringifyToolError(err)}`, {}, true);
       }
     },

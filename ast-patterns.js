@@ -83,10 +83,11 @@ const PRESET_DETECTORS = [
         return null;
       }
       // Count loop keywords at different indentation levels as rough nesting proxy
-      const lines = symbol.body_preview.split('\n'), loopRe = /\b(for|while|do)\b/;
+      const lines = symbol.body_preview.split('\n'),
+        loopRe = /\b(for|while|do)\b/;
       let maxNesting = 0,
         currentNesting = 0;
-      
+
       for (const line of lines) {
         const trimmed = line.trim();
         if (loopRe.test(trimmed)) {
@@ -207,7 +208,7 @@ const PRESET_DETECTORS = [
       // Match numeric literals that aren't common constants
       const numRe = /(?<![a-zA-Z0-9_.])(\d{2,}|[3-9]\b|(?<!\d)-[3-9]\b)(?![a-zA-Z0-9_.])/g,
         matches = [...symbol.body_preview.matchAll(numRe)],
-      suspicious = !(matches.length === 0) ? (matches.filter((m) => parseInt(m[0]) > 99)) : undefined;
+        suspicious = !(matches.length === 0) ? matches.filter((m) => parseInt(m[0]) > 99) : undefined;
       if (matches.length === 0) {
         return null;
       }
@@ -236,11 +237,13 @@ const PRESET_DETECTORS = [
       // Extract parameter names from signature
       const paramRe = /\(([^)]*)\)/,
         sigMatch = symbol.signature.match(paramRe),
-      params = sigMatch ? (sigMatch[1]
-        .split(',')
-        .map((p) => p.trim().split(/[:=]/)[0].trim())
-        .filter(Boolean)) : undefined,
-      reassigned = sigMatch && !(params.length === 0) ? ([]) : undefined;
+        params = sigMatch
+          ? sigMatch[1]
+              .split(',')
+              .map((p) => p.trim().split(/[:=]/)[0].trim())
+              .filter(Boolean)
+          : undefined,
+        reassigned = sigMatch && !(params.length === 0) ? [] : undefined;
       if (!sigMatch) {
         return null;
       }
@@ -275,12 +278,11 @@ const PRESET_DETECTORS = [
  */
 function parseCustomPattern(raw) {
   const colonIdx = raw.indexOf(':'),
-  type = !(colonIdx === -1) ? (raw.substring(0, colonIdx)) : undefined,
-  value = !(colonIdx === -1) ? (raw.substring(colonIdx + 1)) : undefined;
+    type = !(colonIdx === -1) ? raw.substring(0, colonIdx) : undefined,
+    value = !(colonIdx === -1) ? raw.substring(colonIdx + 1) : undefined;
   if (colonIdx === -1) {
     return { error: `Invalid pattern: ${raw} (expected type:value)` };
   }
-
 
   switch (type) {
     case 'call': {
@@ -373,7 +375,7 @@ function parseCustomPattern(raw) {
  */
 function scanAstPatterns(db, repoId, opts = {}) {
   const { category = 'all', patterns: customPatterns = [], limit = 200 } = opts,
-  detectors = !(!db || typeof db.prepare !== 'function') ? ([]) : undefined;
+    detectors = !(!db || typeof db.prepare !== 'function') ? [] : undefined;
 
   // Guard: require native db
   if (!db || typeof db.prepare !== 'function') {

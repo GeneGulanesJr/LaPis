@@ -24,10 +24,10 @@ if (require.main === module) {
     process.exit(1);
   }
   {
-const facts = JSON.parse(require('fs').readFileSync(factsPath, 'utf-8')),
-    result = checkAnswer(answer, facts);
-  console.log(JSON.stringify(result, null, 2));
-}
+    const facts = JSON.parse(require('fs').readFileSync(factsPath, 'utf-8')),
+      result = checkAnswer(answer, facts);
+    console.log(JSON.stringify(result, null, 2));
+  }
 }
 
 module.exports = { checkAnswer };

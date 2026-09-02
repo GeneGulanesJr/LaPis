@@ -1,5 +1,5 @@
-const crypto = require('crypto'), { jsonError } = require('./errors');
-
+const crypto = require('crypto'),
+  { jsonError } = require('./errors');
 
 function resolveHttpApiKey(opts = {}) {
   if (opts.apiKey) {
@@ -48,15 +48,15 @@ function isAuthorized(req, apiKey) {
     return true;
   }
   {
-const auth = headerValue(req.headers.authorization);
-  if (auth) {
-    const bearerMatch = auth.match(/^Bearer\s+(.+)$/i);
-    if (bearerMatch && keysMatch(bearerMatch[1], apiKey)) {
-      return true;
+    const auth = headerValue(req.headers.authorization);
+    if (auth) {
+      const bearerMatch = auth.match(/^Bearer\s+(.+)$/i);
+      if (bearerMatch && keysMatch(bearerMatch[1], apiKey)) {
+        return true;
+      }
     }
+    return false;
   }
-  return false;
-}
 }
 
 function requireHttpAuth(apiKey) {

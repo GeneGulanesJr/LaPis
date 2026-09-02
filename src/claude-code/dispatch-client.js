@@ -15,8 +15,8 @@
  * both can be stubbed; nothing here touches the real DB unless invoked.
  */
 
-const { resolveDaemonUrl } = require('./daemon'), { getKnownRepos, getKnownProjects } = require('../platform/project-db');
-
+const { resolveDaemonUrl } = require('./daemon'),
+  { getKnownRepos, getKnownProjects } = require('../platform/project-db');
 
 /**
  * Coerce an args bag into the string-only record the gateway expects.
@@ -54,26 +54,26 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
   // Redundant top-level `project` field was never consumed and only obscured
   // The real source of truth (#229).
   {
-const payload = { cmd, args: stringifyArgs(args) },
-    res = await fetchFn(`${baseUrl.replace(/\/$/, '')}/dispatch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  if (!res.ok) {
-    let message = `Daemon dispatch failed (${res.status})`;
-    try {
-      const errBody = await res.json();
-      if (errBody?.error?.message) {
-        message = errBody.error.message;
+    const payload = { cmd, args: stringifyArgs(args) },
+      res = await fetchFn(`${baseUrl.replace(/\/$/, '')}/dispatch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    if (!res.ok) {
+      let message = `Daemon dispatch failed (${res.status})`;
+      try {
+        const errBody = await res.json();
+        if (errBody?.error?.message) {
+          message = errBody.error.message;
+        }
+      } catch {
+        // Ignore parse errors
       }
-    } catch {
-      // Ignore parse errors
+      throw new Error(message);
     }
-    throw new Error(message);
+    return res.json();
   }
-  return res.json();
-}
 }
 
 /**
@@ -95,9 +95,9 @@ async function dispatch(cmd, args, opts = {}) {
     }
   }
   {
-const directFn = opts.directDispatch || loadDirectDispatch();
-  return directFn(cmd, stringifyArgs(args));
-}
+    const directFn = opts.directDispatch || loadDirectDispatch();
+    return directFn(cmd, stringifyArgs(args));
+  }
 }
 
 /**

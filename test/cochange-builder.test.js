@@ -1,8 +1,8 @@
 // Tests for cochange-builder
-const path = require('path'), fs = require('fs'), Database = require('better-sqlite3'),
+const path = require('path'),
+  fs = require('fs'),
+  Database = require('better-sqlite3'),
   TMP_DB = path.join('/tmp', 'cochange-test.db');
-
-
 
 let db, repoId;
 
@@ -64,20 +64,18 @@ describe('storeCochangePairs', () => {
         'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
       ),
       fA = insertFile.run(rid, 'src/a.js', 'javascript', '', ''),
-      fB = insertFile.run(rid, 'src/b.js', 'javascript', '', ''), { storeCochangePairs } = require('../src/code-analysis/cochange-builder'),
+      fB = insertFile.run(rid, 'src/b.js', 'javascript', '', ''),
+      { storeCochangePairs } = require('../src/code-analysis/cochange-builder'),
       pairs = { 'src/a.js::src/b.js': 5 },
       pathToId = new Map([
         ['src/a.js', Number(fA.lastInsertRowid)],
         ['src/b.js', Number(fB.lastInsertRowid)],
       ]),
-    rows = (() => {
+      rows = (() => {
+        storeCochangePairs(testDb, rid, pairs, pathToId, 90);
 
-  
-      storeCochangePairs(testDb, rid, pairs, pathToId, 90);
-  
-      
-  return (testDb.prepare('SELECT * FROM file_cochange').all());
-})();
+        return testDb.prepare('SELECT * FROM file_cochange').all();
+      })();
 
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.co_commit_count === 5)).toBe(true);

@@ -1,6 +1,6 @@
-const fs = require('fs'), path = require('path'), { RESULT_LIMITS } = require('../../constants');
-
-
+const fs = require('fs'),
+  path = require('path'),
+  { RESULT_LIMITS } = require('../../constants');
 
 function searchDocs(db, repoId, query, opts) {
   opts = opts || {};
@@ -58,23 +58,22 @@ function getTutorialPath(db, repoId, sectionId) {
 
   const chain = [{ section_id: section.id, title: section.title }],
     nextMatch = (section.content || '').match(/[Nn]ext:?\s*\[([^\]]+)\]\(([^)]+)\)/),
-  file = (() => {
-
-    if (nextMatch) {
-      const targetSection = db
-        .prepare(`
+    file = (() => {
+      if (nextMatch) {
+        const targetSection = db
+          .prepare(`
         SELECT ds.id, ds.title FROM doc_sections ds JOIN doc_files df ON df.id = ds.file_id
         WHERE df.repo_id = ? AND df.path LIKE ? AND ds.level = ? LIMIT 1
       `)
-        .get(repoId, `%${nextMatch[2]}%`, section.level);
-      if (targetSection) {
-        chain.push({ section_id: targetSection.id, title: targetSection.title });
+          .get(repoId, `%${nextMatch[2]}%`, section.level);
+        if (targetSection) {
+          chain.push({ section_id: targetSection.id, title: targetSection.title });
+        }
       }
-    }
-  
-    
-  return (db.prepare('SELECT path FROM doc_files WHERE id = ?').get(section.file_id));
-})();if (file) {
+
+      return db.prepare('SELECT path FROM doc_files WHERE id = ?').get(section.file_id);
+    })();
+  if (file) {
     const numMatch = file.path.match(/(\d+)-/);
     if (numMatch) {
       const currentNum = parseInt(numMatch[1]),
@@ -134,9 +133,9 @@ function getOrphanSections(db, repoId, opts = {}) {
   }
 
   {
-const orphans = db.prepare(query).all(...params);
-  return { orphans, total: orphans.length };
-}
+    const orphans = db.prepare(query).all(...params);
+    return { orphans, total: orphans.length };
+  }
 }
 
 function createDbCodeSymbolLookup(db) {
@@ -156,12 +155,12 @@ function getDocCoverageReport(symbols, sections) {
   const docNames = new Map();
   for (const s of sections) {
     const lowerTitle = s.title.toLowerCase().replace(/[^a-z0-9]/g, ''),
-    fnRefs = (() => {
+      fnRefs = (() => {
+        docNames.set(lowerTitle, s);
 
-      docNames.set(lowerTitle, s);
-      
-  return (s.content.match(/\b([a-z_][a-z0-9_]{2,})\s*\(/gi) || []);
-})();for (const ref of fnRefs) {
+        return s.content.match(/\b([a-z_][a-z0-9_]{2,})\s*\(/gi) || [];
+      })();
+    for (const ref of fnRefs) {
       const name = ref.replace(/\s*\($/, '').toLowerCase();
       if (!docNames.has(name)) {
         docNames.set(name, s);
@@ -171,33 +170,31 @@ function getDocCoverageReport(symbols, sections) {
 
   let documented = 0;
   {
-const documented_list = [],
-    undocumented_list = [],
-  total = (() => {
+    const documented_list = [],
+      undocumented_list = [],
+      total = (() => {
+        for (const sym of symbols) {
+          const lowerName = sym.name.toLowerCase(),
+            matched = docNames.has(lowerName) || docNames.has(lowerName.replace(/_/g, ''));
+          if (matched) {
+            documented++;
+            documented_list.push(sym);
+          } else {
+            undocumented_list.push(sym);
+          }
+        }
 
-  
-    for (const sym of symbols) {
-      const lowerName = sym.name.toLowerCase(),
-        matched = docNames.has(lowerName) || docNames.has(lowerName.replace(/_/g, ''));
-      if (matched) {
-        documented++;
-        documented_list.push(sym);
-      } else {
-        undocumented_list.push(sym);
-      }
-    }
-  
-    
-  return (symbols.length);
-})();return {
-    total_symbols: total,
-    documented,
-    undocumented: undocumented_list.length,
-    coverage_pct: total > 0 ? Math.round((documented / total) * 100) : 0,
-    documented_list: documented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
-    undocumented_list: undocumented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
-  };
-}
+        return symbols.length;
+      })();
+    return {
+      total_symbols: total,
+      documented,
+      undocumented: undocumented_list.length,
+      coverage_pct: total > 0 ? Math.round((documented / total) * 100) : 0,
+      documented_list: documented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
+      undocumented_list: undocumented_list.slice(0, RESULT_LIMITS.DOC_COVERAGE_LIST_LIMIT),
+    };
+  }
 }
 
 function getDocCoverage(db, repoId, docRepoId, opts = {}) {

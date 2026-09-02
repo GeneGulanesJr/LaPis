@@ -34,12 +34,12 @@ describe('data-access/symbols', () => {
   describe('adjustTrust', () => {
     it('should update trust score and insert adjustment', () => {
       const deps = mockDeps(),
-      result = (() => {
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ trust_score: 0.9 }]);
 
-        deps.sqlJson.mockReturnValue([{ trust_score: 0.9 }]);
-        
-  return (adjustTrust(deps, { memoryId: '1', delta: 0.2, reason: 'test' }));
-})();expect(deps.sqlRun).toHaveBeenCalledTimes(2);
+          return adjustTrust(deps, { memoryId: '1', delta: 0.2, reason: 'test' });
+        })();
+      expect(deps.sqlRun).toHaveBeenCalledTimes(2);
       expect(result).toBe(0.9);
     });
   });
@@ -58,12 +58,12 @@ describe('data-access/symbols', () => {
   describe('getRecalledMemoryIds', () => {
     it('queries recall_log and session_recalls', () => {
       const deps = mockDeps(),
-      result = (() => {
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ memory_id: '42' }]);
 
-        deps.sqlJson.mockReturnValue([{ memory_id: '42' }]);
-        
-  return (getRecalledMemoryIds(deps, 7));
-})();expect(deps.sqlJson).toHaveBeenCalledWith(expect.stringContaining('was_useful = 1'), [7, 7]);
+          return getRecalledMemoryIds(deps, 7);
+        })();
+      expect(deps.sqlJson).toHaveBeenCalledWith(expect.stringContaining('was_useful = 1'), [7, 7]);
       expect(result).toEqual([{ memory_id: '42' }]);
     });
   });
@@ -71,24 +71,24 @@ describe('data-access/symbols', () => {
   describe('getStaleLinks', () => {
     it('should return stale links for a repo', () => {
       const deps = mockDeps(),
-      result = (() => {
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ memory_id: '1', symbol_id: 'fn()', trust_score: 0.3 }]);
 
-        deps.sqlJson.mockReturnValue([{ memory_id: '1', symbol_id: 'fn()', trust_score: 0.3 }]);
-        
-  return (getStaleLinks(deps, 'myrepo'));
-})();expect(result.length).toBe(1);
+          return getStaleLinks(deps, 'myrepo');
+        })();
+      expect(result.length).toBe(1);
     });
   });
 
   describe('getSymbolsForMemory', () => {
     it('should query symbol links for a memory', () => {
       const deps = mockDeps(),
-      _result = (() => {
+        _result = (() => {
+          deps.sqlJson.mockReturnValue([{ symbol_id: 'myFunc', repo: 'myrepo' }]);
 
-        deps.sqlJson.mockReturnValue([{ symbol_id: 'myFunc', repo: 'myrepo' }]);
-        
-  return (getSymbolsForMemory(deps, 42));
-})();expect(deps.sqlJson).toHaveBeenCalledWith(
+          return getSymbolsForMemory(deps, 42);
+        })();
+      expect(deps.sqlJson).toHaveBeenCalledWith(
         expect.stringContaining('symbol_links WHERE memory_id'),
         expect.any(Array),
       );
@@ -98,12 +98,12 @@ describe('data-access/symbols', () => {
   describe('findUnlinked', () => {
     it('should find observations without symbol links', () => {
       const deps = mockDeps(),
-      result = (() => {
+        result = (() => {
+          deps.sqlJson.mockReturnValue([{ memory_id: '1' }, { memory_id: '2' }]);
 
-        deps.sqlJson.mockReturnValue([{ memory_id: '1' }, { memory_id: '2' }]);
-        
-  return (findUnlinked(deps, 'myrepo'));
-})();expect(result.length).toBe(2);
+          return findUnlinked(deps, 'myrepo');
+        })();
+      expect(result.length).toBe(2);
     });
   });
 });

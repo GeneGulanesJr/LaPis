@@ -1,6 +1,6 @@
-const path = require('path'), fs = require('fs'), os = require('os');
-
-
+const path = require('path'),
+  fs = require('fs'),
+  os = require('os');
 
 // Integration test: spawn the real worker, point it at a tiny on-disk repo,
 // And verify the job completes via the index_jobs ledger.
@@ -16,25 +16,24 @@ describe('async code indexing', () => {
 
   it('runs indexRepository via the async path and finishes a small repo', async () => {
     const dbModule = require('../db'),
-    deps = (() => {
+      deps = (() => {
+        dbModule.createDb({ memoryPath: ':memory:' });
 
-      dbModule.createDb({ memoryPath: ':memory:' });
-      
-  return ({ sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun });
-})(), jobStore = require('../src/code-index/job-store'),
-      jobId = jobStore.createJob(deps, { repoName: 'tmprepo', mode: 'full', filesTotal: 0 }), { createJobQueue } = require('../src/code-index/job-queue'),
+        return { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
+      })(),
+      jobStore = require('../src/code-index/job-store'),
+      jobId = jobStore.createJob(deps, { repoName: 'tmprepo', mode: 'full', filesTotal: 0 }),
+      { createJobQueue } = require('../src/code-index/job-queue'),
       queue = createJobQueue({ jobStore, deps }),
       handle = queue.startJob(jobId, { repoName: 'tmprepo', repoPath: tmpDir, mode: 'full' });
 
-    
-
     await new Promise((resolve) => handle.worker.on('exit', resolve));
     {
-const job = jobStore.getJob(deps, jobId);
-    expect(job.status).toBe('completed');
-    expect(job.files_done).toBeGreaterThanOrEqual(2);
-  }
-}, 60000);
+      const job = jobStore.getJob(deps, jobId);
+      expect(job.status).toBe('completed');
+      expect(job.files_done).toBeGreaterThanOrEqual(2);
+    }
+  }, 60000);
 });
 
 describe('index-repo-async wrapper', () => {

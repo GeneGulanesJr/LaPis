@@ -55,9 +55,9 @@ console.log(btn);`,
       dynImports = symbols.filter((s) => s.kind === 'dynamic_import');
     expect(dynImports.length).toBeGreaterThanOrEqual(2);
     {
-const paths = dynImports.map((s) => s.name);
-    expect(paths).toContain('./module.js');
-    expect(paths).toContain('../utils');
-  }
-});
+      const paths = dynImports.map((s) => s.name);
+      expect(paths).toContain('./module.js');
+      expect(paths).toContain('../utils');
+    }
+  });
 });

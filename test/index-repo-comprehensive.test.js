@@ -1,7 +1,8 @@
-const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
-  STORE = path.resolve(__dirname, '..', 'memory-store.js'), REPO_PREFIX = 'test-idx';
-
-
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
+  STORE = path.resolve(__dirname, '..', 'memory-store.js'),
+  REPO_PREFIX = 'test-idx';
 
 function run(cmd) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -37,8 +38,6 @@ function writeTmpRepo(repoPath, files) {
     fs.writeFileSync(filePath, content);
   }
 }
-
-
 
 function repoName(suffix) {
   return `${REPO_PREFIX}-${suffix}-${Date.now()}`;
@@ -155,14 +154,13 @@ describe('index-repo (comprehensive)', () => {
 
     it('should exclude node_modules, .git, and dot-directories', () => {
       const result = run(`index-repo --path "${tmpRepo}" --name ${name}`),
-      search = (() => {
+        search = (() => {
+          expect(result.success).toBe(true);
+          expect(result.files_indexed).toBe(1);
 
-        expect(result.success).toBe(true);
-        expect(result.files_indexed).toBe(1);
-  
-        
-  return (run(`search-code --query get --repo ${name}`));
-})();expect(search.results.every((r) => !r.file.includes('node_modules'))).toBe(true);
+          return run(`search-code --query get --repo ${name}`);
+        })();
+      expect(search.results.every((r) => !r.file.includes('node_modules'))).toBe(true);
     });
   });
 
@@ -170,13 +168,12 @@ describe('index-repo (comprehensive)', () => {
     it('should handle a repo with zero source files', () => {
       const name = repoName('empty'),
         tmpRepo = path.join('/tmp', `test-idx-empty-${Date.now()}`),
-      result = (() => {
+        result = (() => {
+          writeTmpRepo(tmpRepo, { 'README.txt': 'Hello world' });
 
-        writeTmpRepo(tmpRepo, { 'README.txt': 'Hello world' });
-  
-        
-  return (run(`index-repo --path "${tmpRepo}" --name ${name}`));
-})();expect(result.files_indexed).toBe(0);
+          return run(`index-repo --path "${tmpRepo}" --name ${name}`);
+        })();
+      expect(result.files_indexed).toBe(0);
       expect(result.success).toBe(true);
 
       cleanupRepo(name);
@@ -194,16 +191,15 @@ describe('index-repo (comprehensive)', () => {
     it('should handle files with syntax errors gracefully', () => {
       const name = repoName('syntax'),
         tmpRepo = path.join('/tmp', `test-idx-syntax-${Date.now()}`),
-      result = (() => {
+        result = (() => {
+          writeTmpRepo(tmpRepo, {
+            'bad.js': 'function {{{ broken syntax',
+            'good.js': 'function working() { return 1; }',
+          });
 
-        writeTmpRepo(tmpRepo, {
-          'bad.js': 'function {{{ broken syntax',
-          'good.js': 'function working() { return 1; }',
-        });
-  
-        
-  return (run(`index-repo --path "${tmpRepo}" --name ${name}`));
-})();expect(result.success).toBe(true);
+          return run(`index-repo --path "${tmpRepo}" --name ${name}`);
+        })();
+      expect(result.success).toBe(true);
       expect(result.files_indexed).toBeGreaterThanOrEqual(1);
 
       cleanupRepo(name);
@@ -215,17 +211,19 @@ describe('index-repo (comprehensive)', () => {
     it('should handle binary files mixed with source', () => {
       const name = repoName('binary'),
         tmpRepo = path.join('/tmp', `test-idx-binary-${Date.now()}`),
-      result = (() => {
+        result = (() => {
+          writeTmpRepo(tmpRepo, {
+            'app.js': 'function main() {}',
+          });
+          fs.writeFileSync(
+            path.join(tmpRepo, 'image.png'),
+            Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+          );
+          fs.writeFileSync(path.join(tmpRepo, 'data.bin'), Buffer.alloc(100, 0));
 
-        writeTmpRepo(tmpRepo, {
-          'app.js': 'function main() {}',
-        });
-        fs.writeFileSync(path.join(tmpRepo, 'image.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-        fs.writeFileSync(path.join(tmpRepo, 'data.bin'), Buffer.alloc(100, 0));
-  
-        
-  return (run(`index-repo --path "${tmpRepo}" --name ${name}`));
-})();expect(result.success).toBe(true);
+          return run(`index-repo --path "${tmpRepo}" --name ${name}`);
+        })();
+      expect(result.success).toBe(true);
       expect(result.files_indexed).toBe(1);
 
       cleanupRepo(name);
@@ -265,13 +263,12 @@ describe('index-repo (comprehensive)', () => {
       fs.writeFileSync(path.join(tmpRepo, 'a.js'), 'function alphaV2() { return 3; }');
 
       const result = run(`reindex-repo --repo ${name} --mode incremental`),
-      afterSearch = (() => {
+        afterSearch = (() => {
+          expect(result.success).toBe(true);
 
-        expect(result.success).toBe(true);
-  
-        
-  return (run(`search-code --query alphaV2 --repo ${name}`));
-})();expect(afterSearch.results.length).toBeGreaterThanOrEqual(1);
+          return run(`search-code --query alphaV2 --repo ${name}`);
+        })();
+      expect(afterSearch.results.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should detect new files in incremental mode', () => {
@@ -285,19 +282,18 @@ describe('index-repo (comprehensive)', () => {
 
     it('should handle deleted files in incremental mode', () => {
       const bPath = path.join(tmpRepo, 'b.js'),
-      search = (() => {
+        search = (() => {
+          if (!fs.existsSync(bPath)) {
+            fs.writeFileSync(bPath, 'function beta() { return 2; }');
+            run(`reindex-repo --repo ${name} --mode incremental`);
+          }
+          fs.unlinkSync(bPath);
 
-        if (!fs.existsSync(bPath)) {
-          fs.writeFileSync(bPath, 'function beta() { return 2; }');
           run(`reindex-repo --repo ${name} --mode incremental`);
-        }
-        fs.unlinkSync(bPath);
-  
-        run(`reindex-repo --repo ${name} --mode incremental`);
-  
-        
-  return (run(`search-code --query beta --repo ${name}`));
-})();expect(search.results.every((r) => !r.file.includes('b.js'))).toBe(true);
+
+          return run(`search-code --query beta --repo ${name}`);
+        })();
+      expect(search.results.every((r) => !r.file.includes('b.js'))).toBe(true);
     });
 
     it('should fail for non-existent repo', () => {
@@ -316,20 +312,18 @@ describe('index-repo (comprehensive)', () => {
     it('should remove a repo', () => {
       const name = repoName('remove'),
         tmpRepo = path.join('/tmp', `test-idx-remove-${Date.now()}`),
-      result = (() => {
+        result = (() => {
+          writeTmpRepo(tmpRepo, { 'x.js': 'function x() {}' });
+          run(`index-repo --path "${tmpRepo}" --name ${name}`);
 
-        writeTmpRepo(tmpRepo, { 'x.js': 'function x() {}' });
-        run(`index-repo --path "${tmpRepo}" --name ${name}`);
-  
-        
-  return (run(`remove-code-repo --repo ${name}`));
-})(),
-      repos = (() => {
-expect(result.success).toBe(true);
-  
-        
-  return (run('list-code-repos'));
-})();expect(repos.repos.every((r) => r.name !== name)).toBe(true);
+          return run(`remove-code-repo --repo ${name}`);
+        })(),
+        repos = (() => {
+          expect(result.success).toBe(true);
+
+          return run('list-code-repos');
+        })();
+      expect(repos.repos.every((r) => r.name !== name)).toBe(true);
 
       try {
         fs.rmSync(tmpRepo, { recursive: true });
@@ -379,10 +373,10 @@ expect(result.success).toBe(true);
   });
 
   describe('large repo call graph scalability', () => {
-    const name = repoName('large'), FILE_COUNT = 50,
+    const name = repoName('large'),
+      FILE_COUNT = 50,
       FUNCS_PER_FILE = 10;
     let tmpRepo;
-    
 
     beforeAll(() => {
       tmpRepo = path.join('/tmp', `test-idx-large-${Date.now()}`);

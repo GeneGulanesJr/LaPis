@@ -48,15 +48,14 @@ describe('dream cycle stats persistence', () => {
         }),
         sqlRaw: vi.fn(),
         softDeleteObservation: vi.fn(),
-      }, { dream } = require('../src/memory-domain/compaction'),
+      },
+      { dream } = require('../src/memory-domain/compaction'),
       report = dream(deps),
-    settingsWrites = (() => {
+      settingsWrites = (() => {
+        expect(report.ok).toBe(true);
 
-  
-      expect(report.ok).toBe(true);
-      
-  return (sqlRunCalls.filter((c) => c.query.includes('settings')));
-})();
+        return sqlRunCalls.filter((c) => c.query.includes('settings'));
+      })();
 
     expect(settingsWrites).toHaveLength(3);
     expect(settingsWrites[0].query).toContain('dream_last_run');
@@ -77,9 +76,10 @@ describe('dream cycle stats persistence', () => {
         }),
         sqlRaw: vi.fn(),
         softDeleteObservation: vi.fn(),
-      }, { dream } = require('../src/memory-domain/compaction'), settingsWrites = sqlRunCalls.filter((c) => c.query.includes('settings'));
+      },
+      { dream } = require('../src/memory-domain/compaction'),
+      settingsWrites = sqlRunCalls.filter((c) => c.query.includes('settings'));
 
-    
     let report;
     try {
       report = dream(deps);
@@ -89,7 +89,7 @@ describe('dream cycle stats persistence', () => {
     }
 
     expect(report.ok).toBe(false);
-    
+
     expect(settingsWrites).toHaveLength(0);
   });
 });

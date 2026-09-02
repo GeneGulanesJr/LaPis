@@ -1,23 +1,22 @@
-const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), install = require('../../src/hermes/install'),
-  { runInstall, hookCommand } = install, { runUninstall } = require('../../src/hermes/uninstall'), doctor = require('../../src/hermes/doctor');
-
-
-
-
-
-
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  install = require('../../src/hermes/install'),
+  { runInstall, hookCommand } = install,
+  { runUninstall } = require('../../src/hermes/uninstall'),
+  doctor = require('../../src/hermes/doctor');
 
 // ---- helpers ----
 
 function makeIo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hermes-install-')),
     home = path.join(root, 'hermes-home'),
-  lines = (() => {
+    lines = (() => {
+      fs.mkdirSync(home, { recursive: true });
 
-    fs.mkdirSync(home, { recursive: true });
-    
-  return ([]);
-})();return { home, log: (l) => lines.push(l), lines, root };
+      return [];
+    })();
+  return { home, log: (l) => lines.push(l), lines, root };
 }
 
 function readConfig(home) {
@@ -61,12 +60,12 @@ describe('hermes install: default install', () => {
 
   test('writes consent for every hook event', () => {
     const allow = readAllowlist(io.home),
-    cmd = (() => {
+      cmd = (() => {
+        expect(allow.approvals).toHaveLength(5);
 
-      expect(allow.approvals).toHaveLength(5);
-      
-  return (hookCommand());
-})();for (const event of ['pre_tool_call', 'post_tool_call', 'pre_llm_call', 'on_session_start', 'on_session_end']) {
+        return hookCommand();
+      })();
+    for (const event of ['pre_tool_call', 'post_tool_call', 'pre_llm_call', 'on_session_start', 'on_session_end']) {
       expect(allow.approvals.some((a) => a.event === event && a.command === cmd)).toBe(true);
     }
   });
@@ -100,13 +99,13 @@ describe('hermes install: idempotency and coexistence', () => {
     await runInstall([], io);
     await runInstall([], io);
     const text = readConfig(io.home),
-    allow = (() => {
+      allow = (() => {
+        expect(text.match(/  lapis:/g)).toHaveLength(1);
+        expect(text.match(/- matcher: "\^\(read_file\|search_files\)\$"/g)).toHaveLength(1);
 
-      expect(text.match(/  lapis:/g)).toHaveLength(1);
-      expect(text.match(/- matcher: "\^\(read_file\|search_files\)\$"/g)).toHaveLength(1);
-      
-  return (readAllowlist(io.home));
-})();expect(allow.approvals).toHaveLength(5);
+        return readAllowlist(io.home);
+      })();
+    expect(allow.approvals).toHaveLength(5);
   });
 
   test('preserves pre-existing MCP servers and user hooks', async () => {
@@ -211,26 +210,24 @@ describe('hermes uninstall', () => {
 
     const { removed } = await runUninstall([], io),
       text = readConfig(io.home),
-    allow = (() => {
+      allow = (() => {
+        expect(removed).toContain('mcp_servers.lapis');
+        expect(removed).toContain('hooks.pre_tool_call');
+        expect(removed).toContain('hooks.on_session_end');
+        expect(text).not.toContain('lapis:');
+        expect(text).not.toContain(hookCommand());
+        // A user hook remains, so the shared hooks_auto_accept scalar survives —
+        // It may be used by other hooks for headless consent.
+        expect(text).toContain('hooks_auto_accept: true');
+        expect(removed).not.toContain('hooks_auto_accept');
 
-  
-      expect(removed).toContain('mcp_servers.lapis');
-      expect(removed).toContain('hooks.pre_tool_call');
-      expect(removed).toContain('hooks.on_session_end');
-      expect(text).not.toContain('lapis:');
-      expect(text).not.toContain(hookCommand());
-      // A user hook remains, so the shared hooks_auto_accept scalar survives —
-      // It may be used by other hooks for headless consent.
-      expect(text).toContain('hooks_auto_accept: true');
-      expect(removed).not.toContain('hooks_auto_accept');
-  
-      // User's server and hook survive.
-      expect(text).toContain('    command: uvx');
-      expect(text).toContain('"/user/script.sh"');
-  
-      
-  return (readAllowlist(io.home));
-})();expect(allow.approvals).toHaveLength(1);
+        // User's server and hook survive.
+        expect(text).toContain('    command: uvx');
+        expect(text).toContain('"/user/script.sh"');
+
+        return readAllowlist(io.home);
+      })();
+    expect(allow.approvals).toHaveLength(1);
     expect(allow.approvals[0].command).toBe('/user/script.sh');
   });
 
@@ -271,13 +268,13 @@ describe('hermes uninstall', () => {
     fs.writeFileSync(allowPath, `${JSON.stringify(allow, null, 2)}\n`);
 
     const { removed } = await runUninstall([], io),
-    after = (() => {
+      after = (() => {
+        expect(removed.some((r) => r.startsWith('allowlist'))).toBe(true);
+        expect(fs.existsSync(allowPath)).toBe(true);
 
-      expect(removed.some((r) => r.startsWith('allowlist'))).toBe(true);
-      expect(fs.existsSync(allowPath)).toBe(true);
-      
-  return (JSON.parse(fs.readFileSync(allowPath, 'utf8')));
-})();expect(after.version).toBe(1);
+        return JSON.parse(fs.readFileSync(allowPath, 'utf8'));
+      })();
+    expect(after.version).toBe(1);
     expect(after.approvals).toEqual([{ event: 'pre_tool_call', command: '/user/script.sh' }]);
   });
 });

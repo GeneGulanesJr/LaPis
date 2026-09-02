@@ -1,9 +1,9 @@
-const fs = require('fs'), os = require('os'), path = require('path'), db = require('../db'), { insertObservation, updateObservation } = require('../data-access/observations'), { get } = require('../commands/observation');
-
-
-
-
-
+const fs = require('fs'),
+  os = require('os'),
+  path = require('path'),
+  db = require('../db'),
+  { insertObservation, updateObservation } = require('../data-access/observations'),
+  { get } = require('../commands/observation');
 
 describe('observation_versions table', () => {
   let deps, tempDir;
@@ -78,16 +78,12 @@ describe('updateObservation versioning', () => {
         topicKey: null,
       }),
       id = inserted[0].id,
-    versions = (() => {
+      versions = (() => {
+        updateObservation(deps, { id, title: 'New title' });
 
-  
-      updateObservation(deps, { id, title: 'New title' });
-  
-      
-  return (deps.sqlJson('SELECT field, old_value, new_value FROM observation_versions WHERE memory_id = ?', [
-      id,
-    ]));
-})();expect(versions).toHaveLength(1);
+        return deps.sqlJson('SELECT field, old_value, new_value FROM observation_versions WHERE memory_id = ?', [id]);
+      })();
+    expect(versions).toHaveLength(1);
     expect(versions[0].field).toBe('title');
     expect(versions[0].old_value).toBe('Old title');
     expect(versions[0].new_value).toBe('New title');
@@ -104,14 +100,12 @@ describe('updateObservation versioning', () => {
         topicKey: null,
       }),
       id = inserted[0].id,
-    versions = (() => {
+      versions = (() => {
+        updateObservation(deps, { id, title: 'New', content: 'new content' });
 
-  
-      updateObservation(deps, { id, title: 'New', content: 'new content' });
-  
-      
-  return (deps.sqlJson('SELECT field FROM observation_versions WHERE memory_id = ? ORDER BY field', [id]));
-})();expect(versions).toHaveLength(2);
+        return deps.sqlJson('SELECT field FROM observation_versions WHERE memory_id = ? ORDER BY field', [id]);
+      })();
+    expect(versions).toHaveLength(2);
     expect(versions.map((v) => v.field)).toEqual(['content', 'title']);
   });
 
@@ -127,13 +121,12 @@ describe('updateObservation versioning', () => {
       }),
       id = inserted[0].id,
       result = updateObservation(deps, { id }),
-    versions = (() => {
+      versions = (() => {
+        expect(result).toBeNull();
 
-      expect(result).toBeNull();
-  
-      
-  return (deps.sqlJson('SELECT * FROM observation_versions WHERE memory_id = ?', [id]));
-})();expect(versions).toHaveLength(0);
+        return deps.sqlJson('SELECT * FROM observation_versions WHERE memory_id = ?', [id]);
+      })();
+    expect(versions).toHaveLength(0);
   });
 });
 
@@ -184,13 +177,12 @@ describe('memory-get includes version history', () => {
         topicKey: null,
       }),
       id = inserted[0].id,
-    result = (() => {
+      result = (() => {
+        updateObservation(deps, { id, title: 'V2' });
 
-  
-      updateObservation(deps, { id, title: 'V2' });
-      
-  return (get(deps, { id: String(id) }));
-})();expect(result.versions).toHaveLength(1);
+        return get(deps, { id: String(id) });
+      })();
+    expect(result.versions).toHaveLength(1);
     expect(result.versions[0].field).toBe('title');
     expect(result.versions[0].old_value).toBe('V1');
     expect(result.versions[0].new_value).toBe('V2');

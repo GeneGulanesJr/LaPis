@@ -1,8 +1,8 @@
-const path = require('path'), fs = require('fs'), codeParser = require('../parse-code'), { extractImportBindings } = require('../src/code-analysis'),
+const path = require('path'),
+  fs = require('fs'),
+  codeParser = require('../parse-code'),
+  { extractImportBindings } = require('../src/code-analysis'),
   TMP_DIR = path.join('/tmp', 'accuracy-tests');
-
-
-
 
 function writeTmp(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -42,34 +42,32 @@ function foo() {
     try {
       const callees = codeParser.extractCallees(tmpFile),
         objCall = callees.find((c) => c.callee === 'method'),
-      thisCall = (() => {
+        thisCall = (() => {
+          expect(objCall).toBeDefined();
+          expect(objCall.receiver).toBe('obj');
+          expect(objCall.full_path).toBe('obj.method');
+          expect(objCall.is_method).toBe(true);
 
-        expect(objCall).toBeDefined();
-        expect(objCall.receiver).toBe('obj');
-        expect(objCall.full_path).toBe('obj.method');
-        expect(objCall.is_method).toBe(true);
-  
-        
-  return (callees.find((c) => c.callee === 'selfMethod'));
-})();expect(thisCall).toBeDefined();
+          return callees.find((c) => c.callee === 'selfMethod');
+        })();
+      expect(thisCall).toBeDefined();
       expect(thisCall.receiver).toBe('this');
       expect(thisCall.full_path).toBe('this.selfMethod');
 
       {
-const superCall = callees.find((c) => c.callee === 'parentMethod'),
-      plainCall = (() => {
+        const superCall = callees.find((c) => c.callee === 'parentMethod'),
+          plainCall = (() => {
+            expect(superCall).toBeDefined();
+            expect(superCall.receiver).toBe('super');
+            expect(superCall.full_path).toBe('super.parentMethod');
 
-        expect(superCall).toBeDefined();
-        expect(superCall.receiver).toBe('super');
-        expect(superCall.full_path).toBe('super.parentMethod');
-  
-        
-  return (callees.find((c) => c.callee === 'plainCall'));
-})();expect(plainCall).toBeDefined();
-      expect(plainCall.receiver).toBeNull();
-      expect(plainCall.is_method).toBe(false);
-    }
-} finally {
+            return callees.find((c) => c.callee === 'plainCall');
+          })();
+        expect(plainCall).toBeDefined();
+        expect(plainCall.receiver).toBeNull();
+        expect(plainCall.is_method).toBe(false);
+      }
+    } finally {
       cleanupTmp([tmpFile]);
     }
   });
@@ -87,14 +85,13 @@ function foo() {
     try {
       const callees = codeParser.extractCallees(tmpFile),
         prepareCall = callees.find((c) => c.callee === 'prepare'),
-      runCall = (() => {
+        runCall = (() => {
+          expect(prepareCall).toBeDefined();
+          expect(prepareCall.receiver).toBe('db');
 
-        expect(prepareCall).toBeDefined();
-        expect(prepareCall.receiver).toBe('db');
-  
-        
-  return (callees.find((c) => c.callee === 'run'));
-})();expect(runCall).toBeDefined();
+          return callees.find((c) => c.callee === 'run');
+        })();
+      expect(runCall).toBeDefined();
     } finally {
       cleanupTmp([tmpFile]);
     }
@@ -212,19 +209,20 @@ describe('accuracy: extractImportBindings', () => {
         `import defVal from './c';`,
       ].join('\n'),
       bindings = extractImportBindings(content),
-    localNames = (() => {
+      localNames = (() => {
+        expect(bindings.length).toBe(3);
 
-      expect(bindings.length).toBe(3);
-      
-  return (bindings.map((b) => b.localName));
-})();expect(localNames).toContain('foo');
+        return bindings.map((b) => b.localName);
+      })();
+    expect(localNames).toContain('foo');
     expect(localNames).toContain('baz');
     expect(localNames).toContain('defVal');
   });
 });
 
 describe('accuracy: end-to-end cross-file resolution', () => {
-  const Database = require('better-sqlite3'), codeAnalysis = require('../src/code-analysis'),
+  const Database = require('better-sqlite3'),
+    codeAnalysis = require('../src/code-analysis'),
     TEST_DB_PATH = path.join(TMP_DIR, 'accuracy-test.db'),
     TEST_REPO_DIR = path.join(TMP_DIR, 'test-repo'),
     files = {
@@ -268,7 +266,6 @@ class Child extends Base {
 }
 `,
     };
-  
 
   let db, repoId;
 
@@ -286,50 +283,50 @@ class Child extends Base {
     db.exec(schemaSql);
 
     {
-const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)'),
-      info = insertRepo.run('AccuracyTestRepo', TEST_REPO_DIR);
-    repoId = info.lastInsertRowid;
+      const insertRepo = db.prepare('INSERT INTO code_repos (name, path) VALUES (?, ?)'),
+        info = insertRepo.run('AccuracyTestRepo', TEST_REPO_DIR);
+      repoId = info.lastInsertRowid;
 
-    {
-const insertFile = db.prepare(
-        'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
-      ),
-      insertSymbol = db.prepare(
-        `INSERT INTO code_symbols (repo_id, file_id, name, kind, language, file_path, signature, qualified_name, start_line, end_line, start_byte, end_byte, parent_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
+      {
+        const insertFile = db.prepare(
+            'INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+          ),
+          insertSymbol = db.prepare(
+            `INSERT INTO code_symbols (repo_id, file_id, name, kind, language, file_path, signature, qualified_name, start_line, end_line, start_byte, end_byte, parent_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          );
 
-    await codeParser.init();
+        await codeParser.init();
 
-    for (const [name, content] of Object.entries(files)) {
-      const filePath = path.join(TEST_REPO_DIR, name),
-        hash = require('crypto').createHash('md5').update(content).digest('hex'),
-        fileInfo = insertFile.run(repoId, filePath, 'javascript', content, hash),
-        fileId = fileInfo.lastInsertRowid,
-        symbols = codeParser.parseFile(filePath);
-      for (const sym of symbols) {
-        insertSymbol.run(
-          repoId,
-          fileId,
-          sym.name,
-          sym.kind,
-          sym.language,
-          sym.file,
-          sym.signature,
-          sym.qualified_name,
-          sym.start_line,
-          sym.end_line,
-          sym.start_byte,
-          sym.end_byte,
-          sym.parent_name || '',
-        );
+        for (const [name, content] of Object.entries(files)) {
+          const filePath = path.join(TEST_REPO_DIR, name),
+            hash = require('crypto').createHash('md5').update(content).digest('hex'),
+            fileInfo = insertFile.run(repoId, filePath, 'javascript', content, hash),
+            fileId = fileInfo.lastInsertRowid,
+            symbols = codeParser.parseFile(filePath);
+          for (const sym of symbols) {
+            insertSymbol.run(
+              repoId,
+              fileId,
+              sym.name,
+              sym.kind,
+              sym.language,
+              sym.file,
+              sym.signature,
+              sym.qualified_name,
+              sym.start_line,
+              sym.end_line,
+              sym.start_byte,
+              sym.end_byte,
+              sym.parent_name || '',
+            );
+          }
+        }
+
+        codeAnalysis.buildImportGraph(db, repoId);
+        codeAnalysis.buildCallGraph(db, repoId);
       }
     }
-
-    codeAnalysis.buildImportGraph(db, repoId);
-    codeAnalysis.buildCallGraph(db, repoId);
-  }
-}
-});
+  });
 
   afterAll(() => {
     if (db) {
@@ -347,43 +344,38 @@ const insertFile = db.prepare(
 
   it('should resolve aliased import getHelp → helper in utils.js', () => {
     const result = codeAnalysis.getCallHierarchy(db, repoId, {
-      symbol: 'doWork',
-      direction: 'callees',
-      depth: 1,
-    }),
-    resolvedCallees = (() => {
+        symbol: 'doWork',
+        direction: 'callees',
+        depth: 1,
+      }),
+      resolvedCallees = (() => {
+        expect(result.error).toBeUndefined();
+        expect(result.callees).toBeDefined();
+        expect(Array.isArray(result.callees)).toBe(true);
 
-  
-      expect(result.error).toBeUndefined();
-      expect(result.callees).toBeDefined();
-      expect(Array.isArray(result.callees)).toBe(true);
-  
-      
-  return (result.callees.filter((c) => c.callee_symbol_id !== null));
-})();expect(resolvedCallees.length).toBeGreaterThan(0);
+        return result.callees.filter((c) => c.callee_symbol_id !== null);
+      })();
+    expect(resolvedCallees.length).toBeGreaterThan(0);
   });
 
   it('should resolve this.init() in Child.setup to Base.init', () => {
     const result = codeAnalysis.getCallHierarchy(db, repoId, {
-      symbol: 'setup',
-      direction: 'callees',
-      depth: 1,
-    }),
-    initCalls = (() => {
+        symbol: 'setup',
+        direction: 'callees',
+        depth: 1,
+      }),
+      initCalls = (() => {
+        expect(result.error).toBeUndefined();
+        expect(result.callees).toBeDefined();
 
-  
-      expect(result.error).toBeUndefined();
-      expect(result.callees).toBeDefined();
-  
-      
-  return (result.callees.filter((c) => c.callee_name === 'init'));
-})(),
-    resolvedInit = (() => {
-expect(initCalls.length).toBeGreaterThan(0);
-  
-      
-  return (initCalls.find((c) => c.callee_symbol_id !== null));
-})();if (resolvedInit) {
+        return result.callees.filter((c) => c.callee_name === 'init');
+      })(),
+      resolvedInit = (() => {
+        expect(initCalls.length).toBeGreaterThan(0);
+
+        return initCalls.find((c) => c.callee_symbol_id !== null);
+      })();
+    if (resolvedInit) {
       expect(resolvedInit.confidence).toBeGreaterThanOrEqual(0.9);
     }
   });

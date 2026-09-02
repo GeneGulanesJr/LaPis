@@ -69,26 +69,27 @@ describe('services/dedup: checkDuplicate', () => {
 
   it('should respect project filter', () => {
     const deps = {
-      sqlJson: vi.fn(() => []),
-    }, call = deps.sqlJson.mock.calls[0],
+        sqlJson: vi.fn(() => []),
+      },
+      call = deps.sqlJson.mock.calls[0],
       query = call[0],
       params = call[1];
     checkDuplicate(deps, 'Test title', 'decision', 'my-project', null);
-    
+
     expect(query).toContain('AND project = ?');
     expect(params).toContain('my-project');
   });
 
   it('should pass type filter to SQL query', () => {
     const deps = {
-      sqlJson: vi.fn(() => []),
-    },
-    params = (() => {
+        sqlJson: vi.fn(() => []),
+      },
+      params = (() => {
+        checkDuplicate(deps, 'Test title', 'bugfix', null, null);
 
-      checkDuplicate(deps, 'Test title', 'bugfix', null, null);
-      
-  return (deps.sqlJson.mock.calls[0][1]);
-})();expect(params[0]).toBe('bugfix');
+        return deps.sqlJson.mock.calls[0][1];
+      })();
+    expect(params[0]).toBe('bugfix');
   });
 });
 
@@ -143,15 +144,15 @@ describe('services/dedup: markDuplicate', () => {
 
   it('should use default confidence when not provided', () => {
     const deps = {
-      sqlJson: vi.fn(),
-      sqlRun: vi.fn(),
-      softDeleteObservation: vi.fn(),
-    },
-    callArgs = (() => {
+        sqlJson: vi.fn(),
+        sqlRun: vi.fn(),
+        softDeleteObservation: vi.fn(),
+      },
+      callArgs = (() => {
+        markDuplicate(deps, { source: '1', target: '2' });
 
-      markDuplicate(deps, { source: '1', target: '2' });
-      
-  return (deps.sqlRun.mock.calls[0]);
-})();expect(callArgs[1][3]).toBeDefined();
+        return deps.sqlRun.mock.calls[0];
+      })();
+    expect(callArgs[1][3]).toBeDefined();
   });
 });

@@ -1,7 +1,7 @@
-const { resolveRepoScopedPath } = require('../src/code-index/path-guards'), path = require('path'), fs = require('fs'), os = require('os');
-
-
-
+const { resolveRepoScopedPath } = require('../src/code-index/path-guards'),
+  path = require('path'),
+  fs = require('fs'),
+  os = require('os');
 
 describe('code-index path guards', () => {
   let tmpRoot;

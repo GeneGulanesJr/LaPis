@@ -1,14 +1,14 @@
-const fs = require('fs'), path = require('path'), {
-  stripJsoncComments,
-  expandTilde,
-  deepMerge,
-  loadConfig,
-  resetConfigCache,
-  DEFAULTS,
-  _CONFIG_PATH,
-} = require('../config');
-
-
+const fs = require('fs'),
+  path = require('path'),
+  {
+    stripJsoncComments,
+    expandTilde,
+    deepMerge,
+    loadConfig,
+    resetConfigCache,
+    DEFAULTS,
+    _CONFIG_PATH,
+  } = require('../config');
 
 describe('config.js', () => {
   const ORIGINAL_READ = fs.readFileSync,
@@ -176,13 +176,13 @@ describe('config.js', () => {
       vi.stubEnv('LAPIS_HOME', '/tmp/lapis-tilde-test');
       try {
         const { loadConfig: load, resetConfigCache: reset } = await import('../config'),
-        cfg = (() => {
+          cfg = (() => {
+            reset();
+            fs.readFileSync = () => '{"db_path": "~/my/db.db", "tier_config_path": "~/my/tier.jsonc"}';
 
-          reset();
-          fs.readFileSync = () => '{"db_path": "~/my/db.db", "tier_config_path": "~/my/tier.jsonc"}';
-          
-  return (load());
-})();expect(cfg.db_path).toBe(path.join('/tmp/lapis-tilde-test', 'my', 'db.db'));
+            return load();
+          })();
+        expect(cfg.db_path).toBe(path.join('/tmp/lapis-tilde-test', 'my', 'db.db'));
         expect(cfg.tier_config_path).toBe(path.join('/tmp/lapis-tilde-test', 'my', 'tier.jsonc'));
       } finally {
         vi.unstubAllEnvs();

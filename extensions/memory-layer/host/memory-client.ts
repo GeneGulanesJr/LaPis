@@ -13,7 +13,6 @@ let _inProcessDispatch: ((cmd: string, args: Record<string, string>) => Promise<
   // openDb()'s improved error message (see db.js).
   _inProcessFailureReported = false;
 
-
 const MAIN_THREAD_BLOCKING_COMMANDS = new Set([
   'index-repo',
   'reindex-repo',
@@ -178,19 +177,19 @@ export async function memStreaming(
     }
   }
   const argList: string[] = [cmd, '--progress'],
-  timeout = (() => {
-
-    for (const [k, v] of Object.entries(args)) {
-      if (v === undefined || v === null || v === '') {
-        // oxlint-disable-next-line no-continue
-        continue;
+    timeout = (() => {
+      for (const [k, v] of Object.entries(args)) {
+        if (v === undefined || v === null || v === '') {
+          // oxlint-disable-next-line no-continue
+          continue;
+        }
+        argList.push(`--${k}`);
+        argList.push(String(v));
       }
-      argList.push(`--${k}`);
-      argList.push(String(v));
-    }
-    
-  return (getTimeout(cmd));
-})(); try {
+
+      return getTimeout(cmd);
+    })();
+  try {
     return await new Promise<MemResult | null>((resolve, reject) => {
       const child = spawn('node', [MEMORY_SCRIPT, ...argList], {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -199,68 +198,68 @@ export async function memStreaming(
       let stdout = '',
         timer: ReturnType<typeof setTimeout> | null = null;
       {
-const resetTimer = () => {
-        if (timer) {
-          clearTimeout(timer);
-        }
-        timer = setTimeout(() => {
-          child.kill();
-          reject(new Error(`${cmd} timed out after ${timeout}ms without output`));
-        }, timeout + 5000);
-      };
-      resetTimer();
-
-      child.stdout.on('data', (chunk: Buffer) => {
-        stdout += chunk.toString('utf8');
+        const resetTimer = () => {
+          if (timer) {
+            clearTimeout(timer);
+          }
+          timer = setTimeout(() => {
+            child.kill();
+            reject(new Error(`${cmd} timed out after ${timeout}ms without output`));
+          }, timeout + 5000);
+        };
         resetTimer();
-      });
 
-      if (onProgress) {
-        const rl = createInterface({ input: child.stderr! });
-        rl.on('line', (line: string) => {
+        child.stdout.on('data', (chunk: Buffer) => {
+          stdout += chunk.toString('utf8');
           resetTimer();
-          try {
-            const parsed = JSON.parse(line);
-            if (parsed.progress) {
-              const phase = parsed.phase || '',
-                message = parsed.message || phase,
-                filesDone = parsed.files_done ?? '',
-                filesTotal = parsed.files_total ?? '',
-                symbols = parsed.symbols ?? '';
-              let statusText = message;
-              if (filesTotal) {
-                statusText = `${message} (${filesDone}/${filesTotal} files, ${symbols} symbols)`;
+        });
+
+        if (onProgress) {
+          const rl = createInterface({ input: child.stderr! });
+          rl.on('line', (line: string) => {
+            resetTimer();
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.progress) {
+                const phase = parsed.phase || '',
+                  message = parsed.message || phase,
+                  filesDone = parsed.files_done ?? '',
+                  filesTotal = parsed.files_total ?? '',
+                  symbols = parsed.symbols ?? '';
+                let statusText = message;
+                if (filesTotal) {
+                  statusText = `${message} (${filesDone}/${filesTotal} files, ${symbols} symbols)`;
+                }
+                onProgress(statusText);
               }
-              onProgress(statusText);
-            }
-          } catch {}
+            } catch {}
+          });
+        }
+
+        child.on('close', (code) => {
+          if (timer) {
+            clearTimeout(timer);
+          }
+          if (code !== 0 && !stdout.trim()) {
+            reject(new Error(`${cmd} exited with code ${code}`));
+            return;
+          }
+          try {
+            const result = stdout.trim() ? JSON.parse(stdout.trim()) : null;
+            resolve(result);
+          } catch {
+            reject(new Error(`${cmd} returned invalid JSON`));
+          }
+        });
+
+        child.on('error', (err) => {
+          if (timer) {
+            clearTimeout(timer);
+          }
+          reject(err);
         });
       }
-
-      child.on('close', (code) => {
-        if (timer) {
-          clearTimeout(timer);
-        }
-        if (code !== 0 && !stdout.trim()) {
-          reject(new Error(`${cmd} exited with code ${code}`));
-          return;
-        }
-        try {
-          const result = stdout.trim() ? JSON.parse(stdout.trim()) : null;
-          resolve(result);
-        } catch {
-          reject(new Error(`${cmd} returned invalid JSON`));
-        }
-      });
-
-      child.on('error', (err) => {
-        if (timer) {
-          clearTimeout(timer);
-        }
-        reject(err);
-      });
-    }
-});
+    });
   } catch {
     return mem(cmd, args);
   }

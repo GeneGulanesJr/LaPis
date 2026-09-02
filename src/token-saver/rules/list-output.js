@@ -17,9 +17,9 @@ const COLLAPSE_DIRS = [
 
 function compressListOutput({ stdout, stderr }) {
   const combined = `${stdout}\n${stderr}`.trim(),
-  lines = combined ? (combined.split('\n')) : undefined,
-  sourceDirs = combined ? ({}) : undefined,
-  collapsed = combined ? ({}) : undefined;
+    lines = combined ? combined.split('\n') : undefined,
+    sourceDirs = combined ? {} : undefined,
+    collapsed = combined ? {} : undefined;
   if (!combined) {
     return {
       summary: 'No output.',
@@ -29,39 +29,37 @@ function compressListOutput({ stdout, stderr }) {
   }
 
   let collapsedCount = 0,
-  output = (() => {
-
-  
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed && trimmed !== '.') {
-        let isCollapsed = false;
-        for (const dir of COLLAPSE_DIRS) {
-          if (trimmed.startsWith(`${dir}/`) || trimmed.startsWith(`${dir}\\`) || trimmed === dir) {
-            if (!collapsed[dir]) {
-              collapsed[dir] = 0;
+    output = (() => {
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && trimmed !== '.') {
+          let isCollapsed = false;
+          for (const dir of COLLAPSE_DIRS) {
+            if (trimmed.startsWith(`${dir}/`) || trimmed.startsWith(`${dir}\\`) || trimmed === dir) {
+              if (!collapsed[dir]) {
+                collapsed[dir] = 0;
+              }
+              collapsed[dir]++;
+              collapsedCount++;
+              isCollapsed = true;
+              break;
             }
-            collapsed[dir]++;
-            collapsedCount++;
-            isCollapsed = true;
-            break;
           }
-        }
-  
-        if (!isCollapsed) {
-          const parts = trimmed.split(/[/\\]/),
-            topDir = parts[0];
-          if (!sourceDirs[topDir]) {
-            sourceDirs[topDir] = 0;
+
+          if (!isCollapsed) {
+            const parts = trimmed.split(/[/\\]/),
+              topDir = parts[0];
+            if (!sourceDirs[topDir]) {
+              sourceDirs[topDir] = 0;
+            }
+            sourceDirs[topDir]++;
           }
-          sourceDirs[topDir]++;
         }
       }
-    }
-  
-    
-  return ('Directory summary:\n');
-})();for (const [dir, count] of Object.entries(sourceDirs)) {
+
+      return 'Directory summary:\n';
+    })();
+  for (const [dir, count] of Object.entries(sourceDirs)) {
     output += `${dir}/ (${count} entries)\n`;
   }
 
@@ -73,18 +71,18 @@ function compressListOutput({ stdout, stderr }) {
   }
 
   {
-const totalSource = Object.values(sourceDirs).reduce((a, b) => a + b, 0);
-  let summary = `${totalSource} source entries shown.`;
-  if (collapsedCount > 0) {
-    summary += ` ${collapsedCount} entries in common dirs collapsed.`;
-  }
+    const totalSource = Object.values(sourceDirs).reduce((a, b) => a + b, 0);
+    let summary = `${totalSource} source entries shown.`;
+    if (collapsedCount > 0) {
+      summary += ` ${collapsedCount} entries in common dirs collapsed.`;
+    }
 
-  return {
-    summary,
-    importantOutput: output.trim(),
-    omittedLines: collapsedCount,
-  };
-}
+    return {
+      summary,
+      importantOutput: output.trim(),
+      omittedLines: collapsedCount,
+    };
+  }
 }
 
 module.exports = { compressListOutput };

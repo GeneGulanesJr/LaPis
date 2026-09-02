@@ -15,9 +15,9 @@
  * maps ok:false to exit code 1.
  */
 
-const fs = require('node:fs'), path = require('node:path'), { parseFlags, isLapisHookHandler, isLapisMcpEntry, readJson, resolveIo, configPaths } = require('./install');
-
-
+const fs = require('node:fs'),
+  path = require('node:path'),
+  { parseFlags, isLapisHookHandler, isLapisMcpEntry, readJson, resolveIo, configPaths } = require('./install');
 
 /** Which(1): resolve a bare command name against PATH (with PATHEXT on Windows). */
 function resolveOnPath(command, env = process.env) {
@@ -70,13 +70,14 @@ function findMcpEntry(paths, mcpName, cwd) {
 
 /** Count LaPis hook handlers per settings file. */
 function countLapisHooks(filePath) {
-  let settings, count = 0;
+  let settings,
+    count = 0;
   try {
     settings = readJson(filePath);
   } catch {
     return 0;
   }
-  
+
   for (const groups of Object.values(settings.hooks || {})) {
     if (!Array.isArray(groups)) {
       continue;
@@ -110,12 +111,12 @@ function checkNativeModule(deps) {
 function checkDatabase(deps) {
   try {
     const db = deps.db || require('../../db'),
-    dbPath = (() => {
+      dbPath = (() => {
+        db.ensureDb();
 
-      db.ensureDb();
-      
-  return (db.DB_PATH);
-})();fs.accessSync(dbPath, fs.constants.W_OK);
+        return db.DB_PATH;
+      })();
+    fs.accessSync(dbPath, fs.constants.W_OK);
     db.getDb().prepare('SELECT 1').get();
     return { name: 'database', ok: true, detail: `writable at ${dbPath}` };
   } catch (e) {
@@ -138,7 +139,7 @@ function checkMcpConfig(paths, mcpName, cwd, env) {
   }
   const { entry, scope, file } = found,
     args = Array.isArray(entry.args) ? entry.args : [],
-  base = !(args[args.length - 1] !== 'mcp') ? (path.basename(String(entry.command || ''))) : undefined;
+    base = !(args[args.length - 1] !== 'mcp') ? path.basename(String(entry.command || '')) : undefined;
   if (args[args.length - 1] !== 'mcp') {
     return { name: 'MCP server config', ok: false, detail: `entry in ${file} does not spawn \`mcp\`` };
   }
@@ -151,12 +152,12 @@ function checkMcpConfig(paths, mcpName, cwd, env) {
     return { name: 'MCP server config', ok: true, detail: `"${mcpName}" (${scope} scope) → node ${args[0]}` };
   }
   {
-const resolved = resolveOnPath(entry.command, env);
-  if (!resolved) {
-    return { name: 'MCP server config', ok: false, detail: `command not found on PATH: ${entry.command}` };
+    const resolved = resolveOnPath(entry.command, env);
+    if (!resolved) {
+      return { name: 'MCP server config', ok: false, detail: `command not found on PATH: ${entry.command}` };
+    }
+    return { name: 'MCP server config', ok: true, detail: `"${mcpName}" (${scope} scope) → ${resolved}` };
   }
-  return { name: 'MCP server config', ok: true, detail: `"${mcpName}" (${scope} scope) → ${resolved}` };
-}
 }
 
 function checkHooksConfig(paths) {
@@ -166,7 +167,9 @@ function checkHooksConfig(paths) {
       ['user', paths.userSettings],
     ],
     found = sources.map(([label, file]) => ({ label, file, count: countLapisHooks(file) })).filter((s) => s.count > 0),
-  detail = !(found.length === 0) ? (found.map((s) => `${s.count} handlers (${s.label}: ${s.file})`).join(', ')) : undefined;
+    detail = !(found.length === 0)
+      ? found.map((s) => `${s.count} handlers (${s.label}: ${s.file})`).join(', ')
+      : undefined;
   if (found.length === 0) {
     return {
       name: 'hooks config',
@@ -181,20 +184,20 @@ function checkStateStore(deps) {
   try {
     const stateStore = deps.stateStore || require('./state-store'),
       dir = stateStore.DEFAULT_DIR,
-    probe = (() => {
+      probe = (() => {
+        fs.mkdirSync(dir, { recursive: true });
 
-      fs.mkdirSync(dir, { recursive: true });
-      
-  return (path.join(dir, `.doctor-probe-${process.pid}`));
-})(),
-    ttl = (() => {
-fs.writeFileSync(probe, 'ok', 'utf8');
-      fs.unlinkSync(probe);
-  
-      // Observability into the state dir: TTL window + size + oldest file (#233).
-      
-  return (typeof stateStore.defaultTtlHours === 'function' ? stateStore.defaultTtlHours() : 24);
-})();let bytes = 0,
+        return path.join(dir, `.doctor-probe-${process.pid}`);
+      })(),
+      ttl = (() => {
+        fs.writeFileSync(probe, 'ok', 'utf8');
+        fs.unlinkSync(probe);
+
+        // Observability into the state dir: TTL window + size + oldest file (#233).
+
+        return typeof stateStore.defaultTtlHours === 'function' ? stateStore.defaultTtlHours() : 24;
+      })();
+    let bytes = 0,
       oldestName = null,
       oldestMs = Infinity;
     try {
@@ -245,15 +248,14 @@ function runDoctor(argv, io = {}) {
       checkHooksConfig(paths),
       checkStateStore(io),
     ],
-  ok = (() => {
+    ok = (() => {
+      for (const check of checks) {
+        log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
+      }
 
-  
-    for (const check of checks) {
-      log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
-    }
-    
-  return (checks.every((c) => c.ok));
-})();log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
+      return checks.every((c) => c.ok);
+    })();
+  log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
   return { ok, checks };
 }
 

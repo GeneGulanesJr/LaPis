@@ -93,19 +93,17 @@ function buildCochangeEdges(db, repoId, opts = {}) {
   }
 
   {
-const files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
-    pathToId = new Map(files.map((f) => [f.path, f.id])),
-  pairCount = (() => {
+    const files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
+      pathToId = new Map(files.map((f) => [f.path, f.id])),
+      pairCount = (() => {
+        db.prepare('DELETE FROM file_cochange WHERE repo_id = ? AND window_days = ?').run(repoId, windowDays);
 
-  
-    db.prepare('DELETE FROM file_cochange WHERE repo_id = ? AND window_days = ?').run(repoId, windowDays);
-  
-    storeCochangePairs(db, repoId, pairs, pathToId, windowDays);
-  
-    
-  return (Object.keys(pairs).length);
-})();return { success: true, count: pairCount };
-}
+        storeCochangePairs(db, repoId, pairs, pathToId, windowDays);
+
+        return Object.keys(pairs).length;
+      })();
+    return { success: true, count: pairCount };
+  }
 }
 
 module.exports = {

@@ -64,7 +64,8 @@ function cleanupSessions(deps, opts = {}) {
   const { keepLast = 10, project = null, yes = false, includeDream = false, bypassAgeGates = false } = opts,
     report = { ok: true, phases: {} },
     // Phase 0: Triage (always runs)
-    triage = triageReport(deps), projects = project ? triage.projects.filter((p) => p.name === project) : triage.projects;
+    triage = triageReport(deps),
+    projects = project ? triage.projects.filter((p) => p.name === project) : triage.projects;
   report.triage = triage;
 
   if (!yes) {
@@ -73,109 +74,106 @@ function cleanupSessions(deps, opts = {}) {
   }
 
   // Phase 1: Prune sessions
-  
 
   let sessionsCompacted = 0,
     promptsCleaned = 0;
 
   {
-const txFn = deps.withTransaction || ((fn) => fn());
+    const txFn = deps.withTransaction || ((fn) => fn());
 
-  txFn(() => {
-    for (const proj of projects) {
-      if (proj.sessionCount <= SESSION_FLOOR) {
-        continue;
-      }
+    txFn(() => {
+      for (const proj of projects) {
+        if (proj.sessionCount <= SESSION_FLOOR) {
+          continue;
+        }
 
-      const effectiveKeep = Math.max(keepLast, SESSION_FLOOR),
-        offset = effectiveKeep,
-        toDelete = deps.sqlJson(
-          `SELECT id FROM session_log
+        const effectiveKeep = Math.max(keepLast, SESSION_FLOOR),
+          offset = effectiveKeep,
+          toDelete = deps.sqlJson(
+            `SELECT id FROM session_log
          WHERE project = ?
          ORDER BY started_at DESC
          LIMIT -1 OFFSET ?`,
-          [proj.name, offset],
-        );
+            [proj.name, offset],
+          );
 
-      if (toDelete.length === 0) {
-        continue;
-      }
+        if (toDelete.length === 0) {
+          continue;
+        }
 
-      // Hard assertion: never go below floor
-      {
-const remaining = deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [proj.name]);
-      if (remaining[0].cnt - toDelete.length < SESSION_FLOOR) {
-        continue; // Safety: skip if floor would be breached
-      }
-
-      for (const session of toDelete) {
-        // Delete user_prompts explicitly (no FK cascade)
-        const promptResult = deps.sqlRun('DELETE FROM user_prompts WHERE session_id = ?', [String(session.id)]);
-        promptsCleaned += promptResult?.changes || 0;
-        // Delete session_log (cascades to session_recalls)
-        deps.sqlRun('DELETE FROM session_log WHERE id = ?', [session.id]);
-        sessionsCompacted++;
-      }
-    }
-}
-  });
-
-  report.phases.sessionPrune = { sessionsCompacted, promptsCleaned };
-
-  // Phase 2: Optional dream with bypass
-  if (includeDream) {
-    const dreamService = require('../services/dream'),
-      dreamResult = dreamService.dream(
+        // Hard assertion: never go below floor
         {
-          sqlJson: deps.sqlJson,
-          sqlRun: deps.sqlRun,
-          softDeleteObservation: deps.softDeleteObservation,
-        },
-        { bypassAgeGates },
-      );
-    report.phases.dream = dreamResult;
+          const remaining = deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [proj.name]);
+          if (remaining[0].cnt - toDelete.length < SESSION_FLOOR) {
+            continue; // Safety: skip if floor would be breached
+          }
+
+          for (const session of toDelete) {
+            // Delete user_prompts explicitly (no FK cascade)
+            const promptResult = deps.sqlRun('DELETE FROM user_prompts WHERE session_id = ?', [String(session.id)]);
+            promptsCleaned += promptResult?.changes || 0;
+            // Delete session_log (cascades to session_recalls)
+            deps.sqlRun('DELETE FROM session_log WHERE id = ?', [session.id]);
+            sessionsCompacted++;
+          }
+        }
+      }
+    });
+
+    report.phases.sessionPrune = { sessionsCompacted, promptsCleaned };
+
+    // Phase 2: Optional dream with bypass
+    if (includeDream) {
+      const dreamService = require('../services/dream'),
+        dreamResult = dreamService.dream(
+          {
+            sqlJson: deps.sqlJson,
+            sqlRun: deps.sqlRun,
+            softDeleteObservation: deps.softDeleteObservation,
+          },
+          { bypassAgeGates },
+        );
+      report.phases.dream = dreamResult;
+    }
+
+    // Phase 3: Vacuum + FTS
+    const dreamService = require('../services/dream'),
+      compactResult = dreamService.runCompact();
+    report.phases.vacuum = compactResult;
+
+    return report;
   }
-
-  // Phase 3: Vacuum + FTS
-  const dreamService = require('../services/dream'),
-    compactResult = dreamService.runCompact();
-  report.phases.vacuum = compactResult;
-
-  return report;
-}
 }
 
 // CLI entry point
 if (require.main === module) {
-  const { ensureDb, sqlJson, sqlRun, sqlRaw, parseArgs, withTransaction } = require('../db'), obsDA = require('../data-access/observations');
-  
+  const { ensureDb, sqlJson, sqlRun, sqlRaw, parseArgs, withTransaction } = require('../db'),
+    obsDA = require('../data-access/observations');
 
   ensureDb();
 
   {
-const args = parseArgs(process.argv),
-    softDeleteObservation = (id) => obsDA.softDeleteObservation({ sqlJson, sqlRun, sqlRaw }, id),
-    deps = { sqlJson, sqlRun, sqlRaw, withTransaction, softDeleteObservation },
-    opts = {
-      keepLast: args['keep-last'] ? parseInt(args['keep-last'], 10) : 10,
-      project: args.project || null,
-      yes: args.yes === true,
-      includeDream: args['include-dream'] === true,
-      bypassAgeGates: args['bypass-age-gates'] === true,
-    },
-  result = (() => {
+    const args = parseArgs(process.argv),
+      softDeleteObservation = (id) => obsDA.softDeleteObservation({ sqlJson, sqlRun, sqlRaw }, id),
+      deps = { sqlJson, sqlRun, sqlRaw, withTransaction, softDeleteObservation },
+      opts = {
+        keepLast: args['keep-last'] ? parseInt(args['keep-last'], 10) : 10,
+        project: args.project || null,
+        yes: args.yes === true,
+        includeDream: args['include-dream'] === true,
+        bypassAgeGates: args['bypass-age-gates'] === true,
+      },
+      result = (() => {
+        if (!args.json && !args.yes) {
+          const report = triageReport(deps);
+          console.log(JSON.stringify(report, null, 2));
+          process.exit(0);
+        }
 
-  
-    if (!args.json && !args.yes) {
-      const report = triageReport(deps);
-      console.log(JSON.stringify(report, null, 2));
-      process.exit(0);
-    }
-  
-    
-  return (cleanupSessions(deps, opts));
-})();console.log(JSON.stringify(result, null, 2));
-}
+        return cleanupSessions(deps, opts);
+      })();
+    console.log(JSON.stringify(result, null, 2));
+  }
 }
 
 module.exports = { triageReport, cleanupSessions };

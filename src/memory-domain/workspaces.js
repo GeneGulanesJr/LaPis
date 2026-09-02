@@ -36,13 +36,13 @@ function archiveWorkspace(deps, name) {
     return { error: 'Missing --name' };
   }
   {
-const existing = sqlJson('SELECT id FROM workspaces WHERE name = ? AND archived_at IS NULL', [name]);
-  if (existing.length === 0) {
-    return { error: `Workspace not found or already archived: ${name}` };
+    const existing = sqlJson('SELECT id FROM workspaces WHERE name = ? AND archived_at IS NULL', [name]);
+    if (existing.length === 0) {
+      return { error: `Workspace not found or already archived: ${name}` };
+    }
+    sqlRun("UPDATE workspaces SET archived_at = datetime('now') WHERE id = ?", [existing[0].id]);
+    return { success: true, workspace: name, archived: true };
   }
-  sqlRun("UPDATE workspaces SET archived_at = datetime('now') WHERE id = ?", [existing[0].id]);
-  return { success: true, workspace: name, archived: true };
-}
 }
 
 function listProjects(deps) {

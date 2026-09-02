@@ -1,10 +1,11 @@
 const {
-  buildContextBlock,
-  buildSourceLookupGuidance,
-  summarizeMemoryContent,
-  extractFilePaths,
-  capInjectedContext,
-} = require('../../src/hooks-engine/context-builder'), {
+    buildContextBlock,
+    buildSourceLookupGuidance,
+    summarizeMemoryContent,
+    extractFilePaths,
+    capInjectedContext,
+  } = require('../../src/hooks-engine/context-builder'),
+  {
     appendPreflightBlock,
     appendCodingContextBlock,
     chooseCodingContextTarget,
@@ -26,7 +27,6 @@ const {
     crossProjectSuggestions: [],
     cwd: process.cwd(),
   };
-
 
 describe('hooks-engine context-builder: summarizeMemoryContent', () => {
   test('normalizes What/Why/Where priority lines', () => {
@@ -72,12 +72,12 @@ describe('hooks-engine context-builder: capInjectedContext', () => {
 describe('hooks-engine context-builder: buildContextBlock', () => {
   test('produces Memory Context heading + project line (uncapped lines array)', () => {
     const lines = buildContextBlock(baseBag),
-    content = (() => {
+      content = (() => {
+        expect(Array.isArray(lines)).toBe(true);
 
-      expect(Array.isArray(lines)).toBe(true);
-      
-  return (lines.join('\n'));
-})();expect(content).toContain('## Memory Context (auto-loaded)');
+        return lines.join('\n');
+      })();
+    expect(content).toContain('## Memory Context (auto-loaded)');
     expect(content).toContain('Project: **TestProject**');
     expect(content).toContain('### Project Context');
     expect(content).toContain('not indexed for this project');
@@ -123,14 +123,13 @@ describe('hooks-engine context-builder: buildContextBlock', () => {
         promptQuery: 'what should the agent do',
         effectiveObservations: obs,
       }),
-    nav = (() => {
+      nav = (() => {
+        expect(policy.join('\n')).toContain('MatchedDecAlpha');
+        expect(policy.join('\n')).not.toContain('MatchedFixBeta');
 
-      expect(policy.join('\n')).toContain('MatchedDecAlpha');
-      expect(policy.join('\n')).not.toContain('MatchedFixBeta');
-  
-      
-  return (buildContextBlock({ ...baseBag, promptQuery: 'where is the module path', effectiveObservations: obs }));
-})();expect(nav.join('\n')).toContain('MatchedDecAlpha');
+        return buildContextBlock({ ...baseBag, promptQuery: 'where is the module path', effectiveObservations: obs });
+      })();
+    expect(nav.join('\n')).toContain('MatchedDecAlpha');
     expect(nav.join('\n')).toContain('MatchedFixBeta');
   });
 });
@@ -154,18 +153,18 @@ describe('hooks-engine context-builder: buildSourceLookupGuidance', () => {
 describe('hooks-engine preflight-assembly', () => {
   test('appendPreflightBlock renders warnings + related files + action', () => {
     const lines = [],
-    content = (() => {
+      content = (() => {
+        appendPreflightBlock(lines, {
+          likely_existing_code: [{ symbol: 'saveUser', file: 'src/users.js', line: 4, kind: 'function' }],
+          duplicate_warnings: [{ symbol: 'dup', file: 'src/d.js' }],
+          related_files: ['src/users.js'],
+          risk: 'high',
+          recommended_action: 'Review first.',
+        });
 
-      appendPreflightBlock(lines, {
-        likely_existing_code: [{ symbol: 'saveUser', file: 'src/users.js', line: 4, kind: 'function' }],
-        duplicate_warnings: [{ symbol: 'dup', file: 'src/d.js' }],
-        related_files: ['src/users.js'],
-        risk: 'high',
-        recommended_action: 'Review first.',
-      });
-      
-  return (lines.join('\n'));
-})();expect(content).toContain('### Preflight — Before Coding');
+        return lines.join('\n');
+      })();
+    expect(content).toContain('### Preflight — Before Coding');
     expect(content).toContain('Duplicate risk: high');
     expect(content).toContain('`dup` in `src/d.js`');
     expect(content).toContain('Related files: `src/users.js`');
@@ -191,17 +190,17 @@ describe('hooks-engine preflight-assembly', () => {
 
   test('appendCodingContextBlock renders target + tests', () => {
     const lines = [],
-    content = (() => {
+      content = (() => {
+        appendCodingContextBlock(lines, {
+          target: { symbol: 'saveUser', file: 'src/users.js' },
+          summary: { risk: 'medium', review_bar: 'normal-plus', affected_files: 2 },
+          related_files: ['src/users.js'],
+          likely_tests: [{ file: 'test/users.test.js' }],
+        });
 
-      appendCodingContextBlock(lines, {
-        target: { symbol: 'saveUser', file: 'src/users.js' },
-        summary: { risk: 'medium', review_bar: 'normal-plus', affected_files: 2 },
-        related_files: ['src/users.js'],
-        likely_tests: [{ file: 'test/users.test.js' }],
-      });
-      
-  return (lines.join('\n'));
-})();expect(content).toContain('### Coding Context — Before Editing');
+        return lines.join('\n');
+      })();
+    expect(content).toContain('### Coding Context — Before Editing');
     expect(content).toContain('Target: `saveUser`');
     expect(content).toContain('Likely tests: `test/users.test.js`');
   });

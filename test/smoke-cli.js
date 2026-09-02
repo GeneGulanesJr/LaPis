@@ -4,25 +4,17 @@
 // These are NOT vitest tests — they run as a standalone Node script
 // So they can be executed in CI without the vitest runner.
 
-const { execSync } = require('child_process'), path = require('path'), fs = require('fs'), os = require('os'),
+const { execSync } = require('child_process'),
+  path = require('path'),
+  fs = require('fs'),
+  os = require('os'),
   ROOT = path.resolve(__dirname, '..'),
   CLI = `node "${path.join(ROOT, 'memory-store.js')}"`,
-  TMP_DIR = path.join(os.tmpdir(), `lapis-smoke-${Date.now()}`), failures = [];
-
-
-
+  TMP_DIR = path.join(os.tmpdir(), `lapis-smoke-${Date.now()}`),
+  failures = [];
 
 let passed = 0,
   failed = 0;
-
-
-
-
-
-
-
-
-
 
 console.log('\nSmoke CLI Tests\n');
 
@@ -156,11 +148,11 @@ smokeTestWithDb('save + get round-trip', path.join(TMP_DIR, 'smoke-get.db'), (en
   }
   // Get requires --id
   {
-const getOut = run(`${CLI} get --id 1`, { env });
-  if (!getOut.includes('"id"') && !getOut.includes('error')) {
-    throw new Error('get unexpected output');
+    const getOut = run(`${CLI} get --id 1`, { env });
+    if (!getOut.includes('"id"') && !getOut.includes('error')) {
+      throw new Error('get unexpected output');
+    }
   }
-}
 });
 
 smokeTestWithDb('save + update', path.join(TMP_DIR, 'smoke-upd.db'), (env) => {
@@ -576,21 +568,19 @@ function smokeTestWithDb(name, dbPath, cmdFn) {
   ensureDir(path.dirname(dbPath));
   // Create a minimal project directory for indexing
   const projectDir = path.join(TMP_DIR, 'project'),
-  docsDir = (() => {
+    docsDir = (() => {
+      ensureDir(projectDir);
+      fs.writeFileSync(path.join(projectDir, 'index.js'), '// hello\nfunction foo() { return 1; }\n');
 
-    ensureDir(projectDir);
-    fs.writeFileSync(path.join(projectDir, 'index.js'), '// hello\nfunction foo() { return 1; }\n');
-  
-    
-  return (path.join(TMP_DIR, 'docs'));
-})(),
-  env = (() => {
-ensureDir(docsDir);
-    fs.writeFileSync(path.join(docsDir, 'readme.md'), '# Test\n\nSome content.\n\n## Section One\n\nBody.\n');
-  
-    
-  return ({ HOME: path.join(TMP_DIR, 'home') });
-})();ensureDir(env.HOME);
+      return path.join(TMP_DIR, 'docs');
+    })(),
+    env = (() => {
+      ensureDir(docsDir);
+      fs.writeFileSync(path.join(docsDir, 'readme.md'), '# Test\n\nSome content.\n\n## Section One\n\nBody.\n');
+
+      return { HOME: path.join(TMP_DIR, 'home') };
+    })();
+  ensureDir(env.HOME);
   try {
     cmdFn(env, projectDir, docsDir);
     console.log(`  ✓ ${name}`);

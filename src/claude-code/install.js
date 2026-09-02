@@ -28,13 +28,13 @@
  * duplicate spawning a second server.
  */
 
-const fs = require('node:fs'), path = require('node:path'), os = require('node:os'),
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
   PACKAGE_NAME = '@genegulanesjr/lapis',
   DEFAULT_MCP_NAME = 'lapis',
   CLAUDE_MD_START = '<!-- lapis:start -->',
   CLAUDE_MD_END = '<!-- lapis:end -->';
-
-
 
 // --- flag parsing ---------------------------------------------------------
 
@@ -97,8 +97,8 @@ function parseFlags(argv) {
  */
 function resolveInvocation(flags, io) {
   const bin = flags.bin,
-  hasSeparator = bin ? (bin.includes('/') || bin.includes('\\')) : undefined,
-  abs = bin && hasSeparator ? (path.resolve(io.cwd, bin)) : undefined;
+    hasSeparator = bin ? bin.includes('/') || bin.includes('\\') : undefined,
+    abs = bin && hasSeparator ? path.resolve(io.cwd, bin) : undefined;
   if (!bin) {
     return { mode: 'npx', command: 'npx', baseArgs: ['-y', PACKAGE_NAME], machineSpecific: false };
   }
@@ -190,7 +190,7 @@ function isLapisMcpEntry(entry) {
     return true;
   }
   const args = Array.isArray(entry.args) ? entry.args : [],
-  base = !(args[args.length - 1] !== 'mcp') ? (path.basename(String(entry.command || '')).toLowerCase()) : undefined;
+    base = !(args[args.length - 1] !== 'mcp') ? path.basename(String(entry.command || '')).toLowerCase() : undefined;
   if (args[args.length - 1] !== 'mcp') {
     return false;
   }
@@ -553,7 +553,8 @@ function writeTextAtomic(filePath, content) {
 
 /** Insert or replace the delimited LaPis block in a CLAUDE.md file. */
 function upsertClaudeMdBlock(filePath, block) {
-  const { existed, content: existing } = readClaudeMdSafe(filePath), start = existing.indexOf(CLAUDE_MD_START),
+  const { existed, content: existing } = readClaudeMdSafe(filePath),
+    start = existing.indexOf(CLAUDE_MD_START),
     end = existing.indexOf(CLAUDE_MD_END);
   // If a symlink is in the way, remove the link itself (NOT its target) so the
   // Atomic rename below installs a fresh regular file.
@@ -566,7 +567,7 @@ function upsertClaudeMdBlock(filePath, block) {
       // Raced away — the atomic rename below still produces a regular file
     }
   }
-  
+
   let next;
   if (start !== -1 && end !== -1 && end > start) {
     next = existing.slice(0, start) + block + existing.slice(end + CLAUDE_MD_END.length);
@@ -580,9 +581,12 @@ function upsertClaudeMdBlock(filePath, block) {
 
 /** Remove the delimited LaPis block; delete the file when nothing else remains. */
 function removeClaudeMdBlock(filePath) {
-  const { existed, content: existing } = readClaudeMdSafe(filePath), start = existing.indexOf(CLAUDE_MD_START),
+  const { existed, content: existing } = readClaudeMdSafe(filePath),
+    start = existing.indexOf(CLAUDE_MD_START),
     end = existing.indexOf(CLAUDE_MD_END),
-  next = !(start === -1 || end === -1 || end <= start) ? ((existing.slice(0, start) + existing.slice(end + CLAUDE_MD_END.length)).replace(/\n{3,}/g, '\n\n')) : undefined;
+    next = !(start === -1 || end === -1 || end <= start)
+      ? (existing.slice(0, start) + existing.slice(end + CLAUDE_MD_END.length)).replace(/\n{3,}/g, '\n\n')
+      : undefined;
   if (!existed) {
     // A bare symlink (no block to remove) — unlink the LINK only, never a target.
     try {
@@ -595,7 +599,7 @@ function removeClaudeMdBlock(filePath) {
     }
     return false;
   }
-  
+
   if (start === -1 || end === -1 || end <= start) {
     return false;
   }
@@ -701,36 +705,34 @@ async function runInstall(argv, io) {
     // state (readJson throws on corrupt JSON rather than clobbering it).
     mcpConfig = readJson(targets.mcp.file),
     settings = readJson(targets.hooksFile),
-  groups = (() => {
+    groups = (() => {
+      // WRITE PHASE.
+      // 1. MCP server config (one of the two config systems).
+      upsertMcpServer(mcpServersFor(mcpConfig, targets.mcp), flags.mcpName, buildMcpEntry(invocation));
+      writeJson(targets.mcp.file, mcpConfig);
+      written.push(targets.mcp.file);
 
-  
-    // WRITE PHASE.
-    // 1. MCP server config (one of the two config systems).
-    upsertMcpServer(mcpServersFor(mcpConfig, targets.mcp), flags.mcpName, buildMcpEntry(invocation));
-    writeJson(targets.mcp.file, mcpConfig);
-    written.push(targets.mcp.file);
-  
-    // 2. Hooks config (the other config system) — plus optional auto-allow.
-    
-  return (buildHookGroups(hookInvocationFor(invocation, { cwd, global: flags.global }), flags.mcpName));
-})(),
-  dispatchMode = (() => {
-mergeHookGroups(settings, groups);
-    if (flags.autoAllow) {
-      addAutoAllow(settings, flags.mcpName);
-    }
-    writeJson(targets.hooksFile, settings);
-    written.push(targets.hooksFile);
-  
-    // 3. CLAUDE.md memory protocol block (optional, default on).
-    if (flags.claudeMd) {
-      upsertClaudeMdBlock(targets.claudeMdFile, claudeMdBlock(flags.mcpName));
-      written.push(targets.claudeMdFile);
-    }
-  
-    
-  return (flags.daemon ? 'daemon' : invocation.mode);
-})();log(`Installed LaPis for Claude Code (${dispatchMode} dispatch).`);
+      // 2. Hooks config (the other config system) — plus optional auto-allow.
+
+      return buildHookGroups(hookInvocationFor(invocation, { cwd, global: flags.global }), flags.mcpName);
+    })(),
+    dispatchMode = (() => {
+      mergeHookGroups(settings, groups);
+      if (flags.autoAllow) {
+        addAutoAllow(settings, flags.mcpName);
+      }
+      writeJson(targets.hooksFile, settings);
+      written.push(targets.hooksFile);
+
+      // 3. CLAUDE.md memory protocol block (optional, default on).
+      if (flags.claudeMd) {
+        upsertClaudeMdBlock(targets.claudeMdFile, claudeMdBlock(flags.mcpName));
+        written.push(targets.claudeMdFile);
+      }
+
+      return flags.daemon ? 'daemon' : invocation.mode;
+    })();
+  log(`Installed LaPis for Claude Code (${dispatchMode} dispatch).`);
   log(`  MCP server "${flags.mcpName}" (${targets.mcp.kind} scope) → ${targets.mcp.file}`);
   log(`  Hooks → ${targets.hooksFile}`);
   if (flags.claudeMd) {

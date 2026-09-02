@@ -1,9 +1,9 @@
 // Integration tests for doc-indexer (v5)
-const { execSync } = require('child_process'), path = require('path'),
+const { execSync } = require('child_process'),
+  path = require('path'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js'),
   DOC_REPO = 'pi-docs',
   DOC_PATH = path.resolve(__dirname, '..', 'docs');
-
 
 function run(cmd) {
   try {

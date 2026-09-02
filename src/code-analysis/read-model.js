@@ -23,10 +23,10 @@ class CodeIndexReadRepository {
       return null;
     }
     {
-const row = this.db.prepare('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?').get(repoId, name);
-    return row?.id ?? null;
+      const row = this.db.prepare('SELECT id FROM code_symbols WHERE repo_id = ? AND name = ?').get(repoId, name);
+      return row?.id ?? null;
+    }
   }
-}
 
   getSymbols(repoId, extraWhere = '', params = []) {
     const guard = this.guard();

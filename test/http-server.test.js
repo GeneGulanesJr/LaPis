@@ -1,5 +1,5 @@
-const { createDb, resetDb, sqlJson, sqlRun } = require('../db'), { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
-
+const { createDb, resetDb, sqlJson, sqlRun } = require('../db'),
+  { createAurexRepository } = require('../src/platform/storage/repositories/aurex');
 
 describe('Aurex HTTP Server', () => {
   beforeAll(() => {
@@ -235,12 +235,12 @@ describe('Aurex HTTP Server', () => {
 
     it('increments retry counter on a milestone', () => {
       const result = repo.incrementRetry('ms1'),
-      result2 = (() => {
+        result2 = (() => {
+          expect(result.retries).toBe(1);
 
-        expect(result.retries).toBe(1);
-        
-  return (repo.incrementRetry('ms1'));
-})();expect(result2.retries).toBe(2);
+          return repo.incrementRetry('ms1');
+        })();
+      expect(result2.retries).toBe(2);
     });
 
     it('logs a rescope event', () => {
@@ -252,28 +252,27 @@ describe('Aurex HTTP Server', () => {
 
     it('creates a mission todo ledger and todo items with audit events', () => {
       const ledger = repo.createMissionLedger({
-        missionId: 'm1',
-        missionTitle: 'Todo mission',
-        sourceMission: 'Implement todo ledger',
-        plannerSummary: 'Add storage and API',
-        acceptanceCriteria: ['ledger can be read'],
-      })[0],
-      todo = (() => {
+          missionId: 'm1',
+          missionTitle: 'Todo mission',
+          sourceMission: 'Implement todo ledger',
+          plannerSummary: 'Add storage and API',
+          acceptanceCriteria: ['ledger can be read'],
+        })[0],
+        todo = (() => {
+          expect(ledger.missionId).toBe('m1');
+          expect(ledger.status).toBe('planning');
 
-        expect(ledger.missionId).toBe('m1');
-        expect(ledger.status).toBe('planning');
-  
-        
-  return (repo.createTodo('m1', {
-        id: 'todo-1',
-        title: 'Add todo storage',
-        status: 'ready',
-        type: 'implementation',
-        goal: 'Persist todos',
-        likelyFiles: ['src/platform/storage/repositories/aurex.js'],
-        lapisContextQuery: 'todo ledger storage repository tests',
-      })[0]);
-})();expect(todo.id).toBe('todo-1');
+          return repo.createTodo('m1', {
+            id: 'todo-1',
+            title: 'Add todo storage',
+            status: 'ready',
+            type: 'implementation',
+            goal: 'Persist todos',
+            likelyFiles: ['src/platform/storage/repositories/aurex.js'],
+            lapisContextQuery: 'todo ledger storage repository tests',
+          })[0];
+        })();
+      expect(todo.id).toBe('todo-1');
       expect(repo.listTodosByMission('m1').length).toBe(1);
       expect(repo.listMissionEvents('m1').some((e) => e.eventType === 'ledger_created')).toBe(true);
       expect(repo.listTodoEvents('todo-1').some((e) => e.eventType === 'todo_created')).toBe(true);
@@ -422,8 +421,6 @@ describe('Aurex HTTP Server', () => {
 
     afterAll(() => new Promise((resolve) => server.close(resolve)));
 
-    
-
     it('creates a mission', async () => {
       const res = await req('POST', '/missions', { description: 'E2E mission', config: { modelHints: {} } });
       expect(res.status).toBe(201);
@@ -442,10 +439,10 @@ describe('Aurex HTTP Server', () => {
       const res = await req('PATCH', `/missions/${missionId}/status`, { status: 'running' });
       expect(res.status).toBe(200);
       {
-const updated = await req('GET', `/missions/${missionId}`);
-      expect(updated.body.status).toBe('running');
-    }
-});
+        const updated = await req('GET', `/missions/${missionId}`);
+        expect(updated.body.status).toBe('running');
+      }
+    });
 
     it('creates a todo ledger for a mission', async () => {
       const res = await req('POST', '/todo-ledgers', {
@@ -480,11 +477,11 @@ const updated = await req('GET', `/missions/${missionId}`);
       todoId = res.body.id;
 
       {
-const list = await req('GET', `/missions/${missionId}/todos`);
-      expect(list.status).toBe(200);
-      expect(list.body.some((todo) => todo.id === todoId)).toBe(true);
-    }
-});
+        const list = await req('GET', `/missions/${missionId}/todos`);
+        expect(list.status).toBe(200);
+        expect(list.body.some((todo) => todo.id === todoId)).toBe(true);
+      }
+    });
 
     it('rejects unsafe todo status transitions over HTTP', async () => {
       const res = await req('PATCH', `/todos/${todoId}/status`, { status: 'passed' });
@@ -502,17 +499,17 @@ const list = await req('GET', `/missions/${missionId}/todos`);
       expect(evidence.body.evidence.changedFiles).toContain('src/http/handlers/todos.js');
 
       {
-const note = await req('POST', `/todos/${todoId}/notes`, { note: 'Evidence captured' });
-      expect(note.status).toBe(200);
-      expect(note.body.evidence.notes).toContain('Evidence captured');
+        const note = await req('POST', `/todos/${todoId}/notes`, { note: 'Evidence captured' });
+        expect(note.status).toBe(200);
+        expect(note.body.evidence.notes).toContain('Evidence captured');
 
-      {
-const implemented = await req('PATCH', `/todos/${todoId}/status`, { status: 'implemented' });
-      expect(implemented.status).toBe(200);
-      expect(implemented.body.status).toBe('implemented');
-    }
-}
-});
+        {
+          const implemented = await req('PATCH', `/todos/${todoId}/status`, { status: 'implemented' });
+          expect(implemented.status).toBe(200);
+          expect(implemented.body.status).toBe('implemented');
+        }
+      }
+    });
 
     it('returns todo context query and focused context', async () => {
       const query = await req('GET', `/todos/${todoId}/context-query`);
@@ -520,12 +517,12 @@ const implemented = await req('PATCH', `/todos/${todoId}/status`, { status: 'imp
       expect(query.body.lapisContextQuery).toBe('todo ledger HTTP handler tests');
 
       {
-const context = await req('GET', `/todos/${todoId}/context`);
-      expect(context.status).toBe(200);
-      expect(context.body.query).toBe('todo ledger HTTP handler tests');
-      expect(Array.isArray(context.body.context)).toBe(true);
-    }
-});
+        const context = await req('GET', `/todos/${todoId}/context`);
+        expect(context.status).toBe(200);
+        expect(context.body.query).toBe('todo ledger HTTP handler tests');
+        expect(Array.isArray(context.body.context)).toBe(true);
+      }
+    });
 
     it('records todo audit events', async () => {
       const events = await req('GET', `/todos/${todoId}/events`);
@@ -781,52 +778,49 @@ const context = await req('GET', `/todos/${todoId}/context`);
       const logs = [],
         origLog = console.log,
         origWarn = console.warn,
-      host = (() => {
+        host = (() => {
+          console.log = (...args) => logs.push(args.join(' '));
+          console.warn = (...args) => logs.push(args.join(' '));
 
-        console.log = (...args) => logs.push(args.join(' '));
-        console.warn = (...args) => logs.push(args.join(' '));
-  
-        // Simulate the warning logic from startHttpServer
-        
-  return ('0.0.0.0');
-})(),
-      hasWarning = (() => {
-if (host === '0.0.0.0') {
-          console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
-          console.log('[lapis serve] Use only on trusted networks or behind a proxy.');
-        }
-  
-        console.log = origLog;
-        console.warn = origWarn;
-  
-        
-  return (logs.some((l) => l.includes('WARNING') && l.includes('0.0.0.0')));
-})();expect(hasWarning).toBe(true);
+          // Simulate the warning logic from startHttpServer
+
+          return '0.0.0.0';
+        })(),
+        hasWarning = (() => {
+          if (host === '0.0.0.0') {
+            console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
+            console.log('[lapis serve] Use only on trusted networks or behind a proxy.');
+          }
+
+          console.log = origLog;
+          console.warn = origWarn;
+
+          return logs.some((l) => l.includes('WARNING') && l.includes('0.0.0.0'));
+        })();
+      expect(hasWarning).toBe(true);
     });
 
     it('does not warn when host is 127.0.0.1', async () => {
       const logs = [],
         origLog = console.log,
         origWarn = console.warn,
-      host = (() => {
+        host = (() => {
+          console.log = (...args) => logs.push(args.join(' '));
+          console.warn = (...args) => logs.push(args.join(' '));
 
-        console.log = (...args) => logs.push(args.join(' '));
-        console.warn = (...args) => logs.push(args.join(' '));
-  
-        
-  return ('127.0.0.1');
-})(),
-      hasWarning = (() => {
-if (host === '0.0.0.0') {
-          console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
-        }
-  
-        console.log = origLog;
-        console.warn = origWarn;
-  
-        
-  return (logs.some((l) => l.includes('WARNING')));
-})();expect(hasWarning).toBe(false);
+          return '127.0.0.1';
+        })(),
+        hasWarning = (() => {
+          if (host === '0.0.0.0') {
+            console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
+          }
+
+          console.log = origLog;
+          console.warn = origWarn;
+
+          return logs.some((l) => l.includes('WARNING'));
+        })();
+      expect(hasWarning).toBe(false);
     });
 
     it('default host is 127.0.0.1 in startHttpServer', () => {
@@ -866,73 +860,85 @@ if (host === '0.0.0.0') {
 
     it('gets a checkpoint by id', () => {
       const id = `cp-get-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      rows = (() => {
+        rows = (() => {
+          repo.createCheckpoint({
+            id,
+            missionId,
+            trigger: 'unclassifiable_error',
+            milestoneId: 'ms-2',
+            summary: 'Test',
+          });
 
-        repo.createCheckpoint({ id, missionId, trigger: 'unclassifiable_error', milestoneId: 'ms-2', summary: 'Test' });
-        
-  return (repo.getCheckpoint(id));
-})();expect(rows.length).toBe(1);
+          return repo.getCheckpoint(id);
+        })();
+      expect(rows.length).toBe(1);
       expect(rows[0].id).toBe(id);
     });
 
     it('resolves a checkpoint', () => {
       const id = `cp-resolve-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      rows = (() => {
+        rows = (() => {
+          repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-3', summary: 'Test' });
 
-        repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-3', summary: 'Test' });
-        
-  return (repo.resolveCheckpoint(id, 'approve', undefined, undefined));
-})();expect(rows[0].status).toBe('resolved');
+          return repo.resolveCheckpoint(id, 'approve', undefined, undefined);
+        })();
+      expect(rows[0].status).toBe('resolved');
       expect(rows[0].decision).toBe('approve');
     });
 
     it('persists rescopeGuidance when resolving a checkpoint', () => {
       const id = `cp-rescope-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      rows = (() => {
+        rows = (() => {
+          repo.createCheckpoint({
+            id,
+            missionId,
+            trigger: 'rescope_limit',
+            milestoneId: 'ms-rg',
+            summary: 'Re-plan needed',
+          });
 
-        repo.createCheckpoint({
-          id,
-          missionId,
-          trigger: 'rescope_limit',
-          milestoneId: 'ms-rg',
-          summary: 'Re-plan needed',
-        });
-        
-  return (repo.resolveCheckpoint(id, 'approve', undefined, undefined, 'try a different module split'));
-})();expect(rows[0].status).toBe('resolved');
+          return repo.resolveCheckpoint(id, 'approve', undefined, undefined, 'try a different module split');
+        })();
+      expect(rows[0].status).toBe('resolved');
       expect(rows[0].decision).toBe('approve');
       expect(rows[0].rescope_guidance).toBe('try a different module split');
     });
 
     it('returns null rescopeGuidance when the user approves without re-planning', () => {
       const id = `cp-norescope-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      rows = (() => {
+        rows = (() => {
+          repo.createCheckpoint({
+            id,
+            missionId,
+            trigger: 'milestone_complete',
+            milestoneId: 'ms-nr',
+            summary: 'Done',
+          });
 
-        repo.createCheckpoint({ id, missionId, trigger: 'milestone_complete', milestoneId: 'ms-nr', summary: 'Done' });
-        
-  return (repo.resolveCheckpoint(id, 'approve', undefined, undefined));
-})();expect(rows[0].rescope_guidance).toBeNull();
+          return repo.resolveCheckpoint(id, 'approve', undefined, undefined);
+        })();
+      expect(rows[0].rescope_guidance).toBeNull();
     });
 
     it('resolving an already-resolved checkpoint is idempotent', () => {
       const id = `cp-idem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      rows = (() => {
+        rows = (() => {
+          repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-4', summary: 'Test' });
+          repo.resolveCheckpoint(id, 'approve');
 
-        repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-4', summary: 'Test' });
-        repo.resolveCheckpoint(id, 'approve');
-        
-  return (repo.resolveCheckpoint(id, 'reject'));
-})();expect(rows[0].decision).toBe('approve');
+          return repo.resolveCheckpoint(id, 'reject');
+        })();
+      expect(rows[0].decision).toBe('approve');
     });
 
     it('gets pending checkpoints for a mission', () => {
       const id = `cp-pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      rows = (() => {
+        rows = (() => {
+          repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-5', summary: 'Pending' });
 
-        repo.createCheckpoint({ id, missionId, trigger: 'rescope_limit', milestoneId: 'ms-5', summary: 'Pending' });
-        
-  return (repo.getPendingCheckpoints(missionId));
-})();expect(rows.length).toBeGreaterThanOrEqual(1);
+          return repo.getPendingCheckpoints(missionId);
+        })();
+      expect(rows.length).toBeGreaterThanOrEqual(1);
       expect(rows.every((r) => r.status === 'pending')).toBe(true);
     });
 

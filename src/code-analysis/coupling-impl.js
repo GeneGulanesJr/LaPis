@@ -35,7 +35,7 @@ function _prCacheSet(repoId, value) {
 function buildPageRank(db, repoId) {
   // Check cache
   const cached = _prCacheGet(repoId),
-  guard = !(cached) ? (_requireNativeDb(db)) : undefined;
+    guard = !cached ? _requireNativeDb(db) : undefined;
   if (cached) {
     return cached;
   }
@@ -57,7 +57,8 @@ function buildPageRank(db, repoId) {
     symbolSet = new Set(symbols.map((s) => s.id)),
     symbolMap = new Map(symbols.map((s) => [s.id, s])),
     // Build outgoing edges map
-    outEdges = new Map(), d = PAGERANK.DAMPING_FACTOR,
+    outEdges = new Map(),
+    d = PAGERANK.DAMPING_FACTOR,
     n = symbolSet.size,
     baseRank = (1 - d) / n;
   for (const call of calls) {
@@ -75,7 +76,7 @@ function buildPageRank(db, repoId) {
   // In-place value resets on an already-sized hash table.
   // Do NOT replace with single-map in-place update; PageRank requires reading prior-iteration
   // Values (ranks) while writing new values (newRanks) simultaneously.
-  
+
   let ranks = new Map(),
     newRanks = new Map();
   for (const id of symbolSet) {
@@ -104,10 +105,10 @@ function buildPageRank(db, repoId) {
   }
 
   {
-const result = { ranks, symbolMap, n };
-  _prCacheSet(repoId, result);
-  return result;
-}
+    const result = { ranks, symbolMap, n };
+    _prCacheSet(repoId, result);
+    return result;
+  }
 }
 
 // Clear PageRank cache (for testing / reindex)
@@ -125,17 +126,16 @@ function clearPageRankCache(repoId) {
 
 function getSymbolImportance(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db),
-  topN = !(guard) ? (opts.top || 20) : undefined,
-  scope = !(guard) ? (opts.scope || null) : undefined,
-  pr = !(guard) ? (buildPageRank(db, repoId)) : undefined,
-  { ranks, symbolMap, n: totalSymbols } = !(guard) && !(pr.error) ? (pr) : undefined;
+    topN = !guard ? opts.top || 20 : undefined,
+    scope = !guard ? opts.scope || null : undefined,
+    pr = !guard ? buildPageRank(db, repoId) : undefined,
+    { ranks, symbolMap, n: totalSymbols } = !guard && !pr.error ? pr : undefined;
   if (guard) {
     return guard;
   }
   if (pr.error) {
     return pr;
   }
-
 
   // Apply scope filter if provided
   let entries = [...ranks.entries()];

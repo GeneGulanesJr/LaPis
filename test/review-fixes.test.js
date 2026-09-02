@@ -1,12 +1,11 @@
-const fs = require('fs'), os = require('os'), path = require('path'), dbModule = require('../db'), { getRecalledMemoryIds } = require('../data-access/symbols'), { trustRecovery } = require('../services/dream'), { getPrRiskProfile } = require('../src/code-analysis/risk-impl'), { createHttpServer } = require('../src/http/server');
-
-
-
-
-
-
-
-
+const fs = require('fs'),
+  os = require('os'),
+  path = require('path'),
+  dbModule = require('../db'),
+  { getRecalledMemoryIds } = require('../data-access/symbols'),
+  { trustRecovery } = require('../services/dream'),
+  { getPrRiskProfile } = require('../src/code-analysis/risk-impl'),
+  { createHttpServer } = require('../src/http/server');
 
 describe('review fixes', () => {
   describe('migration V23', () => {
@@ -33,23 +32,25 @@ describe('review fixes', () => {
       dbModule.createDb({ db_path: tmpDb });
 
       {
-const reopened = dbModule.getDb(),
-        version = reopened.prepare('PRAGMA user_version').get().user_version,
-        table = reopened.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='repo_index_locks'").get(),
-        sourceModuleCol = reopened
-          .prepare('PRAGMA table_info(file_scope_bindings)')
-          .all()
-          .some((c) => c.name === 'source_module'),
-        churnCols = reopened.prepare('PRAGMA table_info(churn_metrics)').all(),
-        hasTotalFilesChanged = churnCols.some((c) => c.name === 'total_files_changed'),
-        hasTopFilesJson = churnCols.some((c) => c.name === 'top_files_json');
-      expect(version).toBe(25);
-      expect(table).toBeTruthy();
-      expect(sourceModuleCol).toBe(true);
-      expect(hasTotalFilesChanged).toBe(true);
-      expect(hasTopFilesJson).toBe(true);
-    }
-});
+        const reopened = dbModule.getDb(),
+          version = reopened.prepare('PRAGMA user_version').get().user_version,
+          table = reopened
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='repo_index_locks'")
+            .get(),
+          sourceModuleCol = reopened
+            .prepare('PRAGMA table_info(file_scope_bindings)')
+            .all()
+            .some((c) => c.name === 'source_module'),
+          churnCols = reopened.prepare('PRAGMA table_info(churn_metrics)').all(),
+          hasTotalFilesChanged = churnCols.some((c) => c.name === 'total_files_changed'),
+          hasTopFilesJson = churnCols.some((c) => c.name === 'top_files_json');
+        expect(version).toBe(25);
+        expect(table).toBeTruthy();
+        expect(sourceModuleCol).toBe(true);
+        expect(hasTotalFilesChanged).toBe(true);
+        expect(hasTopFilesJson).toBe(true);
+      }
+    });
   });
 
   describe('trust recovery from recall_log', () => {
@@ -58,20 +59,20 @@ const reopened = dbModule.getDb(),
     beforeAll(() => {
       dbModule.ensureDb();
       const session = dbModule.sqlJson(
-        "INSERT INTO session_log (project, started_at) VALUES (?, datetime('now')) RETURNING id",
-        ['review-fixes-trust'],
-      ),
-      obs = (() => {
+          "INSERT INTO session_log (project, started_at) VALUES (?, datetime('now')) RETURNING id",
+          ['review-fixes-trust'],
+        ),
+        obs = (() => {
+          sessionId = session[0].id;
 
-        sessionId = session[0].id;
-        
-  return (dbModule.sqlJson(
-        `INSERT INTO observations (session_id, type, title, content, project, scope)
+          return dbModule.sqlJson(
+            `INSERT INTO observations (session_id, type, title, content, project, scope)
          VALUES (?, 'decision', 'Trust test', 'content', 'review-fixes-trust', 'project')
          RETURNING id`,
-        [sessionId],
-      ));
-})();memoryId = obs[0].id;
+            [sessionId],
+          );
+        })();
+      memoryId = obs[0].id;
       dbModule.sqlRun('INSERT INTO recall_log (memory_id, session_id, query, was_useful) VALUES (?, ?, ?, 1)', [
         memoryId,
         sessionId,
@@ -109,29 +110,27 @@ const reopened = dbModule.getDb(),
           [negativeSessionId],
         ),
         ignoredMemoryId = obs[0].id,
-      recalled = (() => {
+        recalled = (() => {
+          dbModule.sqlRun('INSERT INTO recall_log (memory_id, session_id, query, was_useful) VALUES (?, ?, ?, 0)', [
+            ignoredMemoryId,
+            negativeSessionId,
+            'ignored-search',
+          ]);
+          dbModule.sqlRun('INSERT INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)', [
+            String(ignoredMemoryId),
+            '__unlinked__',
+            'review-fixes-trust-negative',
+            0.5,
+          ]);
 
-        dbModule.sqlRun('INSERT INTO recall_log (memory_id, session_id, query, was_useful) VALUES (?, ?, ?, 0)', [
-          ignoredMemoryId,
-          negativeSessionId,
-          'ignored-search',
-        ]);
-        dbModule.sqlRun('INSERT INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)', [
-          String(ignoredMemoryId),
-          '__unlinked__',
-          'review-fixes-trust-negative',
-          0.5,
-        ]);
-  
-        
-  return (getRecalledMemoryIds({ sqlJson: dbModule.sqlJson }, negativeSessionId));
-})(),
-      result = (() => {
-expect(recalled.some((r) => String(r.memory_id) === String(ignoredMemoryId))).toBe(false);
-  
-        
-  return (trustRecovery({ session: String(negativeSessionId) }));
-})();expect(result.ok).toBe(true);
+          return getRecalledMemoryIds({ sqlJson: dbModule.sqlJson }, negativeSessionId);
+        })(),
+        result = (() => {
+          expect(recalled.some((r) => String(r.memory_id) === String(ignoredMemoryId))).toBe(false);
+
+          return trustRecovery({ session: String(negativeSessionId) });
+        })();
+      expect(result.ok).toBe(true);
       expect(result.memoriesRecovered).toBe(0);
     });
   });
@@ -147,13 +146,13 @@ expect(recalled.some((r) => String(r.memory_id) === String(ignoredMemoryId))).to
         return;
       }
       {
-const inserted = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
-        'review-fixes-pr-risk',
-        process.cwd(),
-      ]);
-      repoId = inserted[0].id;
-    }
-});
+        const inserted = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?, ?) RETURNING id', [
+          'review-fixes-pr-risk',
+          process.cwd(),
+        ]);
+        repoId = inserted[0].id;
+      }
+    });
 
     it('rejects shell metacharacters in branch/base without executing', () => {
       const db = dbModule.getDb(),
@@ -184,19 +183,19 @@ const inserted = dbModule.sqlJson('INSERT INTO code_repos (name, path) VALUES (?
       });
       await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
       {
-const { port } = server.address();
-      baseUrl = `http://127.0.0.1:${port}`;
+        const { port } = server.address();
+        baseUrl = `http://127.0.0.1:${port}`;
 
-      {
-const oversized = 'x'.repeat(1024 * 1024 + 1),
-        res = await fetch(`${baseUrl}/missions`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ data: oversized }),
-        });
-      expect(res.status).toBe(413);
-    }
-}
-});
+        {
+          const oversized = 'x'.repeat(1024 * 1024 + 1),
+            res = await fetch(`${baseUrl}/missions`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ data: oversized }),
+            });
+          expect(res.status).toBe(413);
+        }
+      }
+    });
   });
 });

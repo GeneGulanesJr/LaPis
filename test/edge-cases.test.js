@@ -1,8 +1,8 @@
 // Comprehensive edge case tests for the memory layer
-const path = require('path'), { execSync } = require('child_process'),
+const path = require('path'),
+  { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js'),
   testProject = `edge-test-${process.pid}`;
-
 
 function run(cmd, timeout = 15000) {
   try {
@@ -74,14 +74,14 @@ describe('edge cases: CRUD', () => {
 
   it('should persist all optional fields on save', () => {
     const r = run(
-      `save --title "Edge: all fields" --content "Full fields test" --type bugfix --project ${testProject} --scope personal --topic-key "testing/all-fields" --force`,
-    ),
-    got = (() => {
+        `save --title "Edge: all fields" --content "Full fields test" --type bugfix --project ${testProject} --scope personal --topic-key "testing/all-fields" --force`,
+      ),
+      got = (() => {
+        expect(r.id).toBeTruthy();
 
-      expect(r.id).toBeTruthy();
-      
-  return (run(`get --id ${r.id}`));
-})();expect(got.type).toBe('bugfix');
+        return run(`get --id ${r.id}`);
+      })();
+    expect(got.type).toBe('bugfix');
     expect(got.project).toBe(testProject);
     expect(got.scope).toBe('personal');
     expect(got.topic_key).toBe('testing/all-fields');
@@ -94,12 +94,12 @@ describe('edge cases: CRUD', () => {
       r = run(
         `save --title "${title.replace(/"/g, '\\"')}" --content "${content.replace(/"/g, '\\"')}" --type learning --force --project ${testProject}`,
       ),
-    got = (() => {
+      got = (() => {
+        expect(r.id).toBeTruthy();
 
-      expect(r.id).toBeTruthy();
-      
-  return (run(`get --id ${r.id}`));
-})();expect(got.title).toContain('quotes');
+        return run(`get --id ${r.id}`);
+      })();
+    expect(got.title).toContain('quotes');
     expect(got.title).toContain('🎉');
     expect(got.content).toContain('✅');
     cleanup('Special:');
@@ -114,25 +114,25 @@ describe('edge cases: CRUD', () => {
     await new Promise((resolve) => setTimeout(resolve, 1100));
     run(`update --id ${r.id} --content "after"`);
     {
-const after = run(`get --id ${r.id}`);
-    expect(after.updated_at).not.toBe(before.updated_at);
-    expect(after.content).toBe('after');
-    cleanup('Edge: update timestamp');
-  }
-});
+      const after = run(`get --id ${r.id}`);
+      expect(after.updated_at).not.toBe(before.updated_at);
+      expect(after.content).toBe('after');
+      cleanup('Edge: update timestamp');
+    }
+  });
 
   it('should exclude soft-deleted from search results', () => {
     const r = run(
         `save --title "Edge: soft delete search" --content "visible" --type learning --force --project ${testProject}`,
       ),
       search1 = run(`search --query "soft delete search" --project ${testProject}`),
-    search2 = (() => {
+      search2 = (() => {
+        expect(search1.results.length).toBeGreaterThanOrEqual(1);
+        run(`delete --id ${r.id}`);
 
-      expect(search1.results.length).toBeGreaterThanOrEqual(1);
-      run(`delete --id ${r.id}`);
-      
-  return (run(`search --query "soft delete search" --project ${testProject}`));
-})();expect(search2.results.find((m) => m.id === r.id)).toBeUndefined();
+        return run(`search --query "soft delete search" --project ${testProject}`);
+      })();
+    expect(search2.results.find((m) => m.id === r.id)).toBeUndefined();
   });
 });
 
@@ -178,14 +178,13 @@ describe('edge cases: dedup', () => {
   it('should auto-merge duplicate saves', () => {
     const title = `Edge: dedup auto ${process.pid}`,
       r1 = run(`save --title "${title}" --content "first" --type learning --force --project ${testProject}`),
-    r2 = (() => {
+      r2 = (() => {
+        expect(r1.id).toBeTruthy();
+        expect(r1.auto_merged).toBeUndefined();
 
-      expect(r1.id).toBeTruthy();
-      expect(r1.auto_merged).toBeUndefined();
-  
-      
-  return (run(`save --title "${title}" --content "second" --type learning --project ${testProject}`));
-})();expect(r2.auto_merged).toBe(true);
+        return run(`save --title "${title}" --content "second" --type learning --project ${testProject}`);
+      })();
+    expect(r2.auto_merged).toBe(true);
     expect(r2.superseded_id).toBe(r1.id);
     expect(r2.similarity).toBe(1);
 
@@ -285,12 +284,12 @@ describe('edge cases: trust system', () => {
     expect(r.trustScore).toBe(0.8);
 
     {
-const stale = run('stale-links --repo PiMemoryExtension'),
-      found = stale.links.find((l) => l.memory_id === String(testMemoryId) && l.symbol_id === '12345');
-    expect(found).toBeTruthy();
-    expect(found.trust_score).toBe(0.8);
-  }
-});
+      const stale = run('stale-links --repo PiMemoryExtension'),
+        found = stale.links.find((l) => l.memory_id === String(testMemoryId) && l.symbol_id === '12345');
+      expect(found).toBeTruthy();
+      expect(found.trust_score).toBe(0.8);
+    }
+  });
 
   it('should record recall without error', () => {
     const r = run(`session-start --project ${testProject}`),
@@ -357,12 +356,12 @@ describe('edge cases: doc indexing', () => {
 describe('edge cases: sessions', () => {
   it('should create and end a session with summary', () => {
     const start = run(`session-start --project ${testProject}`),
-    end = (() => {
+      end = (() => {
+        expect(start.sessionId).toBeTruthy();
 
-      expect(start.sessionId).toBeTruthy();
-      
-  return (run(`session-end --id ${start.sessionId} --summary "test session" --content "content here"`));
-})();expect(end.ok).toBe(true);
+        return run(`session-end --id ${start.sessionId} --summary "test session" --content "content here"`);
+      })();
+    expect(end.ok).toBe(true);
   });
 
   it('should error on session-end without --id', () => {

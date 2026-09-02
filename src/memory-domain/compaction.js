@@ -1,6 +1,6 @@
-const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../constants'), { createTrustSyncRepository } = require('../platform/storage/repositories/trust-sync'), trustSync = require('../trust-sync');
-
-
+const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../constants'),
+  { createTrustSyncRepository } = require('../platform/storage/repositories/trust-sync'),
+  trustSync = require('../trust-sync');
 
 // Cheap, lock-light cleanup: all the DELETEs + trust decay. No VACUUM, no FTS optimize.
 // Safe to run on every session-end without blocking exit.
@@ -118,25 +118,28 @@ function compact(deps) {
 function dream(deps, args = {}) {
   const startedAt = new Date().toISOString(),
     report = { startedAt, phases: {} };
-  let totalCleaned = 0, noiseCleaned = 0, consolidated = 0, summariesConsolidated = 0, sessionsCompacted = 0;
+  let totalCleaned = 0,
+    noiseCleaned = 0,
+    consolidated = 0,
+    summariesConsolidated = 0,
+    sessionsCompacted = 0;
   {
-const cleanedIds = [],
-    // Pre-phase: hard-delete expired observations before any dream phases
-    // so expired rows don't get soft-deleted or consolidated unnecessarily
-    expiredCount = deps.sqlJson(
-      "SELECT COUNT(*) as cnt FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')",
-    ),
-  superseded = (() => {
+    const cleanedIds = [],
+      // Pre-phase: hard-delete expired observations before any dream phases
+      // so expired rows don't get soft-deleted or consolidated unnecessarily
+      expiredCount = deps.sqlJson(
+        "SELECT COUNT(*) as cnt FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')",
+      ),
+      superseded = (() => {
+        if (expiredCount[0]?.cnt > 0) {
+          deps.sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
+          report.phases.preExpiredPurge = { count: expiredCount[0].cnt };
+          totalCleaned += expiredCount[0].cnt;
+        }
 
-    if (expiredCount[0]?.cnt > 0) {
-      deps.sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
-      report.phases.preExpiredPurge = { count: expiredCount[0].cnt };
-      totalCleaned += expiredCount[0].cnt;
-    }
-  
-    // Phase 1: Superseded memories
-    
-  return (deps.sqlJson(`
+        // Phase 1: Superseded memories
+
+        return deps.sqlJson(`
     SELECT o.id, o.title, o.type, o.project,
            r.source_id AS newer_id, r.relation, r.confidence
     FROM observations o
@@ -144,26 +147,26 @@ const cleanedIds = [],
     WHERE r.relation IN ('duplicate', 'supersedes')
       AND o.deleted_at IS NULL
       AND r.confidence >= ${DEDUP.DREAM_SUPERSEDED_CONFIDENCE}
-  `));
-})();for (const row of superseded) {
-    deps.softDeleteObservation(row.id);
-    cleanedIds.push({
-      id: row.id,
-      title: row.title,
-      reason: `superseded by #${row.newer_id} (${row.relation}, ${Math.round(row.confidence * 100)}%)`,
-    });
-  }
-  report.phases.superseded = { count: superseded.length };
-  totalCleaned += superseded.length;
+  `);
+      })();
+    for (const row of superseded) {
+      deps.softDeleteObservation(row.id);
+      cleanedIds.push({
+        id: row.id,
+        title: row.title,
+        reason: `superseded by #${row.newer_id} (${row.relation}, ${Math.round(row.confidence * 100)}%)`,
+      });
+    }
+    report.phases.superseded = { count: superseded.length };
+    totalCleaned += superseded.length;
 
-  // Phase 2: Stale auto-progress memories
-  {
-const staleAutoTypes = ['progress', 'accomplished'],
-  autoDetectedTypes = (() => {
-
-    for (const type of staleAutoTypes) {
-      const rows = deps.sqlJson(
-        `
+    // Phase 2: Stale auto-progress memories
+    {
+      const staleAutoTypes = ['progress', 'accomplished'],
+        autoDetectedTypes = (() => {
+          for (const type of staleAutoTypes) {
+            const rows = deps.sqlJson(
+              `
         SELECT o.id, o.title, o.project
         FROM observations o
         LEFT JOIN (
@@ -175,22 +178,23 @@ const staleAutoTypes = ['progress', 'accomplished'],
         WHERE o.type = ? AND o.deleted_at IS NULL
           AND (rl.recall_count IS NULL OR rl.recall_count = 0)
       `,
-        [type],
-      );
-      for (const row of rows) {
-        deps.softDeleteObservation(row.id);
-        cleanedIds.push({ id: row.id, title: row.title, reason: `${type} type, never recalled` });
-      }
-      report.phases[`stale_${type}`] = { count: rows.length };
-      totalCleaned += rows.length;
-    }
-  
-    // Phase 3: Never-recalled auto-detected decisions with low trust
-    
-  return (['decision', 'bugfix', 'discovery']);
-})();for (const type of autoDetectedTypes) {
-    const rows = deps.sqlJson(
-      `
+              [type],
+            );
+            for (const row of rows) {
+              deps.softDeleteObservation(row.id);
+              cleanedIds.push({ id: row.id, title: row.title, reason: `${type} type, never recalled` });
+            }
+            report.phases[`stale_${type}`] = { count: rows.length };
+            totalCleaned += rows.length;
+          }
+
+          // Phase 3: Never-recalled auto-detected decisions with low trust
+
+          return ['decision', 'bugfix', 'discovery'];
+        })();
+      for (const type of autoDetectedTypes) {
+        const rows = deps.sqlJson(
+          `
       SELECT o.id, o.title, o.project
       FROM observations o
       LEFT JOIN (
@@ -209,42 +213,41 @@ const staleAutoTypes = ['progress', 'accomplished'],
         AND (sl.trust_score IS NULL OR sl.trust_score < ${DEDUP.DREAM_LOW_TRUST_THRESHOLD})
         ${args.bypassAgeGates ? '' : `AND o.created_at < datetime('now', '-${TIME_WINDOWS.DREAM_AUTO_DETECTED_MIN_AGE_DAYS} days')`}
     `,
-      [type],
-    );
-    for (const row of rows) {
-      deps.softDeleteObservation(row.id);
-      cleanedIds.push({ id: row.id, title: row.title, reason: `auto-detected ${type}, never recalled in 7+ days` });
-    }
-    report.phases[`staleAuto_${type}`] = { count: rows.length };
-    totalCleaned += rows.length;
-  }
+          [type],
+        );
+        for (const row of rows) {
+          deps.softDeleteObservation(row.id);
+          cleanedIds.push({ id: row.id, title: row.title, reason: `auto-detected ${type}, never recalled in 7+ days` });
+        }
+        report.phases[`staleAuto_${type}`] = { count: rows.length };
+        totalCleaned += rows.length;
+      }
 
-  // Phase 4: Correction entry cleanup
-  {
-const corrections = deps.sqlJson(`
+      // Phase 4: Correction entry cleanup
+      {
+        const corrections = deps.sqlJson(`
     SELECT id, title, content, project
     FROM observations
     WHERE (title LIKE 'CORRECTION:%' OR title LIKE 'Correction:%')
       AND deleted_at IS NULL
   `),
-  obsoleteConfigs = (() => {
+          obsoleteConfigs = (() => {
+            for (const row of corrections) {
+              const refMatch = row.content.match(/#(\d+)/),
+                refNote = refMatch ? ` (referenced #${refMatch[1]} — ensure it was updated)` : '';
+              deps.softDeleteObservation(row.id);
+              cleanedIds.push({
+                id: row.id,
+                title: row.title,
+                reason: `correction entry${refNote} — should use memory-update instead`,
+              });
+            }
+            report.phases.staleCorrections = { count: corrections.length };
+            totalCleaned += corrections.length;
 
-    for (const row of corrections) {
-      const refMatch = row.content.match(/#(\d+)/),
-        refNote = refMatch ? ` (referenced #${refMatch[1]} — ensure it was updated)` : '';
-      deps.softDeleteObservation(row.id);
-      cleanedIds.push({
-        id: row.id,
-        title: row.title,
-        reason: `correction entry${refNote} — should use memory-update instead`,
-      });
-    }
-    report.phases.staleCorrections = { count: corrections.length };
-    totalCleaned += corrections.length;
-  
-    // Phase 5: Obsolete setup/config states (uses observation_relations for O(n) instead of self-join)
-    
-  return (deps.sqlJson(`
+            // Phase 5: Obsolete setup/config states (uses observation_relations for O(n) instead of self-join)
+
+            return deps.sqlJson(`
     SELECT o1.id, o1.title, o1.project, o1.type,
            r.source_id AS newer_id,
            o2.title AS newer_title
@@ -275,48 +278,49 @@ const corrections = deps.sqlJson(`
       AND o1.topic_key = o2.topic_key
       AND o1.created_at < o2.created_at
     LIMIT 500
-  `));
-})();for (const row of obsoleteConfigs) {
-    deps.softDeleteObservation(row.id);
-    cleanedIds.push({
-      id: row.id,
-      title: row.title,
-      reason: `replaced config — superseded by #${row.newer_id} "${row.newer_title}"`,
-    });
-  }
-  report.phases.replacedConfigs = { count: obsoleteConfigs.length };
-  totalCleaned += obsoleteConfigs.length;
+  `);
+          })();
+        for (const row of obsoleteConfigs) {
+          deps.softDeleteObservation(row.id);
+          cleanedIds.push({
+            id: row.id,
+            title: row.title,
+            reason: `replaced config — superseded by #${row.newer_id} "${row.newer_title}"`,
+          });
+        }
+        report.phases.replacedConfigs = { count: obsoleteConfigs.length };
+        totalCleaned += obsoleteConfigs.length;
 
-  // Phase 6: Low-value titled decisions (noise cleanup)
-  {
-const noiseTitlePatterns = [
-      /^Architecture choice:\s*(Done!|OK|Now I|Here's what|All \d+ |The complex|The symlink|Good concern|You're right|Approved)/i,
-      /^Constraint identified:\s*(Here's my review|Two issues|All errors)/i,
-    ],
-    allDecisions = deps.sqlJson(`
+        // Phase 6: Low-value titled decisions (noise cleanup)
+        {
+          const noiseTitlePatterns = [
+              /^Architecture choice:\s*(Done!|OK|Now I|Here's what|All \d+ |The complex|The symlink|Good concern|You're right|Approved)/i,
+              /^Constraint identified:\s*(Here's my review|Two issues|All errors)/i,
+            ],
+            allDecisions = deps.sqlJson(`
     SELECT id, title, type, project, content, created_at
     FROM observations
     WHERE type = 'decision' AND deleted_at IS NULL
     ORDER BY created_at DESC
   `);
-  
-  for (const row of allDecisions) {
-    if (noiseTitlePatterns.some((p) => p.test(row.title))) {
-      deps.softDeleteObservation(row.id);
-      cleanedIds.push({
-        id: row.id,
-        title: row.title,
-        reason: 'low-value noise title — session progress, not a real decision',
-      });
-      noiseCleaned++;
-    }
-  }
-  report.phases.noiseTitles = { count: noiseCleaned };
-  totalCleaned += noiseCleaned;
 
-  // Phase 7: Consolidate related memories on the same topic
-  {
-const topicGroups = deps.sqlJson(`
+          for (const row of allDecisions) {
+            if (noiseTitlePatterns.some((p) => p.test(row.title))) {
+              deps.softDeleteObservation(row.id);
+              cleanedIds.push({
+                id: row.id,
+                title: row.title,
+                reason: 'low-value noise title — session progress, not a real decision',
+              });
+              noiseCleaned++;
+            }
+          }
+          report.phases.noiseTitles = { count: noiseCleaned };
+          totalCleaned += noiseCleaned;
+
+          // Phase 7: Consolidate related memories on the same topic
+          {
+            const topicGroups = deps.sqlJson(`
     SELECT topic_key, project, COUNT(*) as cnt, MIN(id) as keep_id,
            GROUP_CONCAT(id) as ids, GROUP_CONCAT(title, '\n') as titles
     FROM observations
@@ -326,68 +330,70 @@ const topicGroups = deps.sqlJson(`
     GROUP BY topic_key, project
     HAVING COUNT(*) >= 3
   `);
-  
-  for (const group of topicGroups) {
-    const ids = group.ids.split(',').map(Number),
-      keepId = Math.min(...ids),
-      otherIds = ids.filter((id) => id !== keepId),
-      entries = deps.sqlJson(
-        `SELECT id, title, content, type, created_at FROM observations WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY created_at ASC`,
-        ids,
-      );
 
-    if (entries.length >= 3) {
-      const mergedContent = entries.map((e) => `**${e.title}** (${e.created_at}):\n${e.content}`).join('\n\n---\n\n'),
-        mergedTitle = `${group.topic_key} — consolidated (${entries.length} entries)`;
+            for (const group of topicGroups) {
+              const ids = group.ids.split(',').map(Number),
+                keepId = Math.min(...ids),
+                otherIds = ids.filter((id) => id !== keepId),
+                entries = deps.sqlJson(
+                  `SELECT id, title, content, type, created_at FROM observations WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY created_at ASC`,
+                  ids,
+                );
 
-      deps.sqlRun('UPDATE observations SET content = ?, title = ?, type = ? WHERE id = ?', [
-        mergedContent,
-        mergedTitle,
-        'decision',
-        keepId,
-      ]);
+              if (entries.length >= 3) {
+                const mergedContent = entries
+                    .map((e) => `**${e.title}** (${e.created_at}):\n${e.content}`)
+                    .join('\n\n---\n\n'),
+                  mergedTitle = `${group.topic_key} — consolidated (${entries.length} entries)`;
 
-      for (const otherId of otherIds) {
-        deps.softDeleteObservation(otherId);
-        cleanedIds.push({
-          id: otherId,
-          title: entries.find((e) => e.id === otherId)?.title || '',
-          reason: `consolidated into #${keepId} (topic: ${group.topic_key})`,
-        });
-      }
-      consolidated += otherIds.length;
-    }
-  }
-  report.phases.consolidated = { count: consolidated };
-  totalCleaned += consolidated;
+                deps.sqlRun('UPDATE observations SET content = ?, title = ?, type = ? WHERE id = ?', [
+                  mergedContent,
+                  mergedTitle,
+                  'decision',
+                  keepId,
+                ]);
 
-  // Phase 8: Maintain single session_summary per project
-  {
-const summariesPerProject = deps.sqlJson(`
+                for (const otherId of otherIds) {
+                  deps.softDeleteObservation(otherId);
+                  cleanedIds.push({
+                    id: otherId,
+                    title: entries.find((e) => e.id === otherId)?.title || '',
+                    reason: `consolidated into #${keepId} (topic: ${group.topic_key})`,
+                  });
+                }
+                consolidated += otherIds.length;
+              }
+            }
+            report.phases.consolidated = { count: consolidated };
+            totalCleaned += consolidated;
+
+            // Phase 8: Maintain single session_summary per project
+            {
+              const summariesPerProject = deps.sqlJson(`
     SELECT id, project, content, created_at,
            ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) as rn,
            COUNT(*) OVER (PARTITION BY project) as total
     FROM observations
     WHERE type = 'session_summary' AND deleted_at IS NULL
   `);
-  
-  for (const row of summariesPerProject) {
-    if (row.total > 1 && row.rn > 1) {
-      deps.softDeleteObservation(row.id);
-      cleanedIds.push({
-        id: row.id,
-        title: 'Session Summary',
-        reason: `consolidated into newer project summary for ${row.project}`,
-      });
-      summariesConsolidated++;
-    }
-  }
-  report.phases.projectSummaryConsolidation = { count: summariesConsolidated };
-  totalCleaned += summariesConsolidated;
 
-  // Phase 9: Session compaction — clean old empty sessions
-  {
-const sessionStats = deps.sqlJson(`
+              for (const row of summariesPerProject) {
+                if (row.total > 1 && row.rn > 1) {
+                  deps.softDeleteObservation(row.id);
+                  cleanedIds.push({
+                    id: row.id,
+                    title: 'Session Summary',
+                    reason: `consolidated into newer project summary for ${row.project}`,
+                  });
+                  summariesConsolidated++;
+                }
+              }
+              report.phases.projectSummaryConsolidation = { count: summariesConsolidated };
+              totalCleaned += summariesConsolidated;
+
+              // Phase 9: Session compaction — clean old empty sessions
+              {
+                const sessionStats = deps.sqlJson(`
     SELECT project,
            COUNT(*) as total_sessions,
            SUM(CASE WHEN memories_saved = 0 THEN 1 ELSE 0 END) as empty_sessions,
@@ -395,82 +401,86 @@ const sessionStats = deps.sqlJson(`
     FROM session_log
     GROUP BY project
   `);
-  
-  for (const stat of sessionStats) {
-    const total = stat.total_sessions;
-    if (total <= 5) {
-      continue;
-    } // Hard floor
 
-    {
-const oldEmptySessions = deps.sqlJson(
-      `SELECT id FROM session_log
+                for (const stat of sessionStats) {
+                  const total = stat.total_sessions;
+                  if (total <= 5) {
+                    continue;
+                  } // Hard floor
+
+                  {
+                    const oldEmptySessions = deps.sqlJson(
+                      `SELECT id FROM session_log
        WHERE project = ? AND memories_saved = 0
        AND ended_at IS NOT NULL
        ORDER BY started_at DESC
        LIMIT -1 OFFSET 5`,
-      [stat.project],
-    );
+                      [stat.project],
+                    );
 
-    for (const session of oldEmptySessions) {
-      deps.sqlRun('DELETE FROM user_prompts WHERE session_id = ?', [String(session.id)]);
-      deps.sqlRun('DELETE FROM session_log WHERE id = ?', [session.id]);
-      sessionsCompacted++;
+                    for (const session of oldEmptySessions) {
+                      deps.sqlRun('DELETE FROM user_prompts WHERE session_id = ?', [String(session.id)]);
+                      deps.sqlRun('DELETE FROM session_log WHERE id = ?', [session.id]);
+                      sessionsCompacted++;
+                    }
+                  }
+                }
+                report.phases.sessionCompaction = {
+                  projects: sessionStats.length,
+                  sessionsCompacted,
+                };
+                totalCleaned += sessionsCompacted;
+
+                // Run cheap compact only — dream may run mid-session; skip VACUUM/FTS optimize.
+                {
+                  const compactResult = runCompactCheap(deps);
+                  report.phases.compact = compactResult;
+
+                  report.completedAt = new Date().toISOString();
+                  report.ok = compactResult.ok !== false;
+                  report.totalCleaned = totalCleaned;
+                  report.cleaned = cleanedIds;
+
+                  // Persist dream cycle stats to settings (guarded on success)
+                  if (report.ok) {
+                    try {
+                      const currentTotal = parseInt(
+                          deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_total_cleaned'")[0]?.value || '0',
+                          10,
+                        ),
+                        currentCount = parseInt(
+                          deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_run_count'")[0]?.value || '0',
+                          10,
+                        );
+                      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_last_run', ?)", [
+                        report.completedAt,
+                      ]);
+                      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_total_cleaned', ?)", [
+                        String(currentTotal + totalCleaned),
+                      ]);
+                      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_run_count', ?)", [
+                        String(currentCount + 1),
+                      ]);
+                    } catch (e) {
+                      // Log instead of swallowing silently — the report still advertises
+                      // TotalCleaned > 0 to the caller, so users would see inconsistent
+                      // Dashboard stats (in-memory says cleaned, settings says no data) with
+                      // No way to reconcile without a log line.
+                      console.error(
+                        `[dream] failed to persist dream-cycle stats: ${e instanceof Error ? e.message : String(e)}`,
+                      );
+                    }
+                  }
+
+                  return report;
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
-}
-  report.phases.sessionCompaction = {
-    projects: sessionStats.length,
-    sessionsCompacted,
-  };
-  totalCleaned += sessionsCompacted;
-
-  // Run cheap compact only — dream may run mid-session; skip VACUUM/FTS optimize.
-  {
-const compactResult = runCompactCheap(deps);
-  report.phases.compact = compactResult;
-
-  report.completedAt = new Date().toISOString();
-  report.ok = compactResult.ok !== false;
-  report.totalCleaned = totalCleaned;
-  report.cleaned = cleanedIds;
-
-  // Persist dream cycle stats to settings (guarded on success)
-  if (report.ok) {
-    try {
-      const currentTotal = parseInt(
-          deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_total_cleaned'")[0]?.value || '0',
-          10,
-        ),
-        currentCount = parseInt(
-          deps.sqlJson("SELECT value FROM settings WHERE key = 'dream_run_count'")[0]?.value || '0',
-          10,
-        );
-      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_last_run', ?)", [report.completedAt]);
-      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_total_cleaned', ?)", [
-        String(currentTotal + totalCleaned),
-      ]);
-      deps.sqlRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('dream_run_count', ?)", [
-        String(currentCount + 1),
-      ]);
-    } catch (e) {
-      // Log instead of swallowing silently — the report still advertises
-      // TotalCleaned > 0 to the caller, so users would see inconsistent
-      // Dashboard stats (in-memory says cleaned, settings says no data) with
-      // No way to reconcile without a log line.
-      console.error(`[dream] failed to persist dream-cycle stats: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-
-  return report;
-}
-}
-}
-}
-}
-}
-}
-}
 }
 
 function trustRecovery(deps, args) {

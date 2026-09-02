@@ -27,16 +27,15 @@
  * (the `{"action":"block","message":…}` alias is accepted too).
  */
 
-const fs = require('node:fs'), path = require('node:path'), { spawn, spawnSync } = require('node:child_process'), { isCodeFile } = require('../code-index/scanner'), { resolveIndexedRepo, normalizeRepoPath } = require('../hooks-engine/project'), { CONFIG_FILENAMES, isTargetedGrepLookup } = require('../hooks-engine/guardrail-utils'), { loadState, saveState, sessionStateDir } = require('./state-store'), { CONTEXT } = require('../../constants'), { capInjectedContext, buildContextBlock } = require('../hooks-engine/context-builder');
-
-
-
-
-
-
-
-
-
+const fs = require('node:fs'),
+  path = require('node:path'),
+  { spawn, spawnSync } = require('node:child_process'),
+  { isCodeFile } = require('../code-index/scanner'),
+  { resolveIndexedRepo, normalizeRepoPath } = require('../hooks-engine/project'),
+  { CONFIG_FILENAMES, isTargetedGrepLookup } = require('../hooks-engine/guardrail-utils'),
+  { loadState, saveState, sessionStateDir } = require('./state-store'),
+  { CONTEXT } = require('../../constants'),
+  { capInjectedContext, buildContextBlock } = require('../hooks-engine/context-builder');
 
 /** Absolute path to this repo's `memory-store.js` entry point. */
 function lapisEntry() {
@@ -109,7 +108,7 @@ function readGuardReason(payload, deps) {
 
   const repos = (deps && deps.repos) || indexedRepos(),
     matched = resolveIndexedRepo(cwd, repos, null),
-  rp = matched ? (normalizeRepoPath(matched.path || matched.name)) : undefined;
+    rp = matched ? normalizeRepoPath(matched.path || matched.name) : undefined;
   if (!matched) {
     return null;
   }
@@ -118,13 +117,13 @@ function readGuardReason(payload, deps) {
   }
 
   {
-const rel = path.relative(matched.path || matched.name, absPath);
-  return (
-    `Blocked by LaPis read guard: ${rel} is indexed code in repo "${matched.path || matched.name}". ` +
-    'Whole-file reads are discouraged — use mcp__lapis__memory_code with mode "outline" (or "search") ' +
-    'for this file first; targeted reads with offset/limit are allowed for editing.'
-  );
-}
+    const rel = path.relative(matched.path || matched.name, absPath);
+    return (
+      `Blocked by LaPis read guard: ${rel} is indexed code in repo "${matched.path || matched.name}". ` +
+      'Whole-file reads are discouraged — use mcp__lapis__memory_code with mode "outline" (or "search") ' +
+      'for this file first; targeted reads with offset/limit are allowed for editing.'
+    );
+  }
 }
 
 /** Tool-aware guard dispatcher: read_file → read guard, search_files → search guard. */
@@ -150,9 +149,9 @@ function searchGuardReason(payload, deps) {
   const cwd = payload.cwd || process.cwd(),
     repos = (deps && deps.repos) || indexedRepos(),
     matched = resolveIndexedRepo(cwd, repos, null),
-  absPath = matched ? (path.resolve(cwd, searchPath || cwd)) : undefined,
-  rp = matched ? (normalizeRepoPath(matched.path || matched.name)) : undefined,
-  absNorm = matched ? (normalizeRepoPath(absPath)) : undefined;
+    absPath = matched ? path.resolve(cwd, searchPath || cwd) : undefined,
+    rp = matched ? normalizeRepoPath(matched.path || matched.name) : undefined,
+    absNorm = matched ? normalizeRepoPath(absPath) : undefined;
   if (!matched) {
     return null;
   }
@@ -160,14 +159,14 @@ function searchGuardReason(payload, deps) {
     return null;
   }
   {
-const name = matched.name || matched.path;
-  return (
-    `Blocked by LaPis search guard: broad code search in indexed repo "${name}". ` +
-    'Use mcp__lapis__memory_code instead: mode "search" for semantic queries, ' +
-    '"outline" for file structure, "callers"/"callees" for hierarchy. ' +
-    'For a single-symbol lookup, use a plain symbol pattern (no regex) or scope to one file.'
-  );
-}
+    const name = matched.name || matched.path;
+    return (
+      `Blocked by LaPis search guard: broad code search in indexed repo "${name}". ` +
+      'Use mcp__lapis__memory_code instead: mode "search" for semantic queries, ' +
+      '"outline" for file structure, "callers"/"callees" for hierarchy. ' +
+      'For a single-symbol lookup, use a plain symbol pattern (no regex) or scope to one file.'
+    );
+  }
 }
 
 /** Decide what the hook should do for a payload. Returns null for no-op. */
@@ -201,11 +200,13 @@ function syncTrust(payload) {
   const cwd = payload.cwd || process.cwd(),
     repos = indexedRepos(),
     hit = repos.find((r) => cwd === r.path || cwd.startsWith(`${r.path}${path.sep}`)),
-  child = !(!hit || !hit.name) ? (spawn(process.execPath, [lapisEntry(), 'sync-code-trust', '--repo', hit.name], {
-    detached: true,
-    stdio: 'ignore',
-    cwd: hit.path || cwd,
-  })) : undefined;
+    child = !(!hit || !hit.name)
+      ? spawn(process.execPath, [lapisEntry(), 'sync-code-trust', '--repo', hit.name], {
+          detached: true,
+          stdio: 'ignore',
+          cwd: hit.path || cwd,
+        })
+      : undefined;
   if (!hit || !hit.name) {
     return;
   }
@@ -244,17 +245,19 @@ function startSession(payload) {
 function injectContext(payload) {
   try {
     const userMessage = (payload.extra && payload.extra.user_message) || '',
-    st = !(!userMessage || !payload.cwd) ? (loadState(sessionStateDir(), payload.session_id)) : undefined,
-    args = !(!userMessage || !payload.cwd) ? ([
-        lapisEntry(),
-        'context',
-        '--query',
-        userMessage.slice(0, 500),
-        '--project',
-        payload.cwd,
-        '--token-budget',
-        String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
-      ]) : undefined;
+      st = !(!userMessage || !payload.cwd) ? loadState(sessionStateDir(), payload.session_id) : undefined,
+      args = !(!userMessage || !payload.cwd)
+        ? [
+            lapisEntry(),
+            'context',
+            '--query',
+            userMessage.slice(0, 500),
+            '--project',
+            payload.cwd,
+            '--token-budget',
+            String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
+          ]
+        : undefined;
     if (!userMessage || !payload.cwd) {
       return null;
     }
@@ -262,24 +265,26 @@ function injectContext(payload) {
       args.push('--session-id', String(st.lapisSessionId));
     }
     const res = spawnSync(process.execPath, args, { timeout: 15000, encoding: 'utf8' }),
-    parsed = !(res.status !== 0 || !res.stdout) ? (JSON.parse(res.stdout)) : undefined,
-    repos = !(res.status !== 0 || !res.stdout) ? (indexedRepos()) : undefined,
-    cwdRepo = !(res.status !== 0 || !res.stdout) ? (resolveIndexedRepo(payload.cwd, repos, null)) : undefined,
-    lines = !(res.status !== 0 || !res.stdout) ? (buildContextBlock({
-        promptQuery: userMessage.slice(0, 500),
-        currentProject: parsed.project || payload.cwd,
-        projectDir: payload.cwd,
-        cwdRepo,
-        isStale: false,
-        isNewProject: false,
-        observations: (parsed.observations || []).filter(Boolean),
-        effectiveObservations: (parsed.observations || []).filter(Boolean),
-        personal: (parsed.personal || []).filter(Boolean),
-        stats: parsed.stats || {},
-        effectiveStats: parsed.stats || {},
-        topic: parsed.topic || null,
-        crossProjectSuggestions: parsed.cross_project_suggestions || [],
-      })) : undefined;
+      parsed = !(res.status !== 0 || !res.stdout) ? JSON.parse(res.stdout) : undefined,
+      repos = !(res.status !== 0 || !res.stdout) ? indexedRepos() : undefined,
+      cwdRepo = !(res.status !== 0 || !res.stdout) ? resolveIndexedRepo(payload.cwd, repos, null) : undefined,
+      lines = !(res.status !== 0 || !res.stdout)
+        ? buildContextBlock({
+            promptQuery: userMessage.slice(0, 500),
+            currentProject: parsed.project || payload.cwd,
+            projectDir: payload.cwd,
+            cwdRepo,
+            isStale: false,
+            isNewProject: false,
+            observations: (parsed.observations || []).filter(Boolean),
+            effectiveObservations: (parsed.observations || []).filter(Boolean),
+            personal: (parsed.personal || []).filter(Boolean),
+            stats: parsed.stats || {},
+            effectiveStats: parsed.stats || {},
+            topic: parsed.topic || null,
+            crossProjectSuggestions: parsed.cross_project_suggestions || [],
+          })
+        : undefined;
     if (res.status !== 0 || !res.stdout) {
       return null;
     }
@@ -287,10 +292,10 @@ function injectContext(payload) {
       return null;
     }
     {
-const block = capInjectedContext(lines.join('\n'));
-    return { context: block };
-  }
-} catch {
+      const block = capInjectedContext(lines.join('\n'));
+      return { context: block };
+    }
+  } catch {
     return null;
   }
 }
@@ -333,33 +338,33 @@ function runHook(io = {}) {
     return null;
   }
   {
-const decision = handlePayload(payload, io);
-  if (!decision) {
-    return null;
-  }
-  if (decision.injectContext) {
-    // Pre_llm_call: the result IS the output (a {"context": ...} block); no side effect.
-    const ctx = injectContext(payload);
-    if (ctx && ctx.context) {
-      process.stdout.write(JSON.stringify(ctx));
+    const decision = handlePayload(payload, io);
+    if (!decision) {
+      return null;
+    }
+    if (decision.injectContext) {
+      // Pre_llm_call: the result IS the output (a {"context": ...} block); no side effect.
+      const ctx = injectContext(payload);
+      if (ctx && ctx.context) {
+        process.stdout.write(JSON.stringify(ctx));
+      }
+      return decision;
+    }
+    if (decision.block) {
+      process.stdout.write(JSON.stringify({ decision: 'block', reason: decision.block }));
+      return decision;
+    }
+    if (decision.syncTrust) {
+      syncTrust(payload);
+    }
+    if (decision.sessionEnd) {
+      closeSession(payload);
+    }
+    if (decision.sessionStart) {
+      startSession(payload);
     }
     return decision;
   }
-  if (decision.block) {
-    process.stdout.write(JSON.stringify({ decision: 'block', reason: decision.block }));
-    return decision;
-  }
-  if (decision.syncTrust) {
-    syncTrust(payload);
-  }
-  if (decision.sessionEnd) {
-    closeSession(payload);
-  }
-  if (decision.sessionStart) {
-    startSession(payload);
-  }
-  return decision;
-}
 }
 
 module.exports = {

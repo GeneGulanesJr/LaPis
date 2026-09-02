@@ -1,10 +1,10 @@
-const path = require('path'), { hashContent } = require('../../utils'), { classifyRole } = require('./markdown-parser'),
+const path = require('path'),
+  { hashContent } = require('../../utils'),
+  { classifyRole } = require('./markdown-parser'),
   HTML_ROLE_PATTERNS = [
     { pattern: /navigation|sidebar|menu/i, role: 'navigation' },
     { pattern: /landing|hero|banner|jumbotron/i, role: 'landing' },
   ];
-
-
 
 function classifyHtmlRole(title, content, classAttrs) {
   const text = `${title} ${(content || '').slice(0, 200)} ${(classAttrs || '').slice(0, 100)}`;
@@ -53,62 +53,62 @@ function extractHtmlSections(content, filePath) {
   }
 
   {
-const headingRanges = findHeadings(content);
-  if (headingRanges.length === 0) {
-    const textContent = stripHtmlTags(content);
-    sections.push({
-      title: extractTitle(content) || path.basename(filePath),
-      level: 0,
-      content: textContent,
-      byte_start: 0,
-      byte_end: content.length,
-      role: 'other',
-      tags: '',
-      content_hash: hashContent(textContent),
-    });
-    return sections;
-  }
-
-  {
-const title = extractTitle(content) || path.basename(filePath);
-
-  if (headingRanges[0].start > 0) {
-    const preamble = content.slice(0, headingRanges[0].start),
-      textContent = stripHtmlTags(preamble);
-    if (textContent.trim()) {
+    const headingRanges = findHeadings(content);
+    if (headingRanges.length === 0) {
+      const textContent = stripHtmlTags(content);
       sections.push({
-        title,
+        title: extractTitle(content) || path.basename(filePath),
         level: 0,
         content: textContent,
         byte_start: 0,
-        byte_end: headingRanges[0].start,
-        role: classifyHtmlRole(title, textContent, ''),
-        tags: extractHtmlTags(preamble),
+        byte_end: content.length,
+        role: 'other',
+        tags: '',
         content_hash: hashContent(textContent),
       });
+      return sections;
+    }
+
+    {
+      const title = extractTitle(content) || path.basename(filePath);
+
+      if (headingRanges[0].start > 0) {
+        const preamble = content.slice(0, headingRanges[0].start),
+          textContent = stripHtmlTags(preamble);
+        if (textContent.trim()) {
+          sections.push({
+            title,
+            level: 0,
+            content: textContent,
+            byte_start: 0,
+            byte_end: headingRanges[0].start,
+            role: classifyHtmlRole(title, textContent, ''),
+            tags: extractHtmlTags(preamble),
+            content_hash: hashContent(textContent),
+          });
+        }
+      }
+
+      for (let i = 0; i < headingRanges.length; i++) {
+        const heading = headingRanges[i],
+          nextStart = i + 1 < headingRanges.length ? headingRanges[i + 1].start : content.length,
+          sectionContent = content.slice(heading.end, nextStart),
+          textContent = stripHtmlTags(sectionContent);
+        sections.push({
+          title: stripHtmlTags(heading.text),
+          level: heading.level,
+          content: textContent,
+          byte_start: heading.start,
+          byte_end: nextStart,
+          role: classifyHtmlRole(heading.text, textContent, ''),
+          tags: extractHtmlTags(sectionContent),
+          content_hash: hashContent(textContent),
+        });
+      }
+
+      return sections;
     }
   }
-
-  for (let i = 0; i < headingRanges.length; i++) {
-    const heading = headingRanges[i],
-      nextStart = i + 1 < headingRanges.length ? headingRanges[i + 1].start : content.length,
-      sectionContent = content.slice(heading.end, nextStart),
-      textContent = stripHtmlTags(sectionContent);
-    sections.push({
-      title: stripHtmlTags(heading.text),
-      level: heading.level,
-      content: textContent,
-      byte_start: heading.start,
-      byte_end: nextStart,
-      role: classifyHtmlRole(heading.text, textContent, ''),
-      tags: extractHtmlTags(sectionContent),
-      content_hash: hashContent(textContent),
-    });
-  }
-
-  return sections;
-}
-}
 }
 
 function findHeadings(content) {
@@ -131,12 +131,12 @@ function extractTitle(content) {
     return stripHtmlTags(match[1]).trim();
   }
   {
-const h1 = content.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-  if (h1) {
-    return stripHtmlTags(h1[1]).trim();
+    const h1 = content.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    if (h1) {
+      return stripHtmlTags(h1[1]).trim();
+    }
+    return null;
   }
-  return null;
-}
 }
 
 function extractHtmlTags(content) {
@@ -156,17 +156,17 @@ function extractHtmlTags(content) {
     }
   }
   {
-const metaKeywords = content.match(/<meta\s+name\s*=\s*["']keywords["']\s+content\s*=\s*["']([^"']+)["']/i);
-  if (metaKeywords) {
-    for (const kw of metaKeywords[1].split(/[,;]/)) {
-      const t = kw.trim().toLowerCase().replace(/\s+/g, '-');
-      if (t) {
-        tags.add(t);
+    const metaKeywords = content.match(/<meta\s+name\s*=\s*["']keywords["']\s+content\s*=\s*["']([^"']+)["']/i);
+    if (metaKeywords) {
+      for (const kw of metaKeywords[1].split(/[,;]/)) {
+        const t = kw.trim().toLowerCase().replace(/\s+/g, '-');
+        if (t) {
+          tags.add(t);
+        }
       }
     }
+    return [...tags].join(',');
   }
-  return [...tags].join(',');
-}
 }
 
 function extractHtmlLinks(content) {

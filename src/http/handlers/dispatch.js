@@ -22,11 +22,11 @@ function dispatchCommand(deps) {
     }
 
     {
-const dispatchFn = deps.dispatch || require('../../cli/gateway').dispatch,
-      result = await dispatchFn(cmd, mergeDispatchArgs(ctx.body));
-    jsonOk(res, result);
-  }
-};
+      const dispatchFn = deps.dispatch || require('../../cli/gateway').dispatch,
+        result = await dispatchFn(cmd, mergeDispatchArgs(ctx.body));
+      jsonOk(res, result);
+    }
+  };
 }
 
 module.exports = { dispatchCommand, mergeDispatchArgs };

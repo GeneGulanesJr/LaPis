@@ -11,11 +11,11 @@
  * Owns `extractFilePaths`, shared with preflight-assembly.
  */
 
-const path = require('node:path'), { resolveIndexedRepo } = require('./project'), fs = require('node:fs'), { CONTEXT } = require('../../constants'), { isNavigationPrompt } = require('./prompt-classifiers');
-
-
-
-
+const path = require('node:path'),
+  { resolveIndexedRepo } = require('./project'),
+  fs = require('node:fs'),
+  { CONTEXT } = require('../../constants'),
+  { isNavigationPrompt } = require('./prompt-classifiers');
 
 function truncateText(text, limit) {
   if (text.length <= limit) {
@@ -44,12 +44,14 @@ function summarizeMemoryContent(content) {
       .filter(Boolean),
     priority = lines.filter((line) => /^\*\*(What|Why|Where)\*\*:/i.test(line)),
     selected = (priority.length > 0 ? priority : lines).slice(0, 3),
-  normalized = !(selected.length === 0) ? (selected
-    .join(' ')
-    .replace(/\*\*(What|Why|Where)\*\*:\s*/gi, '$1: ')
-    .replace(/\s+/g, ' ')
-    .trim()) : undefined,
-  limit = !(selected.length === 0) && normalized ? (CONTEXT.PROMPT_MEMORY_SNIPPET_LENGTH || 280) : undefined;
+    normalized = !(selected.length === 0)
+      ? selected
+          .join(' ')
+          .replace(/\*\*(What|Why|Where)\*\*:\s*/gi, '$1: ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : undefined,
+    limit = !(selected.length === 0) && normalized ? CONTEXT.PROMPT_MEMORY_SNIPPET_LENGTH || 280 : undefined;
   if (selected.length === 0) {
     return null;
   }

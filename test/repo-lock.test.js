@@ -1,5 +1,5 @@
-const { createDb, resetDb, sqlJson } = require('../db'), { tryAcquireSqliteLock, releaseSqliteLock, makeHolderId } = require('../src/code-index/repo-lock');
-
+const { createDb, resetDb, sqlJson } = require('../db'),
+  { tryAcquireSqliteLock, releaseSqliteLock, makeHolderId } = require('../src/code-index/repo-lock');
 
 describe('repo-index lock', () => {
   beforeEach(() => {
@@ -11,12 +11,12 @@ describe('repo-index lock', () => {
 
   it('acquires and releases a sqlite-backed lock', () => {
     const holder = makeHolderId(),
-    rows = (() => {
+      rows = (() => {
+        expect(tryAcquireSqliteLock('my-repo', holder)).toBe(true);
 
-      expect(tryAcquireSqliteLock('my-repo', holder)).toBe(true);
-      
-  return (sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', ['my-repo']));
-})();expect(rows[0].holder_id).toBe(holder);
+        return sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', ['my-repo']);
+      })();
+    expect(rows[0].holder_id).toBe(holder);
     releaseSqliteLock('my-repo', holder);
     expect(sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', ['my-repo'])).toHaveLength(0);
   });

@@ -44,36 +44,36 @@ function buildJsTsScopeBindings(tree, source, _filePath) {
       case 'generator_function':
       case 'generator_function_declaration': {
         const nameNode = node.childForFieldName('name'),
-        params = (() => {
+          params = (() => {
+            if (nameNode) {
+              const startLine = node.startPosition.row + 1,
+                endLine = node.endPosition.row + 1;
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: startLine,
+                lineEnd: endLine,
+                scopeDepth: currentDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
+            // Parameters create bindings at function scope
 
-          if (nameNode) {
-            const startLine = node.startPosition.row + 1,
-              endLine = node.endPosition.row + 1;
-            addBinding(bindings, {
-              name: nameNode.text,
-              kind: 'declaration',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: startLine,
-              lineEnd: endLine,
-              scopeDepth: currentDepth,
-              byteStart: node.startIndex,
-              byteEnd: node.endIndex,
-            });
-          }
-          // Parameters create bindings at function scope
-          
-  return (node.childForFieldName('parameters'));
-})(),
-        body = (() => {
-if (params) {
-            extractParameters(params, currentDepth + 1, node.startPosition.row + 1, node.endPosition.row + 1);
-          }
-          // Body creates deeper scope
-          
-  return (node.childForFieldName('body'));
-})();if (body) {
+            return node.childForFieldName('parameters');
+          })(),
+          body = (() => {
+            if (params) {
+              extractParameters(params, currentDepth + 1, node.startPosition.row + 1, node.endPosition.row + 1);
+            }
+            // Body creates deeper scope
+
+            return node.childForFieldName('body');
+          })();
+        if (body) {
           walkChildren(body, currentDepth + 1, node.startPosition.row + 1, node.endPosition.row + 1);
         }
         return; // Don't walk children again
@@ -82,14 +82,14 @@ if (params) {
       // ── Arrow functions ────────────────────────────────────
       case 'arrow_function': {
         const params = node.childForFieldName('parameters'),
-        body = (() => {
+          body = (() => {
+            if (params) {
+              extractParameters(params, currentDepth + 1, node.startPosition.row + 1, node.endPosition.row + 1);
+            }
 
-          if (params) {
-            extractParameters(params, currentDepth + 1, node.startPosition.row + 1, node.endPosition.row + 1);
-          }
-          
-  return (node.childForFieldName('body'));
-})();if (body) {
+            return node.childForFieldName('body');
+          })();
+        if (body) {
           walkChildren(body, currentDepth + 1, node.startPosition.row + 1, node.endPosition.row + 1);
         }
         return;
@@ -117,26 +117,26 @@ if (params) {
       case 'class_declaration':
       case 'class': {
         const nameNode = node.childForFieldName('name'),
-        body = (() => {
+          body = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth: currentDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
+            // Walk class body for methods
 
-          if (nameNode) {
-            addBinding(bindings, {
-              name: nameNode.text,
-              kind: 'declaration',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: node.startPosition.row + 1,
-              lineEnd: node.endPosition.row + 1,
-              scopeDepth: currentDepth,
-              byteStart: node.startIndex,
-              byteEnd: node.endIndex,
-            });
-          }
-          // Walk class body for methods
-          
-  return (node.childForFieldName('body'));
-})();if (body) {
+            return node.childForFieldName('body');
+          })();
+        if (body) {
           walkClassBody(body, currentDepth + 1);
         }
         return;
@@ -149,33 +149,33 @@ if (params) {
       case 'abstract_method_signature':
       case 'method_signature': {
         const nameNode = node.childForFieldName('name'),
-        params = (() => {
+          params = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'class_member',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth: currentDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
+            // Parameters in methods
 
-          if (nameNode) {
-            addBinding(bindings, {
-              name: nameNode.text,
-              kind: 'class_member',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: node.startPosition.row + 1,
-              lineEnd: node.endPosition.row + 1,
-              scopeDepth: currentDepth,
-              byteStart: node.startIndex,
-              byteEnd: node.endIndex,
-            });
-          }
-          // Parameters in methods
-          
-  return (node.childForFieldName('parameters'));
-})(),
-        body = (() => {
-if (params) {
-            extractParameters(params, currentDepth + 1, node.startPosition.row + 1, node.endPosition.row + 1);
-          }
-          
-  return (node.childForFieldName('body'));
-})();if (body) {
+            return node.childForFieldName('parameters');
+          })(),
+          body = (() => {
+            if (params) {
+              extractParameters(params, currentDepth + 1, node.startPosition.row + 1, node.endPosition.row + 1);
+            }
+
+            return node.childForFieldName('body');
+          })();
+        if (body) {
           walkChildren(body, currentDepth + 1, node.startPosition.row + 1, node.endPosition.row + 1);
         }
         return;
@@ -253,8 +253,9 @@ if (params) {
       endLine = node.endPosition.row + 1,
       // Find the source module
       sourceStr = findStringNode(node),
-    modulePath = sourceStr ? (sourceStr) : undefined,
-    isPackage = sourceStr ? (!modulePath.startsWith('.') && !modulePath.startsWith('/')) : undefined, _hasDefaultImport = false,
+      modulePath = sourceStr ? sourceStr : undefined,
+      isPackage = sourceStr ? !modulePath.startsWith('.') && !modulePath.startsWith('/') : undefined,
+      _hasDefaultImport = false,
       _hasNamespaceImport = false,
       _hasNamedImports = false;
     if (!sourceStr) {
@@ -263,7 +264,6 @@ if (params) {
 
     // Check for default import: import foo from '...'
     let child = node.firstChild;
-    
 
     while (child) {
       const t = child.type;
@@ -341,23 +341,23 @@ if (params) {
               localName = nameNode.text;
             }
             {
-const originalName = nameNode ? nameNode.text : localName;
-            if (localName) {
-              addBinding(bindings, {
-                name: localName,
-                kind: 'named_import',
-                origin: isPackage ? 'external_package' : 'external_file',
-                sourceModule: modulePath,
-                sourceName: originalName,
-                lineStart: lineNum,
-                lineEnd: endLine,
-                scopeDepth: 0,
-                byteStart: specChild.startIndex,
-                byteEnd: specChild.endIndex,
-              });
+              const originalName = nameNode ? nameNode.text : localName;
+              if (localName) {
+                addBinding(bindings, {
+                  name: localName,
+                  kind: 'named_import',
+                  origin: isPackage ? 'external_package' : 'external_file',
+                  sourceModule: modulePath,
+                  sourceName: originalName,
+                  lineStart: lineNum,
+                  lineEnd: endLine,
+                  scopeDepth: 0,
+                  byteStart: specChild.startIndex,
+                  byteEnd: specChild.endIndex,
+                });
+              }
             }
           }
-}
           specChild = specChild.nextSibling;
         }
       } else if (t === 'namespace_import') {

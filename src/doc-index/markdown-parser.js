@@ -1,14 +1,15 @@
-const path = require('path'), { hashContent } = require('../../utils'), ROLE_PATTERNS = [
-  { pattern: /tutorial|getting.?started|quickstart|walkthrough/i, role: 'tutorial' },
-  { pattern: /api|reference|endpoint|method/i, role: 'api' },
-  { pattern: /how.?to|guide|cookbook/i, role: 'how_to' },
-  { pattern: /concept|overview|architecture|design|philosophy/i, role: 'concept' },
-  { pattern: /troubleshoot|debug|fix|common.?error|pitfall/i, role: 'troubleshooting' },
-  { pattern: /changelog|release|history|what.?new/i, role: 'changelog' },
-  { pattern: /faq|q&a|frequently/i, role: 'faq' },
-  { pattern: /example|demo|sample|snippet/i, role: 'example' },
-];
-
+const path = require('path'),
+  { hashContent } = require('../../utils'),
+  ROLE_PATTERNS = [
+    { pattern: /tutorial|getting.?started|quickstart|walkthrough/i, role: 'tutorial' },
+    { pattern: /api|reference|endpoint|method/i, role: 'api' },
+    { pattern: /how.?to|guide|cookbook/i, role: 'how_to' },
+    { pattern: /concept|overview|architecture|design|philosophy/i, role: 'concept' },
+    { pattern: /troubleshoot|debug|fix|common.?error|pitfall/i, role: 'troubleshooting' },
+    { pattern: /changelog|release|history|what.?new/i, role: 'changelog' },
+    { pattern: /faq|q&a|frequently/i, role: 'faq' },
+    { pattern: /example|demo|sample|snippet/i, role: 'example' },
+  ];
 
 function slugify(text) {
   return text
@@ -18,8 +19,6 @@ function slugify(text) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 }
-
-
 
 function classifyRole(title, content) {
   const text = `${title} ${(content || '').slice(0, 200)}`;
@@ -59,7 +58,8 @@ function parseMarkdownSections(content, filePath) {
     lineByteOffsets.push(lineByteOffsets[l] + lines[l].length + 1);
   }
 
-  let i = 0, currentSection = null,
+  let i = 0,
+    currentSection = null,
     hasHeadings = false;
   if (lines[0] && lines[0].trim() === '---') {
     i = 1;
@@ -68,8 +68,6 @@ function parseMarkdownSections(content, filePath) {
     }
     i++;
   }
-
-  
 
   while (i < lines.length) {
     const line = lines[i],

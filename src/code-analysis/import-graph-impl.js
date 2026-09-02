@@ -25,14 +25,11 @@ function _likeEscape(str) {
 
 function extractImportsFromSource(content) {
   const imports = [],
-    seen = new Set(), esRe = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+(?:\s*,\s*\{[^}]*\})?)\s+from\s+)?['"]([^'"]+)['"]/g,
+    seen = new Set(),
+    esRe = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+(?:\s*,\s*\{[^}]*\})?)\s+from\s+)?['"]([^'"]+)['"]/g,
     reExportRe = /export\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+)\s+from\s+)['"]([^'"]+)['"]/g,
     requireRe = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
     dynamicRe = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-
-  
-
-  
 
   let match;
   while ((match = esRe.exec(content)) !== null) {
@@ -54,7 +51,7 @@ function extractImportsFromSource(content) {
   }
 
   return imports;
-function add(mod, type, line) {
+  function add(mod, type, line) {
     const key = `${mod}:${line}`;
     if (!seen.has(key)) {
       seen.add(key);
@@ -85,94 +82,99 @@ function extractImportBindings(content) {
     }
 
     {
-const namedMatch = line.match(/^import\s+(?:([\w]+)\s*,\s*)?\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/);
-    if (namedMatch) {
-      if (namedMatch[1]) {
-        bindings.push({ localName: namedMatch[1], originalName: 'default', modulePath: namedMatch[3], line: i + 1 });
+      const namedMatch = line.match(/^import\s+(?:([\w]+)\s*,\s*)?\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/);
+      if (namedMatch) {
+        if (namedMatch[1]) {
+          bindings.push({ localName: namedMatch[1], originalName: 'default', modulePath: namedMatch[3], line: i + 1 });
+        }
+        const names = namedMatch[2]
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const nameStr of names) {
+          const asMatch = nameStr.match(/^(\w+)\s+as\s+(\w+)$/);
+          if (asMatch) {
+            bindings.push({ localName: asMatch[2], originalName: asMatch[1], modulePath: namedMatch[3], line: i + 1 });
+          } else {
+            bindings.push({ localName: nameStr, originalName: nameStr, modulePath: namedMatch[3], line: i + 1 });
+          }
+        }
+        // eslint-disable-next-line no-continue
+        continue;
       }
-      const names = namedMatch[2]
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      for (const nameStr of names) {
-        const asMatch = nameStr.match(/^(\w+)\s+as\s+(\w+)$/);
-        if (asMatch) {
-          bindings.push({ localName: asMatch[2], originalName: asMatch[1], modulePath: namedMatch[3], line: i + 1 });
-        } else {
-          bindings.push({ localName: nameStr, originalName: nameStr, modulePath: namedMatch[3], line: i + 1 });
+
+      {
+        const reExportNamed = line.match(/^export\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/);
+        if (reExportNamed) {
+          const names = reExportNamed[1]
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          for (const nameStr of names) {
+            const asMatch = nameStr.match(/^(\w+)\s+as\s+(\w+)$/);
+            if (asMatch) {
+              bindings.push({
+                localName: asMatch[2],
+                originalName: asMatch[1],
+                modulePath: reExportNamed[2],
+                line: i + 1,
+                isReExport: true,
+              });
+            } else {
+              bindings.push({
+                localName: nameStr,
+                originalName: nameStr,
+                modulePath: reExportNamed[2],
+                line: i + 1,
+                isReExport: true,
+              });
+            }
+          }
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+
+        m = line.match(/^(?:const|let|var)\s+(\w+)\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/);
+        if (m) {
+          bindings.push({ localName: m[1], originalName: '*', modulePath: m[2], line: i + 1 });
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+
+        {
+          const destructureRequire = line.match(
+            /^(?:const|let|var)\s+\{([^}]+)\}\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/,
+          );
+          if (destructureRequire) {
+            const names = destructureRequire[1]
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+            for (const nameStr of names) {
+              const asMatch = nameStr.match(/^(\w+)\s*:\s*(\w+)$/);
+              if (asMatch) {
+                bindings.push({
+                  localName: asMatch[2],
+                  originalName: asMatch[1],
+                  modulePath: destructureRequire[2],
+                  line: i + 1,
+                });
+              } else {
+                bindings.push({
+                  localName: nameStr,
+                  originalName: nameStr,
+                  modulePath: destructureRequire[2],
+                  line: i + 1,
+                });
+              }
+            }
+            // eslint-disable-next-line no-continue
+            continue;
+          }
         }
       }
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-
-    {
-const reExportNamed = line.match(/^export\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/);
-    if (reExportNamed) {
-      const names = reExportNamed[1]
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      for (const nameStr of names) {
-        const asMatch = nameStr.match(/^(\w+)\s+as\s+(\w+)$/);
-        if (asMatch) {
-          bindings.push({
-            localName: asMatch[2],
-            originalName: asMatch[1],
-            modulePath: reExportNamed[2],
-            line: i + 1,
-            isReExport: true,
-          });
-        } else {
-          bindings.push({
-            localName: nameStr,
-            originalName: nameStr,
-            modulePath: reExportNamed[2],
-            line: i + 1,
-            isReExport: true,
-          });
-        }
-      }
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-
-    m = line.match(/^(?:const|let|var)\s+(\w+)\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/);
-    if (m) {
-      bindings.push({ localName: m[1], originalName: '*', modulePath: m[2], line: i + 1 });
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-
-    {
-const destructureRequire = line.match(
-      /^(?:const|let|var)\s+\{([^}]+)\}\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/,
-    );
-    if (destructureRequire) {
-      const names = destructureRequire[1]
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      for (const nameStr of names) {
-        const asMatch = nameStr.match(/^(\w+)\s*:\s*(\w+)$/);
-        if (asMatch) {
-          bindings.push({
-            localName: asMatch[2],
-            originalName: asMatch[1],
-            modulePath: destructureRequire[2],
-            line: i + 1,
-          });
-        } else {
-          bindings.push({ localName: nameStr, originalName: nameStr, modulePath: destructureRequire[2], line: i + 1 });
-        }
-      }
-      // eslint-disable-next-line no-continue
-      continue;
     }
   }
-}
-}
-}
 
   return bindings;
 }
@@ -245,56 +247,56 @@ function buildImportGraph(db, repoId) {
   db.prepare('DELETE FROM code_imports WHERE repo_id = ?').run(repoId);
 
   {
-const insertStmt = db.prepare(
-      `INSERT OR IGNORE INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
-    ),
-    files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
-    contentStmt = db.prepare('SELECT content FROM code_files WHERE id = ?'),
-    filePathMap = new Map();
-  for (const file of files) {
-    filePathMap.set(file.path, file.id);
-  }
-
-  let totalEdges = 0;
-
-  {
-const runInTx =
-    typeof db.transaction === 'function'
-      ? (fn) => db.transaction(fn)()
-      : (fn) => {
-          db.exec('BEGIN');
-          try {
-            const r = fn();
-            db.exec('COMMIT');
-            return r;
-          } catch (e) {
-            db.exec('ROLLBACK');
-            throw e;
-          }
-        };
-
-  runInTx(() => {
+    const insertStmt = db.prepare(
+        `INSERT OR IGNORE INTO code_imports (repo_id, source_file_id, target_module, target_file_id, import_type, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
+      ),
+      files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
+      contentStmt = db.prepare('SELECT content FROM code_files WHERE id = ?'),
+      filePathMap = new Map();
     for (const file of files) {
-      const contentRow = contentStmt.get(file.id);
-      if (contentRow && contentRow.content) {
-        const imports = extractImportsFromSource(contentRow.content);
-        for (const imp of imports) {
-          const targetFileId = resolveImportTargetLocal(filePathMap, file.path, imp.target_module);
-          insertStmt.run(repoId, file.id, imp.target_module, targetFileId, imp.import_type, imp.line_number);
-          totalEdges++;
-        }
-      }
+      filePathMap.set(file.path, file.id);
     }
-  });
 
-  return { success: true, edges: totalEdges };
-}
-}
+    let totalEdges = 0;
+
+    {
+      const runInTx =
+        typeof db.transaction === 'function'
+          ? (fn) => db.transaction(fn)()
+          : (fn) => {
+              db.exec('BEGIN');
+              try {
+                const r = fn();
+                db.exec('COMMIT');
+                return r;
+              } catch (e) {
+                db.exec('ROLLBACK');
+                throw e;
+              }
+            };
+
+      runInTx(() => {
+        for (const file of files) {
+          const contentRow = contentStmt.get(file.id);
+          if (contentRow && contentRow.content) {
+            const imports = extractImportsFromSource(contentRow.content);
+            for (const imp of imports) {
+              const targetFileId = resolveImportTargetLocal(filePathMap, file.path, imp.target_module);
+              insertStmt.run(repoId, file.id, imp.target_module, targetFileId, imp.import_type, imp.line_number);
+              totalEdges++;
+            }
+          }
+        }
+      });
+
+      return { success: true, edges: totalEdges };
+    }
+  }
 }
 
 function getImportGraph(db, repoId, opts) {
   const guard = _requireNativeDb(db),
-  { file, direction = 'both', depth = 1 } = !(guard) ? (opts) : undefined;
+    { file, direction = 'both', depth = 1 } = !guard ? opts : undefined;
   if (guard) {
     return guard;
   }
@@ -327,9 +329,9 @@ function getImportGraph(db, repoId, opts) {
 
   if (depth > 1 && file) {
     const fileRow = db
-      .prepare("SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ? ESCAPE '!'")
-      .get(repoId, `%${_likeEscape(file)}%`),
-    result = fileRow ? ({}) : undefined;
+        .prepare("SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ? ESCAPE '!'")
+        .get(repoId, `%${_likeEscape(file)}%`),
+      result = fileRow ? {} : undefined;
     if (!fileRow) {
       return { error: `File not found: ${file}` };
     }
@@ -377,7 +379,7 @@ function getImportGraph(db, repoId, opts) {
 
 function getBlastRadius(db, repoId, opts) {
   const guard = _requireNativeDb(db),
-  { symbol, depth = 3, minConfidence = 0.7 } = !(guard) ? (opts) : undefined;
+    { symbol, depth = 3, minConfidence = 0.7 } = !guard ? opts : undefined;
   if (guard) {
     return guard;
   }
@@ -386,21 +388,21 @@ function getBlastRadius(db, repoId, opts) {
   }
 
   {
-const symRow = db
-    .prepare('SELECT id, name, file_id, file_path FROM code_symbols WHERE repo_id = ? AND name = ?')
-    .all(repoId, symbol);
-  if (symRow.length === 0) {
-    return { error: `Symbol "${symbol}" not found` };
-  }
-  if (symRow.length > 1) {
-    return { error: `Multiple symbols named "${symbol}"`, candidates: symRow };
-  }
+    const symRow = db
+      .prepare('SELECT id, name, file_id, file_path FROM code_symbols WHERE repo_id = ? AND name = ?')
+      .all(repoId, symbol);
+    if (symRow.length === 0) {
+      return { error: `Symbol "${symbol}" not found` };
+    }
+    if (symRow.length > 1) {
+      return { error: `Multiple symbols named "${symbol}"`, candidates: symRow };
+    }
 
-  {
-const symbolId = symRow[0].id,
-    fileId = symRow[0].file_id,
-    callers = db
-      .prepare(`
+    {
+      const symbolId = symRow[0].id,
+        fileId = symRow[0].file_id,
+        callers = db
+          .prepare(`
     WITH RECURSIVE upstream AS (
       SELECT cc.caller_symbol_id, cs.name, cs.file_path, cc.confidence, 1 as depth
       FROM code_calls cc JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
@@ -411,26 +413,26 @@ const symbolId = symRow[0].id,
       WHERE u.depth < ? AND cc.confidence >= ?
     ) SELECT * FROM upstream
   `)
-      .all(symbolId, minConfidence, depth, minConfidence),
-    fileImporters = db
-      .prepare(`
+          .all(symbolId, minConfidence, depth, minConfidence),
+        fileImporters = db
+          .prepare(`
     WITH RECURSIVE imp AS (
       SELECT ci.source_file_id, cf.path, 1 as depth FROM code_imports ci JOIN code_files cf ON cf.id = ci.source_file_id WHERE ci.target_file_id = ? AND ci.target_file_id IS NOT NULL
       UNION ALL SELECT ci.source_file_id, cf.path, u.depth + 1 FROM code_imports ci JOIN imp u ON ci.target_file_id = u.source_file_id JOIN code_files cf ON cf.id = ci.source_file_id WHERE u.depth < ? AND ci.target_file_id IS NOT NULL
     ) SELECT DISTINCT path, depth FROM imp
   `)
-      .all(fileId, depth);
+          .all(fileId, depth);
 
-  return {
-    symbol: symRow[0].name,
-    file: symRow[0].file_path,
-    callers,
-    file_importers: fileImporters,
-    affected_files: [...new Set([...callers.map((c) => c.file_path), ...fileImporters.map((f) => f.path)])],
-    min_confidence: minConfidence,
-  };
-}
-}
+      return {
+        symbol: symRow[0].name,
+        file: symRow[0].file_path,
+        callers,
+        file_importers: fileImporters,
+        affected_files: [...new Set([...callers.map((c) => c.file_path), ...fileImporters.map((f) => f.path)])],
+        min_confidence: minConfidence,
+      };
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -514,68 +516,66 @@ function getDependencyCycles(db, repoId) {
   // Tarjan's SCC
   let index = 0;
   {
-const stack = [],
-    onStack = new Set(),
-    indices = new Map(),
-    lowlink = new Map(),
-    sccs = [];
+    const stack = [],
+      onStack = new Set(),
+      indices = new Map(),
+      lowlink = new Map(),
+      sccs = [];
 
-  
-
-  for (const v of allNodes) {
-    if (!indices.has(v)) {
-      strongconnect(v);
+    for (const v of allNodes) {
+      if (!indices.has(v)) {
+        strongconnect(v);
+      }
     }
-  }
 
-  // Find actual cycles (paths that close the loop)
-  const cycles = sccs.map((scc) => {
-    const sccSet = new Set(scc),
-      cycleEdges = [];
-    for (const node of scc) {
-      for (const neighbor of adj.get(node) || []) {
-        if (sccSet.has(neighbor)) {
-          cycleEdges.push({ from: node, to: neighbor });
+    // Find actual cycles (paths that close the loop)
+    const cycles = sccs.map((scc) => {
+      const sccSet = new Set(scc),
+        cycleEdges = [];
+      for (const node of scc) {
+        for (const neighbor of adj.get(node) || []) {
+          if (sccSet.has(neighbor)) {
+            cycleEdges.push({ from: node, to: neighbor });
+          }
+        }
+      }
+      return { files: scc, edges: cycleEdges, size: scc.length };
+    });
+
+    return {
+      cycles: cycles.sort((a, b) => b.size - a.size),
+      total_circular_files: cycles.reduce((sum, c) => sum + c.size, 0),
+    };
+    function strongconnect(v) {
+      indices.set(v, index);
+      lowlink.set(v, index);
+      index++;
+      stack.push(v);
+      onStack.add(v);
+
+      for (const w of adj.get(v) || []) {
+        if (!indices.has(w)) {
+          strongconnect(w);
+          lowlink.set(v, Math.min(lowlink.get(v), lowlink.get(w)));
+        } else if (onStack.has(w)) {
+          lowlink.set(v, Math.min(lowlink.get(v), indices.get(w)));
+        }
+      }
+
+      if (lowlink.get(v) === indices.get(v)) {
+        const scc = [];
+        let w;
+        do {
+          w = stack.pop();
+          onStack.delete(w);
+          scc.push(w);
+        } while (w !== v);
+        if (scc.length > 1) {
+          sccs.push(scc);
         }
       }
     }
-    return { files: scc, edges: cycleEdges, size: scc.length };
-  });
-
-  return {
-    cycles: cycles.sort((a, b) => b.size - a.size),
-    total_circular_files: cycles.reduce((sum, c) => sum + c.size, 0),
-  };
-function strongconnect(v) {
-    indices.set(v, index);
-    lowlink.set(v, index);
-    index++;
-    stack.push(v);
-    onStack.add(v);
-
-    for (const w of adj.get(v) || []) {
-      if (!indices.has(w)) {
-        strongconnect(w);
-        lowlink.set(v, Math.min(lowlink.get(v), lowlink.get(w)));
-      } else if (onStack.has(w)) {
-        lowlink.set(v, Math.min(lowlink.get(v), indices.get(w)));
-      }
-    }
-
-    if (lowlink.get(v) === indices.get(v)) {
-      const scc = [];
-      let w;
-      do {
-        w = stack.pop();
-        onStack.delete(w);
-        scc.push(w);
-      } while (w !== v);
-      if (scc.length > 1) {
-        sccs.push(scc);
-      }
-    }
   }
-}
 }
 
 // ══════════════════════════════════════════════════════════
@@ -584,7 +584,7 @@ function strongconnect(v) {
 
 function winnow(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db),
-  {
+    {
       kind = null,
       minComplexity = null,
       minChurn = null,
@@ -594,13 +594,15 @@ function winnow(db, repoId, opts = {}) {
       nameRegex = null,
       sortBy = 'pagerank',
       top = 20,
-    } = !(guard) ? (opts) : undefined,
-  pr = !(guard) ? (_getCoupling().buildPageRank(db, repoId)) : undefined, { symbolMap, n: totalSymbols } = pr,
+    } = !guard ? opts : undefined,
+    pr = !guard ? _getCoupling().buildPageRank(db, repoId) : undefined,
+    { symbolMap, n: totalSymbols } = pr,
     // Build query dynamically based on active axes
     conditions = ['s.repo_id = ?'],
     params = [repoId],
     joins = [],
-    activeAxes = [], selectCols = ['s.id', 's.name', 's.kind', 's.file_path', 's.signature', 's.start_line', 's.end_line'];
+    activeAxes = [],
+    selectCols = ['s.id', 's.name', 's.kind', 's.file_path', 's.signature', 's.start_line', 's.end_line'];
   if (guard) {
     return guard;
   }
@@ -608,7 +610,6 @@ function winnow(db, repoId, opts = {}) {
   if (pr.error) {
     return pr;
   }
-  
 
   // Kind filter
   if (kind) {
@@ -667,7 +668,6 @@ function winnow(db, repoId, opts = {}) {
   // Ensure the JOIN needed for the chosen sort axis exists (even without a min*
   // Filter) and expose the column the comparator sorts on. Without these columns
   // In the SELECT, the sort comparators read `undefined` and become no-ops.
-  
 
   if (sortBy === 'complexity') {
     if (!joins.some((j) => j.includes('symbol_complexity'))) {
@@ -703,44 +703,42 @@ function winnow(db, repoId, opts = {}) {
 
   // Filter by name regex if needed
   {
-let filteredRows = rows;
-  if (nameRegexObj) {
-    filteredRows = rows.filter((r) => nameRegexObj.test(r.name));
+    let filteredRows = rows;
+    if (nameRegexObj) {
+      filteredRows = rows.filter((r) => nameRegexObj.test(r.name));
+    }
+
+    // Annotate with PageRank
+    const enriched = filteredRows
+        .map((row) => {
+          const prData = symbolMap.get(row.id),
+            rank = prData ? pr.ranks.get(row.id) || 0 : 0;
+          return {
+            ...row,
+            pagerank: Math.round(rank * 1000000) / 1000000,
+          };
+        })
+        .filter((row) => minPageRank == null || row.pagerank >= Number(minPageRank)),
+      // Sort
+      sortFn =
+        {
+          pagerank: (a, b) => b.pagerank - a.pagerank,
+          complexity: (a, b) => (b.cyclomatic || 0) - (a.cyclomatic || 0),
+          churn: (a, b) => (b.commits || 0) - (a.commits || 0),
+          callers: (a, b) => (b.caller_count || 0) - (a.caller_count || 0),
+        }[sortBy] || ((a, b) => b.pagerank - a.pagerank),
+      topResults = (() => {
+        enriched.sort(sortFn);
+
+        return enriched.slice(0, top);
+      })();
+    return {
+      results: topResults,
+      total_matched: filteredRows.length,
+      total_symbols: totalSymbols,
+      axes: activeAxes,
+    };
   }
-
-  // Annotate with PageRank
-  const enriched = filteredRows
-      .map((row) => {
-        const prData = symbolMap.get(row.id),
-          rank = prData ? pr.ranks.get(row.id) || 0 : 0;
-        return {
-          ...row,
-          pagerank: Math.round(rank * 1000000) / 1000000,
-        };
-      })
-      .filter((row) => minPageRank == null || row.pagerank >= Number(minPageRank)),
-    // Sort
-    sortFn =
-      {
-        pagerank: (a, b) => b.pagerank - a.pagerank,
-        complexity: (a, b) => (b.cyclomatic || 0) - (a.cyclomatic || 0),
-        churn: (a, b) => (b.commits || 0) - (a.commits || 0),
-        callers: (a, b) => (b.caller_count || 0) - (a.caller_count || 0),
-      }[sortBy] || ((a, b) => b.pagerank - a.pagerank),
-  topResults = (() => {
-
-  
-    enriched.sort(sortFn);
-  
-    
-  return (enriched.slice(0, top));
-})(); return {
-    results: topResults,
-    total_matched: filteredRows.length,
-    total_symbols: totalSymbols,
-    axes: activeAxes,
-  };
-}
 }
 
 module.exports = {

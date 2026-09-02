@@ -22,32 +22,32 @@ function buildRustScopeBindings(tree, _source, _filePath) {
       // ── Function declarations ──────────────────────────────
       case 'function_item': {
         const nameNode = node.childForFieldName('name'),
-        params = (() => {
+          params = (() => {
+            if (nameNode) {
+              addBinding(bindings, {
+                name: nameNode.text,
+                kind: 'declaration',
+                origin: 'local',
+                sourceModule: null,
+                sourceName: null,
+                lineStart: node.startPosition.row + 1,
+                lineEnd: node.endPosition.row + 1,
+                scopeDepth,
+                byteStart: node.startIndex,
+                byteEnd: node.endIndex,
+              });
+            }
 
-          if (nameNode) {
-            addBinding(bindings, {
-              name: nameNode.text,
-              kind: 'declaration',
-              origin: 'local',
-              sourceModule: null,
-              sourceName: null,
-              lineStart: node.startPosition.row + 1,
-              lineEnd: node.endPosition.row + 1,
-              scopeDepth,
-              byteStart: node.startIndex,
-              byteEnd: node.endIndex,
-            });
-          }
-          
-  return (node.childForFieldName('parameters'));
-})(),
-        body = (() => {
-if (params) {
-            extractRustParameters(params, scopeDepth + 1);
-          }
-          
-  return (node.childForFieldName('body'));
-})();if (body) {
+            return node.childForFieldName('parameters');
+          })(),
+          body = (() => {
+            if (params) {
+              extractRustParameters(params, scopeDepth + 1);
+            }
+
+            return node.childForFieldName('body');
+          })();
+        if (body) {
           walkChildren(body, scopeDepth + 1);
         }
         return;

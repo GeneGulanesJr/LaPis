@@ -5,7 +5,8 @@
  * Enforces that modules in one domain do not import from forbidden domains.
  * Tests are static analysis — no runtime side effects.
  */
-const path = require('path'), fs = require('fs'),
+const path = require('path'),
+  fs = require('fs'),
   SRC_ROOT = path.resolve(__dirname, '..', 'src'),
   /**
    * Each key is a src/ domain. Its value lists domains it must NOT import from.
@@ -21,7 +22,6 @@ const path = require('path'), fs = require('fs'),
     'code-analysis': ['doc-index', 'memory-domain'],
     'code-index': ['doc-index', 'trust-sync'],
   };
-
 
 function collectJsFiles(dir) {
   const results = [];

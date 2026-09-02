@@ -1,6 +1,6 @@
-const { getConfig } = require('../../config'), { CAPTURE_PASSIVE } = require('../../constants'), { parseExpiresIn } = require('./ttl');
-
-
+const { getConfig } = require('../../config'),
+  { CAPTURE_PASSIVE } = require('../../constants'),
+  { parseExpiresIn } = require('./ttl');
 
 function save(deps, args) {
   const {
@@ -19,7 +19,8 @@ function save(deps, args) {
     topicKey = args['topic-key'] || null,
     sessionId = args['session-id'] || findLatestSession(project),
     force = args.force === 'true' || args.force === true,
-    expiresIn = args['expires-in'] || args.expiresIn || null, missing = [];
+    expiresIn = args['expires-in'] || args.expiresIn || null,
+    missing = [];
   let expiresAt = null;
   if (expiresIn !== null && expiresIn !== undefined && expiresIn !== '') {
     expiresAt = parseExpiresIn(expiresIn);
@@ -28,7 +29,6 @@ function save(deps, args) {
     }
   }
 
-  
   if (!title) {
     missing.push('--title');
   }
@@ -94,18 +94,17 @@ function capturePassive(deps, args) {
     itemRe = /(?:^|\n)\s*(?:[-*]|\d+[.)])\s*([^\n]*(?:\n(?!\s*(?:[-*]|\d+[.)])\s*)[^\n]*)*)/g,
     items = [];
   let m,
-  inserted = (() => {
-
-    while ((m = itemRe.exec(section)) !== null) {
-      const cleaned = m[1].replace(/\n\s+/g, ' ').trim();
-      if (cleaned) {
-        items.push(cleaned);
+    inserted = (() => {
+      while ((m = itemRe.exec(section)) !== null) {
+        const cleaned = m[1].replace(/\n\s+/g, ' ').trim();
+        if (cleaned) {
+          items.push(cleaned);
+        }
       }
-    }
-  
-    
-  return (0);
-})();const sessionId = findLatestSession(null);
+
+      return 0;
+    })();
+  const sessionId = findLatestSession(null);
   for (const item of items) {
     const summary =
       item.length > CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH

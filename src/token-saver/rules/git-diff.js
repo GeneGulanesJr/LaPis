@@ -10,8 +10,9 @@ const LOCKFILE_PATTERNS = [
 
 function compressGitDiff({ stdout, stderr }) {
   const combined = `${stdout}\n${stderr}`.trim(),
-  lines = combined ? (combined.split('\n')) : undefined,
-  files = combined ? ([]) : undefined, lockfileDiffs = [];
+    lines = combined ? combined.split('\n') : undefined,
+    files = combined ? [] : undefined,
+    lockfileDiffs = [];
   if (!combined) {
     return {
       summary: 'No changes.',
@@ -20,61 +21,60 @@ function compressGitDiff({ stdout, stderr }) {
     };
   }
 
-  let currentFile = null, contextLines = 0,
+  let currentFile = null,
+    contextLines = 0,
     inLockfile = false,
-  output = (() => {
-
-  
-    for (const line of lines) {
-      if (line.startsWith('diff --git')) {
-        if (inLockfile && currentFile) {
-          lockfileDiffs.push(currentFile);
-        }
-        inLockfile = false;
-        const match = line.match(/diff --git a\/(?<oldPath>.+?) b\/(?<newPath>.+?)$/);
-        if (match) {
-          currentFile = {
-            path: match.groups.newPath,
-            additions: 0,
-            deletions: 0,
-            hunks: [],
-            lockfileLines: 0,
-          };
-          files.push(currentFile);
-          for (const lp of LOCKFILE_PATTERNS) {
-            if (lp.test(match.groups.newPath)) {
-              inLockfile = true;
-              break;
+    output = (() => {
+      for (const line of lines) {
+        if (line.startsWith('diff --git')) {
+          if (inLockfile && currentFile) {
+            lockfileDiffs.push(currentFile);
+          }
+          inLockfile = false;
+          const match = line.match(/diff --git a\/(?<oldPath>.+?) b\/(?<newPath>.+?)$/);
+          if (match) {
+            currentFile = {
+              path: match.groups.newPath,
+              additions: 0,
+              deletions: 0,
+              hunks: [],
+              lockfileLines: 0,
+            };
+            files.push(currentFile);
+            for (const lp of LOCKFILE_PATTERNS) {
+              if (lp.test(match.groups.newPath)) {
+                inLockfile = true;
+                break;
+              }
             }
           }
+        } else if (inLockfile && currentFile) {
+          currentFile.lockfileLines++;
+        } else if (line.startsWith('@@')) {
+          if (currentFile) {
+            currentFile.hunks.push(line);
+          }
+        } else if (line.startsWith('+') && !line.startsWith('+++')) {
+          if (currentFile) {
+            currentFile.additions++;
+          }
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          if (currentFile) {
+            currentFile.deletions++;
+          }
+        } else if (!line.startsWith('\\') && !line.startsWith('index ') && !line.startsWith('Binary')) {
+          contextLines++;
         }
-      } else if (inLockfile && currentFile) {
-        currentFile.lockfileLines++;
-      } else if (line.startsWith('@@')) {
-        if (currentFile) {
-          currentFile.hunks.push(line);
-        }
-      } else if (line.startsWith('+') && !line.startsWith('+++')) {
-        if (currentFile) {
-          currentFile.additions++;
-        }
-      } else if (line.startsWith('-') && !line.startsWith('---')) {
-        if (currentFile) {
-          currentFile.deletions++;
-        }
-      } else if (!line.startsWith('\\') && !line.startsWith('index ') && !line.startsWith('Binary')) {
-        contextLines++;
       }
-    }
-  
-    if (inLockfile && currentFile) {
-      lockfileDiffs.push(currentFile);
-    }
-  
-    
-  return ('Git diff summary:\n');
-})(), summary = `${files.length} file(s) changed.`;
-  
+
+      if (inLockfile && currentFile) {
+        lockfileDiffs.push(currentFile);
+      }
+
+      return 'Git diff summary:\n';
+    })(),
+    summary = `${files.length} file(s) changed.`;
+
   for (const file of files) {
     const isLockfile = lockfileDiffs.includes(file);
     if (isLockfile) {
@@ -85,33 +85,33 @@ function compressGitDiff({ stdout, stderr }) {
   }
 
   {
-const nonLockfiles = files.filter((f) => !lockfileDiffs.includes(f));
-  if (nonLockfiles.length > 0) {
-    output += '\nImportant hunks:\n';
-    for (const file of nonLockfiles.slice(0, 20)) {
-      output += `${file.path}\n`;
-      for (const hunk of file.hunks.slice(0, 10)) {
-        output += `${hunk}\n`;
+    const nonLockfiles = files.filter((f) => !lockfileDiffs.includes(f));
+    if (nonLockfiles.length > 0) {
+      output += '\nImportant hunks:\n';
+      for (const file of nonLockfiles.slice(0, 20)) {
+        output += `${file.path}\n`;
+        for (const hunk of file.hunks.slice(0, 10)) {
+          output += `${hunk}\n`;
+        }
       }
     }
-  }
 
-  {
-const lockfileLines = lockfileDiffs.reduce((sum, f) => sum + f.lockfileLines, 0),
-    omitted = contextLines + lockfileLines;
-  
-  if (lockfileDiffs.length > 0) {
-    summary += ` ${lockfileDiffs.length} lockfile diff(s) hidden.`;
-  }
-  summary += ` ${omitted} context/lockfile lines omitted.`;
+    {
+      const lockfileLines = lockfileDiffs.reduce((sum, f) => sum + f.lockfileLines, 0),
+        omitted = contextLines + lockfileLines;
 
-  return {
-    summary,
-    importantOutput: output.trim(),
-    omittedLines: omitted,
-  };
-}
-}
+      if (lockfileDiffs.length > 0) {
+        summary += ` ${lockfileDiffs.length} lockfile diff(s) hidden.`;
+      }
+      summary += ` ${omitted} context/lockfile lines omitted.`;
+
+      return {
+        summary,
+        importantOutput: output.trim(),
+        omittedLines: omitted,
+      };
+    }
+  }
 }
 
 module.exports = { compressGitDiff };

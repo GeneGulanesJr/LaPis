@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-const fs = require('fs'), path = require('path'), { copyHtmlGrammar } = require('./scripts/postinstall-helpers'),
+const fs = require('fs'),
+  path = require('path'),
+  { copyHtmlGrammar } = require('./scripts/postinstall-helpers'),
   root = __dirname,
   nm = (...p) => path.join(root, 'node_modules', ...p);
-
-
 
 // Copy the bundled tree-sitter-html.wasm grammar into ./grammars.
 //
@@ -96,20 +96,19 @@ const fs = require('fs'), path = require('path'), { copyHtmlGrammar } = require(
 
   let lockPath,
     lock = null,
-  lockChanged = (() => {
-
-    try {
-      lockPath = path.join(root, 'package-lock.json');
-      if (fs.existsSync(lockPath)) {
-        lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    lockChanged = (() => {
+      try {
+        lockPath = path.join(root, 'package-lock.json');
+        if (fs.existsSync(lockPath)) {
+          lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+        }
+      } catch {
+        lock = null;
       }
-    } catch {
-      lock = null;
-    }
-  
-    
-  return (false);
-})(); for (const [pkg, safe] of Object.entries(SAFE)) {
+
+      return false;
+    })();
+  for (const [pkg, safe] of Object.entries(SAFE)) {
     const safeSrc = nm(pkg),
       nestedDirs = findNestedCopies(pkg);
     if (!nestedDirs.length) {

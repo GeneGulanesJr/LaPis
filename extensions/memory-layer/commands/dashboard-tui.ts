@@ -48,7 +48,7 @@ function formatRelativeTime(isoString: string | null): string {
   }
   const diff = Date.now() - new Date(isoString).getTime(),
     days = Math.floor(diff / 86400000),
-  months = !(days === 0) && !(days === 1) && !(days < 30) ? (Math.floor(days / 30)) : undefined;
+    months = !(days === 0) && !(days === 1) && !(days < 30) ? Math.floor(days / 30) : undefined;
   if (days === 0) {
     return 'Today';
   }
@@ -89,59 +89,57 @@ export function createDashboardComponent(
       // ── Header ────────────────────────────────────────────
       titleText = 'LaPis Memory Dashboard',
       titlePad = Math.max(0, inner - titleText.length - 2),
-    o = (() => {
+      o = (() => {
+        lines.push(
+          `${dim('╭─ ') + theme.fg('accent', theme.bold(titleText))} ${dim(hr('─').slice(0, titlePad))}${dim('╮')}`,
+        );
 
-      lines.push(
-        `${dim('╭─ ') + theme.fg('accent', theme.bold(titleText))} ${dim(hr('─').slice(0, titlePad))}${dim('╮')}`,
-      );
-  
-      // ── Overview ──────────────────────────────────────────
-      
-  return (data.overview);
-})();lines.push(`${dim('│ ')}Total: ${o.totalMemories} memories across ${o.totalProjects} projects${dim('│')}`);
+        // ── Overview ──────────────────────────────────────────
+
+        return data.overview;
+      })();
+    lines.push(`${dim('│ ')}Total: ${o.totalMemories} memories across ${o.totalProjects} projects${dim('│')}`);
     lines.push(`${dim('│ ')}This Week: +${o.thisWeekSaved} saved, -${o.thisWeekCleaned} cleaned${dim('│')}`);
     const trustLabel = o.avgTrust !== null ? o.avgTrust.toFixed(2) : '—',
       recallRate =
         data.recall.totalRecalls > 0
           ? `${Math.round((data.recall.uniqueMemoriesHit / data.recall.totalRecalls) * 100)}%`
           : '—',
-    trustAlert = (() => {
+      trustAlert = (() => {
+        lines.push(`${dim('│ ')}Avg Trust: ${trustLabel}  │  Recall Hit Rate: ${recallRate}${dim('│')}`);
 
-      lines.push(`${dim('│ ')}Avg Trust: ${trustLabel}  │  Recall Hit Rate: ${recallRate}${dim('│')}`);
-  
-      // ── By Type ───────────────────────────────────────────
-      lines.push(dim('├') + hr('─') + dim('┤'));
-      lines.push(dim('│ ') + section('By Type'));
-      for (const t of data.byType) {
-        const label = t.type.padEnd(12),
-          b = bar(t.count, maxTypeCount, maxBarWidth),
-          countStr = String(t.count);
-        lines.push(`${dim('│ ')}  ${label} ${b}  ${countStr}`);
-      }
-  
-      // ── Health Alerts ─────────────────────────────────────
-      lines.push(dim('├') + hr('─') + dim('┤'));
-      lines.push(dim('│ ') + section('Health Alerts'));
-  
-      
-  return (data.trust.lowTrustCount > 0
-        ? theme.fg('warning', `⚠ Low Trust (<0.5):    ${data.trust.lowTrustCount} memories`)
-        : theme.fg('success', `✓ Low Trust (<0.5):     0 memories`));
-})();lines.push(`${dim('│ ')}  ${trustAlert}`);
+        // ── By Type ───────────────────────────────────────────
+        lines.push(dim('├') + hr('─') + dim('┤'));
+        lines.push(dim('│ ') + section('By Type'));
+        for (const t of data.byType) {
+          const label = t.type.padEnd(12),
+            b = bar(t.count, maxTypeCount, maxBarWidth),
+            countStr = String(t.count);
+          lines.push(`${dim('│ ')}  ${label} ${b}  ${countStr}`);
+        }
+
+        // ── Health Alerts ─────────────────────────────────────
+        lines.push(dim('├') + hr('─') + dim('┤'));
+        lines.push(dim('│ ') + section('Health Alerts'));
+
+        return data.trust.lowTrustCount > 0
+          ? theme.fg('warning', `⚠ Low Trust (<0.5):    ${data.trust.lowTrustCount} memories`)
+          : theme.fg('success', `✓ Low Trust (<0.5):     0 memories`);
+      })();
+    lines.push(`${dim('│ ')}  ${trustAlert}`);
 
     const recallAlert =
-      o.neverRecalled > 0
-        ? theme.fg('warning', `⚠ Never Recalled:      ${o.neverRecalled} memories`)
-        : theme.fg('success', `✓ Never Recalled:       0 memories`),
-    expiringAlert = (() => {
+        o.neverRecalled > 0
+          ? theme.fg('warning', `⚠ Never Recalled:      ${o.neverRecalled} memories`)
+          : theme.fg('success', `✓ Never Recalled:       0 memories`),
+      expiringAlert = (() => {
+        lines.push(`${dim('│ ')}  ${recallAlert}`);
 
-      lines.push(`${dim('│ ')}  ${recallAlert}`);
-  
-      
-  return (o.expiringSoon > 0
-        ? theme.fg('warning', `⏳ Expiring Soon:        ${o.expiringSoon} memories`)
-        : theme.fg('success', `✓ Expiring Soon:        0 memories`));
-})();lines.push(`${dim('│ ')}  ${expiringAlert}`);
+        return o.expiringSoon > 0
+          ? theme.fg('warning', `⏳ Expiring Soon:        ${o.expiringSoon} memories`)
+          : theme.fg('success', `✓ Expiring Soon:        0 memories`);
+      })();
+    lines.push(`${dim('│ ')}  ${expiringAlert}`);
 
     // ── Dream Cycle ───────────────────────────────────────
     lines.push(dim('├') + hr('─') + dim('┤'));

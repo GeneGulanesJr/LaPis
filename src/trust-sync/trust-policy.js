@@ -10,7 +10,9 @@ function symbolMatchesChange(symbolId, changedSymbol) {
   }
   const symbol = String(symbolId ?? ''),
     changed = String(changedSymbol ?? ''),
-  boundaryPattern = !(!symbol || !changed) ? (new RegExp(`(^|[^A-Za-z0-9_$])${escapeRegExp(changed)}($|[^A-Za-z0-9_$])`)) : undefined;
+    boundaryPattern = !(!symbol || !changed)
+      ? new RegExp(`(^|[^A-Za-z0-9_$])${escapeRegExp(changed)}($|[^A-Za-z0-9_$])`)
+      : undefined;
   if (!symbol || !changed) {
     return false;
   }

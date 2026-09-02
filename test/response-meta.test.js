@@ -9,8 +9,9 @@ describe('response-meta.js', () => {
   describe('checkFreshness', () => {
     it('should return fresh for current git repo with matching head', () => {
       // The PiMemoryExtension repo itself should be a valid git repo
-      const repoPath = require('path').resolve(__dirname, '..'), { execSync } = require('child_process');
-      
+      const repoPath = require('path').resolve(__dirname, '..'),
+        { execSync } = require('child_process');
+
       let head;
       try {
         head = execSync('git rev-parse HEAD', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
@@ -40,8 +41,9 @@ describe('response-meta.js', () => {
     });
 
     it('should return stale_index for null head_commit', () => {
-      const repoPath = require('path').resolve(__dirname, '..'), fs = require('fs');
-      
+      const repoPath = require('path').resolve(__dirname, '..'),
+        fs = require('fs');
+
       if (!fs.existsSync(require('path').join(repoPath, '.git'))) {
         return;
       }
@@ -53,8 +55,9 @@ describe('response-meta.js', () => {
 
   describe('getFreshness (cached)', () => {
     it('should cache results for 60 seconds', () => {
-      const repoPath = require('path').resolve(__dirname, '..'), fs = require('fs');
-      
+      const repoPath = require('path').resolve(__dirname, '..'),
+        fs = require('fs');
+
       if (!fs.existsSync(require('path').join(repoPath, '.git'))) {
         return;
       }

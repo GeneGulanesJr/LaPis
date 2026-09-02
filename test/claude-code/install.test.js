@@ -1,15 +1,14 @@
-const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), install = require('../../src/claude-code/install'),
-  { runInstall } = install, { runUninstall } = require('../../src/claude-code/uninstall'), doctor = require('../../src/claude-code/doctor'), { parseRoleFilter } = require('../../src/claude-code/hooks'), { handlePostToolUse } = require('../../src/claude-code/handlers/post-tool-use'), realStateStore = require('../../src/claude-code/state-store'), { postToolRole, preToolRole, mcpToolName } = require('../../src/claude-code/tool-map');
-
-
-
-
-
-
-
-
-
-
+const fs = require('node:fs'),
+  path = require('node:path'),
+  os = require('node:os'),
+  install = require('../../src/claude-code/install'),
+  { runInstall } = install,
+  { runUninstall } = require('../../src/claude-code/uninstall'),
+  doctor = require('../../src/claude-code/doctor'),
+  { parseRoleFilter } = require('../../src/claude-code/hooks'),
+  { handlePostToolUse } = require('../../src/claude-code/handlers/post-tool-use'),
+  realStateStore = require('../../src/claude-code/state-store'),
+  { postToolRole, preToolRole, mcpToolName } = require('../../src/claude-code/tool-map');
 
 // ---- helpers ----
 
@@ -17,13 +16,13 @@ function makeIo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-cc-install-')),
     cwd = path.join(root, 'project'),
     home = path.join(root, 'home'),
-  lines = (() => {
+    lines = (() => {
+      fs.mkdirSync(cwd, { recursive: true });
+      fs.mkdirSync(home, { recursive: true });
 
-    fs.mkdirSync(cwd, { recursive: true });
-    fs.mkdirSync(home, { recursive: true });
-    
-  return ([]);
-})();return { cwd, home, log: (l) => lines.push(l), lines, root };
+      return [];
+    })();
+  return { cwd, home, log: (l) => lines.push(l), lines, root };
 }
 
 function readJson(file) {
@@ -102,24 +101,23 @@ describe('claude-code install: default (npx, project scope)', () => {
   test('heavy handlers are async: Stop, and the PostToolUse git-trust split', async () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json')),
       stop = allHandlers(settings, 'Stop'),
-    post = (() => {
+      post = (() => {
+        expect(stop).toHaveLength(1);
+        expect(stop[0].async).toBe(true);
 
-      expect(stop).toHaveLength(1);
-      expect(stop[0].async).toBe(true);
-  
-      
-  return (allHandlers(settings, 'PostToolUse'));
-})();expect(post).toHaveLength(2);
+        return allHandlers(settings, 'PostToolUse');
+      })();
+    expect(post).toHaveLength(2);
     {
-const sync = post.find((h) => !h.async),
-      asyncH = post.find((h) => h.async);
-    expect(sync.args.slice(5)).toEqual(['--skip', 'git-trust']);
-    expect(asyncH.args.slice(5)).toEqual(['--only', 'git-trust']);
-    // No `if` prefix rule on git-trust: GIT_TRUST_OP_RE classifies compound
-    // Commands like `cd repo && git pull` (#225).
-    expect(asyncH.if).toBeUndefined();
-  }
-});
+      const sync = post.find((h) => !h.async),
+        asyncH = post.find((h) => h.async);
+      expect(sync.args.slice(5)).toEqual(['--skip', 'git-trust']);
+      expect(asyncH.args.slice(5)).toEqual(['--only', 'git-trust']);
+      // No `if` prefix rule on git-trust: GIT_TRUST_OP_RE classifies compound
+      // Commands like `cd repo && git pull` (#225).
+      expect(asyncH.if).toBeUndefined();
+    }
+  });
 
   test('CLAUDE.md protocol block is written between delimiters', async () => {
     const md = fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8');
@@ -143,18 +141,18 @@ describe('claude-code install: idempotency', () => {
     const io = makeIo();
     await runInstall(['--auto-allow'], io);
     {
-const settingsPath = path.join(io.cwd, '.claude', 'settings.json'),
-      mcpPath = path.join(io.cwd, '.mcp.json'),
-      firstSettings = fs.readFileSync(settingsPath, 'utf8'),
-      firstMcp = fs.readFileSync(mcpPath, 'utf8'),
-      firstMd = fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8');
+      const settingsPath = path.join(io.cwd, '.claude', 'settings.json'),
+        mcpPath = path.join(io.cwd, '.mcp.json'),
+        firstSettings = fs.readFileSync(settingsPath, 'utf8'),
+        firstMcp = fs.readFileSync(mcpPath, 'utf8'),
+        firstMd = fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8');
 
-    await runInstall(['--auto-allow'], io);
-    expect(fs.readFileSync(settingsPath, 'utf8')).toBe(firstSettings);
-    expect(fs.readFileSync(mcpPath, 'utf8')).toBe(firstMcp);
-    expect(fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8')).toBe(firstMd);
-  }
-});
+      await runInstall(['--auto-allow'], io);
+      expect(fs.readFileSync(settingsPath, 'utf8')).toBe(firstSettings);
+      expect(fs.readFileSync(mcpPath, 'utf8')).toBe(firstMcp);
+      expect(fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8')).toBe(firstMd);
+    }
+  });
 
   test('renaming via --mcp-name removes the stale same-command entry (dedupe by command string)', async () => {
     const io = makeIo();
@@ -182,14 +180,13 @@ describe('claude-code install: --global', () => {
     await runInstall(['--global'], io);
 
     const claudeJson = readJson(path.join(io.home, '.claude.json')),
-    settings = (() => {
+      settings = (() => {
+        expect(claudeJson.mcpServers.lapis.command).toBe('npx');
+        expect(claudeJson.projects).toBeUndefined();
 
-      expect(claudeJson.mcpServers.lapis.command).toBe('npx');
-      expect(claudeJson.projects).toBeUndefined();
-  
-      
-  return (readJson(path.join(io.home, '.claude', 'settings.json')));
-})();expect(settings.hooks.SessionStart).toBeDefined();
+        return readJson(path.join(io.home, '.claude', 'settings.json'));
+      })();
+    expect(settings.hooks.SessionStart).toBeDefined();
 
     // Project-scoped files stay untouched.
     expect(fs.existsSync(path.join(io.cwd, '.mcp.json'))).toBe(false);
@@ -219,14 +216,13 @@ describe('claude-code install: machine-specific --bin', () => {
 
     const local = readJson(path.join(io.cwd, '.claude', 'settings.local.json')),
       handler = local.hooks.SessionStart[0].hooks[0],
-    claudeJson = (() => {
+      claudeJson = (() => {
+        expect(handler.command).toBe('node');
+        expect(handler.args[0]).toBe(bin);
 
-      expect(handler.command).toBe('node');
-      expect(handler.args[0]).toBe(bin);
-  
-      
-  return (readJson(path.join(io.home, '.claude.json')));
-})();expect(claudeJson.mcpServers).toBeUndefined(); // Not user scope
+        return readJson(path.join(io.home, '.claude.json'));
+      })();
+    expect(claudeJson.mcpServers).toBeUndefined(); // Not user scope
     expect(claudeJson.projects[io.cwd].mcpServers.lapis).toEqual({
       command: 'node',
       args: [bin, 'mcp'],
@@ -243,26 +239,26 @@ describe('claude-code install: machine-specific --bin', () => {
 
     const local = readJson(path.join(io.cwd, '.claude', 'settings.local.json')),
       handler = local.hooks.SessionStart[0].hooks[0],
-    claudeJson = (() => {
+      claudeJson = (() => {
+        expect(handler.args[0]).toBe('${CLAUDE_PROJECT_DIR}/vendor/lapis/memory-store.js');
 
-      expect(handler.args[0]).toBe('${CLAUDE_PROJECT_DIR}/vendor/lapis/memory-store.js');
-  
-      // MCP servers do not receive CLAUDE_PROJECT_DIR → absolute path there.
-      
-  return (readJson(path.join(io.home, '.claude.json')));
-})();expect(claudeJson.projects[io.cwd].mcpServers.lapis.args[0]).toBe(bin);
+        // MCP servers do not receive CLAUDE_PROJECT_DIR → absolute path there.
+
+        return readJson(path.join(io.home, '.claude.json'));
+      })();
+    expect(claudeJson.projects[io.cwd].mcpServers.lapis.args[0]).toBe(bin);
   });
 
   test('a bare --bin name is treated as PATH-relative (committable global-bin mode)', async () => {
     const io = makeIo();
     await runInstall(['--bin', 'lapis'], io);
     const mcp = readJson(path.join(io.cwd, '.mcp.json')),
-    settings = (() => {
+      settings = (() => {
+        expect(mcp.mcpServers.lapis).toEqual({ command: 'lapis', args: ['mcp'] });
 
-      expect(mcp.mcpServers.lapis).toEqual({ command: 'lapis', args: ['mcp'] });
-      
-  return (readJson(path.join(io.cwd, '.claude', 'settings.json')));
-})();expect(settings.hooks.SessionStart[0].hooks[0].command).toBe('lapis');
+        return readJson(path.join(io.cwd, '.claude', 'settings.json'));
+      })();
+    expect(settings.hooks.SessionStart[0].hooks[0].command).toBe('lapis');
   });
 });
 
@@ -296,14 +292,15 @@ describe('claude-code install: optional flags', () => {
   });
 
   test('--daemon invokes detached daemon start with --daemon-port', async () => {
-    const io = makeIo(), daemonMod = require('../../src/claude-code/daemon'),
+    const io = makeIo(),
+      daemonMod = require('../../src/claude-code/daemon'),
       startSpy = vi.spyOn(daemonMod, 'runStart').mockResolvedValue({
         pid: 12345,
         port: 9200,
         host: '127.0.0.1',
       }),
       result = await runInstall(['--daemon', '--daemon-port', '9200'], io);
-    
+
     expect(startSpy).toHaveBeenCalledWith(['--detached', '--port', '9200'], io);
     expect(result.daemon.port).toBe(9200);
     expect(io.lines.some((l) => l.includes('daemon dispatch'))).toBe(true);
@@ -343,26 +340,24 @@ describe('claude-code install: leaves unrelated config intact', () => {
     await runInstall(['--auto-allow'], io);
 
     const mcp = readJson(path.join(io.cwd, '.mcp.json')),
-    settings = (() => {
+      settings = (() => {
+        expect(mcp.mcpServers.other).toEqual({ command: 'other-tool', args: ['serve'] });
+        expect(mcp.mcpServers.lapis).toBeDefined();
 
-      expect(mcp.mcpServers.other).toEqual({ command: 'other-tool', args: ['serve'] });
-      expect(mcp.mcpServers.lapis).toBeDefined();
-  
-      
-  return (readJson(path.join(io.cwd, '.claude', 'settings.json')));
-})();expect(settings.model).toBe('opus');
+        return readJson(path.join(io.cwd, '.claude', 'settings.json'));
+      })();
+    expect(settings.model).toBe('opus');
     expect(settings.permissions.allow).toEqual(['Bash(npm test)', 'mcp__lapis__*']);
     const preGroups = settings.hooks.PreToolUse,
-    md = (() => {
+      md = (() => {
+        expect(preGroups[0]).toEqual({
+          matcher: 'Write',
+          hooks: [{ type: 'command', command: 'my-linter', args: [] }],
+        });
 
-      expect(preGroups[0]).toEqual({
-        matcher: 'Write',
-        hooks: [{ type: 'command', command: 'my-linter', args: [] }],
-      });
-  
-      
-  return (fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8'));
-})();expect(md).toContain('# My project notes');
+        return fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8');
+      })();
+    expect(md).toContain('# My project notes');
     expect(md).toContain('<!-- lapis:start -->');
   });
 
@@ -373,25 +368,23 @@ describe('claude-code install: leaves unrelated config intact', () => {
     await runUninstall([], io);
 
     const mcp = readJson(path.join(io.cwd, '.mcp.json')),
-    settings = (() => {
+      settings = (() => {
+        expect(mcp).toEqual({ mcpServers: { other: { command: 'other-tool', args: ['serve'] } } });
 
-      expect(mcp).toEqual({ mcpServers: { other: { command: 'other-tool', args: ['serve'] } } });
-  
-      
-  return (readJson(path.join(io.cwd, '.claude', 'settings.json')));
-})(),
-    md = (() => {
-expect(settings).toEqual({
-        model: 'opus',
-        permissions: { allow: ['Bash(npm test)'] },
-        hooks: {
-          PreToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'my-linter', args: [] }] }],
-        },
-      });
-  
-      
-  return (fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8'));
-})();expect(md).toContain('# My project notes');
+        return readJson(path.join(io.cwd, '.claude', 'settings.json'));
+      })(),
+      md = (() => {
+        expect(settings).toEqual({
+          model: 'opus',
+          permissions: { allow: ['Bash(npm test)'] },
+          hooks: {
+            PreToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'my-linter', args: [] }] }],
+          },
+        });
+
+        return fs.readFileSync(path.join(io.cwd, '.claude', 'CLAUDE.md'), 'utf8');
+      })();
+    expect(md).toContain('# My project notes');
     expect(md).not.toContain('<!-- lapis:start -->');
   });
 
@@ -436,12 +429,12 @@ expect(settings).toEqual({
         projects: { '/other/project': { allowedTools: ['Bash'], history: [{ display: 'hi' }] } },
         mcpServers: { linear: { type: 'http', url: 'https://mcp.linear.app/sse' } },
       },
-    bin = (() => {
+      bin = (() => {
+        fs.writeFileSync(claudeJsonPath, JSON.stringify(foreign), 'utf8');
 
-      fs.writeFileSync(claudeJsonPath, JSON.stringify(foreign), 'utf8');
-      
-  return (path.join(io.root, 'clone', 'memory-store.js'));
-})();fs.mkdirSync(path.dirname(bin), { recursive: true });
+        return path.join(io.root, 'clone', 'memory-store.js');
+      })();
+    fs.mkdirSync(path.dirname(bin), { recursive: true });
     fs.writeFileSync(bin, '// stub', 'utf8');
 
     await runInstall(['--bin', bin], io);
@@ -539,14 +532,14 @@ describe('claude-code uninstall', () => {
 
   test('stops the daemon when a lockfile is present', async () => {
     const io = makeIo(),
-      lockfilePath = path.join(io.root, 'claude-daemon.json'), daemonMod = require('../../src/claude-code/daemon'),
-    stopSpy = (() => {
+      lockfilePath = path.join(io.root, 'claude-daemon.json'),
+      daemonMod = require('../../src/claude-code/daemon'),
+      stopSpy = (() => {
+        daemonMod.writeLockfile({ pid: 999999999, port: 9100, host: '127.0.0.1' }, lockfilePath);
 
-      daemonMod.writeLockfile({ pid: 999999999, port: 9100, host: '127.0.0.1' }, lockfilePath);
-      
-  return (vi.spyOn(daemonMod, 'runStop').mockResolvedValue({ stopped: true }));
-})();
-     await runInstall([], io);
+        return vi.spyOn(daemonMod, 'runStop').mockResolvedValue({ stopped: true });
+      })();
+    await runInstall([], io);
     await runUninstall([], { ...io, lockfilePath });
 
     expect(stopSpy).toHaveBeenCalledWith([], expect.objectContaining({ lockfilePath }));
@@ -601,12 +594,12 @@ describe('claude-code doctor', () => {
   test('fails with guidance when nothing is installed', async () => {
     const io = makeIo(),
       { ok, checks } = doctor.runDoctor([], makeDoctorIo(io)),
-    mcpCheck = (() => {
+      mcpCheck = (() => {
+        expect(ok).toBe(false);
 
-      expect(ok).toBe(false);
-      
-  return (checks.find((c) => c.name === 'MCP server config'));
-})();expect(mcpCheck.ok).toBe(false);
+        return checks.find((c) => c.name === 'MCP server config');
+      })();
+    expect(mcpCheck.ok).toBe(false);
     expect(mcpCheck.detail).toContain('lapis claude-code install');
     expect(checks.find((c) => c.name === 'hooks config').ok).toBe(false);
   });
@@ -757,14 +750,15 @@ describe('claude-code hook role filter', () => {
   });
 
   test('the git-trust role never writes state back (async handler must not clobber concurrent saves)', async () => {
-    const stateStore = makeStateStore(), originalSave = stateStore.saveState;
+    const stateStore = makeStateStore(),
+      originalSave = stateStore.saveState;
     // Simulate the synchronous handler having already recorded an edit.
     stateStore.saveState('s3', {
       ...realStateStore.defaultState(),
       editedFiles: ['/proj/from-sync-handler.js'],
     });
     let saves = 0;
-    
+
     stateStore.saveState = (id, s) => {
       saves++;
       originalSave(id, s);
@@ -801,10 +795,10 @@ describe('claude-code hook role filter', () => {
       stateStore,
     });
     {
-const ids = stateStore._peek('s4').pendingRecallFeedback.map(([id]) => id);
-    expect(ids).toEqual([12, 34]);
-  }
-});
+      const ids = stateStore._peek('s4').pendingRecallFeedback.map(([id]) => id);
+      expect(ids).toEqual([12, 34]);
+    }
+  });
 });
 
 // =====================================================================
@@ -823,17 +817,17 @@ describe('claude-code install: CLAUDE.md symlink safety', () => {
   function makeSymlinkRoot() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-cc-symlink-')),
       claudeDir = path.join(root, '.claude'),
-    target = (() => {
+      target = (() => {
+        fs.mkdirSync(claudeDir, { recursive: true });
 
-      fs.mkdirSync(claudeDir, { recursive: true });
-      
-  return (path.join(root, 'victim.txt'));
-})(),
-    md = (() => {
-fs.writeFileSync(target, 'victim-contents-before\n', 'utf8');
-      
-  return (path.join(claudeDir, 'CLAUDE.md'));
-})();fs.symlinkSync(target, md);
+        return path.join(root, 'victim.txt');
+      })(),
+      md = (() => {
+        fs.writeFileSync(target, 'victim-contents-before\n', 'utf8');
+
+        return path.join(claudeDir, 'CLAUDE.md');
+      })();
+    fs.symlinkSync(target, md);
     return { root, claudeDir, target, md };
   }
 
@@ -867,41 +861,40 @@ fs.writeFileSync(target, 'victim-contents-before\n', 'utf8');
   test('upsert then remove round-trips on a regular file (no symlink regression)', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-cc-md-')),
       md = path.join(root, 'CLAUDE.md'),
-    removed = (() => {
+      removed = (() => {
+        fs.writeFileSync(md, '# My project notes\n\nKeep these.\n', 'utf8');
 
-      fs.writeFileSync(md, '# My project notes\n\nKeep these.\n', 'utf8');
-  
-      upsertClaudeMdBlock(md, claudeMdBlock('lapis'));
-      expect(fs.readFileSync(md, 'utf8')).toContain('# My project notes');
-      expect(fs.readFileSync(md, 'utf8')).toContain('<!-- lapis:start -->');
-  
-      
-  return (removeClaudeMdBlock(md));
-})(),
-    after = (() => {
-expect(removed).toBe(true);
-      // Surrounding prose is preserved, the block is gone.
-      
-  return (fs.readFileSync(md, 'utf8'));
-})();expect(after).toContain('# My project notes');
+        upsertClaudeMdBlock(md, claudeMdBlock('lapis'));
+        expect(fs.readFileSync(md, 'utf8')).toContain('# My project notes');
+        expect(fs.readFileSync(md, 'utf8')).toContain('<!-- lapis:start -->');
+
+        return removeClaudeMdBlock(md);
+      })(),
+      after = (() => {
+        expect(removed).toBe(true);
+        // Surrounding prose is preserved, the block is gone.
+
+        return fs.readFileSync(md, 'utf8');
+      })();
+    expect(after).toContain('# My project notes');
     expect(after).not.toContain('<!-- lapis:start -->');
   });
 
   test('full install over a symlinked .claude/CLAUDE.md does not corrupt the target', async () => {
     const io = makeIo(),
       target = path.join(io.root, 'victim.txt'),
-    md = (() => {
+      md = (() => {
+        fs.writeFileSync(target, 'victim-contents-before\n', 'utf8');
 
-      fs.writeFileSync(target, 'victim-contents-before\n', 'utf8');
-      
-  return (path.join(io.cwd, '.claude', 'CLAUDE.md'));
-})(),
-    before = (() => {
-fs.mkdirSync(path.dirname(md), { recursive: true });
-      fs.symlinkSync(target, md);
-      
-  return (fs.readFileSync(target, 'utf8'));
-})(); await runInstall([], io);
+        return path.join(io.cwd, '.claude', 'CLAUDE.md');
+      })(),
+      before = (() => {
+        fs.mkdirSync(path.dirname(md), { recursive: true });
+        fs.symlinkSync(target, md);
+
+        return fs.readFileSync(target, 'utf8');
+      })();
+    await runInstall([], io);
 
     // Victim untouched, CLAUDE.md is now a regular file with the protocol block.
     expect(fs.readFileSync(target, 'utf8')).toBe(before);

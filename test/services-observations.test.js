@@ -209,13 +209,13 @@ describe('services/observations', () => {
         deps = { jsonErrNoExit, insertCapturePassiveObservation, findLatestSession },
         longItem = 'a'.repeat(CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH + 50),
         content = `## Key Learnings:\n\n- ${longItem}`,
-      call = (() => {
+        call = (() => {
+          obsService.capturePassive(deps, { content });
+          expect(insertCapturePassiveObservation).toHaveBeenCalled();
 
-        obsService.capturePassive(deps, { content });
-        expect(insertCapturePassiveObservation).toHaveBeenCalled();
-        
-  return (insertCapturePassiveObservation.mock.calls[0][0]);
-})();expect(call.summary.length).toBeLessThanOrEqual(CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH);
+          return insertCapturePassiveObservation.mock.calls[0][0];
+        })();
+      expect(call.summary.length).toBeLessThanOrEqual(CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH);
     });
   });
 });

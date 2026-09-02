@@ -36,27 +36,27 @@ function ensureIndexed(deps: GuardrailsDeps, resolvedCwd: string, projectName: s
     return pending;
   }
   {
-const promise = (async (): Promise<IndexResult | null> => {
-    try {
-      const result = await deps.memStreaming('index-repo', { path: resolvedCwd, name: projectName });
-      if (!result) {
-        return null;
+    const promise = (async (): Promise<IndexResult | null> => {
+      try {
+        const result = await deps.memStreaming('index-repo', { path: resolvedCwd, name: projectName });
+        if (!result) {
+          return null;
+        }
+        if (result.error) {
+          return { ok: false, summary: `Indexing error: ${result.error}` };
+        }
+        deps.invalidateRepoCache();
+        const summary = (result as any).summary || '';
+        return { ok: true, summary };
+      } catch (e) {
+        return { ok: false, summary: `Indexing failed: ${e instanceof Error ? e.message : String(e)}` };
+      } finally {
+        activeIndexing.delete(key);
       }
-      if (result.error) {
-        return { ok: false, summary: `Indexing error: ${result.error}` };
-      }
-      deps.invalidateRepoCache();
-      const summary = (result as any).summary || '';
-      return { ok: true, summary };
-    } catch (e) {
-      return { ok: false, summary: `Indexing failed: ${e instanceof Error ? e.message : String(e)}` };
-    } finally {
-      activeIndexing.delete(key);
-    }
-  })();
-  activeIndexing.set(key, promise);
-  return promise;
-}
+    })();
+    activeIndexing.set(key, promise);
+    return promise;
+  }
 }
 
 export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
@@ -208,27 +208,27 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
       }
 
       {
-const fileBase = path.basename(filePath).toLowerCase(),
-        relPath = path.relative(matchedRepo.path, absPath).toLowerCase();
-      if (
-        deps.state.exploredFiles.has(fileBase) ||
-        deps.state.exploredFiles.has(relPath) ||
-        deps.state.exploredFiles.has(absPath.toLowerCase())
-      ) {
-        return;
-      }
+        const fileBase = path.basename(filePath).toLowerCase(),
+          relPath = path.relative(matchedRepo.path, absPath).toLowerCase();
+        if (
+          deps.state.exploredFiles.has(fileBase) ||
+          deps.state.exploredFiles.has(relPath) ||
+          deps.state.exploredFiles.has(absPath.toLowerCase())
+        ) {
+          return;
+        }
 
-      return {
-        block: true,
-        reason:
-          `Use \`memory-code\` first to understand "${path.basename(filePath)}" before reading it:\n` +
-          `• \`memory-code outline --repo ${matchedRepo.name} --file ${relPath || path.basename(filePath)}\` — file structure & symbols\n` +
-          `• \`memory-code callers --repo ${matchedRepo.name} --symbol <name>\` — who calls what\n` +
-          `• \`memory-code deps --repo ${matchedRepo.name}\` — dependency graph\n` +
-          `After reviewing the outline, use \`read\` with \`offset\`/\`limit\` for targeted editing.`,
-      };
+        return {
+          block: true,
+          reason:
+            `Use \`memory-code\` first to understand "${path.basename(filePath)}" before reading it:\n` +
+            `• \`memory-code outline --repo ${matchedRepo.name} --file ${relPath || path.basename(filePath)}\` — file structure & symbols\n` +
+            `• \`memory-code callers --repo ${matchedRepo.name} --symbol <name>\` — who calls what\n` +
+            `• \`memory-code deps --repo ${matchedRepo.name}\` — dependency graph\n` +
+            `After reviewing the outline, use \`read\` with \`offset\`/\`limit\` for targeted editing.`,
+        };
+      }
     }
-}
   });
 
   // Track explored files from memory-code results (callers, deps, importance, etc.)

@@ -1,7 +1,7 @@
-const path = require('path'), fs = require('fs'), { execSync } = require('child_process'),
+const path = require('path'),
+  fs = require('fs'),
+  { execSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', '..', 'memory-store.js');
-
-
 
 function run(cmd, timeout = 30000) {
   const out = execSync(`node "${STORE}" ${cmd}`, {
@@ -68,21 +68,21 @@ function sendWelcomeEmail(user) {
     expect(symbols.results.length).toBeGreaterThan(0);
     // Look up the symbol by name and file to get its DB id
     {
-const sym = symbols.results[0],
-      // outline the file to get symbol IDs
-      outline = run(`outline --repo ${repoName} --file ${sym.file}`),
-      match =
-        outline.files?.[0]?.classes?.[0]?.methods?.find((m) => m.name === sym.symbol) ||
-        outline.files?.[0]?.standalone?.find((s) => s.name === sym.symbol);
-    if (match && match.id) {
-      const meta = run(`symbol-meta --symbol-id ${match.id}`);
-      expect(meta).not.toBeNull();
-      expect(meta.intent).toBeDefined();
-      expect(typeof meta.intent).toBe('string');
-      expect(meta.intent.length).toBeGreaterThan(0);
+      const sym = symbols.results[0],
+        // outline the file to get symbol IDs
+        outline = run(`outline --repo ${repoName} --file ${sym.file}`),
+        match =
+          outline.files?.[0]?.classes?.[0]?.methods?.find((m) => m.name === sym.symbol) ||
+          outline.files?.[0]?.standalone?.find((s) => s.name === sym.symbol);
+      if (match && match.id) {
+        const meta = run(`symbol-meta --symbol-id ${match.id}`);
+        expect(meta).not.toBeNull();
+        expect(meta.intent).toBeDefined();
+        expect(typeof meta.intent).toBe('string');
+        expect(meta.intent.length).toBeGreaterThan(0);
+      }
     }
-  }
-});
+  });
 
   it('reports enrichment statistics', () => {
     const result = run(`enrich-symbols --repo ${repoName}`);

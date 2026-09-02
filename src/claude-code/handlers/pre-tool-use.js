@@ -22,21 +22,21 @@
  * (for search) guidance to index manually.
  */
 
-const path = require('node:path'), { isCodeFile } = require('../../code-index/scanner'), { resolveIndexedRepo, normalizeRepoPath } = require('../../hooks-engine/project'), { resolveProjectForCwd } = require('../project-resolve'), {
-  isPipedOutputFilter,
-  isTargetedSymbolLookup,
-  isTargetedGrepLookup,
-  isBroadGlob,
-  CONFIG_FILENAMES,
-  RAW_CODE_DISCOVERY_RE,
-  CODE_PATH_HINT_RE,
-} = require('../../hooks-engine/guardrail-utils'), { preToolRole } = require('../tool-map'), { addNormalized, normalizePathForCompare } = require('../file-keys');
-
-
-
-
-
-
+const path = require('node:path'),
+  { isCodeFile } = require('../../code-index/scanner'),
+  { resolveIndexedRepo, normalizeRepoPath } = require('../../hooks-engine/project'),
+  { resolveProjectForCwd } = require('../project-resolve'),
+  {
+    isPipedOutputFilter,
+    isTargetedSymbolLookup,
+    isTargetedGrepLookup,
+    isBroadGlob,
+    CONFIG_FILENAMES,
+    RAW_CODE_DISCOVERY_RE,
+    CODE_PATH_HINT_RE,
+  } = require('../../hooks-engine/guardrail-utils'),
+  { preToolRole } = require('../tool-map'),
+  { addNormalized, normalizePathForCompare } = require('../file-keys');
 
 /** Build the PreToolUse deny envelope. */
 function deny(reason) {
@@ -80,54 +80,54 @@ function readGuardrail({ input, repos, cwd, state }) {
     return null;
   }
   {
-const basename = path.basename(filePath);
-  if (CONFIG_FILENAMES.has(basename)) {
-    return null;
-  }
-  if (filePath.includes('node_modules')) {
-    return null;
-  }
+    const basename = path.basename(filePath);
+    if (CONFIG_FILENAMES.has(basename)) {
+      return null;
+    }
+    if (filePath.includes('node_modules')) {
+      return null;
+    }
 
-  {
-const absPath = path.resolve(cwd, filePath),
-    absNorm = normalizeRepoPath(absPath),
-    cwdNorm = normalizeRepoPath(cwd);
-  // Cross-project reads (outside cwd) bypass the outline guard.
-  if (absNorm !== cwdNorm && !absNorm.startsWith(`${cwdNorm}/`)) {
-    return null;
-  }
+    {
+      const absPath = path.resolve(cwd, filePath),
+        absNorm = normalizeRepoPath(absPath),
+        cwdNorm = normalizeRepoPath(cwd);
+      // Cross-project reads (outside cwd) bypass the outline guard.
+      if (absNorm !== cwdNorm && !absNorm.startsWith(`${cwdNorm}/`)) {
+        return null;
+      }
 
-  {
-const matchedRepo = repos.find((r) => {
-    const rp = normalizeRepoPath(r.path);
-    return absNorm === rp || absNorm.startsWith(`${rp}/`);
-  });
-  // Deferred auto-index: an unindexed project is allowed through (no outline to
-  // Point at, and indexing inline would blow the hook timeout).
-  if (!matchedRepo) {
-    return null;
-  }
+      {
+        const matchedRepo = repos.find((r) => {
+          const rp = normalizeRepoPath(r.path);
+          return absNorm === rp || absNorm.startsWith(`${rp}/`);
+        });
+        // Deferred auto-index: an unindexed project is allowed through (no outline to
+        // Point at, and indexing inline would blow the hook timeout).
+        if (!matchedRepo) {
+          return null;
+        }
 
-  {
-const relPath = normalizePathForCompare(path.relative(matchedRepo.path, absPath)),
-    explored = Array.isArray(state.exploredFiles) ? state.exploredFiles : [],
-    exploredNorm = explored.map(normalizePathForCompare),
-    basenameNorm = basename.toLowerCase();
-  if (exploredNorm.includes(basenameNorm) || exploredNorm.includes(relPath) || exploredNorm.includes(absNorm)) {
-    return null;
-  }
+        {
+          const relPath = normalizePathForCompare(path.relative(matchedRepo.path, absPath)),
+            explored = Array.isArray(state.exploredFiles) ? state.exploredFiles : [],
+            exploredNorm = explored.map(normalizePathForCompare),
+            basenameNorm = basename.toLowerCase();
+          if (exploredNorm.includes(basenameNorm) || exploredNorm.includes(relPath) || exploredNorm.includes(absNorm)) {
+            return null;
+          }
 
-  return deny(
-    `Use \`memory-code\` first to understand "${basename}" before reading it:\n` +
-      `• \`memory-code outline --repo ${matchedRepo.name} --file ${relPath || basename}\` — file structure & symbols\n` +
-      `• \`memory-code callers --repo ${matchedRepo.name} --symbol <name>\` — who calls what\n` +
-      `• \`memory-code deps --repo ${matchedRepo.name}\` — dependency graph\n` +
-      `After reviewing the outline, use \`read\` with \`offset\`/\`limit\` for targeted editing.`,
-  );
-}
-}
-}
-}
+          return deny(
+            `Use \`memory-code\` first to understand "${basename}" before reading it:\n` +
+              `• \`memory-code outline --repo ${matchedRepo.name} --file ${relPath || basename}\` — file structure & symbols\n` +
+              `• \`memory-code callers --repo ${matchedRepo.name} --symbol <name>\` — who calls what\n` +
+              `• \`memory-code deps --repo ${matchedRepo.name}\` — dependency graph\n` +
+              `After reviewing the outline, use \`read\` with \`offset\`/\`limit\` for targeted editing.`,
+          );
+        }
+      }
+    }
+  }
 }
 
 function searchGuardrail({ input, repos, cwd, state }) {
@@ -184,26 +184,25 @@ function bashGuardrail({ input, repos, cwd, state }) {
     return null;
   }
   {
-const searchHint = CODE_PATH_HINT_RE.test(cmd) ? 'Code search' : 'Raw repository search';
-  return deny(
-    `${searchHint} detected in indexed repo "${repo.name}". Use \`memory-code\` instead:\n` +
-      `• \`memory-code search --repo ${repo.name} --query <query>\` — find code symbols\n` +
-      `• \`memory-code outline --repo ${repo.name} --file <path>\` — file structure\n` +
-      `• \`memory-code callers --repo ${repo.name} --symbol <name>\` — call hierarchy\n` +
-      `• \`memory-code deps --repo ${repo.name}\` — dependency graph`,
-  );
-}
+    const searchHint = CODE_PATH_HINT_RE.test(cmd) ? 'Code search' : 'Raw repository search';
+    return deny(
+      `${searchHint} detected in indexed repo "${repo.name}". Use \`memory-code\` instead:\n` +
+        `• \`memory-code search --repo ${repo.name} --query <query>\` — find code symbols\n` +
+        `• \`memory-code outline --repo ${repo.name} --file <path>\` — file structure\n` +
+        `• \`memory-code callers --repo ${repo.name} --symbol <name>\` — call hierarchy\n` +
+        `• \`memory-code deps --repo ${repo.name}\` — dependency graph`,
+    );
+  }
 }
 
 async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stateStore }) {
   const toolName = payload.tool_name,
-    role = preToolRole(toolName), input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
+    role = preToolRole(toolName),
+    input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
     claudeSessionId = payload.session_id;
   if (!role) {
     return null;
   }
-
-  
 
   // Memory-tool cadence bookkeeping (state mutations Pi's tool_call hook does).
   // Routed through mutateState so a parallel memory-* tool can't lose the
@@ -229,15 +228,14 @@ async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stat
 
   const { resolvedCwd: cwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
     state = stateStore.loadState(claudeSessionId),
-  args = (() => {
+    args = (() => {
+      if (!state.currentProject) {
+        state.currentProject = project;
+      }
 
-    if (!state.currentProject) {
-      state.currentProject = project;
-    }
-  
-    
-  return ({ input, repos, cwd, state });
-})();switch (role) {
+      return { input, repos, cwd, state };
+    })();
+  switch (role) {
     case 'read-guardrail':
       return readGuardrail(args);
     case 'search-guardrail':

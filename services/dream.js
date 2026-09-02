@@ -1,5 +1,5 @@
-const { sqlJson, sqlRun, sqlRaw, jsonErrNoExit } = require('../db'), compactionDomain = require('../src/memory-domain/compaction');
-
+const { sqlJson, sqlRun, sqlRaw, jsonErrNoExit } = require('../db'),
+  compactionDomain = require('../src/memory-domain/compaction');
 
 function defaultDeps() {
   return { sqlJson, sqlRun, sqlRaw, jsonErrNoExit };

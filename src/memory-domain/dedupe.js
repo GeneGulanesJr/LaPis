@@ -1,5 +1,5 @@
-const { DEDUP, RESULT_LIMITS } = require('../../constants'), { getConfig } = require('../../config');
-
+const { DEDUP, RESULT_LIMITS } = require('../../constants'),
+  { getConfig } = require('../../config');
 
 function trigramOverlap(a, b) {
   const trigrams = (s) => {
@@ -28,14 +28,15 @@ function trigramOverlap(a, b) {
 }
 
 function checkDuplicate(deps, title, type, project, topicKey) {
-  const { sqlJson } = deps, params = [type];
+  const { sqlJson } = deps,
+    params = [type];
   let q = `
     SELECT id, title, topic_key, created_at
     FROM observations
     WHERE type = ? AND deleted_at IS NULL
       AND (expires_at IS NULL OR expires_at > datetime('now'))
   `;
-  
+
   if (project) {
     q += ' AND project = ?';
     params.push(project);
@@ -48,22 +49,22 @@ function checkDuplicate(deps, title, type, project, topicKey) {
   }
   q += ` LIMIT ${RESULT_LIMITS.DEDUP_CANDIDATES}`;
   {
-const candidates = sqlJson(q, params),
-    duplicates = [],
-    warningThreshold = getConfig().dedup.warning_threshold;
-  for (const c of candidates) {
-    const score = trigramOverlap(title, c.title);
-    if (score >= warningThreshold) {
-      duplicates.push({
-        id: c.id,
-        title: c.title,
-        similarity: Math.round(score * 100) / 100,
-        created_at: c.created_at,
-      });
+    const candidates = sqlJson(q, params),
+      duplicates = [],
+      warningThreshold = getConfig().dedup.warning_threshold;
+    for (const c of candidates) {
+      const score = trigramOverlap(title, c.title);
+      if (score >= warningThreshold) {
+        duplicates.push({
+          id: c.id,
+          title: c.title,
+          similarity: Math.round(score * 100) / 100,
+          created_at: c.created_at,
+        });
+      }
     }
+    return { potential_duplicates: duplicates };
   }
-  return { potential_duplicates: duplicates };
-}
 }
 
 function markDuplicate(deps, args) {

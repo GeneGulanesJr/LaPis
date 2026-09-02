@@ -18,7 +18,8 @@ function runCommand(commandArgs, options = {}) {
         env = process.env,
       } = options,
       isWindows = process.platform === 'win32';
-    let child, stdout = '',
+    let child,
+      stdout = '',
       stderr = '',
       truncated = false,
       killed = false,
@@ -38,8 +39,6 @@ function runCommand(commandArgs, options = {}) {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
     }
-
-    
 
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString();

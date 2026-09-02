@@ -19,16 +19,16 @@ describe('_extractHtmlSymbolsAst (via parseContent)', () => {
       ids = symbols.filter((s) => s.kind === 'id');
     expect(ids.length).toBeGreaterThanOrEqual(2);
     {
-const idNames = ids.map((s) => s.name);
-    expect(idNames).toContain('app');
-    expect(idNames).toContain('title');
-    for (const id of ids) {
-      expect(id.start_byte).toBeGreaterThan(-1);
-      expect(id.end_byte).toBeGreaterThan(-1);
-      expect(id.parent_name).toBeTruthy();
+      const idNames = ids.map((s) => s.name);
+      expect(idNames).toContain('app');
+      expect(idNames).toContain('title');
+      for (const id of ids) {
+        expect(id.start_byte).toBeGreaterThan(-1);
+        expect(id.end_byte).toBeGreaterThan(-1);
+        expect(id.parent_name).toBeTruthy();
+      }
     }
-  }
-});
+  });
 
   it('extracts inline script blocks with byte offsets', async () => {
     const parser = await getParser(),
@@ -61,11 +61,11 @@ const idNames = ids.map((s) => s.name);
       components = symbols.filter((s) => s.kind === 'component');
     expect(components.length).toBeGreaterThanOrEqual(2);
     {
-const names = components.map((s) => s.name);
-    expect(names).toContain('MyButton');
-    expect(names).toContain('app-header');
-  }
-});
+      const names = components.map((s) => s.name);
+      expect(names).toContain('MyButton');
+      expect(names).toContain('app-header');
+    }
+  });
 
   it('extracts class attributes with parent tag', async () => {
     const parser = await getParser(),
@@ -74,12 +74,12 @@ const names = components.map((s) => s.name);
       classes = symbols.filter((s) => s.kind === 'css_class');
     expect(classes.length).toBeGreaterThanOrEqual(3);
     {
-const classNames = classes.map((s) => s.name);
-    expect(classNames).toContain('container');
-    expect(classNames).toContain('active');
-    expect(classNames).toContain('text-primary');
-  }
-});
+      const classNames = classes.map((s) => s.name);
+      expect(classNames).toContain('container');
+      expect(classNames).toContain('active');
+      expect(classNames).toContain('text-primary');
+    }
+  });
 
   it('returns empty array for empty HTML', async () => {
     const parser = await getParser(),
@@ -94,12 +94,12 @@ const classNames = classes.map((s) => s.name);
       headings = symbols.filter((s) => s.kind === 'heading');
     expect(headings).toHaveLength(3);
     {
-const headingNames = headings.map((s) => s.name);
-    expect(headingNames).toContain('Title');
-    expect(headingNames).toContain('Subtitle');
-    expect(headingNames).toContain('Section');
-  }
-});
+      const headingNames = headings.map((s) => s.name);
+      expect(headingNames).toContain('Title');
+      expect(headingNames).toContain('Subtitle');
+      expect(headingNames).toContain('Section');
+    }
+  });
 
   it('extracts semantic elements (nav, section, article, etc.)', async () => {
     const parser = await getParser(),
@@ -108,12 +108,12 @@ const headingNames = headings.map((s) => s.name);
       elements = symbols.filter((s) => s.kind === 'element');
     expect(elements.length).toBeGreaterThanOrEqual(3);
     {
-const elemNames = elements.map((s) => s.name);
-    expect(elemNames).toContain('<nav>');
-    expect(elemNames).toContain('<article>');
-    expect(elemNames).toContain('<aside>');
-  }
-});
+      const elemNames = elements.map((s) => s.name);
+      expect(elemNames).toContain('<nav>');
+      expect(elemNames).toContain('<article>');
+      expect(elemNames).toContain('<aside>');
+    }
+  });
 
   it('extracts meta tags with name and content', async () => {
     const parser = await getParser(),
@@ -122,11 +122,11 @@ const elemNames = elements.map((s) => s.name);
       metas = symbols.filter((s) => s.kind === 'meta');
     expect(metas.length).toBeGreaterThanOrEqual(2);
     {
-const metaNames = metas.map((s) => s.name);
-    expect(metaNames).toContain('description');
-    expect(metaNames).toContain('viewport');
-  }
-});
+      const metaNames = metas.map((s) => s.name);
+      expect(metaNames).toContain('description');
+      expect(metaNames).toContain('viewport');
+    }
+  });
 
   it('extracts link references (href, src)', async () => {
     const parser = await getParser(),
@@ -135,12 +135,12 @@ const metaNames = metas.map((s) => s.name);
       links = symbols.filter((s) => s.kind === 'link_ref');
     expect(links.length).toBeGreaterThanOrEqual(3);
     {
-const linkNames = links.map((s) => s.name);
-    expect(linkNames).toContain('/home');
-    expect(linkNames).toContain('logo.png');
-    expect(linkNames).toContain('app.js');
-  }
-});
+      const linkNames = links.map((s) => s.name);
+      expect(linkNames).toContain('/home');
+      expect(linkNames).toContain('logo.png');
+      expect(linkNames).toContain('app.js');
+    }
+  });
 
   it('extracts form controls with name and type', async () => {
     const parser = await getParser(),
@@ -149,12 +149,12 @@ const linkNames = links.map((s) => s.name);
       forms = symbols.filter((s) => s.kind === 'form_control');
     expect(forms.length).toBeGreaterThanOrEqual(3);
     {
-const formNames = forms.map((s) => s.name);
-    expect(formNames).toContain('form');
-    expect(formNames).toContain('addr');
-    expect(formNames).toContain('submit');
-  }
-});
+      const formNames = forms.map((s) => s.name);
+      expect(formNames).toContain('form');
+      expect(formNames).toContain('addr');
+      expect(formNames).toContain('submit');
+    }
+  });
 
   it('extracts ARIA attributes', async () => {
     const parser = await getParser(),
@@ -163,11 +163,11 @@ const formNames = forms.map((s) => s.name);
       aria = symbols.filter((s) => s.kind === 'aria');
     expect(aria.length).toBeGreaterThanOrEqual(2);
     {
-const ariaNames = aria.map((s) => s.name);
-    expect(ariaNames).toContain('main');
-    expect(ariaNames).toContain('true');
-  }
-});
+      const ariaNames = aria.map((s) => s.name);
+      expect(ariaNames).toContain('main');
+      expect(ariaNames).toContain('true');
+    }
+  });
 
   it('extracts data-* attributes', async () => {
     const parser = await getParser(),
@@ -176,11 +176,11 @@ const ariaNames = aria.map((s) => s.name);
       dataAttrs = symbols.filter((s) => s.kind === 'data_attr');
     expect(dataAttrs.length).toBeGreaterThanOrEqual(2);
     {
-const dataNames = dataAttrs.map((s) => s.name);
-    expect(dataNames).toContain('data-section');
-    expect(dataNames).toContain('data-index');
-  }
-});
+      const dataNames = dataAttrs.map((s) => s.name);
+      expect(dataNames).toContain('data-section');
+      expect(dataNames).toContain('data-index');
+    }
+  });
 
   it('extracts microdata attributes (itemscope, itemtype, itemprop)', async () => {
     const parser = await getParser(),
@@ -213,9 +213,10 @@ const dataNames = dataAttrs.map((s) => s.name);
     const parser = await getParser(),
       html = `<input type="text" name="field" /><br/><img src="pic.png" />`,
       symbols = parser.parseContent('test.html', html),
-      forms = symbols.filter((s) => s.kind === 'form_control'), links = symbols.filter((s) => s.kind === 'link_ref');
+      forms = symbols.filter((s) => s.kind === 'form_control'),
+      links = symbols.filter((s) => s.kind === 'link_ref');
     expect(forms.length).toBeGreaterThanOrEqual(1);
-    
+
     expect(links.some((s) => s.name === 'pic.png')).toBe(true);
   });
 });

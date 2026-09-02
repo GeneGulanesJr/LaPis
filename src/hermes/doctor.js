@@ -8,11 +8,10 @@
  * native module, and the bundled skill. Exits 0 only when all checks pass.
  */
 
-const fs = require('node:fs'), path = require('node:path'), { readText, topBlockRange } = require('./config-editor'), { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
-
-
-
-
+const fs = require('node:fs'),
+  path = require('node:path'),
+  { readText, topBlockRange } = require('./config-editor'),
+  { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
 
 function checkConfigFile(paths) {
   if (!fs.existsSync(paths.config)) {
@@ -32,8 +31,8 @@ function checkConfigFile(paths) {
 function checkMcpConfig(paths, mcpName) {
   const text = readText(paths.config),
     range = topBlockRange(text, 'mcp_servers'),
-  block = range ? (text.split('\n').slice(range.start, range.end).join('\n')) : undefined,
-  subRe = range ? (new RegExp(`^\\s{2}${mcpName}\\s*:`, 'm')) : undefined;
+    block = range ? text.split('\n').slice(range.start, range.end).join('\n') : undefined,
+    subRe = range ? new RegExp(`^\\s{2}${mcpName}\\s*:`, 'm') : undefined;
   if (!range) {
     return { ok: false, name: `MCP server "${mcpName}"`, detail: 'no mcp_servers block in config' };
   }
@@ -48,13 +47,13 @@ function checkMcpConfig(paths, mcpName) {
     };
   }
   {
-const envOk = /LAPIS_HOME\s*:/.test(block);
-  return {
-    ok: true,
-    name: `MCP server "${mcpName}"`,
-    detail: `configured${envOk ? ' with LAPIS_HOME pinned' : ' (no LAPIS_HOME env — DB may split across homes)'}`,
-  };
-}
+    const envOk = /LAPIS_HOME\s*:/.test(block);
+    return {
+      ok: true,
+      name: `MCP server "${mcpName}"`,
+      detail: `configured${envOk ? ' with LAPIS_HOME pinned' : ' (no LAPIS_HOME env — DB may split across homes)'}`,
+    };
+  }
 }
 
 function checkHooksConfig(paths) {
@@ -108,14 +107,14 @@ function checkDatabase(io) {
     const db = require('../../db');
     db.ensureDb();
     {
-const conn = db.getDb(),
-      row = conn.prepare('SELECT COUNT(*) AS n FROM sqlite_master').get();
-    if (!row || typeof row.n !== 'number') {
-      return { ok: false, name: 'SQLite database', detail: 'schema query failed' };
+      const conn = db.getDb(),
+        row = conn.prepare('SELECT COUNT(*) AS n FROM sqlite_master').get();
+      if (!row || typeof row.n !== 'number') {
+        return { ok: false, name: 'SQLite database', detail: 'schema query failed' };
+      }
+      return { ok: true, name: 'SQLite database', detail: `reachable at ${db.DB_PATH}` };
     }
-    return { ok: true, name: 'SQLite database', detail: `reachable at ${db.DB_PATH}` };
-  }
-} catch (e) {
+  } catch (e) {
     return { ok: false, name: 'SQLite database', detail: e instanceof Error ? e.message : String(e) };
   }
 }
@@ -158,15 +157,14 @@ function runDoctor(argv, io = {}) {
       checkNativeModule(io),
       checkSkill(paths),
     ],
-  ok = (() => {
+    ok = (() => {
+      for (const check of checks) {
+        log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
+      }
 
-  
-    for (const check of checks) {
-      log(`${check.ok ? '✓' : '✗'} ${check.name} — ${check.detail}`);
-    }
-    
-  return (checks.every((c) => c.ok));
-})();log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
+      return checks.every((c) => c.ok);
+    })();
+  log(ok ? 'All checks passed.' : 'Some checks failed — see above.');
   return { ok, checks };
 }
 

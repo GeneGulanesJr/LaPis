@@ -77,7 +77,8 @@ function _encodeList(rows, opts = {}) {
     encodedRows = [],
     // Detect path-like columns for prefix interning
     pathColumns = opts.interning !== false ? _findPathColumns(rows, header) : {},
-    prefixes = {}, result = { _header: header, _rows: encodedRows },
+    prefixes = {},
+    result = { _header: header, _rows: encodedRows },
     // Attach prefix map if we interned anything
     prefixMap = {};
 
@@ -105,7 +106,6 @@ function _encodeList(rows, opts = {}) {
     encodedRows.push(parts.join('|'));
   }
 
-  
   for (const col of Object.keys(prefixes)) {
     if (prefixes[col].length > 0) {
       prefixMap[col] = prefixes[col];
@@ -170,27 +170,27 @@ function _computePrefixes(values) {
 
   // Filter: at least 3 occurrences
   {
-const qualifying = [...prefixCount.entries()].filter(([, count]) => count >= 3).sort((a, b) => b[1] - a[1]), // Most common first
-    // Take top prefixes (max 5), avoiding overlaps: pick longer prefixes first
-    selected = [],
-    covered = new Set();
-  for (const [prefix] of qualifying) {
-    if (!covered.has(prefix)) {
-      selected.push(prefix);
-      // Mark all shorter prefixes that are substrings as covered
-      for (const [other] of qualifying) {
-        if (other !== prefix && prefix.startsWith(`${other}/`)) {
-          covered.add(other);
+    const qualifying = [...prefixCount.entries()].filter(([, count]) => count >= 3).sort((a, b) => b[1] - a[1]), // Most common first
+      // Take top prefixes (max 5), avoiding overlaps: pick longer prefixes first
+      selected = [],
+      covered = new Set();
+    for (const [prefix] of qualifying) {
+      if (!covered.has(prefix)) {
+        selected.push(prefix);
+        // Mark all shorter prefixes that are substrings as covered
+        for (const [other] of qualifying) {
+          if (other !== prefix && prefix.startsWith(`${other}/`)) {
+            covered.add(other);
+          }
+        }
+        if (selected.length >= 5) {
+          break;
         }
       }
-      if (selected.length >= 5) {
-        break;
-      }
     }
-  }
 
-  return selected;
-}
+    return selected;
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -394,13 +394,13 @@ function autoFormat(data) {
   }
 
   {
-const compact = _encodeList(encodable.rows),
-    jsonBytes = _jsonSize(encodable.rows),
-    compactBytes = _compactSize(compact),
-    // Use compact only if savings ≥ 20%
-    ratio = jsonBytes > 0 ? compactBytes / jsonBytes : 1;
-  return ratio <= 0.8 ? 'compact' : 'json';
-}
+    const compact = _encodeList(encodable.rows),
+      jsonBytes = _jsonSize(encodable.rows),
+      compactBytes = _compactSize(compact),
+      // Use compact only if savings ≥ 20%
+      ratio = jsonBytes > 0 ? compactBytes / jsonBytes : 1;
+    return ratio <= 0.8 ? 'compact' : 'json';
+  }
 }
 
 // ══════════════════════════════════════════════════════════

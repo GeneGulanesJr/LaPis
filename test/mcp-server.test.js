@@ -133,12 +133,12 @@ describe('translate-result', () => {
 
   it('serializes plain objects as JSON text', () => {
     const r = toCallToolResult({ results: [{ id: 1, title: 'x' }] }),
-    parsed = (() => {
+      parsed = (() => {
+        expect(r.isError).toBeUndefined();
 
-      expect(r.isError).toBeUndefined();
-      
-  return (JSON.parse(r.content[0].text));
-})();expect(parsed.results[0].id).toBe(1);
+        return JSON.parse(r.content[0].text);
+      })();
+    expect(parsed.results[0].id).toBe(1);
   });
 
   it('passes through already-shaped content, stripping only leading icons', () => {
@@ -197,14 +197,14 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
           return { results: [{ id: 42, title: 'T', type: 'decision', snippet: 'S', _score: 0.9 }] };
         }
         return { ok: true };
-      }, { createServer } = require('../src/mcp/server'), { Client } = require('@modelcontextprotocol/sdk/client/index.js'), { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js'),
+      },
+      { createServer } = require('../src/mcp/server'),
+      { Client } = require('@modelcontextprotocol/sdk/client/index.js'),
+      { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js'),
       server = createServer({ dispatch: fakeDispatch, project: 'e2e-project' }),
       client = new Client({ name: 'test-client', version: '0.0.0' }),
       [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
-    
-    
-    
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
     // Tools/list
@@ -216,15 +216,15 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
 
     // Tools/call — save
     const saveResult = await client.callTool({
-      name: 'memory-save',
-      arguments: { title: 'My Decision', content: 'Use X because Y' },
-    }),
-    parsed = (() => {
+        name: 'memory-save',
+        arguments: { title: 'My Decision', content: 'Use X because Y' },
+      }),
+      parsed = (() => {
+        expect(saveResult.isError).toBeUndefined();
 
-      expect(saveResult.isError).toBeUndefined();
-      
-  return (JSON.parse(saveResult.content[0].text));
-})();expect(parsed.id).toBe(42);
+        return JSON.parse(saveResult.content[0].text);
+      })();
+    expect(parsed.id).toBe(42);
     expect(parsed.title).toBe('My Decision');
 
     // Dispatch received the project-scoped args
@@ -233,48 +233,49 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
 
     // Tools/call — search returns serialized object
     {
-const searchResult = await client.callTool({ name: 'memory-search', arguments: { query: 'decisions' } }),
-      searchParsed = JSON.parse(searchResult.content[0].text);
-    expect(searchParsed.results[0].id).toBe(42);
+      const searchResult = await client.callTool({ name: 'memory-search', arguments: { query: 'decisions' } }),
+        searchParsed = JSON.parse(searchResult.content[0].text);
+      expect(searchParsed.results[0].id).toBe(42);
 
-    // Unknown tool → error
-    {
-const unknownResult = await client.callTool({ name: 'does_not_exist', arguments: {} });
-    expect(unknownResult.isError).toBe(true);
-    expect(unknownResult.content[0].text).toMatch(/Unknown tool/);
+      // Unknown tool → error
+      {
+        const unknownResult = await client.callTool({ name: 'does_not_exist', arguments: {} });
+        expect(unknownResult.isError).toBe(true);
+        expect(unknownResult.content[0].text).toMatch(/Unknown tool/);
 
-    // Unknown memory-code mode → error
-    {
-const badMode = await client.callTool({ name: 'memory-code', arguments: { mode: 'not-a-mode' } });
-    expect(badMode.isError).toBe(true);
+        // Unknown memory-code mode → error
+        {
+          const badMode = await client.callTool({ name: 'memory-code', arguments: { mode: 'not-a-mode' } });
+          expect(badMode.isError).toBe(true);
 
-    server.close?.();
-    client.close?.();
-  }
-}
-}
-});
+          server.close?.();
+          client.close?.();
+        }
+      }
+    }
+  });
 
   it('translates dispatch { error } into an MCP error result', async () => {
     vi.resetModules();
-    const fakeDispatch = async () => ({ error: 'repo not indexed' }), { createServer } = require('../src/mcp/server'), { Client } = require('@modelcontextprotocol/sdk/client/index.js'), { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js'),
+    const fakeDispatch = async () => ({ error: 'repo not indexed' }),
+      { createServer } = require('../src/mcp/server'),
+      { Client } = require('@modelcontextprotocol/sdk/client/index.js'),
+      { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js'),
       server = createServer({ dispatch: fakeDispatch, project: 'p' }),
       client = new Client({ name: 'test-client', version: '0.0.0' }),
       [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    
-    
-    
+
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
     {
-const result = await client.callTool({ name: 'memory-search', arguments: { query: 'x' } });
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toMatch(/repo not indexed/);
+      const result = await client.callTool({ name: 'memory-search', arguments: { query: 'x' } });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toMatch(/repo not indexed/);
 
-    server.close?.();
-    client.close?.();
-  }
-});
+      server.close?.();
+      client.close?.();
+    }
+  });
 
   it('projectFromCwd derives project from a directory basename', () => {
     const { projectFromCwd } = require('../src/mcp/server');
@@ -283,9 +284,10 @@ const result = await client.callTool({ name: 'memory-search', arguments: { query
   });
 
   it('detectMcpProject prefers indexed repo path over cwd basename', () => {
-    const dbPath = require.resolve('../db'), realDb = require(dbPath),
+    const dbPath = require.resolve('../db'),
+      realDb = require(dbPath),
       prev = require.cache[dbPath].exports;
-    
+
     require.cache[dbPath].exports = {
       ...realDb,
       sqlJson: (sql) => {
@@ -314,53 +316,54 @@ describe('startMcpServer', () => {
     // Swap the cached db module for one whose ensureDb() throws so we
     // Exercise the real error path without touching the real DB.
     const dbPath = require.resolve('../db'),
-    realDb = (() => {
+      realDb = (() => {
+        // Ensure the module is cached so we can swap its exports.
+        require(dbPath);
 
-      // Ensure the module is cached so we can swap its exports.
-      require(dbPath);
-      
-  return (require.cache[dbPath].exports);
-})();require.cache[dbPath].exports = {
+        return require.cache[dbPath].exports;
+      })();
+    require.cache[dbPath].exports = {
       ensureDb: () => {
         throw new Error('EACCES: ~/.lapis unwritable');
       },
     };
 
     {
-const stderrChunks = [],
-      realStderrWrite = process.stderr.write.bind(process.stderr),
-      realExit = process.exit;
-    process.stderr.write = (chunk) => {
-      stderrChunks.push(String(chunk));
-      return true;
-    };
-    let exitCode = null, thrown = null;
-    process.exit = (code) => {
-      exitCode = code;
-      // Throw to unwind startMcpServer before it reaches server.connect()
-      throw new Error(`__synthetic_exit_${code}__`);
-    };
+      const stderrChunks = [],
+        realStderrWrite = process.stderr.write.bind(process.stderr),
+        realExit = process.exit;
+      process.stderr.write = (chunk) => {
+        stderrChunks.push(String(chunk));
+        return true;
+      };
+      let exitCode = null,
+        thrown = null;
+      process.exit = (code) => {
+        exitCode = code;
+        // Throw to unwind startMcpServer before it reaches server.connect()
+        throw new Error(`__synthetic_exit_${code}__`);
+      };
 
-    {
-const { startMcpServer } = require('../src/mcp/server');
-    
-    try {
-      await startMcpServer();
-    } catch (err) {
-      thrown = err;
-    } finally {
-      process.stderr.write = realStderrWrite;
-      process.exit = realExit;
-      require.cache[dbPath].exports = realDb;
+      {
+        const { startMcpServer } = require('../src/mcp/server');
+
+        try {
+          await startMcpServer();
+        } catch (err) {
+          thrown = err;
+        } finally {
+          process.stderr.write = realStderrWrite;
+          process.exit = realExit;
+          require.cache[dbPath].exports = realDb;
+        }
+
+        expect(thrown, 'startMcpServer should propagate the synthetic exit signal').not.toBeNull();
+        expect(exitCode).toBe(1);
+        expect(stderrChunks.join('')).toMatch(/lapis mcp: database initialization failed/);
+        expect(stderrChunks.join('')).toMatch(/EACCES/);
+      }
     }
-
-    expect(thrown, 'startMcpServer should propagate the synthetic exit signal').not.toBeNull();
-    expect(exitCode).toBe(1);
-    expect(stderrChunks.join('')).toMatch(/lapis mcp: database initialization failed/);
-    expect(stderrChunks.join('')).toMatch(/EACCES/);
-  }
-}
-});
+  });
 });
 
 // --- helper ---

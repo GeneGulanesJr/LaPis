@@ -16,7 +16,15 @@
  * and PostToolUse tracking + tool-state mirroring.
  */
 
-const { stripTuiArtifacts } = require('../mcp/translate-result'), dispatchClient = require('./dispatch-client'), stateStore = require('./state-store'), { handleSessionStart } = require('./handlers/session-start'), { handleUserPromptSubmit } = require('./handlers/user-prompt-submit'), { handleStop } = require('./handlers/stop'), { handleSessionEnd } = require('./handlers/session-end'), { handlePreToolUse } = require('./handlers/pre-tool-use'), { handlePostToolUse } = require('./handlers/post-tool-use'),
+const { stripTuiArtifacts } = require('../mcp/translate-result'),
+  dispatchClient = require('./dispatch-client'),
+  stateStore = require('./state-store'),
+  { handleSessionStart } = require('./handlers/session-start'),
+  { handleUserPromptSubmit } = require('./handlers/user-prompt-submit'),
+  { handleStop } = require('./handlers/stop'),
+  { handleSessionEnd } = require('./handlers/session-end'),
+  { handlePreToolUse } = require('./handlers/pre-tool-use'),
+  { handlePostToolUse } = require('./handlers/post-tool-use'),
   HANDLERS = {
     SessionStart: handleSessionStart,
     UserPromptSubmit: handleUserPromptSubmit,
@@ -25,14 +33,6 @@ const { stripTuiArtifacts } = require('../mcp/translate-result'), dispatchClient
     PreToolUse: handlePreToolUse,
     PostToolUse: handlePostToolUse,
   };
-
-
-
-
-
-
-
-
 
 function readStdin() {
   return new Promise((resolve) => {
@@ -97,72 +97,74 @@ async function runHook(argv, opts = {}) {
   }
 
   {
-const roleFilter = parseRoleFilter(argv),
-    // Parse stdin payload (best-effort; malformed → empty object).
-    raw = opts.stdin !== undefined ? opts.stdin : await readStdin();
-  let payload = {}, output;
-  if (raw && raw.trim()) {
-    try {
-      payload = JSON.parse(raw);
-    } catch (e) {
-      process.stderr.write(`claude-code: invalid stdin JSON: ${e instanceof Error ? e.message : String(e)}\n`);
+    const roleFilter = parseRoleFilter(argv),
+      // Parse stdin payload (best-effort; malformed → empty object).
+      raw = opts.stdin !== undefined ? opts.stdin : await readStdin();
+    let payload = {},
+      output;
+    if (raw && raw.trim()) {
+      try {
+        payload = JSON.parse(raw);
+      } catch (e) {
+        process.stderr.write(`claude-code: invalid stdin JSON: ${e instanceof Error ? e.message : String(e)}\n`);
+      }
+    }
+
+    // Event name precedence: explicit argv > payload.hook_event_name.
+    {
+      const resolvedEvent = event || payload.hook_event_name,
+        handler = HANDLERS[resolvedEvent],
+        resolvedDispatchClient = handler ? opts.dispatchClient || dispatchClient : undefined,
+        dispatch = handler ? opts.dispatch || resolvedDispatchClient.dispatch : undefined,
+        getKnownRepos = handler ? opts.getKnownRepos || resolvedDispatchClient.getKnownRepos : undefined,
+        getKnownProjects = handler ? opts.getKnownProjects || resolvedDispatchClient.getKnownProjects : undefined,
+        resolvedStateStore = handler ? opts.stateStore || stateStore : undefined;
+
+      if (!handler) {
+        // Unknown/unwired event (e.g. PreToolUse in Phase 2): no-op, never crash.
+        return;
+      }
+
+      // Allow tests / alternate backends to inject the state store and dispatch
+      // Client the same way they inject dispatch/getKnownRepos (#231). `dispatch`
+      // And `getKnownRepos` fall back to the (possibly injected) client's methods.
+
+      // EnsureDb once — mirrors src/mcp/server.js:118-130.
+      if (opts.ensureDb !== false) {
+        try {
+          require('../../db').ensureDb();
+        } catch (e) {
+          process.stderr.write(
+            `claude-code: database initialization failed: ${e instanceof Error ? e.message : String(e)}\n`,
+          );
+          process.exitCode = process.exitCode || 1;
+          return;
+        }
+      }
+
+      try {
+        output = await handler({
+          payload,
+          dispatch,
+          dispatchClient: resolvedDispatchClient,
+          getKnownRepos,
+          getKnownProjects,
+          stateStore: resolvedStateStore,
+          roleFilter,
+        });
+      } catch (e) {
+        // Hooks must fail open: log to stderr, do NOT set a non-zero exit.
+        process.stderr.write(
+          `claude-code ${resolvedEvent} handler error: ${e instanceof Error ? e.message : String(e)}\n`,
+        );
+        return;
+      }
+
+      if (output !== null && output !== undefined) {
+        process.stdout.write(`${JSON.stringify(sanitizeOutput(output))}\n`);
+      }
     }
   }
-
-  // Event name precedence: explicit argv > payload.hook_event_name.
-  {
-const resolvedEvent = event || payload.hook_event_name,
-    handler = HANDLERS[resolvedEvent],
-  resolvedDispatchClient = handler ? (opts.dispatchClient || dispatchClient) : undefined,
-  dispatch = handler ? (opts.dispatch || resolvedDispatchClient.dispatch) : undefined,
-  getKnownRepos = handler ? (opts.getKnownRepos || resolvedDispatchClient.getKnownRepos) : undefined,
-  getKnownProjects = handler ? (opts.getKnownProjects || resolvedDispatchClient.getKnownProjects) : undefined,
-  resolvedStateStore = handler ? (opts.stateStore || stateStore) : undefined;
-
-  if (!handler) {
-    // Unknown/unwired event (e.g. PreToolUse in Phase 2): no-op, never crash.
-    return;
-  }
-
-  // Allow tests / alternate backends to inject the state store and dispatch
-  // Client the same way they inject dispatch/getKnownRepos (#231). `dispatch`
-  // And `getKnownRepos` fall back to the (possibly injected) client's methods.
-
-  // EnsureDb once — mirrors src/mcp/server.js:118-130.
-  if (opts.ensureDb !== false) {
-    try {
-      require('../../db').ensureDb();
-    } catch (e) {
-      process.stderr.write(
-        `claude-code: database initialization failed: ${e instanceof Error ? e.message : String(e)}\n`,
-      );
-      process.exitCode = process.exitCode || 1;
-      return;
-    }
-  }
-
-  
-  try {
-    output = await handler({
-      payload,
-      dispatch,
-      dispatchClient: resolvedDispatchClient,
-      getKnownRepos,
-      getKnownProjects,
-      stateStore: resolvedStateStore,
-      roleFilter,
-    });
-  } catch (e) {
-    // Hooks must fail open: log to stderr, do NOT set a non-zero exit.
-    process.stderr.write(`claude-code ${resolvedEvent} handler error: ${e instanceof Error ? e.message : String(e)}\n`);
-    return;
-  }
-
-  if (output !== null && output !== undefined) {
-    process.stdout.write(`${JSON.stringify(sanitizeOutput(output))}\n`);
-  }
-}
-}
 }
 
 module.exports = { runHook, HANDLERS, sanitizeOutput, parseRoleFilter };

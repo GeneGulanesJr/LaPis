@@ -8,9 +8,9 @@
  * extractMessageText from prompt-classifiers (de-duplicated).
  */
 
-const path = require('node:path'), { uniqueEditedPaths } = require('../claude-code/file-keys'), { extractMessageText } = require('./prompt-classifiers');
-
-
+const path = require('node:path'),
+  { uniqueEditedPaths } = require('../claude-code/file-keys'),
+  { extractMessageText } = require('./prompt-classifiers');
 
 /**
  * Build the markdown session-summary body.
@@ -49,27 +49,27 @@ function buildSessionSummary({
   // Fell back to "Session work" for string content — losing the goal for every
   // Claude Code session. extractMessageText handles both shapes.
   {
-const goalText =
-      userMessages.length > 0
-        ? extractMessageText(userMessages[0]?.message)?.slice(0, 200) || 'Session work'
-        : 'Session work',
-    summaryParts = ['## Goal', goalText, '', '## Topics Discussed', ...topics.slice(0, 10).map((t) => `- ${t}`)],
-    files = uniqueEditedPaths(editedFiles);
-  if (files.length > 0) {
-    summaryParts.push('', '## Files Modified');
-    for (const f of files.slice(0, 20)) {
-      summaryParts.push(`- ${path.relative(cwd, f) || f}`);
+    const goalText =
+        userMessages.length > 0
+          ? extractMessageText(userMessages[0]?.message)?.slice(0, 200) || 'Session work'
+          : 'Session work',
+      summaryParts = ['## Goal', goalText, '', '## Topics Discussed', ...topics.slice(0, 10).map((t) => `- ${t}`)],
+      files = uniqueEditedPaths(editedFiles);
+    if (files.length > 0) {
+      summaryParts.push('', '## Files Modified');
+      for (const f of files.slice(0, 20)) {
+        summaryParts.push(`- ${path.relative(cwd, f) || f}`);
+      }
     }
+
+    summaryParts.push(
+      '',
+      '## Accomplished',
+      `${memoriesSaved} memories saved, ${assistantCount} assistant turns, ${turnCount} total turns`,
+    );
+
+    return summaryParts.join('\n');
   }
-
-  summaryParts.push(
-    '',
-    '## Accomplished',
-    `${memoriesSaved} memories saved, ${assistantCount} assistant turns, ${turnCount} total turns`,
-  );
-
-  return summaryParts.join('\n');
-}
 }
 
 module.exports = { buildSessionSummary };

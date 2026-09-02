@@ -1,12 +1,12 @@
-const path = require('path'), fs = require('fs'), { CODE_EXTENSIONS, IGNORE_DIRS_CODE } = require('../../utils'),
+const path = require('path'),
+  fs = require('fs'),
+  { CODE_EXTENSIONS, IGNORE_DIRS_CODE } = require('../../utils'),
   DEFAULT_MAX_FILE_SIZE = 1024 * 1024,
   DEFAULT_MAX_FILES = 20000,
   SECRET_FILE_RE = /(^|[/\\])(\.env($|\.)|id_rsa$|id_dsa$|id_ecdsa$|id_ed25519$|.*\.(pem|key|p12|pfx)$)/i,
   SKIP_FILE_RE =
     /(^|[/\\])(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|Gemfile\.lock|poetry\.lock|Cargo\.lock|composer\.lock|pipfile\.lock|bun\.lockb|bun\.lock|conan\.lock|mix\.lock|podfile\.lock|go\.sum|requirements\.txt\.lock|\.yarn\/integrity|package\.json|bower\.json|composer\.json|tsconfig\.json|tsconfig\.[^/\\]+\.json|jsconfig\.json|\.babelrc|babel\.config\.[^/\\]+|\.eslintrc|eslint\.config\.[^/\\]+|\.prettierrc|prettier\.config\.[^/\\]+|\.stylelintrc|manifest\.json|manifest\.webmanifest|\.node-version|\.nvmrc|\.tool-versions)$|\.lock$|\.lock\.json$/i,
   PRIORITY_DIRS = ['src/', 'lib/', 'pkg/', 'cmd/', 'internal/', 'app/', 'packages/'];
-
-
 
 function shouldSkipDir(dirName, extraIgnoreDirs = []) {
   return dirName.startsWith('.') || IGNORE_DIRS_CODE.has(dirName) || extraIgnoreDirs.includes(dirName);
@@ -17,58 +17,56 @@ function isCodeFile(filePath) {
 }
 
 function loadIgnoreRules(repoPath, filename) {
-  let ig, added = false;
+  let ig,
+    added = false;
   try {
     ig = require('ignore')();
   } catch {
     return null;
   }
 
-  
-
-  
-
   {
-let current = path.resolve(repoPath), limit = 20;
-  const rootsToTry = [];
+    let current = path.resolve(repoPath),
+      limit = 20;
+    const rootsToTry = [];
 
-  // Walk up from repoPath, but stop at the Git repo boundary (directory containing .git/).
-  // Git itself never loads .gitignore from parent directories outside the repo root.
-  // Without this guard, a parent .gitignore with '*' (e.g. ~/.pi/agent/git/.gitignore)
-  // Would cause the scanner to ignore every file in the repo.
-  
-  while (limit-- > 0) {
-    rootsToTry.push(current);
-    // Stop walking up if this directory is a Git repo root.
-    // This prevents parent .gitignore rules from leaking into the scan.
-    try {
-      if (fs.statSync(path.join(current, '.git')).isDirectory()) {
+    // Walk up from repoPath, but stop at the Git repo boundary (directory containing .git/).
+    // Git itself never loads .gitignore from parent directories outside the repo root.
+    // Without this guard, a parent .gitignore with '*' (e.g. ~/.pi/agent/git/.gitignore)
+    // Would cause the scanner to ignore every file in the repo.
+
+    while (limit-- > 0) {
+      rootsToTry.push(current);
+      // Stop walking up if this directory is a Git repo root.
+      // This prevents parent .gitignore rules from leaking into the scan.
+      try {
+        if (fs.statSync(path.join(current, '.git')).isDirectory()) {
+          break;
+        }
+      } catch {
+        // .git doesn't exist here — keep walking up
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
         break;
       }
-    } catch {
-      // .git doesn't exist here — keep walking up
+      current = parent;
     }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      break;
+
+    for (let i = rootsToTry.length - 1; i >= 0; i--) {
+      tryLoad(rootsToTry[i]);
     }
-    current = parent;
-  }
 
-  for (let i = rootsToTry.length - 1; i >= 0; i--) {
-    tryLoad(rootsToTry[i]);
+    return added ? ig : null;
+    function tryLoad(dir) {
+      const ignorePath = path.join(dir, filename);
+      try {
+        const content = fs.readFileSync(ignorePath, 'utf-8');
+        ig.add(content);
+        added = true;
+      } catch {}
+    }
   }
-
-  return added ? ig : null;
-function tryLoad(dir) {
-    const ignorePath = path.join(dir, filename);
-    try {
-      const content = fs.readFileSync(ignorePath, 'utf-8');
-      ig.add(content);
-      added = true;
-    } catch {}
-  }
-}
 }
 
 function loadGitignoreRules(repoPath) {

@@ -1,6 +1,6 @@
-const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
-
-
+const fs = require('fs'),
+  path = require('path'),
+  { execFileSync } = require('child_process');
 
 /**
  * Map git-relative paths to absolute paths stored in the code index.
@@ -40,18 +40,18 @@ function parseGitDiffNameStatus(output) {
       continue;
     }
     {
-const parts = trimmed.split('\t'),
-      status = parts[0];
-    if (status.startsWith('R') && parts[1] && parts[2]) {
-      changed.add(parts[1]);
-      changed.add(parts[2]);
-    } else if (status.startsWith('D') && parts[1]) {
-      changed.add(parts[1]);
-    } else if (parts[1]) {
-      changed.add(parts[1]);
+      const parts = trimmed.split('\t'),
+        status = parts[0];
+      if (status.startsWith('R') && parts[1] && parts[2]) {
+        changed.add(parts[1]);
+        changed.add(parts[2]);
+      } else if (status.startsWith('D') && parts[1]) {
+        changed.add(parts[1]);
+      } else if (parts[1]) {
+        changed.add(parts[1]);
+      }
     }
   }
-}
   return [...changed];
 }
 
@@ -87,7 +87,8 @@ function detectChangedSymbols(deps, repoName) {
   const { id: repoId, path: repoPath, head_commit: storedHead } = repoRow[0];
 
   // Get current HEAD commit
-  let currentHead = null, changedFiles = [];
+  let currentHead = null,
+    changedFiles = [];
   try {
     currentHead = execFileSync('git', ['rev-parse', 'HEAD'], {
       cwd: repoPath,
@@ -127,7 +128,7 @@ function detectChangedSymbols(deps, repoName) {
   const baseCommit = storedHead;
 
   // Get changed files via git diff (name-status captures renames and deletes).
-  
+
   try {
     const diffRange = `${baseCommit}..HEAD`,
       output = execFileSync('git', ['diff', '--name-status', diffRange], {
@@ -170,29 +171,29 @@ function detectChangedSymbols(deps, repoName) {
     };
   }
   {
-const placeholders = indexedPaths.map(() => '?').join(','),
-    changedSymbols = sqlJson(
-      `SELECT DISTINCT name, qualified_name FROM code_symbols
+    const placeholders = indexedPaths.map(() => '?').join(','),
+      changedSymbols = sqlJson(
+        `SELECT DISTINCT name, qualified_name FROM code_symbols
      WHERE repo_id = ? AND file_path IN (${placeholders})`,
-      [repoId, ...indexedPaths],
-    );
-  for (const sym of changedSymbols) {
-    changedSet.add(sym.name);
-    if (sym.qualified_name && sym.qualified_name !== sym.name) {
-      changedSet.add(sym.qualified_name);
+        [repoId, ...indexedPaths],
+      );
+    for (const sym of changedSymbols) {
+      changedSet.add(sym.name);
+      if (sym.qualified_name && sym.qualified_name !== sym.name) {
+        changedSet.add(sym.qualified_name);
+      }
     }
-  }
 
-  return {
-    ok: true,
-    repo: repoName,
-    old_head: storedHead,
-    new_head: currentHead,
-    changed_files: changedFiles.length,
-    changed_symbols: changedSet.size,
-    changedSet,
-  };
-}
+    return {
+      ok: true,
+      repo: repoName,
+      old_head: storedHead,
+      new_head: currentHead,
+      changed_files: changedFiles.length,
+      changed_symbols: changedSet.size,
+      changedSet,
+    };
+  }
 }
 
 // --- Legacy functions (kept for backward compat with existing tests) ---

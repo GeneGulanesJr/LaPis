@@ -1,11 +1,14 @@
 // Incremental builders for import graph, call graph, and complexity.
 
-const { codeParser, _requireNativeDb, _SKIP_CALLEE_NAMES, CALL_GRAPH, COMPLEXITY } = require('./shared-deps'), { extractImportBindings, extractImportsFromSource, resolveImportTarget } = require('./import-graph-impl');
-
+const { codeParser, _requireNativeDb, _SKIP_CALLEE_NAMES, CALL_GRAPH, COMPLEXITY } = require('./shared-deps'),
+  { extractImportBindings, extractImportsFromSource, resolveImportTarget } = require('./import-graph-impl');
 
 function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = []) {
   const guard = _requireNativeDb(db),
-  allAffected = !(guard) && !(!changedFileIds.length && !deletedFileIds.length) ? (new Set([...changedFileIds, ...deletedFileIds])) : undefined;
+    allAffected =
+      !guard && !(!changedFileIds.length && !deletedFileIds.length)
+        ? new Set([...changedFileIds, ...deletedFileIds])
+        : undefined;
   if (guard) {
     return guard;
   }
@@ -73,15 +76,14 @@ function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [
 
 function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [], opts = {}) {
   const guard = _requireNativeDb(db),
-  { onProgress } = !(guard) && !(!changedFileIds.length && !deletedFileIds.length) ? (opts) : undefined,
-  deletedSet = !(guard) && !(!changedFileIds.length && !deletedFileIds.length) ? (new Set(deletedFileIds)) : undefined;
+    { onProgress } = !guard && !(!changedFileIds.length && !deletedFileIds.length) ? opts : undefined,
+    deletedSet = !guard && !(!changedFileIds.length && !deletedFileIds.length) ? new Set(deletedFileIds) : undefined;
   if (guard) {
     return guard;
   }
   if (!changedFileIds.length && !deletedFileIds.length) {
     return { success: true, calls: 0, incremental: true };
   }
-
 
   if (changedFileIds.length > 0) {
     const ph = changedFileIds.map(() => '?').join(',');
@@ -97,24 +99,22 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
   }
 
   const staleCallers = db
-    .prepare(
-      `SELECT DISTINCT s.file_id FROM code_calls cc JOIN code_symbols s ON s.id = cc.caller_symbol_id WHERE cc.repo_id = ? AND cc.callee_symbol_id IS NULL`,
-    )
-    .all(repoId)
-    .map((r) => r.file_id),
-  rebuildFileIds = (() => {
+      .prepare(
+        `SELECT DISTINCT s.file_id FROM code_calls cc JOIN code_symbols s ON s.id = cc.caller_symbol_id WHERE cc.repo_id = ? AND cc.callee_symbol_id IS NULL`,
+      )
+      .all(repoId)
+      .map((r) => r.file_id),
+    rebuildFileIds = (() => {
+      if (staleCallers.length > 0) {
+        const stalePh = staleCallers.map(() => '?').join(',');
+        db.prepare(
+          `DELETE FROM code_calls WHERE repo_id = ? AND caller_symbol_id IN (SELECT id FROM code_symbols WHERE file_id IN (${stalePh})) AND callee_symbol_id IS NULL`,
+        ).run(repoId, ...staleCallers);
+      }
 
-  
-    if (staleCallers.length > 0) {
-      const stalePh = staleCallers.map(() => '?').join(',');
-      db.prepare(
-        `DELETE FROM code_calls WHERE repo_id = ? AND caller_symbol_id IN (SELECT id FROM code_symbols WHERE file_id IN (${stalePh})) AND callee_symbol_id IS NULL`,
-      ).run(repoId, ...staleCallers);
-    }
-  
-    
-  return (new Set([...changedFileIds, ...staleCallers].filter((id) => !deletedSet.has(id))));
-})(); if (rebuildFileIds.size === 0) {
+      return new Set([...changedFileIds, ...staleCallers].filter((id) => !deletedSet.has(id)));
+    })();
+  if (rebuildFileIds.size === 0) {
     return { success: true, calls: 0, incremental: true };
   }
 
@@ -192,29 +192,18 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
   const contentStmt = db.prepare('SELECT content FROM code_files WHERE id = ?'),
     insertStmt = db.prepare(
       `INSERT OR IGNORE INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number) VALUES (?, ?, ?, ?, ?, ?)`,
-    ), fileImportsCache = {},
-    fileBindingsCache = {}, _rr = { calleeSymbolId: null, confidence: 0 }, totalFiles = rebuildFileIds.size;
-  let totalCalls = 0, processedFiles = 0;
-  
-
-  
-
-  
-
-  
+    ),
+    fileImportsCache = {},
+    fileBindingsCache = {},
+    _rr = { calleeSymbolId: null, confidence: 0 },
+    totalFiles = rebuildFileIds.size;
+  let totalCalls = 0,
+    processedFiles = 0;
 
   // PERF(issue #134): Pre-allocated result for resolveCallee — avoids creating a new object
   // Per call in the hot path. resolveCallee writes directly into _rr; callers read from it
   // After the call. Do NOT change resolveCallee to return a new object; the per-call
   // Allocation overhead is significant at hundreds of thousands of invocations.
-  
-
-  
-
-  
-
-  
-  
 
   const runInTx =
     typeof db.transaction === 'function'
@@ -240,93 +229,93 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
         continue;
       }
       {
-const meta = fileById.get(fileId);
-      if (!meta) {
-        processedFiles++;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      {
-const contentRow = contentStmt.get(fileId);
-      if (!contentRow || !contentRow.content) {
-        processedFiles++;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      {
-const fileContent = contentRow.content,
-        filePath = meta.path,
-        fileSize = fileContent.length;
-
-      let fileCallees = [];
-      if (fileSize <= CALL_GRAPH.MAX_FILE_CONTENT_BYTES) {
-        try {
-          const extractFn = codeParser.extractCalleesFromContent || codeParser.extractCallees;
-          fileCallees = extractFn(filePath, fileContent);
-        } catch {
-          fileCallees = [];
+        const meta = fileById.get(fileId);
+        if (!meta) {
+          processedFiles++;
+          // oxlint-disable-next-line no-continue
+          continue;
         }
-      }
-
-      if (fileCallees.length > 0) {
-        const calleeByLine = new Map(),
-        _seen = (() => {
-
-          for (const c of fileCallees) {
-            if (!calleeByLine.has(c.line)) {
-              calleeByLine.set(c.line, []);
-            }
-            calleeByLine.get(c.line).push(c);
-          }
-          // PERF(issue #134): Pre-allocated dedup Set — cleared per symbol instead of
-          // Allocating a new Set. For N symbols this eliminates N Set allocations.
-          
-  return (new Set());
-})();for (const sym of fileSymbols) {
-          _seen.clear();
-          for (let line = sym.start_line; line <= sym.end_line; line++) {
-            const lineCallees = calleeByLine.get(line);
+        {
+          const contentRow = contentStmt.get(fileId);
+          if (!contentRow || !contentRow.content) {
+            processedFiles++;
             // oxlint-disable-next-line no-continue
-            if (!lineCallees) {
-              continue;
+            continue;
+          }
+          {
+            const fileContent = contentRow.content,
+              filePath = meta.path,
+              fileSize = fileContent.length;
+
+            let fileCallees = [];
+            if (fileSize <= CALL_GRAPH.MAX_FILE_CONTENT_BYTES) {
+              try {
+                const extractFn = codeParser.extractCalleesFromContent || codeParser.extractCallees;
+                fileCallees = extractFn(filePath, fileContent);
+              } catch {
+                fileCallees = [];
+              }
             }
-            for (const c of lineCallees) {
-              // oxlint-disable-next-line no-continue
-              if (_SKIP_CALLEE_NAMES.has(c.callee)) {
-                continue;
+
+            if (fileCallees.length > 0) {
+              const calleeByLine = new Map(),
+                _seen = (() => {
+                  for (const c of fileCallees) {
+                    if (!calleeByLine.has(c.line)) {
+                      calleeByLine.set(c.line, []);
+                    }
+                    calleeByLine.get(c.line).push(c);
+                  }
+                  // PERF(issue #134): Pre-allocated dedup Set — cleared per symbol instead of
+                  // Allocating a new Set. For N symbols this eliminates N Set allocations.
+
+                  return new Set();
+                })();
+              for (const sym of fileSymbols) {
+                _seen.clear();
+                for (let line = sym.start_line; line <= sym.end_line; line++) {
+                  const lineCallees = calleeByLine.get(line);
+                  // oxlint-disable-next-line no-continue
+                  if (!lineCallees) {
+                    continue;
+                  }
+                  for (const c of lineCallees) {
+                    // oxlint-disable-next-line no-continue
+                    if (_SKIP_CALLEE_NAMES.has(c.callee)) {
+                      continue;
+                    }
+                    const key = `${c.callee}:${c.line}`;
+                    // oxlint-disable-next-line no-continue
+                    if (_seen.has(key)) {
+                      continue;
+                    }
+                    _seen.add(key);
+                    resolveCallee(c.callee, sym, c.receiver || null, fileContent);
+                    insertStmt.run(repoId, sym.id, c.callee, _rr.calleeSymbolId, _rr.confidence, c.line);
+                    totalCalls++;
+                  }
+                }
               }
-              const key = `${c.callee}:${c.line}`;
-              // oxlint-disable-next-line no-continue
-              if (_seen.has(key)) {
-                continue;
+            } else {
+              for (const sym of fileSymbols) {
+                processRegexFallback(sym, fileContent);
               }
-              _seen.add(key);
-              resolveCallee(c.callee, sym, c.receiver || null, fileContent);
-              insertStmt.run(repoId, sym.id, c.callee, _rr.calleeSymbolId, _rr.confidence, c.line);
-              totalCalls++;
+            }
+
+            processedFiles++;
+            if (onProgress && processedFiles % CALL_GRAPH.PROGRESS_INTERVAL_FILES === 0) {
+              onProgress({ filesProcessed: processedFiles, totalFiles, callsFound: totalCalls });
             }
           }
         }
-      } else {
-        for (const sym of fileSymbols) {
-          processRegexFallback(sym, fileContent);
-        }
-      }
-
-      processedFiles++;
-      if (onProgress && processedFiles % CALL_GRAPH.PROGRESS_INTERVAL_FILES === 0) {
-        onProgress({ filesProcessed: processedFiles, totalFiles, callsFound: totalCalls });
       }
     }
-}
-}
-}
   });
 
   return { success: true, calls: totalCalls, incremental: true, filesAffected: rebuildFileIds.size };
-function getFileSymbol(fileId, name, kind) {
+  function getFileSymbol(fileId, name, kind) {
     const byName = symbolsByFileAndName.get(fileId),
-    matches = byName ? (byName.get(name)) : undefined;
+      matches = byName ? byName.get(name) : undefined;
     if (!byName) {
       return null;
     }
@@ -338,7 +327,7 @@ function getFileSymbol(fileId, name, kind) {
     }
     return matches[0] || null;
   }
-function getFileImports(fileId) {
+  function getFileImports(fileId) {
     if (fileImportsCache[fileId]) {
       return fileImportsCache[fileId];
     }
@@ -350,24 +339,24 @@ function getFileImports(fileId) {
     fileImportsCache[fileId] = imports;
     return imports;
   }
-function getFileBindings(fileId, fileContent) {
+  function getFileBindings(fileId, fileContent) {
     if (fileBindingsCache[fileId]) {
       return fileBindingsCache[fileId];
     }
     const bindings = extractImportBindings(fileContent || ''),
       imports = getFileImports(fileId),
       importMap = new Map(),
-    resolved = (() => {
+      resolved = (() => {
+        for (const imp of imports) {
+          importMap.set(imp.target_module, imp.target_file_id);
+        }
 
-      for (const imp of imports) {
-        importMap.set(imp.target_module, imp.target_file_id);
-      }
-      
-  return (bindings.map((b) => ({ ...b, target_file_id: importMap.get(b.modulePath) || null })));
-})();fileBindingsCache[fileId] = resolved;
+        return bindings.map((b) => ({ ...b, target_file_id: importMap.get(b.modulePath) || null }));
+      })();
+    fileBindingsCache[fileId] = resolved;
     return resolved;
   }
-function resolveCallee(calleeName, callerSym, receiver, fileContent) {
+  function resolveCallee(calleeName, callerSym, receiver, fileContent) {
     _rr.calleeSymbolId = null;
     _rr.confidence = 0.5;
 
@@ -426,7 +415,8 @@ function resolveCallee(calleeName, callerSym, receiver, fileContent) {
     }
 
     if (receiver && receiver !== 'this' && receiver !== 'super') {
-      const binding = bindings.find((b) => b.localName === receiver && !b.isReExport), qualifiedName = `${receiver}.${calleeName}`,
+      const binding = bindings.find((b) => b.localName === receiver && !b.isReExport),
+        qualifiedName = `${receiver}.${calleeName}`,
         qualifiedMatches = symbolsByQualified.get(qualifiedName);
       if (binding && binding.target_file_id) {
         if (binding.originalName === '*') {
@@ -449,7 +439,7 @@ function resolveCallee(calleeName, callerSym, receiver, fileContent) {
           }
         }
       }
-      
+
       if (qualifiedMatches && qualifiedMatches.length === 1) {
         _rr.calleeSymbolId = qualifiedMatches[0].id;
         _rr.confidence = 0.85;
@@ -458,44 +448,46 @@ function resolveCallee(calleeName, callerSym, receiver, fileContent) {
     }
 
     {
-const fileImports = getFileImports(callerSym.file_id);
-    for (const imp of fileImports) {
-      const matchSym = getFileSymbol(imp.target_file_id, calleeName);
-      if (matchSym) {
-        _rr.calleeSymbolId = matchSym.id;
-        _rr.confidence = 0.8;
-        break;
+      const fileImports = getFileImports(callerSym.file_id);
+      for (const imp of fileImports) {
+        const matchSym = getFileSymbol(imp.target_file_id, calleeName);
+        if (matchSym) {
+          _rr.calleeSymbolId = matchSym.id;
+          _rr.confidence = 0.8;
+          break;
+        }
       }
-    }
 
-    if (!_rr.calleeSymbolId) {
-      const sameFile = getFileSymbol(callerSym.file_id, calleeName);
-      if (sameFile) {
-        _rr.calleeSymbolId = sameFile.id;
-        _rr.confidence = 0.9;
+      if (!_rr.calleeSymbolId) {
+        const sameFile = getFileSymbol(callerSym.file_id, calleeName);
+        if (sameFile) {
+          _rr.calleeSymbolId = sameFile.id;
+          _rr.confidence = 0.9;
+        }
       }
-    }
 
-    if (!_rr.calleeSymbolId) {
-      const matches = symbolsByName.get(calleeName);
-      if (matches && matches.length === 1) {
-        _rr.calleeSymbolId = matches[0].id;
-        _rr.confidence = 0.7;
+      if (!_rr.calleeSymbolId) {
+        const matches = symbolsByName.get(calleeName);
+        if (matches && matches.length === 1) {
+          _rr.calleeSymbolId = matches[0].id;
+          _rr.confidence = 0.7;
+        }
       }
     }
   }
-}
-function processRegexFallback(sym, fileContent) {
+  function processRegexFallback(sym, fileContent) {
     if (sym.end_byte <= sym.start_byte) {
       return;
     }
     const body = Buffer.from(fileContent, 'utf-8').toString('utf-8', sym.start_byte, sym.end_byte),
-    seen = !(!body || body.length < 2) ? (new Set()) : undefined,
-    callPatterns = !(!body || body.length < 2) ? ([
-        /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-        /\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-        /\bnew\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-      ]) : undefined;
+      seen = !(!body || body.length < 2) ? new Set() : undefined,
+      callPatterns = !(!body || body.length < 2)
+        ? [
+            /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+            /\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+            /\bnew\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+          ]
+        : undefined;
     if (!body || body.length < 2) {
       return;
     }
@@ -515,11 +507,11 @@ function processRegexFallback(sym, fileContent) {
         seen.add(calleeName);
         resolveCallee(calleeName, sym, null, fileContent);
         {
-const lineNum = sym.start_line + body.substring(0, match.index).split('\n').length - 1;
-        insertStmt.run(repoId, sym.id, calleeName, _rr.calleeSymbolId, _rr.confidence, lineNum);
-        totalCalls++;
+          const lineNum = sym.start_line + body.substring(0, match.index).split('\n').length - 1;
+          insertStmt.run(repoId, sym.id, calleeName, _rr.calleeSymbolId, _rr.confidence, lineNum);
+          totalCalls++;
+        }
       }
-}
     }
   }
 }
@@ -567,68 +559,90 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
       continue;
     }
 
-    let cyclomatic = 1, __ternaryMatch, maxDepth = 0,
+    let cyclomatic = 1,
+      __ternaryMatch,
+      maxDepth = 0,
       currentDepth = 0,
       inString = false,
       stringCharCode = 0,
-      templateDepth = 0, assessment = 'high';
+      templateDepth = 0,
+      assessment = 'high';
     {
-const decisionPatterns = [
-      /(?<!else\s+)if\b/g,
-      /\belse\s+if\b/g,
-      /\bfor\b/g,
-      /\bwhile\b/g,
-      /\bdo\b/g,
-      /\bcase\b/g,
-      /\bcatch\b/g,
-      /\&\&/g,
-      /\|\|/g,
-      /\?\?/g,
-    ],
-    ternaryRe = (() => {
+      const decisionPatterns = [
+          /(?<!else\s+)if\b/g,
+          /\belse\s+if\b/g,
+          /\bfor\b/g,
+          /\bwhile\b/g,
+          /\bdo\b/g,
+          /\bcase\b/g,
+          /\bcatch\b/g,
+          /\&\&/g,
+          /\|\|/g,
+          /\?\?/g,
+        ],
+        ternaryRe = (() => {
+          for (const pattern of decisionPatterns) {
+            pattern.lastIndex = 0;
+            const m = body.match(pattern);
+            if (m) {
+              cyclomatic += m.length;
+            }
+          }
 
-      for (const pattern of decisionPatterns) {
-        pattern.lastIndex = 0;
-        const m = body.match(pattern);
-        if (m) {
-          cyclomatic += m.length;
-        }
-      }
-      
-  return (/\?(?:\s*[^.:])/g);
-})();
-    while ((_ternaryMatch = ternaryRe.exec(body)) !== null) {
-      cyclomatic++;
-    }
-
-    // PERF(issue #133): CharCode fast-path — reduces branch evaluations from 6+ per byte to
-    // 1 for the common case (plain code, not in string/template). Uses integer charCodeAt
-    // Instead of string boxing. body.substring() replaced with charCodeAt to avoid allocation.
-    // Do NOT replace charCode checks with string comparisons; the integer path is the
-    // Performance-critical fast path. Template depth tracking logic is preserved as-is.
-    
-    for (let i = 0; i < body.length; i++) {
-      const code = body.charCodeAt(i);
-
-      if (inString) {
-        if (code === stringCharCode && (i === 0 || body.charCodeAt(i - 1) !== 92)) {
-          inString = false;
-        }
-        // oxlint-disable-next-line no-continue
-        continue;
+          return /\?(?:\s*[^.:])/g;
+        })();
+      while ((_ternaryMatch = ternaryRe.exec(body)) !== null) {
+        cyclomatic++;
       }
 
-      if (templateDepth === 0) {
-        if (code !== 34 && code !== 39 && code !== 96 && code !== 123 && code !== 125) {
+      // PERF(issue #133): CharCode fast-path — reduces branch evaluations from 6+ per byte to
+      // 1 for the common case (plain code, not in string/template). Uses integer charCodeAt
+      // Instead of string boxing. body.substring() replaced with charCodeAt to avoid allocation.
+      // Do NOT replace charCode checks with string comparisons; the integer path is the
+      // Performance-critical fast path. Template depth tracking logic is preserved as-is.
+
+      for (let i = 0; i < body.length; i++) {
+        const code = body.charCodeAt(i);
+
+        if (inString) {
+          if (code === stringCharCode && (i === 0 || body.charCodeAt(i - 1) !== 92)) {
+            inString = false;
+          }
           // oxlint-disable-next-line no-continue
           continue;
         }
-        if (code === 34 || code === 39) {
-          inString = true;
-          stringCharCode = code;
+
+        if (templateDepth === 0) {
+          if (code !== 34 && code !== 39 && code !== 96 && code !== 123 && code !== 125) {
+            // oxlint-disable-next-line no-continue
+            continue;
+          }
+          if (code === 34 || code === 39) {
+            inString = true;
+            stringCharCode = code;
+            // oxlint-disable-next-line no-continue
+            continue;
+          }
+          if (code === 96) {
+            templateDepth++;
+            // oxlint-disable-next-line no-continue
+            continue;
+          }
+          if (code === 123) {
+            currentDepth++;
+            if (currentDepth > maxDepth) {
+              maxDepth = currentDepth;
+            }
+            // oxlint-disable-next-line no-continue
+            continue;
+          }
+          if (currentDepth > 0) {
+            currentDepth--;
+          }
           // oxlint-disable-next-line no-continue
           continue;
         }
+
         if (code === 96) {
           templateDepth++;
           // oxlint-disable-next-line no-continue
@@ -639,50 +653,30 @@ const decisionPatterns = [
           if (currentDepth > maxDepth) {
             maxDepth = currentDepth;
           }
-          // oxlint-disable-next-line no-continue
-          continue;
+        } else if (code === 125) {
+          if (currentDepth > 0) {
+            currentDepth--;
+          }
         }
-        if (currentDepth > 0) {
-          currentDepth--;
-        }
-        // oxlint-disable-next-line no-continue
-        continue;
       }
 
-      if (code === 96) {
-        templateDepth++;
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      if (code === 123) {
-        currentDepth++;
-        if (currentDepth > maxDepth) {
-          maxDepth = currentDepth;
+      {
+        const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null,
+          paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0,
+          lines = body.split('\n'),
+          codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
+
+        if (cyclomatic <= COMPLEXITY.LOW_THRESHOLD) {
+          assessment = 'low';
+        } else if (cyclomatic <= COMPLEXITY.MEDIUM_THRESHOLD) {
+          assessment = 'medium';
         }
-      } else if (code === 125) {
-        if (currentDepth > 0) {
-          currentDepth--;
-        }
+
+        insertStmt.run(sym.id, cyclomatic, maxDepth, paramCount, codeLines, assessment);
+        count++;
       }
     }
-
-    {
-const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null,
-      paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0,
-      lines = body.split('\n'),
-      codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
-    
-    if (cyclomatic <= COMPLEXITY.LOW_THRESHOLD) {
-      assessment = 'low';
-    } else if (cyclomatic <= COMPLEXITY.MEDIUM_THRESHOLD) {
-      assessment = 'medium';
-    }
-
-    insertStmt.run(sym.id, cyclomatic, maxDepth, paramCount, codeLines, assessment);
-    count++;
   }
-}
-}
 
   return { success: true, symbols: count, incremental: true };
 }

@@ -364,7 +364,7 @@ function createAurexRepository(deps) {
       },
       getMissionLedger(missionId) {
         const ledgers = sqlJson('SELECT * FROM todo_ledgers WHERE mission_id = ?', [missionId]).map(mapLedgerRow),
-        todos = !(ledgers.length === 0) ? (this.listTodosByMission(missionId)) : undefined;
+          todos = !(ledgers.length === 0) ? this.listTodosByMission(missionId) : undefined;
         if (ledgers.length === 0) {
           return [];
         }
@@ -397,7 +397,7 @@ function createAurexRepository(deps) {
       },
       updateMissionLedger(missionId, patch) {
         const existing = this.getMissionLedger(missionId),
-        next = !(existing.length === 0) ? ({ ...existing[0], ...patch }) : undefined;
+          next = !(existing.length === 0) ? { ...existing[0], ...patch } : undefined;
         if (existing.length === 0) {
           return [];
         }
@@ -492,25 +492,25 @@ function createAurexRepository(deps) {
       listTodos(filters = {}) {
         const clauses = [],
           params = [],
-        where = (() => {
+          where = (() => {
+            if (filters.missionId) {
+              clauses.push('mission_id = ?');
+              params.push(filters.missionId);
+            }
+            if (filters.status) {
+              assertInSet(filters.status, TODO_STATUSES, 'status');
+              clauses.push('status = ?');
+              params.push(filters.status);
+            }
+            if (filters.type) {
+              assertInSet(filters.type, TODO_TYPES, 'type');
+              clauses.push('type = ?');
+              params.push(filters.type);
+            }
 
-          if (filters.missionId) {
-            clauses.push('mission_id = ?');
-            params.push(filters.missionId);
-          }
-          if (filters.status) {
-            assertInSet(filters.status, TODO_STATUSES, 'status');
-            clauses.push('status = ?');
-            params.push(filters.status);
-          }
-          if (filters.type) {
-            assertInSet(filters.type, TODO_TYPES, 'type');
-            clauses.push('type = ?');
-            params.push(filters.type);
-          }
-          
-  return (clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '');
-})();return sqlJson(`SELECT * FROM todo_items ${where} ORDER BY created_at`, params).map(mapTodoRow);
+            return clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+          })();
+        return sqlJson(`SELECT * FROM todo_items ${where} ORDER BY created_at`, params).map(mapTodoRow);
       },
       listTodosByMission(missionId) {
         return this.listTodos({ missionId });
@@ -533,7 +533,9 @@ function createAurexRepository(deps) {
       },
       updateTodo(todoId, patch) {
         const current = this.getTodo(todoId)[0],
-        next = current ? (normalizeTodoInput({ ...current, ...patch, id: todoId, missionId: current.missionId })) : undefined;
+          next = current
+            ? normalizeTodoInput({ ...current, ...patch, id: todoId, missionId: current.missionId })
+            : undefined;
         if (!current) {
           return [];
         }
@@ -589,7 +591,7 @@ function createAurexRepository(deps) {
       },
       addTodoEvidence(todoId, evidencePatch) {
         const current = this.getTodo(todoId)[0],
-        evidence = current ? (mergeEvidence(current.evidence, evidencePatch || {})) : undefined;
+          evidence = current ? mergeEvidence(current.evidence, evidencePatch || {}) : undefined;
         if (!current) {
           return [];
         }
@@ -620,7 +622,7 @@ function createAurexRepository(deps) {
       },
       claimNextReadyTodo(missionId, workerId) {
         const rows = sqlJson(
-          `UPDATE todo_items
+            `UPDATE todo_items
          SET status = 'in_progress',
              assigned_worker_id = ?,
              updated_at = datetime('now')
@@ -646,9 +648,9 @@ function createAurexRepository(deps) {
            LIMIT 1
          )
          RETURNING *`,
-          [workerId, missionId],
-        ).map(mapTodoRow),
-        todo = !(rows.length === 0) ? (rows[0]) : undefined;
+            [workerId, missionId],
+          ).map(mapTodoRow),
+          todo = !(rows.length === 0) ? rows[0] : undefined;
         if (rows.length === 0) {
           return [];
         }
@@ -673,7 +675,7 @@ function createAurexRepository(deps) {
       // --- Todo Audit Events ---
       recordTodoEvent(todoId, event) {
         const todo = this.getTodo(todoId)[0],
-        id = todo ? (event.id || `te-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`) : undefined;
+          id = todo ? event.id || `te-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` : undefined;
         if (!todo) {
           return [];
         }

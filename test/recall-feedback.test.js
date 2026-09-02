@@ -1,10 +1,10 @@
-const fs = require('fs'), os = require('os'), path = require('path'), db = require('../db'), { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall'), { insertRecallLog: insertRecallLogDA } = require('../data-access/observations'), { logNegativeRecall } = require('../commands/observation');
-
-
-
-
-
-
+const fs = require('fs'),
+  os = require('os'),
+  path = require('path'),
+  db = require('../db'),
+  { insertRecallLog, getRecallCount, recallScore } = require('../src/memory-domain/recall'),
+  { insertRecallLog: insertRecallLogDA } = require('../data-access/observations'),
+  { logNegativeRecall } = require('../commands/observation');
 
 describe('recall feedback', () => {
   let deps, tempDir;
@@ -35,22 +35,22 @@ describe('recall feedback', () => {
 
   it('inserts recall log with was_useful=true', () => {
     const result = insertRecallLog(deps, [{ memoryId: 1, sessionId: 1, query: 'test', wasUseful: true }]),
-    rows = (() => {
+      rows = (() => {
+        expect(result.inserted).toBe(1);
 
-      expect(result.inserted).toBe(1);
-      
-  return (deps.sqlJson('SELECT was_useful FROM recall_log WHERE memory_id = 1'));
-})();expect(rows[0].was_useful).toBe(1);
+        return deps.sqlJson('SELECT was_useful FROM recall_log WHERE memory_id = 1');
+      })();
+    expect(rows[0].was_useful).toBe(1);
   });
 
   it('inserts recall log with was_useful=false', () => {
     const result = insertRecallLog(deps, [{ memoryId: 2, sessionId: 1, query: 'test', wasUseful: false }]),
-    rows = (() => {
+      rows = (() => {
+        expect(result.inserted).toBe(1);
 
-      expect(result.inserted).toBe(1);
-      
-  return (deps.sqlJson('SELECT was_useful FROM recall_log WHERE memory_id = 2'));
-})();expect(rows[0].was_useful).toBe(0);
+        return deps.sqlJson('SELECT was_useful FROM recall_log WHERE memory_id = 2');
+      })();
+    expect(rows[0].was_useful).toBe(0);
   });
 
   it('defaults was_useful to 1 (positive recall) when not specified', () => {
@@ -78,14 +78,14 @@ describe('recall feedback', () => {
 
   it('logNegativeRecall command records ignored memories as not useful', () => {
     const result = logNegativeRecall(deps, {
-      entries: JSON.stringify([{ memoryId: 42, sessionId: 1, query: 'auth' }]),
-    }),
-    rows = (() => {
+        entries: JSON.stringify([{ memoryId: 42, sessionId: 1, query: 'auth' }]),
+      }),
+      rows = (() => {
+        expect(result.logged).toBe(1);
 
-      expect(result.logged).toBe(1);
-      
-  return (deps.sqlJson('SELECT was_useful FROM recall_log WHERE memory_id = 42'));
-})();expect(rows[0].was_useful).toBe(0);
+        return deps.sqlJson('SELECT was_useful FROM recall_log WHERE memory_id = 42');
+      })();
+    expect(rows[0].was_useful).toBe(0);
   });
 });
 

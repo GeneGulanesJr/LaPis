@@ -1,8 +1,8 @@
-const crypto = require('crypto'), os = require('os'),
+const crypto = require('crypto'),
+  os = require('os'),
   localHolding = new Set(),
   DEFAULT_LOCK_TIMEOUT_MS = 10 * 60 * 1000,
   LOCK_POLL_MS = 200;
-
 
 function makeHolderId() {
   return `${process.pid}:${crypto.randomBytes(4).toString('hex')}`;
@@ -32,7 +32,7 @@ function getDbApi() {
 
 function reclaimStaleLock(sqlJson, sqlRun, repoName) {
   const rows = sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', [repoName]),
-  pid = !(rows.length === 0) ? (parseInt(String(rows[0].holder_id).split(':')[0], 10)) : undefined;
+    pid = !(rows.length === 0) ? parseInt(String(rows[0].holder_id).split(':')[0], 10) : undefined;
   if (rows.length === 0) {
     return false;
   }
@@ -95,20 +95,20 @@ async function withRepoIndexLock(repoName, fn) {
   }
 
   {
-const holderId = makeHolderId();
-  await acquireSqliteLock(key, holderId);
-  localHolding.add(key);
-  try {
-    return await fn();
-  } finally {
-    localHolding.delete(key);
+    const holderId = makeHolderId();
+    await acquireSqliteLock(key, holderId);
+    localHolding.add(key);
     try {
-      releaseSqliteLock(key, holderId);
-    } catch (e) {
-      console.error(`[repo-lock] failed to release lock for ${key}: ${e.message}`);
+      return await fn();
+    } finally {
+      localHolding.delete(key);
+      try {
+        releaseSqliteLock(key, holderId);
+      } catch (e) {
+        console.error(`[repo-lock] failed to release lock for ${key}: ${e.message}`);
+      }
     }
   }
-}
 }
 
 module.exports = { withRepoIndexLock, makeHolderId, tryAcquireSqliteLock, releaseSqliteLock };

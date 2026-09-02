@@ -12,9 +12,9 @@
  * are skipped, never thrown.
  */
 
-const fs = require('node:fs'), readline = require('node:readline'), { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
-
-
+const fs = require('node:fs'),
+  readline = require('node:readline'),
+  { extractMessageText } = require('../../hooks-engine/prompt-classifiers');
 
 /**
  * Parse a single transcript line into an entry object, or null if it isn't a
@@ -116,15 +116,15 @@ async function readTranscriptStream(transcriptPath) {
   }
 
   {
-const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-  for await (const line of rl) {
-    const entry = parseTranscriptLine(line);
-    if (entry) {
-      classifyEntry(entry, acc);
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    for await (const line of rl) {
+      const entry = parseTranscriptLine(line);
+      if (entry) {
+        classifyEntry(entry, acc);
+      }
     }
+    return acc;
   }
-  return acc;
-}
 }
 
 module.exports = { readTranscript, readTranscriptStream, parseTranscriptLine, classifyEntry };

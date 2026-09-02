@@ -1,4 +1,6 @@
-const path = require('path'), fs = require('fs'), os = require('os'),
+const path = require('path'),
+  fs = require('fs'),
+  os = require('os'),
   HOME = process.env.LAPIS_HOME || process.env.HOME || process.env.USERPROFILE || os.homedir(),
   CONFIG_DIR = path.join(HOME, '.pi', 'memory'),
   CONFIG_PATH = path.join(CONFIG_DIR, 'config.jsonc'),
@@ -33,8 +35,6 @@ const path = require('path'), fs = require('fs'), os = require('os'),
       enabled: true, // Master toggle — set false to disable raw grep/find + unread-file guardrails
     },
   };
-
-
 
 function deepMerge(target, source) {
   const result = { ...target };
