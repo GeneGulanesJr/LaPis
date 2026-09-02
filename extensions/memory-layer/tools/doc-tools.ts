@@ -62,22 +62,22 @@ export function registerDocTools(pi: ExtensionAPI, deps: DocDeps) {
       params = params ?? {};
       try {
         const cmdMap: Record<string, string> = {
-            search: 'doc-search',
-            outline: 'doc-outline',
-            backlinks: 'backlinks',
-            'broken-links': 'broken-links',
-            glossary: 'glossary',
-            'tutorial-path': 'tutorial-path',
-            'code-examples': 'code-examples',
-            orphans: 'doc-orphans',
-            coverage: 'doc-coverage',
-            'stale-pages': 'stale-pages',
-            duplicates: 'doc-duplicates',
-            'index-docs': 'index-docs',
-            'reindex-docs': 'reindex-docs',
-          },
-          mode = typeof params.mode === 'string' ? params.mode : '',
-          cmd = mode ? cmdMap[mode] : undefined;
+          search: 'doc-search',
+          outline: 'doc-outline',
+          backlinks: 'backlinks',
+          'broken-links': 'broken-links',
+          glossary: 'glossary',
+          'tutorial-path': 'tutorial-path',
+          'code-examples': 'code-examples',
+          orphans: 'doc-orphans',
+          coverage: 'doc-coverage',
+          'stale-pages': 'stale-pages',
+          duplicates: 'doc-duplicates',
+          'index-docs': 'index-docs',
+          'reindex-docs': 'reindex-docs',
+        };
+        const mode = typeof params.mode === 'string' ? params.mode : '';
+        const cmd = mode ? cmdMap[mode] : undefined;
         if (!mode) {
           return toolTextResult(docHelpText());
         }
