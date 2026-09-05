@@ -65,19 +65,16 @@ const MIN_SYMBOL_LENGTH = 4,
       'requirements.txt',
     ]),
     RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i,
-    // Search binary in COMMAND position — start of the command or after a
-    // pipeline/sequence separator or command substitution. The bare word is
-    // not enough: `npm run find:deadcode` contains the word "find" but is a
-    // package script, not a raw search (#292).
+    // Raw-search binaries, matched in COMMAND position only — the bare word
+    // is not enough: `npm run find:deadcode` contains the word "find" but is
+    // a package script, not a raw search (#292). Detection is token-based
+    // (leadingCommandBinary) rather than regex: the quantified-prefix regex
+    // form is polynomial on uncontrolled input (CodeQL).
+    SEARCH_BINARIES = new Set(['rg', 'grep', 'ag', 'ack', 'find']),
     isRawCodeDiscoveryCommand = (cmd) =>
-      typeof cmd === 'string' &&
-      /(?:^|[|;&]|\$\(|`)\s*(?:sudo\s+)?(?:git\s+)?(?:env\s+)?(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:rg|grep|ag|ack|find)\b/.test(
-        cmd,
-      ),
-    isSearchCommandStage = (stage) =>
-      typeof stage === 'string' &&
-      /^\s*(?:sudo\s+)?(?:git\s+)?(?:env\s+)?(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:rg|grep|ag|ack|find)\b/.test(stage),
-    isFindCommandStage = (stage) => typeof stage === 'string' && /^\s*(?:sudo\s+)?find\b/.test(stage),
+      typeof cmd === 'string' && splitRawCommandSegments(cmd).some((segment) => leadingCommandBinary(segment) !== null),
+    isSearchCommandStage = (stage) => typeof stage === 'string' && leadingCommandBinary(stage) !== null,
+    isFindCommandStage = (stage) => leadingCommandBinary(stage) === 'find',
     CODE_PATH_HINT_RE =
       /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java)\b|(^|\s)(src|lib|app|test|tests|extensions|commands|data-access|services)\b/i,
     // --- native-tool search guardrails (Claude Code Grep / Glob) ---
@@ -219,6 +216,44 @@ const MIN_SYMBOL_LENGTH = 4,
     CODE_PATH_HINT_RE,
     MIN_SYMBOL_LENGTH,
   };
+  // Tokenize a command segment respecting quotes. Linear: the alternatives
+  // are disjoint on their first character, so there is no backtracking.
+  function tokenizeCommandSegment(segment) {
+    return String(segment).match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+  }
+
+  function isEnvAssignmentToken(token) {
+    return token.length > 1 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(token);
+  }
+
+  // Walk the leading tokens (sudo/git/env/VAR=value prefixes) and return the
+  // command binary, or null. Purely iterative — no regex backtracking on
+  // uncontrolled input (CodeQL polynomial-regex alert).
+  function leadingCommandBinary(segment) {
+    const tokens = tokenizeCommandSegment(segment);
+    let index = 0;
+    while (index < tokens.length) {
+      const token = tokens[index];
+      if (/^(?:sudo|git|env)$/.test(token) && index + 1 < tokens.length) {
+        index++;
+        continue;
+      }
+      if (isEnvAssignmentToken(token)) {
+        index++;
+        continue;
+      }
+      break;
+    }
+    return SEARCH_BINARIES.has(tokens[index]) ? tokens[index] : null;
+  }
+
+  // Split on pipeline/sequence separators and command-substitution openers so
+  // each segment can be checked for a search binary in command position.
+  // Simple alternation of literals — linear, no backtracking.
+  function splitRawCommandSegments(cmd) {
+    return cmd.split(/(?:\$\(|[|;&`])/);
+  }
+
   function splitPipeline(cmd) {
     const stages = [];
     let current = '',
