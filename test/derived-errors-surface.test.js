@@ -44,6 +44,9 @@ describe('derived-builder failures are surfaced (#287)', () => {
     delete require.cache[require.resolve('../src/code-index/incremental-indexer')];
     const { derivedPhase } = require('../src/code-index/incremental-indexer');
     const stats = await derivedPhase(dbModule.getDb(), 'repo-missing', null, 0, 0, 0);
-    expect(stats.derived_errors).toEqual([]);
+    // On a repo row that does not exist, the cochange builder reports
+    // {success:false, reason:'repo not found'} — surfaced since #293, no
+    // longer swallowed. Nothing else fails on an empty schema.
+    expect(stats.derived_errors).toEqual([{ builder: 'cochange', error: 'repo not found' }]);
   });
 });
