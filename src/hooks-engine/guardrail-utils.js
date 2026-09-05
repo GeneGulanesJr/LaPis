@@ -65,6 +65,19 @@ const MIN_SYMBOL_LENGTH = 4,
       'requirements.txt',
     ]),
     RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i,
+    // Search binary in COMMAND position — start of the command or after a
+    // pipeline/sequence separator or command substitution. The bare word is
+    // not enough: `npm run find:deadcode` contains the word "find" but is a
+    // package script, not a raw search (#292).
+    isRawCodeDiscoveryCommand = (cmd) =>
+      typeof cmd === 'string' &&
+      /(?:^|[|;&]|\$\(|`)\s*(?:sudo\s+)?(?:git\s+)?(?:env\s+)?(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:rg|grep|ag|ack|find)\b/.test(
+        cmd,
+      ),
+    isSearchCommandStage = (stage) =>
+      typeof stage === 'string' &&
+      /^\s*(?:sudo\s+)?(?:git\s+)?(?:env\s+)?(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:rg|grep|ag|ack|find)\b/.test(stage),
+    isFindCommandStage = (stage) => typeof stage === 'string' && /^\s*(?:sudo\s+)?find\b/.test(stage),
     CODE_PATH_HINT_RE =
       /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java)\b|(^|\s)(src|lib|app|test|tests|extensions|commands|data-access|services)\b/i,
     // --- native-tool search guardrails (Claude Code Grep / Glob) ---
@@ -194,6 +207,9 @@ const MIN_SYMBOL_LENGTH = 4,
     isPipedOutputFilter,
     isTargetedSymbolLookup,
     isTargetedTextFileLookup,
+    isRawCodeDiscoveryCommand,
+    isSearchCommandStage,
+    extractPathArgs,
     isSpecificCodeFilePath,
     isTargetedGrepLookup,
     isBroadGlob,
@@ -240,12 +256,27 @@ const MIN_SYMBOL_LENGTH = 4,
 
     return filterStages.some((stage) => FILTER_COMMAND_RE.test(stage));
   }
+  // Path-like arguments of a command stage: tokens that contain a path
+  // separator or end in a file extension, excluding flags. A quoted token is
+  // the search pattern, not a path argument.
+  function extractPathArgs(stage) {
+    const tokens = String(stage).match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+    return tokens
+      .slice(1)
+      .filter((token) => !token.startsWith('-'))
+      .map((token) =>
+        token.length >= 2 && (token.startsWith('"') || token.startsWith("'")) ? token.slice(1, -1) : token,
+      )
+      .filter((token) => /[\\/]/.test(token) || /\.[A-Za-z0-9]+$/.test(token));
+  }
   function isTargetedTextFileLookup(cmd) {
-    if (/\bfind\b/i.test(cmd) || !/\b(grep|rg|ag|ack)\b/i.test(cmd)) {
+    const stages = splitPipeline(cmd);
+    // Must be a search binary in command position — and `find` itself is a
+    // file-finder, not a content search (#292).
+    if (!isSearchCommandStage(stages[0]) || isFindCommandStage(stages[0])) {
       return false;
     }
 
-    const stages = splitPipeline(cmd);
     if (
       stages.length > 1 &&
       stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
@@ -253,18 +284,24 @@ const MIN_SYMBOL_LENGTH = 4,
       return false;
     }
 
-    return TEXT_FILE_PATH_RE.test(cmd);
+    // Every path-like argument must be a text file. Testing the whole command
+    // string let a single README.md mention wave a broad
+    // `grep -rn needle src/` scan through (#292).
+    const pathArgs = extractPathArgs(stages[0]);
+    if (pathArgs.length === 0) {
+      return false;
+    }
+    return pathArgs.every((arg) => TEXT_FILE_PATH_RE.test(` ${arg} `));
   }
   function isTargetedSymbolLookup(cmd) {
-    if (/\bfind\b/.test(cmd)) {
-      return false;
-    }
-
-    if (!/\b(grep|rg|ag|ack)\b/.test(cmd)) {
-      return false;
-    }
-
     const stages = splitPipeline(cmd);
+    // Search binary in command position; a literal `find` command
+    // disqualifies, but the word "find" inside a pattern or a script name
+    // must not (#292).
+    if (!isSearchCommandStage(stages[0]) || isFindCommandStage(stages[0])) {
+      return false;
+    }
+
     if (
       stages.length > 1 &&
       stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))

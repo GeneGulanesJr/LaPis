@@ -5,8 +5,8 @@ import {
   isPipedOutputFilter,
   isTargetedSymbolLookup,
   isTargetedTextFileLookup,
+  isRawCodeDiscoveryCommand,
   CONFIG_FILENAMES,
-  RAW_CODE_DISCOVERY_RE,
   CODE_PATH_HINT_RE,
 } from './guardrail-utils';
 import { getKnownRepos, invalidateRepoCache } from '../host/project-detector';
@@ -91,10 +91,15 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
 
     if (toolName === 'bash' && typeof input?.command === 'string') {
       const cmd = input.command as string;
-      if (RAW_CODE_DISCOVERY_RE.test(cmd)) {
+      if (isRawCodeDiscoveryCommand(cmd)) {
         const repos = await deps.getKnownRepos(),
           resolvedCwd = path.resolve(process.cwd()),
-          matchedRepo = repos.find((r) => resolvedCwd.startsWith(path.resolve(r.path)));
+          // Anchor on a path separator: `~/work/api-v2` must not match the
+          // repo at `~/work/api` (#292).
+          matchedRepo = repos.find((r) => {
+            const repoPath = path.resolve(r.path);
+            return resolvedCwd === repoPath || resolvedCwd.startsWith(repoPath + path.sep);
+          });
         if (matchedRepo) {
           // Allow grep/rg/etc. When they are only filtering another command's stdout,
           // Such as `npx oxlint 2>&1 | grep -i unused`.
