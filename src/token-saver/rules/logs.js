@@ -5,7 +5,9 @@ function compressLogs({ stdout, stderr }) {
   const combined = `${stdout}\n${stderr}`.trim(),
     lines = combined ? combined.split('\n') : undefined,
     errors = combined ? [] : undefined,
-    uniqueMessages = combined ? {} : undefined;
+    // Object.create(null): log lines are arbitrary tool output — a line
+    // reading '__proto__' must not touch Object.prototype (#299).
+    uniqueMessages = combined ? Object.create(null) : undefined;
   if (!combined) {
     return {
       summary: 'No log output.',

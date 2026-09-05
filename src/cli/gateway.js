@@ -136,7 +136,13 @@ async function dispatch(cmd, args) {
             });
           }
         }
-      })();
+      })().catch((e) => {
+        // A rejected init must not be cached forever: drop it so the next
+        // dispatch re-runs initialization (a transient locked-DB error at
+        // startup would otherwise brick every MCP tool call until restart).
+        _initPromise = null;
+        throw e;
+      });
     }
     await _initPromise;
   }

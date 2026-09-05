@@ -18,7 +18,9 @@ const COLLAPSE_DIRS = [
 function compressListOutput({ stdout, stderr }) {
   const combined = `${stdout}\n${stderr}`.trim(),
     lines = combined ? combined.split('\n') : undefined,
-    sourceDirs = combined ? {} : undefined,
+    // Object.create(null): top dirs come from arbitrary tool output
+    // ('__proto__' must not pollute Object.prototype) (#299).
+    sourceDirs = combined ? Object.create(null) : undefined,
     collapsed = combined ? {} : undefined;
   if (!combined) {
     return {

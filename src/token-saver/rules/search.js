@@ -4,7 +4,9 @@ const MAX_MATCHES_PER_FILE = 10,
 function compressSearchOutput({ stdout, stderr, commandArgs }) {
   const combined = `${stdout}\n${stderr}`.trim(),
     lines = combined ? combined.split('\n') : undefined,
-    fileMap = combined ? {} : undefined,
+    // Object.create(null): file paths come from arbitrary tool output
+    // ('__proto__' must not pollute Object.prototype) (#299).
+    fileMap = combined ? Object.create(null) : undefined,
     headerLines = [];
   if (!combined) {
     return {

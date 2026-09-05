@@ -148,6 +148,12 @@ function mergeAllowlist(filePath, command) {
   } catch {
     data = { approvals: [] };
   }
+  // JSON.parse succeeds for any valid JSON — including `null` and scalars,
+  // which would crash the approvals access below. Degrade to a fresh
+  // allowlist, same as a parse failure.
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    data = { approvals: [] };
+  }
   if (!Array.isArray(data.approvals)) {
     data.approvals = [];
   }
