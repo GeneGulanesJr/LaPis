@@ -1,7 +1,7 @@
 const http = require('http'),
   { matchRoute } = require('./routes'),
   { jsonError } = require('./errors'),
-  { resolveHttpApiKey, requireHttpAuth, assertServeHostPolicy } = require('./auth'),
+  { resolveHttpApiKey, requireHttpAuth, assertServeHostPolicy, isLoopbackHost } = require('./auth'),
   MAX_BODY_BYTES = 1024 * 1024;
 
 function createHttpServer(deps) {
@@ -247,8 +247,8 @@ async function startHttpServer(opts) {
       apiKey,
     });
 
-  if (host === '0.0.0.0') {
-    console.log('[lapis serve] WARNING: binding to 0.0.0.0 exposes memory APIs on your network.');
+  if (!isLoopbackHost(host)) {
+    console.log(`[lapis serve] WARNING: binding to ${host} exposes memory APIs beyond this machine.`);
     console.log('[lapis serve] Use only on trusted networks or behind a proxy.');
     if (apiKey) {
       console.log('[lapis serve] API key authentication is enabled (x-api-key or Authorization: Bearer).');
