@@ -79,7 +79,7 @@ async function memViaChildProcess(
     const out = await new Promise<string>((resolve, reject) => {
       const timeout = getTimeout(cmd),
         child = execFile(
-          'node',
+          process.execPath,
           [MEMORY_SCRIPT, ...argList],
           {
             encoding: 'utf8',
@@ -122,7 +122,7 @@ export async function memCmd(cmd: string): Promise<MemResult | null> {
     const out = await new Promise<string>((resolve, reject) => {
       const timeout = getTimeout(cmd);
       execFile(
-        'node',
+        process.execPath,
         [MEMORY_SCRIPT, cmd],
         {
           encoding: 'utf8',
@@ -191,7 +191,7 @@ export async function memStreaming(
     })();
   try {
     return await new Promise<MemResult | null>((resolve, reject) => {
-      const child = spawn('node', [MEMORY_SCRIPT, ...argList], {
+      const child = spawn(process.execPath, [MEMORY_SCRIPT, ...argList], {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
