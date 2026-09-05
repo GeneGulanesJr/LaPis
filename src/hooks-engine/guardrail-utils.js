@@ -65,6 +65,16 @@ const MIN_SYMBOL_LENGTH = 4,
       'requirements.txt',
     ]),
     RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i,
+    // Raw-search binaries, matched in COMMAND position only — the bare word
+    // is not enough: `npm run find:deadcode` contains the word "find" but is
+    // a package script, not a raw search (#292). Detection is token-based
+    // (leadingCommandBinary) rather than regex: the quantified-prefix regex
+    // form is polynomial on uncontrolled input (CodeQL).
+    SEARCH_BINARIES = new Set(['rg', 'grep', 'ag', 'ack', 'find']),
+    isRawCodeDiscoveryCommand = (cmd) =>
+      typeof cmd === 'string' && splitRawCommandSegments(cmd).some((segment) => leadingCommandBinary(segment) !== null),
+    isSearchCommandStage = (stage) => typeof stage === 'string' && leadingCommandBinary(stage) !== null,
+    isFindCommandStage = (stage) => leadingCommandBinary(stage) === 'find',
     CODE_PATH_HINT_RE =
       /\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs|java)\b|(^|\s)(src|lib|app|test|tests|extensions|commands|data-access|services)\b/i,
     // --- native-tool search guardrails (Claude Code Grep / Glob) ---
@@ -194,6 +204,9 @@ const MIN_SYMBOL_LENGTH = 4,
     isPipedOutputFilter,
     isTargetedSymbolLookup,
     isTargetedTextFileLookup,
+    isRawCodeDiscoveryCommand,
+    isSearchCommandStage,
+    extractPathArgs,
     isSpecificCodeFilePath,
     isTargetedGrepLookup,
     isBroadGlob,
@@ -203,6 +216,44 @@ const MIN_SYMBOL_LENGTH = 4,
     CODE_PATH_HINT_RE,
     MIN_SYMBOL_LENGTH,
   };
+  // Tokenize a command segment respecting quotes. Linear: the alternatives
+  // are disjoint on their first character, so there is no backtracking.
+  function tokenizeCommandSegment(segment) {
+    return String(segment).match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+  }
+
+  function isEnvAssignmentToken(token) {
+    return token.length > 1 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(token);
+  }
+
+  // Walk the leading tokens (sudo/git/env/VAR=value prefixes) and return the
+  // command binary, or null. Purely iterative — no regex backtracking on
+  // uncontrolled input (CodeQL polynomial-regex alert).
+  function leadingCommandBinary(segment) {
+    const tokens = tokenizeCommandSegment(segment);
+    let index = 0;
+    while (index < tokens.length) {
+      const token = tokens[index];
+      if (/^(?:sudo|git|env)$/.test(token) && index + 1 < tokens.length) {
+        index++;
+        continue;
+      }
+      if (isEnvAssignmentToken(token)) {
+        index++;
+        continue;
+      }
+      break;
+    }
+    return SEARCH_BINARIES.has(tokens[index]) ? tokens[index] : null;
+  }
+
+  // Split on pipeline/sequence separators and command-substitution openers so
+  // each segment can be checked for a search binary in command position.
+  // Simple alternation of literals — linear, no backtracking.
+  function splitRawCommandSegments(cmd) {
+    return cmd.split(/(?:\$\(|[|;&`])/);
+  }
+
   function splitPipeline(cmd) {
     const stages = [];
     let current = '',
@@ -240,12 +291,27 @@ const MIN_SYMBOL_LENGTH = 4,
 
     return filterStages.some((stage) => FILTER_COMMAND_RE.test(stage));
   }
+  // Path-like arguments of a command stage: tokens that contain a path
+  // separator or end in a file extension, excluding flags. A quoted token is
+  // the search pattern, not a path argument.
+  function extractPathArgs(stage) {
+    const tokens = String(stage).match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+    return tokens
+      .slice(1)
+      .filter((token) => !token.startsWith('-'))
+      .map((token) =>
+        token.length >= 2 && (token.startsWith('"') || token.startsWith("'")) ? token.slice(1, -1) : token,
+      )
+      .filter((token) => /[\\/]/.test(token) || /\.[A-Za-z0-9]+$/.test(token));
+  }
   function isTargetedTextFileLookup(cmd) {
-    if (/\bfind\b/i.test(cmd) || !/\b(grep|rg|ag|ack)\b/i.test(cmd)) {
+    const stages = splitPipeline(cmd);
+    // Must be a search binary in command position — and `find` itself is a
+    // file-finder, not a content search (#292).
+    if (!isSearchCommandStage(stages[0]) || isFindCommandStage(stages[0])) {
       return false;
     }
 
-    const stages = splitPipeline(cmd);
     if (
       stages.length > 1 &&
       stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))
@@ -253,18 +319,24 @@ const MIN_SYMBOL_LENGTH = 4,
       return false;
     }
 
-    return TEXT_FILE_PATH_RE.test(cmd);
+    // Every path-like argument must be a text file. Testing the whole command
+    // string let a single README.md mention wave a broad
+    // `grep -rn needle src/` scan through (#292).
+    const pathArgs = extractPathArgs(stages[0]);
+    if (pathArgs.length === 0) {
+      return false;
+    }
+    return pathArgs.every((arg) => TEXT_FILE_PATH_RE.test(` ${arg} `));
   }
   function isTargetedSymbolLookup(cmd) {
-    if (/\bfind\b/.test(cmd)) {
-      return false;
-    }
-
-    if (!/\b(grep|rg|ag|ack)\b/.test(cmd)) {
-      return false;
-    }
-
     const stages = splitPipeline(cmd);
+    // Search binary in command position; a literal `find` command
+    // disqualifies, but the word "find" inside a pattern or a script name
+    // must not (#292).
+    if (!isSearchCommandStage(stages[0]) || isFindCommandStage(stages[0])) {
+      return false;
+    }
+
     if (
       stages.length > 1 &&
       stages.slice(1).some((stage) => !SIMPLE_LIMIT_PIPE_RE.test(stage) && !EXCLUSION_FILTER_RE.test(stage))

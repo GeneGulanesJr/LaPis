@@ -141,6 +141,17 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
             })
           : null;
 
+        // A gateway {error} result means the backend failed — surface it
+        // instead of silently retrying unscoped or reporting "No memories"
+        // (#291).
+        if (result && (result as any).error) {
+          return {
+            content: [{ type: 'text', text: `Memory search failed: ${(result as any).error}` }],
+            details: result,
+            isError: true,
+          };
+        }
+
         if (!result || !((result.results as any[]) || []).length) {
           result = await deps.mem('search', {
             query: params.query,
@@ -153,6 +164,14 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
 
         if (!result) {
           return { content: [{ type: 'text', text: 'Search failed.' }], details: {}, isError: true };
+        }
+
+        if ((result as any).error) {
+          return {
+            content: [{ type: 'text', text: `Memory search failed: ${(result as any).error}` }],
+            details: result,
+            isError: true,
+          };
         }
 
         const results = (result.results as any[]) || [];
@@ -443,6 +462,13 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to find related memories.' }], details: {}, isError: true };
         }
+        if ((result as any).error) {
+          return {
+            content: [{ type: 'text', text: `Failed to find related memories: ${(result as any).error}` }],
+            details: result ?? {},
+            isError: true,
+          };
+        }
         if (related.length === 0) {
           return { content: [{ type: 'text', text: 'No related memories found.' }], details: result ?? {} };
         }
@@ -492,6 +518,14 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
 
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to load context.' }], details: {}, isError: true };
+        }
+
+        if ((result as any).error) {
+          return {
+            content: [{ type: 'text', text: `Failed to load context: ${(result as any).error}` }],
+            details: result ?? {},
+            isError: true,
+          };
         }
 
         if (observations.length === 0) {
@@ -546,6 +580,14 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
 
         if (!result) {
           return { content: [{ type: 'text', text: 'Failed to sync trust scores.' }], details: {}, isError: true };
+        }
+
+        if ((result as any).error) {
+          return {
+            content: [{ type: 'text', text: `Trust sync failed: ${(result as any).error}` }],
+            details: result ?? {},
+            isError: true,
+          };
         }
 
         if (result.message) {
