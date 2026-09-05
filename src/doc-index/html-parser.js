@@ -19,8 +19,8 @@ function classifyHtmlRole(title, content, classAttrs) {
 
 function stripHtmlTags(html) {
   return html
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
-    .replace(/<style[\s\S]*?<\/style\s*>/gi, '')
+    .replace(/<script[\s\S]*?<\/script(?:\s+[^>]*)?>/gi, '')
+    .replace(/<style[\s\S]*?<\/style(?:\s+[^>]*)?>/gi, '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
