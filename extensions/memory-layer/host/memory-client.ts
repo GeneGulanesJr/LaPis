@@ -109,6 +109,12 @@ async function memViaChildProcess(
 }
 
 export async function memCmd(cmd: string): Promise<MemResult | null> {
+  // Same contract as mem(): blocking commands (dream, reindex, …) must always
+  // take the child-process path — running them through the in-process gateway
+  // freezes the UI thread for the whole multi-phase cycle.
+  if (MAIN_THREAD_BLOCKING_COMMANDS.has(cmd)) {
+    return memViaChildProcess(cmd, {});
+  }
   const dispatch = await getInProcessDispatch();
   if (dispatch) {
     try {
