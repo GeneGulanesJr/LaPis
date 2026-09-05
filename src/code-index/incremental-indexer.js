@@ -482,6 +482,10 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
     const cc2 = buildCochangeEdges(db, repoId);
     if (cc2.success) {
       cochangeEdges = cc2.count;
+    } else {
+      // A silent {success:false} here used to leave cochange data empty with
+      // no trace in the result (#293).
+      derivedErrors.log('cochange', new Error(cc2.reason || 'cochange builder failed'));
     }
   } catch (e) {
     derivedErrors.log('cochange', e);
