@@ -4,6 +4,10 @@
  */
 const { execFileSync } = require('child_process');
 
+// Commits touching more files than this (deps-lock bumps, mass renames) are
+// skipped for pairing: N files would generate N(N-1)/2 meaningless pairs.
+const MAX_FILES_PER_COMMIT = 50;
+
 /**
  * Parse git log output grouped by COMMIT: markers.
  * Returns a map of "fileA::fileB" → co_commit_count.
@@ -28,13 +32,14 @@ function parseGitLogForCochange(logOutput) {
 }
 
 function processCommitFiles(files, pairs) {
-  if (files.length >= 2) {
-    const sorted = [...files].sort();
-    for (let i = 0; i < sorted.length; i++) {
-      for (let j = i + 1; j < sorted.length; j++) {
-        const key = `${sorted[i]}::${sorted[j]}`;
-        pairs[key] = (pairs[key] || 0) + 1;
-      }
+  if (files.length < 2 || files.length > MAX_FILES_PER_COMMIT) {
+    return;
+  }
+  const sorted = [...files].sort();
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      const key = `${sorted[i]}::${sorted[j]}`;
+      pairs[key] = (pairs[key] || 0) + 1;
     }
   }
 }
@@ -50,7 +55,17 @@ function storeCochangePairs(db, repoId, pairs, pathToId, windowDays) {
        co_commit_count = excluded.co_commit_count,
        strength = excluded.strength`,
     ),
-    maxCount = Math.max(...Object.values(pairs), 1);
+    // Loop instead of Math.max(...values): the spread throws for very large
+    // pair maps.
+    maxCount = (() => {
+      let max = 1;
+      for (const count of Object.values(pairs)) {
+        if (count > max) {
+          max = count;
+        }
+      }
+      return max;
+    })();
 
   for (const [key, count] of Object.entries(pairs)) {
     const [pathA, pathB] = key.split('::'),
@@ -82,8 +97,10 @@ function buildCochangeEdges(db, repoId, opts = {}) {
     logOutput = execFileSync('git', ['-C', repo.path, 'log', `--since=${since}`, '--format=COMMIT:%H', '--name-only'], {
       encoding: 'utf8',
       timeout: 30000,
+      maxBuffer: 10 * 1024 * 1024,
     });
   } catch (e) {
+    console.warn(`[cochange] git log failed for repo ${repoId}: ${e.message}`);
     return { success: false, count: 0, reason: `git error: ${e.message}` };
   }
 
@@ -96,9 +113,15 @@ function buildCochangeEdges(db, repoId, opts = {}) {
     const files = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
       pathToId = new Map(files.map((f) => [f.path, f.id])),
       pairCount = (() => {
-        db.prepare('DELETE FROM file_cochange WHERE repo_id = ? AND window_days = ?').run(repoId, windowDays);
-
-        storeCochangePairs(db, repoId, pairs, pathToId, windowDays);
+        // One transaction for the whole rewrite: previously millions of
+        // autocommit statements stalled the index for minutes on active
+        // repos. better-sqlite3 nests this as a savepoint if the caller is
+        // already inside a transaction.
+        const write = db.transaction(() => {
+          db.prepare('DELETE FROM file_cochange WHERE repo_id = ? AND window_days = ?').run(repoId, windowDays);
+          storeCochangePairs(db, repoId, pairs, pathToId, windowDays);
+        });
+        write();
 
         return Object.keys(pairs).length;
       })();
@@ -109,5 +132,7 @@ function buildCochangeEdges(db, repoId, opts = {}) {
 module.exports = {
   buildCochangeEdges,
   parseGitLogForCochange,
+  processCommitFiles,
   storeCochangePairs,
+  MAX_FILES_PER_COMMIT,
 };

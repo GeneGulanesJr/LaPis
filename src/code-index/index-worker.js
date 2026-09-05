@@ -7,7 +7,7 @@
 
 const { parentPort, workerData } = require('worker_threads'),
   dbModule = require('../../db'),
-  { indexRepository, reindexRepository } = require('./incremental-indexer'),
+  { indexRepository, reindexRepository, CANCELLED } = require('./incremental-indexer'),
   { getLanguageForFile } = require('./parser-registry'),
   jobStore = require('./job-store');
 
@@ -79,7 +79,9 @@ async function main() {
       emit('done', { result, languageBreakdown: Object.fromEntries(languageCounters) });
       function onProgress({ phase, files_total, files_done, current_file, language }) {
         if (cancelled) {
-          throw new Error('cancelled');
+          // The sentinel propagates through emitProgress and aborts the
+          // index; the outer catch below reports the job as cancelled.
+          throw CANCELLED;
         }
         // Derive language from current_file if not provided by the indexer.
         const lang = language || (current_file ? safeGetLanguage(current_file) : null),

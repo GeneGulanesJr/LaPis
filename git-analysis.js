@@ -125,6 +125,7 @@ function getFirstSeen(repoPath, filePath) {
     const fullLog = execFileSync('git', ['-C', repoPath, 'log', '--follow', '--format=%aI', '--', filePath], {
         encoding: 'utf8',
         timeout: 10000,
+        maxBuffer: 10 * 1024 * 1024,
         stdio: ['pipe', 'pipe', 'pipe'],
       }).trim(),
       allDates = fullLog.split('\n').filter(Boolean).sort();
@@ -161,7 +162,7 @@ function computeFileChurn(db, repo, filePath, days, since) {
     const log = execFileSync(
       'git',
       ['-C', repo.path, 'log', '--follow', '--format=%H|%an|%aI', `--since=${since}`, '--', filePath],
-      { encoding: 'utf8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'] },
+      { encoding: 'utf8', timeout: 10000, maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] },
     ).trim();
 
     if (!log) {
@@ -186,6 +187,7 @@ function computeRepoChurn(db, repo, days, since) {
     const log = execFileSync('git', ['-C', repo.path, 'log', `--since=${since}`, '--format=', '--name-only'], {
         encoding: 'utf8',
         timeout: 30000,
+        maxBuffer: 10 * 1024 * 1024,
         stdio: ['pipe', 'pipe', 'pipe'],
       }).trim(),
       fileCounts = new Map();
@@ -208,6 +210,7 @@ function computeRepoChurn(db, repo, days, since) {
       uniqueAuthorsRaw = execFileSync('git', ['-C', repo.path, 'log', `--since=${since}`, '--format=%an'], {
         encoding: 'utf8',
         timeout: 10000,
+        maxBuffer: 10 * 1024 * 1024,
         stdio: ['pipe', 'pipe', 'pipe'],
       }).trim(),
       uniqueAuthors = new Set(uniqueAuthorsRaw.split('\n').filter(Boolean)).size,
@@ -303,7 +306,7 @@ function getProvenance(db, repoId, symbolName) {
     const logOutput = execFileSync(
       'git',
       ['-C', repo.path, 'log', '--follow', '--format=%H|%an|%aI|%s', '--', symbol.file_path],
-      { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] },
+      { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] },
     ).trim();
 
     if (!logOutput) {
@@ -329,7 +332,7 @@ function getProvenance(db, repoId, symbolName) {
     const blameOutput = execFileSync(
         'git',
         ['-C', repo.path, 'blame', `-L${symbol.start_line},${symbol.end_line}`, '--', symbol.file_path],
-        { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] },
+        { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] },
       ).trim(),
       blameHashes = new Set(),
       blameRe = /^([a-f0-9]{8,})/gm;

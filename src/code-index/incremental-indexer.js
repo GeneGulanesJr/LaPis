@@ -77,18 +77,27 @@ function makeDerivedErrorCollector() {
   };
 }
 
+// Thrown by the async worker's onProgress hook to abort the index; must
+// propagate through emitProgress instead of being swallowed (previously
+// cancellation was dead-wired: the abort never reached the indexer) (#295).
+const CANCELLED = 'lapis-index-cancelled';
+
 function emitProgress(args, phase, detail, stats) {
   if (!args) {
     return;
   }
   // Worker hook: forward every progress event to a callback (used by the
   // Async worker to update the index_jobs ledger). Errors are swallowed
-  // Because a failing callback must never break the indexer.
+  // Because a failing callback must never break the indexer — except the
+  // Cancellation sentinel, which IS the indexer's stop signal.
   if (typeof args.onProgress === 'function') {
     try {
       const callbackPayload = { phase, ...(detail || {}), ...(stats || {}) };
       args.onProgress(callbackPayload);
-    } catch (_) {
+    } catch (e) {
+      if (e === CANCELLED) {
+        throw e;
+      }
       /* Best-effort */
     }
   }
@@ -325,6 +334,48 @@ function fileRecordToParams(repoId, record) {
   };
 }
 
+// Precompute everything the commit needs from a parsed record, then drop the
+// raw content. Deferring used to buffer the full source of every parsed file
+// (plus its live tree-sitter tree) until the single final commit — multi-GB
+// RSS on large repos (#294). Scope bindings are computed here, while the
+// content (and the tree) are still available, and only compact write
+// instructions are buffered.
+function buildDeferredEntry(entry, repoId, registry, scopeDb) {
+  const { record, hotSymbols, coldSymbols, tree } = entry,
+    fileParams = fileRecordToParams(repoId, record);
+  let scopeBindings = [];
+  if (scopeDb) {
+    try {
+      const scopeBuilder = require('./scope-builder').getScopeBuilder,
+        builder = scopeBuilder(record.filePath);
+      if (builder) {
+        let parsedTree = tree || null;
+        if (!parsedTree) {
+          const fallback = registry.parseTree(record.filePath, record.content);
+          parsedTree = fallback ? fallback.tree : null;
+        }
+        if (parsedTree) {
+          scopeBindings = builder(parsedTree, record.content, record.filePath) || [];
+          parsedTree.delete();
+        }
+      }
+    } catch {}
+  }
+  if (tree) {
+    // The immediate path deletes inside commitParsedBatch; the deferred path
+    // must free the WASM tree now or it stays alive until the final commit.
+    tree.delete();
+  }
+  return {
+    deferred: true,
+    filePath: record.filePath,
+    fileParams,
+    hotSymbols,
+    coldSymbols,
+    scopeBindings,
+  };
+}
+
 function recordDiagnostic(repository, repoId, record, status, message, symbolCount = 0, options = {}) {
   if (options.defer) {
     return;
@@ -482,6 +533,10 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
     const cc2 = buildCochangeEdges(db, repoId);
     if (cc2.success) {
       cochangeEdges = cc2.count;
+    } else {
+      // A silent {success:false} here used to leave cochange data empty with
+      // no trace in the result (#293).
+      derivedErrors.log('cochange', new Error(cc2.reason || 'cochange builder failed'));
     }
   } catch (e) {
     derivedErrors.log('cochange', e);
@@ -805,16 +860,28 @@ function commitParsedBatch(repository, repoId, parsedRecords, ctx) {
   const { args, repoRoot, registry, scopeDb, insideTransaction = false } = ctx,
     batchSymbols = [];
 
-  for (const { record, hotSymbols, coldSymbols, tree: parsedTree } of parsedRecords) {
+  for (const entry of parsedRecords) {
+    // Deferred entries (full-index) arrive precomputed with no raw content;
+    // immediate entries (incremental path) carry the parsed record + tree.
+    const deferred = entry.deferred === true,
+      filePath = deferred ? entry.filePath : entry.record.filePath,
+      record = deferred ? null : entry.record;
     try {
-      const fileId = repository.insertFile(fileRecordToParams(repoId, record));
+      let fileParams, hotSymbols, coldSymbols, parsedTree;
+      if (deferred) {
+        ({ fileParams, hotSymbols, coldSymbols } = entry);
+      } else {
+        ({ hotSymbols, coldSymbols, tree: parsedTree } = entry);
+        fileParams = fileRecordToParams(repoId, record);
+      }
+      const fileId = repository.insertFile(fileParams);
       for (let si = 0; si < hotSymbols.length; si++) {
         const hot = hotSymbols[si],
           cold = coldSymbols[si] || {};
         batchSymbols.push({
           repoId,
           fileId,
-          filePath: record.filePath,
+          filePath,
           name: hot.name,
           kind: hot.kind,
           qualifiedName: hot.qualified_name,
@@ -839,24 +906,31 @@ function commitParsedBatch(repository, repoId, parsedRecords, ctx) {
       ctx.symbolCount += hotSymbols.length;
       ctx.fileCount++;
 
-      try {
-        const scopeBuilder = require('./scope-builder').getScopeBuilder,
-          builder = scopeBuilder(record.filePath);
-        if (builder && scopeDb) {
-          let tree = parsedTree || null;
-          if (!tree) {
-            const fallback = registry.parseTree(record.filePath, record.content);
-            tree = fallback ? fallback.tree : null;
-          }
-          if (tree) {
-            const scopeBindings = builder(tree, record.content, record.filePath);
-            if (scopeBindings.length > 0) {
-              insertScopeBindings(scopeDb, repoId, fileId, scopeBindings);
+      // Deferred entries already computed (and freed) their scope bindings
+      // at parse time (#294); the immediate path still owns the live tree.
+      if (!deferred) {
+        try {
+          const scopeBuilder = require('./scope-builder').getScopeBuilder,
+            builder = scopeBuilder(filePath);
+          if (builder && scopeDb) {
+            let tree = parsedTree || null;
+            if (!tree) {
+              const fallback = registry.parseTree(filePath, record.content);
+              tree = fallback ? fallback.tree : null;
             }
-            tree.delete();
+            if (tree) {
+              const scopeBindings = builder(tree, record.content, filePath);
+              if (scopeBindings.length > 0) {
+                insertScopeBindings(scopeDb, repoId, fileId, scopeBindings);
+              }
+              tree.delete();
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      }
+      if (deferred && entry.scopeBindings.length > 0 && scopeDb) {
+        insertScopeBindings(scopeDb, repoId, fileId, entry.scopeBindings);
+      }
 
       if (args && shouldEmitFileProgress(ctx.fileCount, ctx.totalFiles)) {
         emitProgress(
@@ -864,15 +938,29 @@ function commitParsedBatch(repository, repoId, parsedRecords, ctx) {
           'parsing',
           {
             step: 'store-index',
-            current_file: progressPath(record.filePath, repoRoot),
-            message: `Stored index ${ctx.fileCount}/${ctx.totalFiles}: ${progressPath(record.filePath, repoRoot)} (${hotSymbols.length} symbols)`,
+            current_file: progressPath(filePath, repoRoot),
+            message: `Stored index ${ctx.fileCount}/${ctx.totalFiles}: ${progressPath(filePath, repoRoot)} (${hotSymbols.length} symbols)`,
           },
           { files_total: ctx.totalFiles, files_done: ctx.fileCount, symbols: ctx.symbolCount },
         );
       }
     } catch (e) {
-      ctx.skipped.push({ file: record.filePath, error: e.message });
-      recordDiagnostic(repository, repoId, record, 'error', e.message, 0);
+      ctx.skipped.push({ file: filePath, error: e.message });
+      if (deferred) {
+        // Raw content was dropped at parse time; use the stashed hash.
+        if (typeof repository.upsertFileDiagnostic === 'function') {
+          repository.upsertFileDiagnostic({
+            repoId,
+            filePath,
+            status: 'error',
+            message: e.message,
+            symbolCount: 0,
+            contentHash: entry.fileParams.contentHash ?? null,
+          });
+        }
+      } else {
+        recordDiagnostic(repository, repoId, record, 'error', e.message, 0);
+      }
     }
   }
 
@@ -1097,7 +1185,7 @@ async function parsePhase(files, deps, repoId, args) {
           symbolCount += entry.hotSymbols.length;
           fileCount++;
         }
-        deferredBatches.push(parsedRecords);
+        deferredBatches.push(parsedRecords.map((entry) => buildDeferredEntry(entry, repoId, registry, scopeDb)));
         // oxlint-disable-next-line no-continue
         continue;
       }
@@ -1830,6 +1918,7 @@ function buildHealthRecommendations({ pathExists, stale, diagnosticCounts, scan 
 }
 
 module.exports = {
+  CANCELLED,
   emitProgress,
   fileRecordToParams,
   getHeadCommit,
