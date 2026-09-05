@@ -8,6 +8,8 @@ jobs:
   # ── Gate: validate the packed tarball as a real consumer would install it ──
   # (builds better-sqlite3, exercises the bin, audits the prod tree)
   pack-verify:
+    permissions:
+      contents: read
     uses: ./.github/workflows/pack-verify.yml
 
   # ── Gate: lint + test must pass before publish ──
