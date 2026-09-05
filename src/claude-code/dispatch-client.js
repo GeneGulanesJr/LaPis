@@ -41,6 +41,11 @@ function loadDirectDispatch() {
   return _directDispatch;
 }
 
+// A daemon that accepts the connection but never responds (wedged event
+// loop, stuck write) must degrade to the direct-mode fallback instead of
+// hanging the calling hook until the external timeout kills it.
+const DAEMON_TIMEOUT_MS = 5000;
+
 /**
  * POST to a running daemon. Injectable fetch/http for tests.
  */
@@ -59,6 +64,7 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: opts.timeoutMs === null ? undefined : AbortSignal.timeout(opts.timeoutMs ?? DAEMON_TIMEOUT_MS),
       });
     if (!res.ok) {
       let message = `Daemon dispatch failed (${res.status})`;
