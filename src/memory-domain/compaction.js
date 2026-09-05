@@ -144,8 +144,10 @@ function dream(deps, args = {}) {
            r.source_id AS newer_id, r.relation, r.confidence
     FROM observations o
     JOIN observation_relations r ON r.target_id = o.id
+    JOIN observations newer ON newer.id = r.source_id
     WHERE r.relation IN ('duplicate', 'supersedes')
       AND o.deleted_at IS NULL
+      AND newer.deleted_at IS NULL
       AND r.confidence >= ${DEDUP.DREAM_SUPERSEDED_CONFIDENCE}
   `);
       })();
@@ -177,6 +179,7 @@ function dream(deps, args = {}) {
         ) rl ON rl.memory_id = o.id
         WHERE o.type = ? AND o.deleted_at IS NULL
           AND (rl.recall_count IS NULL OR rl.recall_count = 0)
+          ${args.bypassAgeGates ? '' : `AND o.created_at < datetime('now', '-${TIME_WINDOWS.DREAM_AUTO_DETECTED_MIN_AGE_DAYS} days')`}
       `,
               [type],
             );
@@ -230,6 +233,7 @@ function dream(deps, args = {}) {
     FROM observations
     WHERE (title LIKE 'CORRECTION:%' OR title LIKE 'Correction:%')
       AND deleted_at IS NULL
+      ${args.bypassAgeGates ? '' : `AND created_at < datetime('now', '-${TIME_WINDOWS.DREAM_AUTO_DETECTED_MIN_AGE_DAYS} days')`}
   `),
           obsoleteConfigs = (() => {
             for (const row of corrections) {
@@ -255,6 +259,7 @@ function dream(deps, args = {}) {
     JOIN observation_relations r ON r.target_id = o1.id
     JOIN observations o2 ON o2.id = r.source_id
     WHERE r.relation IN ('duplicate', 'supersedes')
+      AND r.confidence >= ${DEDUP.DREAM_SUPERSEDED_CONFIDENCE}
       AND o1.deleted_at IS NULL
       AND o2.deleted_at IS NULL
       AND o1.type IN ('decision', 'config', 'architecture')
@@ -273,6 +278,7 @@ function dream(deps, args = {}) {
       AND o2.type IN ('decision', 'config', 'architecture')
     JOIN observation_relations r2 ON r2.target_id = o1.id AND r2.source_id = o2.id
       AND r2.relation IN ('duplicate', 'supersedes')
+      AND r2.confidence >= ${DEDUP.DREAM_SUPERSEDED_CONFIDENCE}
     WHERE o1.deleted_at IS NULL
       AND o1.topic_key IS NOT NULL AND o1.topic_key != ''
       AND o1.topic_key = o2.topic_key
@@ -346,10 +352,12 @@ function dream(deps, args = {}) {
                     .join('\n\n---\n\n'),
                   mergedTitle = `${group.topic_key} — consolidated (${entries.length} entries)`;
 
-                deps.sqlRun('UPDATE observations SET content = ?, title = ?, type = ? WHERE id = ?', [
+                // Keep the kept row's own type — forcing every consolidated
+                // Group to 'decision' permanently broke --type filtering for
+                // merged bugfix/pattern/preference entries.
+                deps.sqlRun('UPDATE observations SET content = ?, title = ? WHERE id = ?', [
                   mergedContent,
                   mergedTitle,
-                  'decision',
                   keepId,
                 ]);
 

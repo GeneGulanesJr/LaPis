@@ -214,40 +214,74 @@ function getGitDelta(repoPath, baseCommit) {
         maxBuffer: 10 * 1024 * 1024,
         stdio: ['ignore', 'pipe', 'ignore'],
       }),
+      // Working-tree state (staged + unstaged vs HEAD). Without this, any
+      // File edited but not yet committed — the normal state while an agent
+      // works — is invisible to delta mode and stays stale after head_commit
+      // advances past it.
+      wtOutput = execFileSync('git', ['diff', '--name-status', 'HEAD'], {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        timeout: 15000,
+        maxBuffer: 10 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }),
+      // Untracked-but-not-ignored files are new work; they appear in no diff.
+      untrackedOutput = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        timeout: 15000,
+        maxBuffer: 10 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }),
       changed = new Set(),
       deleted = new Set(),
       renamed = [],
       rejected = [],
       absRoot = path.resolve(repoPath);
-    for (const line of output.split('\n')) {
+    const parseNameStatus = (raw) => {
+      for (const line of raw.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          // oxlint-disable-next-line no-continue
+          continue;
+        }
+        const parts = trimmed.split('\t'),
+          status = parts[0];
+        if (status.startsWith('D') && parts[1]) {
+          // Deleted files no longer exist on disk; use the existence-tolerant resolver so they are recorded as deleted.
+          const abs = resolveRepoScopedDeletedPath(absRoot, parts[1], rejected);
+          if (abs) {
+            deleted.add(abs);
+          }
+        } else if (status.startsWith('R') && parts[1] && parts[2]) {
+          const fromAbs = resolveRepoScopedDeletedPath(absRoot, parts[1], rejected),
+            toAbs = resolveRepoScopedPath(repoPath, parts[2], rejected);
+          if (fromAbs) {
+            deleted.add(fromAbs);
+          }
+          if (toAbs) {
+            changed.add(toAbs);
+          }
+          renamed.push({ from: parts[1], to: parts[2], status });
+        } else if (parts[1]) {
+          const abs = resolveRepoScopedPath(repoPath, parts[1], rejected);
+          if (abs) {
+            changed.add(abs);
+          }
+        }
+      }
+    };
+    parseNameStatus(output);
+    parseNameStatus(wtOutput);
+    for (const line of untrackedOutput.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed) {
         // oxlint-disable-next-line no-continue
         continue;
       }
-      const parts = trimmed.split('\t'),
-        status = parts[0];
-      if (status.startsWith('D') && parts[1]) {
-        // Deleted files no longer exist on disk; use the existence-tolerant resolver so they are recorded as deleted.
-        const abs = resolveRepoScopedDeletedPath(absRoot, parts[1], rejected);
-        if (abs) {
-          deleted.add(abs);
-        }
-      } else if (status.startsWith('R') && parts[1] && parts[2]) {
-        const fromAbs = resolveRepoScopedDeletedPath(absRoot, parts[1], rejected),
-          toAbs = resolveRepoScopedPath(repoPath, parts[2], rejected);
-        if (fromAbs) {
-          deleted.add(fromAbs);
-        }
-        if (toAbs) {
-          changed.add(toAbs);
-        }
-        renamed.push({ from: parts[1], to: parts[2], status });
-      } else if (parts[1]) {
-        const abs = resolveRepoScopedPath(repoPath, parts[1], rejected);
-        if (abs) {
-          changed.add(abs);
-        }
+      const abs = resolveRepoScopedPath(repoPath, trimmed, rejected);
+      if (abs) {
+        changed.add(abs);
       }
     }
     return { currentHead, changed: [...changed], deleted: [...deleted], renamed, rejected };
@@ -1637,6 +1671,7 @@ module.exports = {
   fileRecordToParams,
   getHeadCommit,
   getCurrentBranch,
+  getGitDelta,
   parseChangedPathsInput,
   getCodeRepoHealth,
   indexRepository,
