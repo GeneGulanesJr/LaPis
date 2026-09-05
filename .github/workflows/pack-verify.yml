@@ -58,6 +58,14 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Upgrade npm to 11.x
+        # Node 22 bundles npm 10.x, whose Arborist crashes with "Cannot read
+        # properties of null (reading 'edgesOut')" (@npmcli/arborist
+        # #loadPeerSet) while resolving the lockfile-less production tree of
+        # the extracted tarball — reproduced on npm 10.9.4, clean on 11.x and
+        # 12.x. Keep Node 22; only replace its bundled npm.
+        run: npm install -g npm@11
+
       - name: Install dev dependencies (for pack + tree-sitter grammars)
         # We need the dev tree to build/verify grammar wasms before packing.
         run: npm ci
@@ -222,8 +230,8 @@ jobs:
       # (6) npm audit against the PRODUCTION tree of the packed artifact
       # ─────────────────────────────────────────────────────────────────────
       - name: npm audit (production, high+)
-        # Mirrors the audit gate in test.yml: --omit=dev because the only
-        # remaining high findings are dev-only transitives under
-        # @earendil-works/pi-coding-agent. The production tree must audit clean.
+        # Mirrors the audit gate in test.yml: --omit=dev keeps the gate
+        # production-scoped so dev-only advisories cannot block CI. The
+        # production tree must audit clean.
         working-directory: ${{ env.EXTRACT }}
         run: npm audit --omit=dev --audit-level=high

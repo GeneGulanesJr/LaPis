@@ -65,6 +65,14 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Upgrade npm to 11.x
+        # Node 22 bundles npm 10.x, whose Arborist crashes with "Cannot read
+        # properties of null (reading 'edgesOut')" (@npmcli/arborist
+        # #loadPeerSet) while resolving the lockfile-less production tree of
+        # the extracted tarball — reproduced on npm 10.9.4, clean on 11.x and
+        # 12.x. Keep Node 22; only replace its bundled npm.
+        run: npm install -g npm@11
+
       - name: Install dev dependencies (for pack + tree-sitter grammars)
         # We need the dev tree to build/verify grammar wasms before packing.
         run: npm ci
