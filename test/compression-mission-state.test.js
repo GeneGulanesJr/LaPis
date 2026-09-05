@@ -32,6 +32,25 @@ describe('compressMissionState', () => {
     const result = compressMissionState({ sqlJson: makeSqlJson({}), missionId: 'm-1' });
     expect(result.summary).toMatch(/no compressible state/i);
     expect(result.tokensSaved).toBe(0);
+    expect(result.compressed).toBe('');
+  });
+
+  it('returns the compressed state itself, not just the bookkeeping (#284)', () => {
+    const sqlJson = makeSqlJson({
+        findings: [
+          {
+            title: 'Auth uses JWT',
+            content: 'JWT signed with HS256, validated in middleware.ts',
+            relevance: 'high',
+            status: 'verified',
+          },
+        ],
+      }),
+      result = compressMissionState({ sqlJson, missionId: 'm-1' });
+    expect(typeof result.compressed).toBe('string');
+    // The compressed output must carry the section content forward — it is
+    // the part the HTTP handler persists for later reads.
+    expect(result.compressed).toContain('Auth uses JWT');
   });
 
   it('aggregates findings, verdicts, and costs into a single summary', () => {

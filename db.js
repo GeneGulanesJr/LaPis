@@ -175,6 +175,7 @@ class MemoryError extends Error {
         { to: 23, run: runMigrationV23 },
         { to: 24, run: runMigrationV24 },
         { to: 25, run: runMigrationV25 },
+        { to: 26, run: runMigrationV26 },
       ],
       LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
 
@@ -1130,6 +1131,27 @@ class MemoryError extends Error {
         });
       } catch (e) {
         errors.push(`V25: ${e.message}`);
+      }
+      return errors;
+    }
+
+    function runMigrationV26() {
+      const errors = [];
+      try {
+        withTransaction(() => {
+          // Store the compressed mission state itself, not just the
+          // bookkeeping (summary/tokens_saved) — see issue #284.
+          try {
+            sqlRaw('ALTER TABLE mission_compression_log ADD COLUMN important_output TEXT');
+          } catch (e) {
+            if (!/duplicate column/i.test(e.message)) {
+              throw e;
+            }
+          }
+          sqlRaw('PRAGMA user_version = 26');
+        });
+      } catch (e) {
+        errors.push(`V26: ${e.message}`);
       }
       return errors;
     }

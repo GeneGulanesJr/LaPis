@@ -7,14 +7,21 @@ const { getDb } = require('../../db');
  * @param {object} args
  * @param {string} args.missionId
  * @param {string} args.trigger - one of "post_milestone" | "manual" | "budget_threshold"
- * @param {{ summary?: string|null, tokensSaved?: number, error?: string }} args.result
+ * @param {{ summary?: string|null, compressed?: string|null, tokensSaved?: number, error?: string }} args.result
  */
 function recordCompressionRun({ missionId, trigger, result }) {
   const stmt = `INSERT INTO mission_compression_log
-    (mission_id, trigger, summary, tokens_saved, error)
-    VALUES (?, ?, ?, ?, ?)`,
+    (mission_id, trigger, summary, tokens_saved, error, important_output)
+    VALUES (?, ?, ?, ?, ?, ?)`,
     db = getDb();
-  db.prepare(stmt).run(missionId, trigger, result.summary ?? '', result.tokensSaved ?? 0, result.error ?? null);
+  db.prepare(stmt).run(
+    missionId,
+    trigger,
+    result.summary ?? '',
+    result.tokensSaved ?? 0,
+    result.error ?? null,
+    result.compressed ?? null,
+  );
 }
 
 module.exports = { recordCompressionRun };

@@ -43,12 +43,15 @@ describe('review fixes', () => {
             .some((c) => c.name === 'source_module'),
           churnCols = reopened.prepare('PRAGMA table_info(churn_metrics)').all(),
           hasTotalFilesChanged = churnCols.some((c) => c.name === 'total_files_changed'),
-          hasTopFilesJson = churnCols.some((c) => c.name === 'top_files_json');
-        expect(version).toBe(25);
+          hasTopFilesJson = churnCols.some((c) => c.name === 'top_files_json'),
+          compressionCols = reopened.prepare('PRAGMA table_info(mission_compression_log)').all(),
+          hasImportantOutput = compressionCols.some((c) => c.name === 'important_output');
+        expect(version).toBe(26);
         expect(table).toBeTruthy();
         expect(sourceModuleCol).toBe(true);
         expect(hasTotalFilesChanged).toBe(true);
         expect(hasTopFilesJson).toBe(true);
+        expect(hasImportantOutput).toBe(true);
       }
     });
   });

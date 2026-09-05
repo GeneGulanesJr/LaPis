@@ -106,6 +106,7 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
     if (sections.length === 0) {
       return {
         summary: 'Mission has no compressible state yet (no findings, handoffs, verdicts, or cost entries).',
+        compressed: '',
         tokensSaved: 0,
       };
     }
@@ -123,6 +124,9 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
 
       return {
         summary: compressed.summary,
+        // The compressed state itself — persisting this is the whole point;
+        // summary/tokensSaved alone describe a compression nobody can read.
+        compressed: compressed.importantOutput || '',
         tokensSaved,
       };
     }
