@@ -54,6 +54,10 @@ function indexStatusInternal(jobId) {
   return jobStore.getJob(storeDeps, jobId);
 }
 
+async function cancelIndexJobInternal(jobId) {
+  return getQueue().cancel(jobId);
+}
+
 function listIndexJobsInternal({ onlyRunning = false, limit = 20 } = {}) {
   const dbModule = require('../db'),
     storeDeps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
@@ -67,6 +71,7 @@ module.exports = {
   reindexRepoInternal,
   codeRepoHealthInternal,
   indexRepoAsyncInternal,
+  cancelIndexJobInternal,
   indexStatusInternal,
   listIndexJobsInternal,
 };

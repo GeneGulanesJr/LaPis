@@ -1,11 +1,27 @@
 const crypto = require('crypto'),
   os = require('os'),
+  { threadId } = require('worker_threads'),
   localHolding = new Set(),
   DEFAULT_LOCK_TIMEOUT_MS = 10 * 60 * 1000,
   LOCK_POLL_MS = 200;
 
+// Holder ids embed the (pid, threadId) pair: worker threads share the
+// parent's pid, so a lock stranded by worker.terminate() would otherwise
+// look alive forever and stall every future index of that repo (#295).
 function makeHolderId() {
-  return `${process.pid}:${crypto.randomBytes(4).toString('hex')}`;
+  return `${process.pid}:${threadId}:${crypto.randomBytes(4).toString('hex')}`;
+}
+
+function locksForCurrentThreadPrefix() {
+  return `${process.pid}:${threadId}:%`;
+}
+
+/**
+ * Delete every repo lock held by a (pid, threadId) prefix — used by the job
+ * queue after forcibly terminating a worker whose lock release never ran.
+ */
+function releaseLocksForHolderPrefix(sqlRun, prefix) {
+  sqlRun('DELETE FROM repo_index_locks WHERE holder_id LIKE ?', [`${prefix}%`]);
 }
 
 function sleep(ms) {
@@ -111,4 +127,11 @@ async function withRepoIndexLock(repoName, fn) {
   }
 }
 
-module.exports = { withRepoIndexLock, makeHolderId, tryAcquireSqliteLock, releaseSqliteLock };
+module.exports = {
+  withRepoIndexLock,
+  makeHolderId,
+  tryAcquireSqliteLock,
+  releaseSqliteLock,
+  releaseLocksForHolderPrefix,
+  locksForCurrentThreadPrefix,
+};

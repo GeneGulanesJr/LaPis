@@ -77,18 +77,27 @@ function makeDerivedErrorCollector() {
   };
 }
 
+// Thrown by the async worker's onProgress hook to abort the index; must
+// propagate through emitProgress instead of being swallowed (previously
+// cancellation was dead-wired: the abort never reached the indexer) (#295).
+const CANCELLED = 'lapis-index-cancelled';
+
 function emitProgress(args, phase, detail, stats) {
   if (!args) {
     return;
   }
   // Worker hook: forward every progress event to a callback (used by the
   // Async worker to update the index_jobs ledger). Errors are swallowed
-  // Because a failing callback must never break the indexer.
+  // Because a failing callback must never break the indexer — except the
+  // Cancellation sentinel, which IS the indexer's stop signal.
   if (typeof args.onProgress === 'function') {
     try {
       const callbackPayload = { phase, ...(detail || {}), ...(stats || {}) };
       args.onProgress(callbackPayload);
-    } catch (_) {
+    } catch (e) {
+      if (e === CANCELLED) {
+        throw e;
+      }
       /* Best-effort */
     }
   }
@@ -1909,6 +1918,7 @@ function buildHealthRecommendations({ pathExists, stale, diagnosticCounts, scan 
 }
 
 module.exports = {
+  CANCELLED,
   emitProgress,
   fileRecordToParams,
   getHeadCommit,

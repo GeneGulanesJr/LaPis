@@ -8,7 +8,9 @@ const path = require('path'),
   { EventEmitter } = require('events'),
   WORKER_SCRIPT = path.resolve(__dirname, 'index-worker.js');
 
-function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
+const CANCEL_GRACE_MS = 3000;
+
+function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps, cancelGraceMs = CANCEL_GRACE_MS }) {
   const workers = new Map(), // jobId -> { worker, status }
     emitter = new EventEmitter();
 
@@ -89,10 +91,41 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps }) {
     if (!entry) {
       return false;
     }
+    // Ask the worker to cancel cooperatively first (postMessage → the
+    // worker's onProgress hook aborts the index and its repo lock is
+    // released by the normal finally path). Previously cancel() only called
+    // terminate(), which killed the thread with the lock held — and because
+    // worker threads share the parent pid, the stranded lock looked alive
+    // and stalled every future index of that repo (#295).
     try {
-      await entry.worker.terminate();
+      entry.worker.postMessage({ type: 'cancel' });
     } catch (_) {
       /* Ignore */
+    }
+    const exitedCleanly = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(false), cancelGraceMs);
+      entry.worker.once('exit', () => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+    });
+    if (!exitedCleanly) {
+      try {
+        await entry.worker.terminate();
+      } catch (_) {
+        /* Ignore */
+      }
+      // The terminated thread never ran its finally: drop any repo locks it
+      // still holds. Worker threads share the parent pid, so the holder
+      // prefix must also match this worker's threadId.
+      if (typeof entry.worker.threadId === 'number' && typeof deps?.sqlRun === 'function') {
+        try {
+          const { releaseLocksForHolderPrefix } = require('./repo-lock');
+          releaseLocksForHolderPrefix(deps.sqlRun, `${process.pid}:${entry.worker.threadId}`);
+        } catch (_) {
+          /* Best-effort */
+        }
+      }
     }
     entry.status = 'cancelled';
     try {
