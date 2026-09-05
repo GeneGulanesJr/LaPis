@@ -25,7 +25,7 @@ const ONE_SIDED_IF_PATTERNS = [
   /\bif\s*\(\s*![^)]+\)\s*\{\s*\/(?:\/|\*)[^\}]*\}\s*else/g,
   // if (constant_expression) { never_runs(); } else { always_runs(); }
   // Detect when if body clearly never executes (throw, return, etc.)
-  /\bif\s*\(\s*(?:true|false|1\s*==\s*1|0\s*==\s*1)\s*\)\s*\{(?:\s| |\n)*(?:return|throw|break|continue)[^}]*\}\s*else/g,
+  /\bif\s*\(\s*(?:true|false|1\s*==\s*1|0\s*==\s*1)\s*\)\s*\{\s*(?:return|throw|break|continue)[^}]*\}\s*else/g,
 ];
 
 const ALWAYS_TRUE_CONTEXT = ['process.env.NODE_ENV', 'process.env.DEBUG', 'process.env.TESTING'];
