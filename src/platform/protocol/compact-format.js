@@ -8,6 +8,15 @@
  * 1. Homogeneous list of objects → tagged CSV with _header + pipe-delimited rows
  * 2. Path prefix interning when ≥3 rows share the same prefix
  * 3. Non-homogeneous results, single results, errors stay as JSON
+ * 4. Cell type markers keep decode lossless:
+ *    - null/undefined    → `` (empty)          decodes back to null
+ *    - boolean           → `!true` / `!false`
+ *    - number            → digits              decodes back to Number
+ *    - ambiguous string  → `'` + value         decodes back to the literal string
+ *    A string is ambiguous when it is empty, starts with the literal or
+ *    boolean marker, looks numeric (decode would coerce it), or starts with
+ *    an `@` prefix reference it did not receive from interning (decode would
+ *    expand it). Everything else encodes verbatim.
  *
  * Lossless round-trip: decode(encode(obj)) === obj
  */
@@ -38,6 +47,67 @@ function _escapePipe(val) {
  */
 function _unescapePipe(val) {
   return val.replace(/\uE001/g, '|').replace(/\uE000/g, '\\');
+}
+
+// Marker prefixing a cell whose value must decode back as a literal string
+// (as opposed to null / boolean / Number coercion).
+const LITERAL_MARKER = "'";
+
+/**
+ * Encode a single cell value with its type marker (see file header).
+ *
+ * @param {*} val — raw cell value
+ * @param {boolean} hasPrefixes — the column has a prefix map (a leading '@'
+ *   would be expanded on decode)
+ * @param {boolean} [interned] — the value was just rewritten by interning,
+ *   so its leading '@' is intentional and must NOT be marker-escaped
+ */
+function _encodeCell(val, hasPrefixes, interned = false) {
+  if (val == null) {
+    return '';
+  }
+  if (typeof val === 'number') {
+    return _escapePipe(String(val));
+  }
+  if (typeof val === 'boolean') {
+    return val ? '!true' : '!false';
+  }
+  const str = String(val),
+    ambiguous =
+      str === '' ||
+      str.startsWith(LITERAL_MARKER) ||
+      str.startsWith('!') ||
+      (hasPrefixes && !interned && str.startsWith('@')) ||
+      (str.trim() !== '' && !isNaN(str));
+  return (ambiguous ? LITERAL_MARKER : '') + _escapePipe(str);
+}
+
+/**
+ * Decode a single cell value, reversing _encodeCell (and still accepting
+ * legacy unmarked cells, which keep the pre-marker coercion behavior).
+ */
+function _decodeCell(val, prefixList) {
+  if (val.startsWith(LITERAL_MARKER)) {
+    return val.slice(1);
+  }
+  if (val === '!true') {
+    return true;
+  }
+  if (val === '!false') {
+    return false;
+  }
+  if (prefixList && val.startsWith('@')) {
+    for (let idx = 0; idx < prefixList.length; idx++) {
+      const marker = `@${idx}`;
+      if (val.startsWith(marker)) {
+        return prefixList[idx] + val.slice(marker.length);
+      }
+    }
+  }
+  if (val !== '' && val.trim() !== '' && !isNaN(val)) {
+    return Number(val);
+  }
+  return val === '' ? null : val;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -89,19 +159,21 @@ function _encodeList(rows, opts = {}) {
 
   for (const row of rows) {
     const parts = header.map((key) => {
-      let val = row[key];
+      let val = row[key],
+        interned = false;
 
       // Apply prefix interning
       if (prefixes[key] && typeof val === 'string') {
         for (const [idx, prefix] of Object.entries(prefixes[key])) {
           if (val.startsWith(`${prefix}/`)) {
             val = `@${idx}${val.slice(prefix.length)}`;
+            interned = true;
             break;
           }
         }
       }
 
-      return _escapePipe(val);
+      return _encodeCell(val, Boolean(prefixes[key]), interned);
     });
     encodedRows.push(parts.join('|'));
   }
@@ -215,27 +287,7 @@ function _decodeList(compact) {
     const values = row.split('|').map((v) => _unescapePipe(v)),
       obj = {};
     header.forEach((key, i) => {
-      let val = values[i] || '';
-
-      // Expand prefix references
-      if (val.startsWith('@') && prefixes[key]) {
-        for (let idx = 0; idx < prefixes[key].length; idx++) {
-          const marker = `@${idx}`;
-          if (val.startsWith(marker)) {
-            val = prefixes[key][idx] + val.slice(marker.length);
-            break;
-          }
-        }
-      }
-
-      // Try numeric conversion
-      if (val !== '' && !isNaN(val) && val.trim() !== '') {
-        obj[key] = Number(val);
-      } else if (val === '') {
-        obj[key] = null;
-      } else {
-        obj[key] = val;
-      }
+      obj[key] = _decodeCell(values[i] || '', prefixes[key]);
     });
 
     // Restore stripped fields as null
@@ -284,6 +336,37 @@ function _isHomogeneous(arr) {
 }
 
 /**
+ * Check that every column can be represented losslessly in a pipe-delimited
+ * cell: either all its cells are primitives (or null), or the column is
+ * uniform across rows (hoisted whole by _encodeList, preserving the object).
+ * Columns mixing differing objects/arrays per row would be stringified
+ * ("[object Object]") — such lists stay as JSON instead.
+ */
+function _isCompactable(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return true;
+  }
+  for (const key of Object.keys(rows[0])) {
+    let allPrimitive = true,
+      uniform = true;
+    const first = JSON.stringify(rows[0][key]);
+    for (const row of rows) {
+      const v = row[key];
+      if (!(v == null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')) {
+        allPrimitive = false;
+      }
+      if (JSON.stringify(v) !== first) {
+        uniform = false;
+      }
+      if (!allPrimitive && !uniform) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/**
  * Find the first array-like field in the data that's homogeneous.
  * Returns { key, rows } or null.
  */
@@ -295,7 +378,7 @@ function _findEncodableList(data) {
   // Try common container keys
   const candidates = [];
   for (const [key, value] of Object.entries(data)) {
-    if (Array.isArray(value) && _isHomogeneous(value)) {
+    if (Array.isArray(value) && _isHomogeneous(value) && _isCompactable(value)) {
       candidates.push({ key, rows: value, len: value.length });
     }
   }
@@ -348,7 +431,7 @@ function compactResponse(data, opts = {}) {
   const result = { ...data };
 
   for (const [key, value] of Object.entries(result)) {
-    if (Array.isArray(value) && _isHomogeneous(value) && value.length >= 2) {
+    if (Array.isArray(value) && _isHomogeneous(value) && value.length >= 2 && _isCompactable(value)) {
       result[key] = _encodeList(value, opts);
       modified = true;
     }
@@ -416,6 +499,7 @@ module.exports = {
   _encodeList,
   _decodeList,
   _isHomogeneous,
+  _isCompactable,
   _findEncodableList,
   _escapePipe,
   _unescapePipe,
