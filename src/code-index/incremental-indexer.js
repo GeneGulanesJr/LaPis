@@ -63,6 +63,20 @@ function logDerivedError(step, e) {
   console.error(`[indexer] derived phase failed (${step}): ${e.message}`);
 }
 
+// Collects per-builder failures so indexRepository/reindexRepository can
+// report them (derived_errors + partial) instead of advertising success with
+// silently-empty graphs. Logging stays as before.
+function makeDerivedErrorCollector() {
+  const errors = [];
+  return {
+    errors,
+    log(step, e) {
+      logDerivedError(step, e);
+      errors.push({ builder: step, error: e instanceof Error ? e.message : String(e) });
+    },
+  };
+}
+
 function emitProgress(args, phase, detail, stats) {
   if (!args) {
     return;
@@ -361,7 +375,8 @@ function insertSymbols(repository, repoId, fileId, filePath, symbols) {
 }
 
 function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCount, changedFileIds, deletedFileIds) {
-  const stats = { files_total: totalFiles, files_done: fileCount, symbols: symbolCount },
+  const derivedErrors = makeDerivedErrorCollector(),
+    stats = { files_total: totalFiles, files_done: fileCount, symbols: symbolCount },
     useIncremental = Array.isArray(changedFileIds) && Array.isArray(deletedFileIds);
 
   if (useIncremental) {
@@ -380,7 +395,7 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
           importEdges = ig.edges;
         }
       } catch (e) {
-        logDerivedError('import-graph', e);
+        derivedErrors.log('import-graph', e);
       }
 
       // ── Scope resolution (v10) ────────────────────────────────
@@ -404,7 +419,7 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
     });
     scopeResolved = sr.resolved;
   } catch (e) {
-    logDerivedError('scope-resolution', e);
+    derivedErrors.log('scope-resolution', e);
   }
 
   emitProgress(args, 'analysis', { step: 'build-call-graph', message: 'Step 5/5: building call graph...' }, stats);
@@ -426,7 +441,7 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
       callEdges = cg.calls;
     }
   } catch (e) {
-    logDerivedError('call-graph', e);
+    derivedErrors.log('call-graph', e);
   }
   emitProgress(
     args,
@@ -440,7 +455,7 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
       complexityCount = cc.symbols;
     }
   } catch (e) {
-    logDerivedError('complexity', e);
+    derivedErrors.log('complexity', e);
   }
 
   let relationEdges = 0,
@@ -457,7 +472,7 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
           relationEdges = re.count;
         }
       } catch (e) {
-        logDerivedError('relations', e);
+        derivedErrors.log('relations', e);
       }
 
       return 0;
@@ -469,7 +484,7 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
       cochangeEdges = cc2.count;
     }
   } catch (e) {
-    logDerivedError('cochange', e);
+    derivedErrors.log('cochange', e);
   }
 
   return {
@@ -480,6 +495,7 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
     relationEdges,
     cochangeEdges,
     derived_scope: 'repo',
+    derived_errors: derivedErrors.errors,
   };
 }
 
@@ -596,6 +612,124 @@ function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, dele
     derived_scope: 'file',
     derived_files_changed: changedFileIds.length,
     derived_files_deleted: deletedFileIds.length,
+  };
+}
+
+function rebuildDerivedIncremental(db, repoId, args, stats, changedFileIds, deletedFileIds) {
+  const derivedErrors = makeDerivedErrorCollector();
+  emitProgress(
+    args,
+    'analysis',
+    {
+      step: 'build-import-graph',
+      message: `Step 5/5: incrementally rebuilding import graph for ${changedFileIds.length + deletedFileIds.length} affected files...`,
+    },
+    stats,
+  );
+
+  let importEdges = 0,
+    callEdges = 0,
+    complexityCount = 0,
+    scopeResolved = (() => {
+      try {
+        const ig = buildImportEdgesForFiles(db, repoId, changedFileIds, deletedFileIds);
+        if (ig.success) {
+          importEdges = ig.edges;
+        }
+      } catch (e) {
+        derivedErrors.log('import-graph-incremental', e);
+      }
+
+      // ── Scope resolution (v10) ────────────────────────────────
+
+      return 0;
+    })(),
+    relationEdges = (() => {
+      emitProgress(
+        args,
+        'analysis',
+        {
+          step: 'resolve-scopes',
+          message: 'Step 5/5: incrementally resolving scope bindings for affected files...',
+        },
+        stats,
+      );
+      try {
+        const sr = resolveScopeBindingsForFiles(db, repoId, changedFileIds, deletedFileIds);
+        scopeResolved = sr.resolved || 0;
+      } catch (e) {
+        derivedErrors.log('scope-resolution-incremental', e);
+      }
+
+      emitProgress(
+        args,
+        'analysis',
+        {
+          step: 'build-call-graph',
+          message: `Step 5/5: incrementally rebuilding call graph for affected files...`,
+        },
+        stats,
+      );
+      try {
+        const cg = buildCallEdgesForFiles(db, repoId, changedFileIds, deletedFileIds, {
+          onProgress: (p) => {
+            emitProgress(
+              args,
+              'analysis',
+              {
+                step: 'build-call-graph',
+                message: `Step 5/5: rebuilding call graph... ${p.filesProcessed}/${p.totalFiles} files, ${p.callsFound} calls`,
+              },
+              stats,
+            );
+          },
+        });
+        if (cg.success) {
+          callEdges = cg.calls;
+        }
+      } catch (e) {
+        derivedErrors.log('call-graph-incremental', e);
+      }
+
+      emitProgress(
+        args,
+        'analysis',
+        {
+          step: 'compute-complexity',
+          message: 'Step 5/5: incrementally computing complexity metrics...',
+        },
+        stats,
+      );
+      try {
+        const cc = buildComplexityMetricsForFiles(db, repoId, changedFileIds, deletedFileIds);
+        if (cc.success) {
+          complexityCount = cc.symbols;
+        }
+      } catch (e) {
+        derivedErrors.log('complexity-incremental', e);
+      }
+
+      return 0;
+    })();
+  try {
+    const re = buildRelationEdges(db, repoId);
+    if (re.success) {
+      relationEdges = re.count;
+    }
+  } catch (e) {
+    derivedErrors.log('relations-incremental', e);
+  }
+
+  return {
+    importEdges,
+    callEdges,
+    complexityCount,
+    scopeResolved,
+    relationEdges,
+    derived_scope: 'file',
+    derived_files_changed: changedFileIds.length,
+    derived_files_deleted: deletedFileIds.length,
+    derived_errors: derivedErrors.errors,
   };
 }
 
@@ -850,19 +984,26 @@ async function parsePhase(files, deps, repoId, args) {
           const workerInputs = validReads.map((r) => ({ filePath: r.filePath, content: r.content })),
             // oxlint-disable-next-line no-await-in-loop
             workerResults = await pool.parseAll(workerInputs),
-            symbolMap = new Map(workerResults.map((r) => [r.filePath, r.symbols]));
+            symbolMap = new Map(workerResults.map((r) => [r.filePath, r.symbols])),
+            workerErrors = new Map(workerResults.filter((r) => r.error).map((r) => [r.filePath, r.error]));
           for (const record of validReads) {
-            const symbols = symbolMap.get(record.filePath) || [],
+            const parseError = workerErrors.get(record.filePath),
+              symbols = parseError ? [] : symbolMap.get(record.filePath) || [],
               hotSymbols = (() => {
                 validateSymbols(record, symbols);
                 recordDiagnostic(
                   repository,
                   repoId,
                   record,
-                  symbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
-                  symbols.length === 0 && record.content.trim().length > 0
-                    ? 'No symbols extracted from non-empty file'
-                    : '',
+                  parseError
+                    ? 'error'
+                    : symbols.length === 0 && record.content.trim().length > 0
+                      ? 'zero_symbols'
+                      : 'ok',
+                  parseError ||
+                    (symbols.length === 0 && record.content.trim().length > 0
+                      ? 'No symbols extracted from non-empty file'
+                      : ''),
                   symbols.length,
                   { defer: args.deferIndexWrites },
                 );
@@ -883,41 +1024,57 @@ async function parsePhase(files, deps, repoId, args) {
       if (!useWorkers || parsedRecords.length === 0) {
         let parsedInBatch = 0;
         for (const record of validReads) {
-          const {
+          let hotSymbols, coldSymbols, tree;
+          try {
+            ({
               hot: hotSymbols,
               cold: coldSymbols,
               tree,
-            } = extractSymbolsSplit(record.filePath, registry, record.content),
-            symbols = hotSymbols,
-            absoluteDone = (() => {
-              validateSymbols(record, symbols);
-              recordDiagnostic(
-                repository,
-                repoId,
-                record,
-                symbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
-                symbols.length === 0 && record.content.trim().length > 0
-                  ? 'No symbols extracted from non-empty file'
-                  : '',
-                symbols.length,
-                { defer: args.deferIndexWrites },
-              );
-              parsedRecords.push({ record, hotSymbols, coldSymbols, tree });
-              parsedInBatch++;
+            } = extractSymbolsSplit(record.filePath, registry, record.content));
+          } catch (e) {
+            // One pathological file must not abort the whole index: record an
+            // Error diagnostic and skip it (same contract as the incremental
+            // path's per-file guard).
+            const message = e instanceof Error ? e.message : String(e);
+            skipped.push({ file: record.filePath, error: message });
+            recordDiagnostic(repository, repoId, record, 'error', `Symbol extraction failed: ${message}`, 0, {
+              defer: args.deferIndexWrites,
+            });
+            // oxlint-disable-next-line no-continue
+            continue;
+          }
+          {
+            const symbols = hotSymbols,
+              absoluteDone = (() => {
+                validateSymbols(record, symbols);
+                recordDiagnostic(
+                  repository,
+                  repoId,
+                  record,
+                  symbols.length === 0 && record.content.trim().length > 0 ? 'zero_symbols' : 'ok',
+                  symbols.length === 0 && record.content.trim().length > 0
+                    ? 'No symbols extracted from non-empty file'
+                    : '',
+                  symbols.length,
+                  { defer: args.deferIndexWrites },
+                );
+                parsedRecords.push({ record, hotSymbols, coldSymbols, tree });
+                parsedInBatch++;
 
-              return i + parsedInBatch;
-            })();
-          if (shouldEmitFileProgress(absoluteDone, totalFiles)) {
-            emitProgress(
-              args,
-              'parsing',
-              {
-                step: 'extract-symbols',
-                current_file: progressPath(record.filePath, repoRoot),
-                message: `Extracted symbols ${absoluteDone}/${totalFiles}: ${progressPath(record.filePath, repoRoot)} (${symbols.length} symbols)`,
-              },
-              { files_total: totalFiles, files_done: fileCount, symbols: symbolCount },
-            );
+                return i + parsedInBatch;
+              })();
+            if (shouldEmitFileProgress(absoluteDone, totalFiles)) {
+              emitProgress(
+                args,
+                'parsing',
+                {
+                  step: 'extract-symbols',
+                  current_file: progressPath(record.filePath, repoRoot),
+                  message: `Extracted symbols ${absoluteDone}/${totalFiles}: ${progressPath(record.filePath, repoRoot)} (${symbols.length} symbols)`,
+                },
+                { files_total: totalFiles, files_done: fileCount, symbols: symbolCount },
+              );
+            }
           }
         }
       }
@@ -1138,6 +1295,10 @@ async function indexRepository(deps, repoPath, repoName) {
       totalMs = Date.now() - t0,
       result = {
         success: true,
+        // Symbols are committed, but if any derived builder failed the graphs
+        // are incomplete — say so instead of advertising a clean success.
+        partial: (derived.derived_errors || []).length > 0,
+        derived_errors: derived.derived_errors || [],
         repo: repoName,
         path: absPath,
         files_indexed: parseResult.fileCount,
@@ -1555,6 +1716,8 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
       repo,
       mode,
       name: repo,
+      partial: (derived.derived_errors || []).length > 0,
+      derived_errors: derived.derived_errors || [],
       file_count: reindexed + unchanged,
       symbol_count: (() => {
         try {
