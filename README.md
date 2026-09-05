@@ -83,14 +83,14 @@ See [`docs/MCP.md`](docs/MCP.md).
 
 ## Why LaPis?
 
-Coding agents can lose useful project knowledge between sessions or depend on manually maintained context files. LaPis provides structured, persistent memory that can automatically preserve and retrieve useful project knowledge instead. Its local-first, SQLite-backed store can retain:
+Coding agents can lose useful project knowledge between sessions or depend on manually maintained context files like `CLAUDE.md` and `AGENTS.md`. LaPis provides structured, persistent memory that can automatically preserve and retrieve useful project knowledge instead. Its local-first, SQLite-backed store can retain:
 
 - architectural decisions and their rationale
 - previous bugs and fixes
 - project conventions and constraints
 - discoveries from earlier sessions
 - relevant code and documentation context
-- stale or superseded information that should no longer be trusted
+- trust signals for memories linked to changed code, so stale or superseded knowledge is flagged instead of silently trusted
 
 ## AI Memory for Coding Agents
 
