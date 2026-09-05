@@ -26,11 +26,10 @@ jobs:
         run: npm install
 
       - name: Audit dependencies (high+)
-        # --omit=dev: the only remaining high-severity findings are dev-only
-        # transitive vulns nested under @earendil-works/pi-coding-agent@0.80.x
-        # (it pins undici exactly to 8.5.0; npm overrides do not reach that
-        # subtree, and the only fix npm offers is a breaking downgrade). The
-        # production dependency tree audits clean — that is what ships.
+        # --omit=dev: this gate is production-scoped so a future dev-only
+        # advisory (e.g. a transitive under @earendil-works/pi-coding-agent,
+        # which pins undici exactly and blocks npm overrides) cannot block CI.
+        # The production dependency tree must audit clean — that is what ships.
         run: npm audit --audit-level=high --omit=dev
 
       - name: Lint
