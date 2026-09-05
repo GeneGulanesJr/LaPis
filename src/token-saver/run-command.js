@@ -30,40 +30,63 @@ function runCommand(commandArgs, options = {}) {
         cwd,
         env,
         stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
       });
     } else {
       const escaped = commandArgs.map(shellEscape).join(' ');
+      // Detached: the command becomes its own process-group leader so the
+      // timeout kill below can take down pipeline grandchildren. Killing only
+      // the shell leaves grandchildren alive holding the stdio pipe write
+      // ends, and then 'close' never fires and this promise never resolves.
       child = spawn('/bin/sh', ['-c', escaped], {
         cwd,
         env,
         stdio: ['ignore', 'pipe', 'pipe'],
+        detached: true,
       });
     }
 
+    // setEncoding decodes through a StringDecoder, so a multi-byte character
+    // split across two 'data' chunks no longer becomes U+FFFD.
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+
     child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
-      if (stdout.length >= maxBufferChars) {
-        truncated = true;
-        stdout = stdout.slice(0, maxBufferChars);
-        // Stop reading further stdout chunks — we already have the cap and
-        // Continuing to drain the stream wastes CPU and lets the OS pipe
-        // Buffer fill up. The child will still exit on its own.
-        child.stdout.pause();
+      // Keep draining after the cap and discard — pausing the stream would
+      // block the child on a full pipe, and 'close' would only fire after the
+      // timeout SIGKILL (misreporting finished commands as timed out).
+      if (stdout.length < maxBufferChars) {
+        stdout += chunk;
+        if (stdout.length >= maxBufferChars) {
+          truncated = true;
+          stdout = stdout.slice(0, maxBufferChars);
+        }
       }
     });
 
     child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString();
-      if (stderr.length >= maxBufferChars) {
-        truncated = true;
-        stderr = stderr.slice(0, maxBufferChars);
-        child.stderr.pause();
+      if (stderr.length < maxBufferChars) {
+        stderr += chunk;
+        if (stderr.length >= maxBufferChars) {
+          truncated = true;
+          stderr = stderr.slice(0, maxBufferChars);
+        }
       }
     });
 
     timer = setTimeout(() => {
       killed = true;
-      child.kill('SIGKILL');
+      if (isWindows) {
+        child.kill('SIGKILL');
+        return;
+      }
+      // Kill the entire process group; fall back to the direct kill if the
+      // group is already gone (leader exited, no other members).
+      try {
+        process.kill(-child.pid, 'SIGKILL');
+      } catch {
+        child.kill('SIGKILL');
+      }
     }, timeoutMs);
 
     child.on('close', (code) => {
