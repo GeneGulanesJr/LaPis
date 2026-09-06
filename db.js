@@ -176,6 +176,7 @@ class MemoryError extends Error {
         { to: 24, run: runMigrationV24 },
         { to: 25, run: runMigrationV25 },
         { to: 26, run: runMigrationV26 },
+        { to: 27, run: runMigrationV27 },
       ],
       LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
 
@@ -1131,6 +1132,27 @@ class MemoryError extends Error {
         });
       } catch (e) {
         errors.push(`V25: ${e.message}`);
+      }
+      return errors;
+    }
+
+    function runMigrationV27() {
+      const errors = [];
+      try {
+        withTransaction(() => {
+          // Record which file a linked symbol lives in, so trust sync can
+          // match changes on (path, name) instead of the bare name (#300).
+          try {
+            sqlRaw('ALTER TABLE symbol_links ADD COLUMN symbol_path TEXT');
+          } catch (e) {
+            if (!/duplicate column/i.test(e.message)) {
+              throw e;
+            }
+          }
+          sqlRaw('PRAGMA user_version = 27');
+        });
+      } catch (e) {
+        errors.push(`V27: ${e.message}`);
       }
       return errors;
     }
