@@ -170,4 +170,22 @@ describe('html-parser module', () => {
   it('strips HTML entities from text', () => {
     expect(htmlParser.stripHtmlTags('<p>Hello &amp; world &lt;test&gt;</p>')).toBe('Hello & world <test>');
   });
+
+  it('never lets encoded, nested, or unterminated script/style markup survive stripping', () => {
+    const crafted = [
+      '<<scr<script>ipt>alert(1)</script>',
+      '&lt;script&gt;alert(1)&lt;/script&gt;',
+      '&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;',
+      '&lt;script src="evil.js"&gt;',
+      'a &lt;script payload',
+      '<style>x</style>&lt;style&gt;y',
+    ];
+    for (const html of crafted) {
+      const text = htmlParser.stripHtmlTags(html);
+      expect(text.toLowerCase()).not.toContain('<script');
+      expect(text.toLowerCase()).not.toContain('<style');
+    }
+    // Decoded non-script angle-bracket text still survives as literal text.
+    expect(htmlParser.stripHtmlTags('&lt;test&gt;')).toBe('<test>');
+  });
 });

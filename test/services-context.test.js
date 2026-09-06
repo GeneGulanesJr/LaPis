@@ -240,4 +240,12 @@ describe('services/context', () => {
     expect(observationParams).toContain('%fts5%');
     expect(observationParams).toContain('%external%');
   });
+
+  it('escapes backslash before LIKE wildcards in topic query needles', () => {
+    const { buildTopicQueryMatch } = require('../services/context');
+    const { whereParams } = buildTopicQueryMatch(['50%_off\\']);
+    // Backslash escaped first ("\" -> "\\"), then % and _ -> "\%", "\_":
+    // a trailing "\" can no longer escape the wildcard markers under ESCAPE '\'.
+    expect(whereParams[0]).toBe('%50\\%\\_off\\\\%');
+  });
 });

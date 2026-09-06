@@ -59,11 +59,15 @@ function rankObservations(rows, query = '') {
         usefulRatio * RANKING.USEFULNESS_MULTIPLIER;
       const typeBoost = RANKING.TYPE_BOOST[row.type] || 1.0;
 
-      // Boost memories containing file paths for navigation queries
+      // Boost memories containing file paths for navigation queries.
+      // path_pattern has ambiguous quantifiers, so test bounded tokens instead
+      // of the raw text: path syntax never spans whitespace, and each token is
+      // capped, which rules out polynomial-time backtracking (ReDoS).
       let navBoost = 1.0;
       if (isNavigationQuery) {
         const text = `${row.title || ''} ${row.snippet || ''}`;
-        if (pathPattern.test(text)) {
+        const isPathLike = text.split(/\s+/).some((tok) => pathPattern.test(tok.slice(0, 200)));
+        if (isPathLike) {
           navBoost = RANKING.NAVIGATION_BOOST.path_multiplier;
         }
       }
@@ -273,7 +277,9 @@ function search(deps, args) {
         AND o.deleted_at IS NULL
         AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
     `;
-    const like = `%${query.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
+    // Escape the ESCAPE character itself first, then the LIKE wildcards,
+    // so a trailing "\" in the query can't escape the wildcard markers.
+    const like = `%${query.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
     const params = [like, like];
     if (project) {
       q += ' AND o.project = ?';

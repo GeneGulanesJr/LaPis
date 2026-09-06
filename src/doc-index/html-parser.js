@@ -18,20 +18,38 @@ function classifyHtmlRole(title, content, classAttrs) {
 }
 
 function stripHtmlTags(html) {
-  return html
+  let s = String(html || '');
+  // Strip real markup (tags, closed script/style blocks) from the raw HTML.
+  s = s
     .replace(/<script[\s\S]*?<\/script(?:\s+[^>]*)?>/gi, '')
     .replace(/<style[\s\S]*?<\/style(?:\s+[^>]*)?>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#\d+;/g, '')
-    .replace(/&\w+;/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/<[^>]+>/g, ' ');
+  // Decode entities, re-stripping any script/style markup the decoding
+  // re-introduces, until stable. This keeps encoded payloads such as
+  // "&lt;script&gt;alert(1)&lt;/script&gt;" or double-encoded
+  // "&amp;lt;script&amp;gt;" from surviving as live <script>/<style> text,
+  // while other decoded pseudo-tags (e.g. "&lt;test&gt;") stay as display text.
+  let prev;
+  do {
+    prev = s;
+    s = s
+      .replace(/<script[\s\S]*?<\/script(?:\s+[^>]*)?>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style(?:\s+[^>]*)?>/gi, ' ')
+      .replace(/<\/?script(?:\s[^>]*)?>/gi, ' ')
+      .replace(/<\/?style(?:\s[^>]*)?>/gi, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&#\d+;/g, '')
+      .replace(/&\w+;/g, '');
+  } while (s !== prev);
+  // Unterminated "<script"/"<style" (no closing '>') is not real markup, but
+  // never let the bare sequence survive either.
+  s = s.replace(/<(?=\/?script|\/?style)/gi, ' ');
+  return s.replace(/\s+/g, ' ').trim();
 }
 
 function extractHtmlSections(content, filePath) {
