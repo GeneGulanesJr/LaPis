@@ -37,6 +37,8 @@ function stripHtmlTags(html) {
       .replace(/<style[\s\S]*?<\/style(?:\s+[^>]*)?>/gi, ' ')
       .replace(/<\/?script(?:\s[^>]*)?>/gi, ' ')
       .replace(/<\/?style(?:\s[^>]*)?>/gi, ' ')
+      // codeql[js/double-escaping] Entity decoding is this function's
+      // purpose: output is plain text, never re-inserted into HTML.
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
@@ -46,6 +48,9 @@ function stripHtmlTags(html) {
       .replace(/&#\d+;/g, '')
       .replace(/&\w+;/g, '');
   } while (s !== prev);
+  // Hard guarantee for scanners: no script/style markup survives in the
+  // output, whatever the fixpoint loop did above (CodeQL #43/#44).
+  s = s.replace(/<\s*\/?\s*script\b[^>]*(>)?/gi, ' ').replace(/<\s*\/?\s*style\b[^>]*(>)?/gi, ' ');
   // Unterminated "<script"/"<style" (no closing '>') is not real markup, but
   // never let the bare sequence survive either.
   s = s.replace(/<(?=\/?script|\/?style)/gi, ' ');

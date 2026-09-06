@@ -188,15 +188,31 @@ function suggestTopicKey(args) {
   const title = args.title;
   const content = args.content;
   const source = title || content || '';
-  const key = source
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    // Anchored single-pass trims (the former global `^-+|-+$` alternation
-    // re-scanned every position with quadratic backtracking on dash runs).
-    .replace(/^-+/, '')
-    .replace(/-+$/, '')
-    .replace(/-+/g, '-');
-  return { topic_key: key || 'untitled' };
+  const key = source.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  // Collapse/trim dash runs without regex quantifiers — the chained
+  // anchored quantifiers tripped CodeQL's polynomial-regex heuristic on
+  // unbounded input even though each scan was linear.
+  let trimmed = key;
+  while (trimmed.startsWith('-')) {
+    trimmed = trimmed.slice(1);
+  }
+  while (trimmed.endsWith('-')) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  let collapsed = '';
+  let prevDash = false;
+  for (const ch of trimmed) {
+    if (ch === '-') {
+      if (!prevDash) {
+        collapsed += '-';
+      }
+      prevDash = true;
+    } else {
+      collapsed += ch;
+      prevDash = false;
+    }
+  }
+  return { topic_key: collapsed || 'untitled' };
 }
 
 module.exports = { save, capturePassive, suggestTopicKey };
