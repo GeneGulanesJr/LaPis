@@ -1609,38 +1609,56 @@ async fn execute_watch(
         .collect();
 
     let root_names: Vec<String> = watch_roots.iter().map(|(n, _)| n.clone()).collect();
-    std::thread::spawn(move || -> Result<()> {
-        let (notify_tx, notify_rx) = std::sync::mpsc::channel::<notify::Event>();
-        let mut watcher = notify::RecommendedWatcher::new(
-            move |res: Result<notify::Event, notify::Error>| {
-                if let Ok(event) = res {
-                    let _ = notify_tx.send(event);
+    // The watcher thread owns the only channel sender. If it dies (e.g. a repo
+    // root becomes unwatchable), the channel closes and the recv loop below
+    // must stop instead of busy-spinning on a closed channel (#323). The
+    // thread's error is stored here so the user sees why watching stopped.
+    let watcher_error: std::sync::Arc<std::sync::Mutex<Option<String>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    {
+        let watcher_error = std::sync::Arc::clone(&watcher_error);
+        std::thread::spawn(move || {
+            let result: Result<()> = (|| {
+                let (notify_tx, notify_rx) = std::sync::mpsc::channel::<notify::Event>();
+                let mut watcher = notify::RecommendedWatcher::new(
+                    move |res: Result<notify::Event, notify::Error>| {
+                        if let Ok(event) = res {
+                            let _ = notify_tx.send(event);
+                        }
+                    },
+                    notify::Config::default(),
+                )?;
+                for (name, path) in &watch_roots {
+                    watcher
+                        .watch(std::path::Path::new(path), notify::RecursiveMode::Recursive)
+                        .map_err(|e| anyhow!("failed to watch {name} ({path}): {e}"))?;
                 }
-            },
-            notify::Config::default(),
-        )?;
-        for (_, path) in &watch_roots {
-            watcher.watch(std::path::Path::new(path), notify::RecursiveMode::Recursive)?;
-        }
-        for event in notify_rx.iter() {
-            if matches!(
-                event.kind,
-                notify::EventKind::Create(_)
-                    | notify::EventKind::Modify(_)
-                    | notify::EventKind::Remove(_)
-            ) {
-                for path in &event.paths {
-                    for (name, root) in &watch_roots {
-                        if path.starts_with(root) {
-                            let _ = tx.blocking_send(name.clone());
-                            break;
+                for event in notify_rx.iter() {
+                    if matches!(
+                        event.kind,
+                        notify::EventKind::Create(_)
+                            | notify::EventKind::Modify(_)
+                            | notify::EventKind::Remove(_)
+                    ) {
+                        for path in &event.paths {
+                            for (name, root) in &watch_roots {
+                                if path.starts_with(root) {
+                                    let _ = tx.blocking_send(name.clone());
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
+                Ok(())
+            })();
+            if let Err(e) = result {
+                if let Ok(mut slot) = watcher_error.lock() {
+                    *slot = Some(e.to_string());
+                }
             }
-        }
-        Ok(())
-    });
+        });
+    }
 
     for name in &root_names {
         eprintln!("watching {name}");
@@ -1653,47 +1671,56 @@ async fn execute_watch(
 
     let debounce = Duration::from_millis(cmd.debounce_ms);
     loop {
-        if let Some(repo_name) = rx.recv().await {
-            let mut pending = HashSet::new();
-            pending.insert(repo_name);
+        // A closed channel means the watcher thread exited: stop instead of
+        // spinning on `recv() == Err` (#323), and tell the user why.
+        let Some(repo_name) = rx.recv().await else {
+            let reason = watcher_error
+                .lock()
+                .ok()
+                .and_then(|slot| slot.clone())
+                .unwrap_or_else(|| "watcher thread exited unexpectedly".to_string());
+            eprintln!("[watch] file watching stopped: {reason}");
+            return Ok(());
+        };
+        let mut pending = HashSet::new();
+        pending.insert(repo_name);
 
-            let deadline = tokio::time::Instant::now() + debounce;
-            loop {
-                tokio::select! {
-                    Some(name) = rx.recv() => {
-                        pending.insert(name);
-                    }
-                    _ = tokio::time::sleep_until(deadline) => {
-                        break;
-                    }
+        let deadline = tokio::time::Instant::now() + debounce;
+        loop {
+            tokio::select! {
+                Some(name) = rx.recv() => {
+                    pending.insert(name);
+                }
+                _ = tokio::time::sleep_until(deadline) => {
+                    break;
                 }
             }
+        }
 
-            for name in &pending {
-                eprintln!("[watch] re-indexing {name}...");
-                let idx_db = db
-                    .clone()
-                    .unwrap_or_else(|| PathBuf::from(".crosshash/crosshash.db"));
-                match open_storage(Some(idx_db)) {
-                    Ok(idx_storage) => {
-                        if let Some(repo) = idx_storage.get_repo_by_name(name)? {
-                            let index_cmd = IndexCommand {
-                                repo: Some(name.clone()),
-                                incremental: true,
-                                no_ai: false,
-                                force_ai: false,
-                            };
-                            match index_one_repo(&idx_storage, &repo, true, &index_cmd).await {
-                                Ok(summary) => eprintln!(
-                                    "[watch] {}: {} entities, {} edges",
-                                    name, summary.entities_extracted, summary.edges
-                                ),
-                                Err(e) => eprintln!("[watch] error indexing {name}: {e}"),
-                            }
+        for name in &pending {
+            eprintln!("[watch] re-indexing {name}...");
+            let idx_db = db
+                .clone()
+                .unwrap_or_else(|| PathBuf::from(".crosshash/crosshash.db"));
+            match open_storage(Some(idx_db)) {
+                Ok(idx_storage) => {
+                    if let Some(repo) = idx_storage.get_repo_by_name(name)? {
+                        let index_cmd = IndexCommand {
+                            repo: Some(name.clone()),
+                            incremental: true,
+                            no_ai: false,
+                            force_ai: false,
+                        };
+                        match index_one_repo(&idx_storage, &repo, true, &index_cmd).await {
+                            Ok(summary) => eprintln!(
+                                "[watch] {}: {} entities, {} edges",
+                                name, summary.entities_extracted, summary.edges
+                            ),
+                            Err(e) => eprintln!("[watch] error indexing {name}: {e}"),
                         }
                     }
-                    Err(e) => eprintln!("[watch] error opening storage: {e}"),
                 }
+                Err(e) => eprintln!("[watch] error opening storage: {e}"),
             }
         }
     }
