@@ -407,6 +407,11 @@ async fn index_one_repo(
     let mut source_by_file = HashMap::new();
     let mut exported_added = 0usize;
 
+    // All writes below (entity/version/hash upserts, edge removal + reinsert)
+    // run in one transaction: a mid-index failure used to leave the repo
+    // half-written with all edges deleted (#320).
+    let tx = storage.transaction()?;
+
     for file in files {
         let rel = file
             .strip_prefix(&root)
@@ -492,6 +497,9 @@ async fn index_one_repo(
     for edge in &cross_repo_edges {
         storage.insert_edge(edge)?;
     }
+    // Committed before the AI phase: LLM calls are slow network I/O and must
+    // not hold the write lock; the static graph is already consistent here.
+    tx.commit()?;
     let edge_count = edges.len() + cross_repo_edges.len();
     let exports = storage.get_public_api_surface(repo.id)?.len();
 
@@ -600,12 +608,16 @@ async fn index_one_repo(
                         .await
                     {
                         Ok(suggestions) => {
-                            let suggested = suggestions.len();
                             let auto_accepted = engine.accept_high_confidence(&suggestions);
-                            let auto_count = auto_accepted.len();
+                            let mut auto_count = 0usize;
                             for edge in &auto_accepted {
-                                let _ = storage.insert_edge(edge);
+                                if let Err(e) = storage.insert_edge(edge) {
+                                    eprintln!("[index] failed to persist edge {}: {e}", edge.id);
+                                } else {
+                                    auto_count += 1;
+                                }
                             }
+                            let mut stored_suggestions = 0usize;
                             for suggestion in &suggestions {
                                 let status =
                                     if suggestion.confidence >= engine.auto_accept_threshold {
@@ -613,7 +625,7 @@ async fn index_one_repo(
                                     } else {
                                         "pending"
                                     };
-                                let _ = storage.insert_ai_edge_suggestion(
+                                if let Err(e) = storage.insert_ai_edge_suggestion(
                                     &suggestion.id,
                                     &suggestion.exporter_entity_id,
                                     &suggestion.consumer_entity_id,
@@ -621,10 +633,17 @@ async fn index_one_repo(
                                     &suggestion.reasoning,
                                     suggestion.confidence,
                                     status,
-                                );
+                                ) {
+                                    eprintln!(
+                                        "[index] failed to persist AI edge suggestion {}: {e}",
+                                        suggestion.id
+                                    );
+                                } else {
+                                    stored_suggestions += 1;
+                                }
                             }
                             let input_est = surface_a.entities.len() as u64 * 4;
-                            let output_est = suggested as u64 * 20;
+                            let output_est = stored_suggestions as u64 * 20;
                             let cost = (input_est + output_est) as f64 * 0.00001;
                             let log_id = Uuid::now_v7();
                             let reason_str = format!(
@@ -634,7 +653,7 @@ async fn index_one_repo(
                                     .first()
                                     .unwrap_or(&crosshash_ai::GateReason::Forced)
                             );
-                            let _ = storage.insert_ai_inference_log(
+                            if let Err(e) = storage.insert_ai_inference_log(
                                 &log_id,
                                 &reason_str,
                                 &decision.scope,
@@ -643,12 +662,17 @@ async fn index_one_repo(
                                 input_est,
                                 output_est,
                                 cost,
-                                suggested,
+                                stored_suggestions,
                                 auto_count,
-                            );
-                            ai_edges_suggested += suggested;
+                            ) {
+                                eprintln!(
+                                    "[index] failed to persist AI inference log {log_id}: {e}"
+                                );
+                            } else {
+                                ai_cost += cost;
+                            }
+                            ai_edges_suggested += stored_suggestions;
                             ai_edges_auto_accepted += auto_count;
-                            ai_cost += cost;
                         }
                         Err(e) => {
                             eprintln!(
@@ -988,19 +1012,26 @@ async fn execute_discover_edges(
                     .await
                 {
                     Ok(suggestions) => {
-                        let suggested = suggestions.len();
                         let auto_accepted = engine.accept_high_confidence(&suggestions);
-                        let auto_count = auto_accepted.len();
+                        let mut auto_count = 0usize;
                         for edge in &auto_accepted {
-                            let _ = storage.insert_edge(edge);
+                            if let Err(e) = storage.insert_edge(edge) {
+                                eprintln!(
+                                    "[discover-edges] failed to persist edge {}: {e}",
+                                    edge.id
+                                );
+                            } else {
+                                auto_count += 1;
+                            }
                         }
+                        let mut stored_suggestions = 0usize;
                         for suggestion in &suggestions {
                             let status = if suggestion.confidence >= engine.auto_accept_threshold {
                                 "accepted"
                             } else {
                                 "pending"
                             };
-                            let _ = storage.insert_ai_edge_suggestion(
+                            if let Err(e) = storage.insert_ai_edge_suggestion(
                                 &suggestion.id,
                                 &suggestion.exporter_entity_id,
                                 &suggestion.consumer_entity_id,
@@ -1008,10 +1039,17 @@ async fn execute_discover_edges(
                                 &suggestion.reasoning,
                                 suggestion.confidence,
                                 status,
-                            );
+                            ) {
+                                eprintln!(
+                                    "[discover-edges] failed to persist AI edge suggestion {}: {e}",
+                                    suggestion.id
+                                );
+                            } else {
+                                stored_suggestions += 1;
+                            }
                         }
                         let input_est = surface_a.entities.len() as u64 * 4;
-                        let output_est = suggested as u64 * 20;
+                        let output_est = stored_suggestions as u64 * 20;
                         let cost = (input_est + output_est) as f64 * 0.00001;
                         let log_id = Uuid::now_v7();
                         let reason_str = format!(
@@ -1021,7 +1059,7 @@ async fn execute_discover_edges(
                                 .first()
                                 .unwrap_or(&crosshash_ai::GateReason::Forced)
                         );
-                        let _ = storage.insert_ai_inference_log(
+                        if let Err(e) = storage.insert_ai_inference_log(
                             &log_id,
                             &reason_str,
                             &decision.scope,
@@ -1030,14 +1068,19 @@ async fn execute_discover_edges(
                             input_est,
                             output_est,
                             cost,
-                            suggested,
+                            stored_suggestions,
                             auto_count,
-                        );
-                        ai_edges_suggested += suggested;
+                        ) {
+                            eprintln!(
+                                "[discover-edges] failed to persist AI inference log {log_id}: {e}"
+                            );
+                        } else {
+                            total_input_tokens += input_est;
+                            total_output_tokens += output_est;
+                            total_cost += cost;
+                        }
+                        ai_edges_suggested += stored_suggestions;
                         ai_edges_auto_accepted += auto_count;
-                        total_input_tokens += input_est;
-                        total_output_tokens += output_est;
-                        total_cost += cost;
                     }
                     Err(e) => {
                         let name = &surfaces[i].1;

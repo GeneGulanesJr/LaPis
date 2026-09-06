@@ -82,17 +82,17 @@ impl GraphStorage {
                 let last_indexed_str: String = row.get("last_indexed_at")?;
 
                 Ok(Repo {
-                    id: Uuid::parse_str(&row.get::<_, String>("id")?).unwrap(),
+                    id: db_parse(Uuid::parse_str(&row.get::<_, String>("id")?))?,
                     name: row.get("name")?,
                     root_path: row.get("root_path")?,
                     git_remote: row.get("git_remote")?,
                     default_branch: row.get("default_branch")?,
-                    languages: serde_json::from_str(&languages_str).unwrap_or_default(),
-                    workspace_type: serde_json::from_str(&ws_type_str)
-                        .unwrap_or(WorkspaceType::None),
-                    last_indexed_at: chrono::DateTime::parse_from_rfc3339(&last_indexed_str)
-                        .unwrap()
-                        .to_utc(),
+                    languages: db_parse(serde_json::from_str(&languages_str))?,
+                    workspace_type: db_parse(serde_json::from_str(&ws_type_str))?,
+                    last_indexed_at: db_parse(chrono::DateTime::parse_from_rfc3339(
+                        &last_indexed_str,
+                    ))?
+                    .with_timezone(&chrono::Utc),
                     commit_hash: row.get("commit_hash")?,
                 })
             })
@@ -115,17 +115,17 @@ impl GraphStorage {
                 let last_indexed_str: String = row.get("last_indexed_at")?;
 
                 Ok(Repo {
-                    id: Uuid::parse_str(&row.get::<_, String>("id")?).unwrap(),
+                    id: db_parse(Uuid::parse_str(&row.get::<_, String>("id")?))?,
                     name: row.get("name")?,
                     root_path: row.get("root_path")?,
                     git_remote: row.get("git_remote")?,
                     default_branch: row.get("default_branch")?,
-                    languages: serde_json::from_str(&languages_str).unwrap_or_default(),
-                    workspace_type: serde_json::from_str(&ws_type_str)
-                        .unwrap_or(WorkspaceType::None),
-                    last_indexed_at: chrono::DateTime::parse_from_rfc3339(&last_indexed_str)
-                        .unwrap()
-                        .to_utc(),
+                    languages: db_parse(serde_json::from_str(&languages_str))?,
+                    workspace_type: db_parse(serde_json::from_str(&ws_type_str))?,
+                    last_indexed_at: db_parse(chrono::DateTime::parse_from_rfc3339(
+                        &last_indexed_str,
+                    ))?
+                    .with_timezone(&chrono::Utc),
                     commit_hash: row.get("commit_hash")?,
                 })
             })
@@ -276,17 +276,17 @@ impl GraphStorage {
                 let last_indexed_str: String = row.get("last_indexed_at")?;
 
                 Ok(Repo {
-                    id: Uuid::parse_str(&row.get::<_, String>("id")?).unwrap(),
+                    id: db_parse(Uuid::parse_str(&row.get::<_, String>("id")?))?,
                     name: row.get("name")?,
                     root_path: row.get("root_path")?,
                     git_remote: row.get("git_remote")?,
                     default_branch: row.get("default_branch")?,
-                    languages: serde_json::from_str(&languages_str).unwrap_or_default(),
-                    workspace_type: serde_json::from_str(&ws_type_str)
-                        .unwrap_or(WorkspaceType::None),
-                    last_indexed_at: chrono::DateTime::parse_from_rfc3339(&last_indexed_str)
-                        .unwrap()
-                        .to_utc(),
+                    languages: db_parse(serde_json::from_str(&languages_str))?,
+                    workspace_type: db_parse(serde_json::from_str(&ws_type_str))?,
+                    last_indexed_at: db_parse(chrono::DateTime::parse_from_rfc3339(
+                        &last_indexed_str,
+                    ))?
+                    .with_timezone(&chrono::Utc),
                     commit_hash: row.get("commit_hash")?,
                 })
             })
@@ -340,6 +340,12 @@ impl GraphStorage {
             Some(r) => r,
             None => return Ok(()),
         };
+        // The 5 dependent DELETEs are atomic — a partial remove would leave
+        // orphaned versions/hashes/edges behind (#320).
+        let tx = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|e| CoreError::StorageError(e.to_string()))?;
         self.remove_edges_for_repo(repo.id)?;
         self.conn
             .execute(
@@ -364,6 +370,8 @@ impl GraphStorage {
                 "DELETE FROM repos WHERE id = ?1",
                 params![repo.id.to_string()],
             )
+            .map_err(|e| CoreError::StorageError(e.to_string()))?;
+        tx.commit()
             .map_err(|e| CoreError::StorageError(e.to_string()))?;
         Ok(())
     }
@@ -452,7 +460,7 @@ impl GraphStorage {
             .map_err(|e| CoreError::StorageError(e.to_string()))?;
 
         let edges = stmt
-            .query_map([], |row| Ok(row_to_edge(row)))
+            .query_map([], row_to_edge)
             .map_err(|e| CoreError::StorageError(e.to_string()))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(|e| CoreError::StorageError(e.to_string()))?;
@@ -504,7 +512,7 @@ impl GraphStorage {
             .map_err(|e| CoreError::StorageError(e.to_string()))?;
 
         let edges = stmt
-            .query_map(params![repo_id.to_string()], |row| Ok(row_to_edge(row)))
+            .query_map(params![repo_id.to_string()], row_to_edge)
             .map_err(|e| CoreError::StorageError(e.to_string()))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(|e| CoreError::StorageError(e.to_string()))?;
@@ -523,12 +531,19 @@ impl GraphStorage {
             .map_err(|e| CoreError::StorageError(e.to_string()))?;
 
         let edges = stmt
-            .query_map(params![entity_id.to_string()], |row| Ok(row_to_edge(row)))
+            .query_map(params![entity_id.to_string()], row_to_edge)
             .map_err(|e| CoreError::StorageError(e.to_string()))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(|e| CoreError::StorageError(e.to_string()))?;
 
         Ok(edges)
+    }
+
+    /// Begin a transaction on this connection. The CLI's index write phase
+    /// wraps its writes so a mid-index failure cannot leave a half-written
+    /// repo (#320). unchecked_transaction keeps &self working.
+    pub fn transaction(&self) -> rusqlite::Result<rusqlite::Transaction<'_>> {
+        self.conn.unchecked_transaction()
     }
 
     pub fn remove_edges_for_repo(&self, repo_id: Uuid) -> Result<()> {
@@ -580,7 +595,7 @@ impl GraphStorage {
                 let to_arr = |v: Vec<u8>| -> [u8; 32] { safe_hash_from_slice(&v) };
 
                 Ok(EntityVersion {
-                    entity_id: Uuid::parse_str(&row.get::<_, String>(0).unwrap()).unwrap(),
+                    entity_id: db_parse(Uuid::parse_str(&row.get::<_, String>(0).unwrap()))?,
                     commit_hash: row.get(1).unwrap(),
                     name: row.get(2).unwrap(),
                     qualified_name: row.get(3).unwrap(),
@@ -590,9 +605,8 @@ impl GraphStorage {
                     structural_hash: to_arr(struct_hash),
                     identity_hash: to_arr(ident_hash),
                     context_hash: to_arr(ctx_hash),
-                    snapshot_at: chrono::DateTime::parse_from_rfc3339(&snapshot_str)
-                        .unwrap()
-                        .to_utc(),
+                    snapshot_at: db_parse(chrono::DateTime::parse_from_rfc3339(&snapshot_str))?
+                        .with_timezone(&chrono::Utc),
                 })
             })
             .map_err(|e| CoreError::StorageError(e.to_string()))?
@@ -857,7 +871,17 @@ fn safe_hash_from_slice(v: &[u8]) -> [u8; 32] {
     arr
 }
 
-fn row_to_edge(row: &rusqlite::Row) -> Edge {
+/// Map a parse failure on DB-derived data to a rusqlite error so the caller's
+/// map_err turns it into CoreError::StorageError instead of panicking on
+/// corrupt/foreign rows (#325). Row mappers must not unwrap DB strings.
+fn db_parse<T, E>(result: std::result::Result<T, E>) -> rusqlite::Result<T>
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    result.map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+}
+
+fn row_to_edge(row: &rusqlite::Row) -> rusqlite::Result<Edge> {
     use crosshash_core::{EdgeKind, EdgeSource};
     let kind_str: String = row.get("kind").unwrap();
     let source_str: String = row.get("source").unwrap();
@@ -865,25 +889,27 @@ fn row_to_edge(row: &rusqlite::Row) -> Edge {
     let created_at_str: String = row.get("created_at").unwrap();
     let validated_at_str: Option<String> = row.get("validated_at").unwrap_or(None);
 
-    Edge {
-        id: Uuid::parse_str(&row.get::<_, String>("id").unwrap()).unwrap(),
-        source_entity_id: Uuid::parse_str(&row.get::<_, String>("source_entity_id").unwrap())
-            .unwrap(),
-        target_entity_id: Uuid::parse_str(&row.get::<_, String>("target_entity_id").unwrap())
-            .unwrap(),
-        kind: serde_json::from_str(&kind_str).unwrap_or(EdgeKind::Calls),
+    // Corrupt kind/source values are an error, NOT silently reclassified as
+    // Calls/Static — that corrupted graph semantics invisibly (#327).
+    Ok(Edge {
+        id: db_parse(Uuid::parse_str(&row.get::<_, String>("id").unwrap()))?,
+        source_entity_id: db_parse(Uuid::parse_str(
+            &row.get::<_, String>("source_entity_id").unwrap(),
+        ))?,
+        target_entity_id: db_parse(Uuid::parse_str(
+            &row.get::<_, String>("target_entity_id").unwrap(),
+        ))?,
+        kind: db_parse(serde_json::from_str(&kind_str))?,
         confidence: row.get("confidence").unwrap_or(1.0),
-        source: serde_json::from_str(&source_str).unwrap_or(EdgeSource::Static),
+        source: db_parse(serde_json::from_str(&source_str))?,
         metadata: metadata_str.and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok()),
-        created_at: chrono::DateTime::parse_from_rfc3339(&created_at_str)
-            .unwrap()
-            .to_utc(),
+        created_at: db_parse(chrono::DateTime::parse_from_rfc3339(&created_at_str))?.to_utc(),
         validated_at: validated_at_str.and_then(|s| {
             chrono::DateTime::parse_from_rfc3339(&s)
                 .map(|d| d.to_utc())
                 .ok()
         }),
-    }
+    })
 }
 
 fn row_to_entity(row: &rusqlite::Row) -> Entity {
