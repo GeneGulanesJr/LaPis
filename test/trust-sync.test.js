@@ -8,7 +8,12 @@ describe('src/trust-sync trust policy', () => {
     const changedSet = new Set(['changedFunc']),
       result = evaluateTrustSync(
         [
+          // Boundary match inside a namespaced id — ambiguous (the same
+          // unqualified name usually exists unchanged elsewhere), so it takes
+          // the reduced fuzzy penalty (#300).
           { memory_id: '1', symbol_id: 'ns::changedFunc', trust_score: 0.8 },
+          // Exact id match — certain change, full penalty.
+          { memory_id: '4', symbol_id: 'changedFunc', trust_score: 0.8 },
           { memory_id: '2', symbol_id: 'stableFunc', trust_score: 0.5 },
           { memory_id: '3', symbol_id: 'maxedFunc', trust_score: TRUST_DELTA.MAX_SURVIVED },
         ],
@@ -19,6 +24,12 @@ describe('src/trust-sync trust policy', () => {
       {
         memory_id: '1',
         symbol_id: 'ns::changedFunc',
+        old_trust: 0.8,
+        new_trust: 0.65,
+      },
+      {
+        memory_id: '4',
+        symbol_id: 'changedFunc',
         old_trust: 0.8,
         new_trust: 0.5,
       },
@@ -32,7 +43,9 @@ describe('src/trust-sync trust policy', () => {
       },
     ]);
     expect(result.unchanged).toEqual([{ memory_id: '3', symbol_id: 'maxedFunc' }]);
-    expect(result.operations).toHaveLength(2);
+    expect(result.operations).toHaveLength(3);
+    expect(result.operations[0].reason).toBe('symbol_changed_fuzzy');
+    expect(result.operations[1].reason).toBe('symbol_changed');
     expect(stripOperations(result).operations).toBeUndefined();
   });
 
