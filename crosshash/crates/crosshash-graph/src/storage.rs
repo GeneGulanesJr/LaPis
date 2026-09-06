@@ -532,11 +532,17 @@ impl GraphStorage {
     }
 
     pub fn remove_edges_for_repo(&self, repo_id: Uuid) -> Result<()> {
+        // Only re-index-derived (Static) edges are removed. AI-inferred edges
+        // — including user-accepted ones — and other repos' cross-repo edges
+        // must survive a re-index (#318).
         self.conn
             .execute(
-                "DELETE FROM edges WHERE source_entity_id IN (SELECT id FROM entities WHERE repo_id = ?1) \
-                 OR target_entity_id IN (SELECT id FROM entities WHERE repo_id = ?1)",
-                params![repo_id.to_string()],
+                "DELETE FROM edges WHERE source = ?1 \
+                 AND (source_entity_id IN (SELECT id FROM entities WHERE repo_id = ?2) \
+                 OR target_entity_id IN (SELECT id FROM entities WHERE repo_id = ?2))",
+                // '"Static"' is the serde encoding of EdgeSource::Static,
+                // matching how insert_edge stores the column.
+                params!["\"Static\"".to_string(), repo_id.to_string()],
             )
             .map_err(|e| CoreError::StorageError(e.to_string()))?;
         Ok(())
@@ -1030,6 +1036,47 @@ mod tests {
             validated_at: None,
         };
         storage.insert_edge(&edge).unwrap();
+    }
+
+    #[test]
+    fn test_remove_edges_for_repo_preserves_non_static() {
+        let storage = GraphStorage::open_in_memory().unwrap();
+        let repo = test_repo();
+        storage.insert_repo(&repo).unwrap();
+
+        let entity_a = test_entity(repo.id);
+        let mut entity_b = test_entity(repo.id);
+        entity_b.id = Uuid::now_v7();
+        entity_b.name = "world".to_string();
+        storage.insert_entity(&entity_a).unwrap();
+        storage.insert_entity(&entity_b).unwrap();
+
+        let mk = |source: EdgeSource, kind: EdgeKind| Edge {
+            id: Uuid::now_v7(),
+            source_entity_id: entity_a.id,
+            target_entity_id: entity_b.id,
+            kind,
+            confidence: 1.0,
+            source,
+            metadata: None,
+            created_at: chrono::Utc::now(),
+            validated_at: None,
+        };
+
+        storage.insert_edge(&mk(EdgeSource::Static, EdgeKind::Calls)).unwrap();
+        storage.insert_edge(&mk(EdgeSource::AiInferred, EdgeKind::Calls)).unwrap();
+
+        storage.remove_edges_for_repo(repo.id).unwrap();
+
+        let remaining = storage
+            .conn
+            .prepare("SELECT COUNT(*) FROM edges")
+            .unwrap()
+            .query_row([], |row| row.get::<_, i64>(0))
+            .unwrap();
+        // Only the Static edge is re-index-derived; the user-facing
+        // AiInferred edge must survive (issue #318).
+        assert_eq!(remaining, 1);
     }
 
     #[test]
