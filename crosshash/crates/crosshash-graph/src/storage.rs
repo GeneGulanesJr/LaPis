@@ -1,4 +1,4 @@
-use crosshash_core::{CoreError, Edge, Entity, EntityVersion, Repo, Result, WorkspaceType};
+use crosshash_core::{CoreError, Edge, Entity, EntityVersion, Repo, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 use uuid::Uuid;
@@ -882,7 +882,6 @@ where
 }
 
 fn row_to_edge(row: &rusqlite::Row) -> rusqlite::Result<Edge> {
-    use crosshash_core::{EdgeKind, EdgeSource};
     let kind_str: String = row.get("kind").unwrap();
     let source_str: String = row.get("source").unwrap();
     let metadata_str: Option<String> = row.get("metadata").unwrap_or(None);
@@ -952,7 +951,7 @@ fn row_to_entity(row: &rusqlite::Row) -> Entity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crosshash_core::{EdgeKind, EdgeSource, EntityKind, Language, Visibility};
+    use crosshash_core::{EdgeKind, EdgeSource, EntityKind, Language, Visibility, WorkspaceType};
 
     fn test_repo() -> Repo {
         Repo {
