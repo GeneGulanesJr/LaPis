@@ -87,6 +87,50 @@ function isHistoricalMemoryPrompt(prompt) {
   );
 }
 
+const WORD_CHAR = /\w/;
+const WS_CHAR = /\s/;
+
+// Linear-time equivalent of the former polynomial-ReDoS regex
+// /\bcurrent\s+\w*\s*module\b/ (`\s+\w*\s*` let whitespace split
+// ambiguously). Matches when "current" starts at a word boundary, followed
+// by whitespace, an optional word run and optional whitespace, then the
+// literal "module" at a word boundary.
+function hasCurrentModulePrompt(normalized) {
+  const n = normalized.length;
+  let from = 0;
+  let idx;
+  while ((idx = normalized.indexOf('current', from)) !== -1) {
+    from = idx + 7;
+    if (idx > 0 && WORD_CHAR.test(normalized[idx - 1])) {
+      continue; // \b before "current" fails
+    }
+    let j = idx + 7;
+    while (j < n && WS_CHAR.test(normalized[j])) {
+      j++; // \s+
+    }
+    if (j === idx + 7) {
+      continue; // \s+ requires at least one whitespace char
+    }
+    let wordEnd = j;
+    while (wordEnd < n && WORD_CHAR.test(normalized[wordEnd])) {
+      wordEnd++; // \w*
+    }
+    let wsEnd = wordEnd;
+    while (wsEnd < n && WS_CHAR.test(normalized[wsEnd])) {
+      wsEnd++; // \s*
+    }
+    for (let c = j; c <= wsEnd; c++) {
+      if (normalized.startsWith('module', c)) {
+        const after = c + 6;
+        if (after === n || !WORD_CHAR.test(normalized[after])) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 function isNavigationPrompt(prompt) {
   if (!prompt) {
     return false;
@@ -95,7 +139,7 @@ function isNavigationPrompt(prompt) {
   const normalized = prompt.toLowerCase();
   return (
     /\b(where|module|file|hook|wired|location|path|lives|implemented|implementation|identify)\b/.test(normalized) ||
-    /\bcurrent\s+\w*\s*module\b/.test(normalized)
+    hasCurrentModulePrompt(normalized)
   );
 }
 

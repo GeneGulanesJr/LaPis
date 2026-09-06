@@ -65,7 +65,7 @@ Grouped by router under `src/cli/commands/`. Full syntax in [`docs/COMMANDS.md`]
 
 - **Memory**: `save`, `update`, `delete`, `get`, `search`, `context`, `timeline`, `check-dup`, `mark-dup`, `suggest-topic-key`, `stats`, `log-negative-recall`
 - **Passive capture**: `save-prompt`, `capture-passive`
-- **Code index**: `index-repo`, `index-repo-async`, `index-status`, `list-index-jobs`, `reindex-repo`, `health-code-repo`, `search-code`, `ranked-code-context`, `get-code-source`, `list-code-repos`, `remove-code-repo`
+- **Code index**: `index-repo`, `index-repo-async`, `index-status`, `cancel-index`, `list-index-jobs`, `reindex-repo`, `health-code-repo`, `search-code`, `ranked-code-context`, `get-code-source`, `list-code-repos`, `remove-code-repo`
 - **Code analysis**: `import-graph`, `call-hierarchy`, `blast-radius`, `dead-code`, `complexity`, `outline`, `churn`, `hotspots`, `cycles`, `importance`, `coupling`, `extractable`, `hierarchy`, `signal-chains`, `layer-violations`, `winnow`, `ast-patterns`, `provenance`, `untested`, `pr-risk`, `coding-context`
 - **Docs**: `index-docs`, `reindex-docs`, `list-doc-repos`, `doc-search`, `doc-outline`, `backlinks`, `broken-links`, `glossary`, `tutorial-path`, `code-examples`, `doc-orphans`, `doc-coverage`, `stale-pages`, `doc-duplicates`
 - **Trust**: `link-symbol`, `auto-link`, `adjust-trust`, `record-recall`, `stale-links`, `sync-code-trust`, `symbol-cluster`, `related`

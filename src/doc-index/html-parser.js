@@ -18,20 +18,115 @@ function classifyHtmlRole(title, content, classAttrs) {
 }
 
 function stripHtmlTags(html) {
-  return html
-    .replace(/<script[\s\S]*?<\/script(?:\s+[^>]*)?>/gi, '')
-    .replace(/<style[\s\S]*?<\/style(?:\s+[^>]*)?>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#\d+;/g, '')
-    .replace(/&\w+;/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // Single-pass, regex-free text extraction (CodeQL js/double-escaping and
+  // js/incomplete-multi-character-sanitization are raised by the .replace()
+  // sanitize/unescape chains this replaces):
+  //   1. Drop markup: "<" opens a tag; script/style elements are dropped
+  //      INCLUDING their content, every other tag is replaced by a space.
+  //   2. Decode entities: "&" starts an entity only when a ';' follows
+  //      within 10 characters; unknown names decode to "" (matching the
+  //      old `.replace(/&\w+;/g, '')`), other stray "&" stay literal.
+  //   3. Final scrub: no literal <script / </script / <style / </style
+  //      sequence can survive in the output, whatever the input was.
+  const src = String(html || '');
+  const lower = src.toLowerCase();
+  const entities = { amp: '&', lt: '<', gt: '>', quot: '"', nbsp: ' ', '#39': "'" };
+  let out = '';
+  let i = 0;
+
+  const decodeEntityAt = (idx) => {
+    const semi = src.indexOf(';', idx + 1);
+    if (semi === -1 || semi - idx > 10) {
+      return null;
+    }
+    const body = src.slice(idx + 1, semi);
+    if (Object.prototype.hasOwnProperty.call(entities, body)) {
+      return [entities[body], semi + 1];
+    }
+    if (/^#\\d{1,7}$/.test(body)) {
+      const code = Number(body.slice(1));
+      return code > 0 && code <= 0x10ffff ? [String.fromCodePoint(code), semi + 1] : ['', semi + 1];
+    }
+    if (/^[a-zA-Z][a-zA-Z0-9]{0,31}$/.test(body)) {
+      return ['', semi + 1]; // unknown named entity: dropped, as before
+    }
+    return null;
+  };
+
+  while (i < src.length) {
+    const ch = src[i];
+
+    if (ch === '<') {
+      const gt = src.indexOf('>', i);
+      const rawTag = (gt === -1 ? lower.slice(i + 1) : lower.slice(i + 1, gt)).trim();
+      const isBlock =
+        rawTag === 'script' || rawTag.startsWith('script ') || rawTag === 'style' || rawTag.startsWith('style ');
+      if (gt === -1) {
+        // Unterminated tag: keep as text unless it opens script/style —
+        // nothing after it can close such an element, so drop the residue.
+        if (!isBlock) {
+          out += src.slice(i);
+        }
+        i = src.length;
+        continue;
+      }
+      if (isBlock) {
+        // Drop the whole element including its content.
+        const name = rawTag.split(/[\s/]/)[0];
+        const close = lower.indexOf('</' + name, gt);
+        i = close === -1 ? src.length : lower.indexOf('>', close) + 1 || src.length;
+        out += ' ';
+        continue;
+      }
+      out += ' ';
+      i = gt + 1;
+      continue;
+    }
+
+    if (ch === '&') {
+      const decoded = decodeEntityAt(i);
+      if (decoded) {
+        out += decoded[0];
+        i = decoded[1];
+        continue;
+      }
+    }
+
+    out += ch;
+    i += 1;
+  }
+
+  // Final scrub: remove any literal <script / </script / <style / </style
+  // sequence (case-insensitive) that entity decoding produced, through its
+  // closing '>' when present. Linear, regex-free.
+  let scrubbed = '';
+  let j = 0;
+  const n = out.length;
+  const lowerOut = out.toLowerCase();
+  while (j < n) {
+    if (out[j] === '<') {
+      let k = j + 1;
+      if (lowerOut[k] === '/') {
+        k += 1;
+      }
+      const word = lowerOut.slice(k, k + 6);
+      if (word.startsWith('script') || word.startsWith('style')) {
+        while (k < n && lowerOut[k] !== '>' && lowerOut[k] !== '<') {
+          k += 1;
+        }
+        if (lowerOut[k] === '>') {
+          k += 1;
+        }
+        scrubbed += ' ';
+        j = k;
+        continue;
+      }
+    }
+    scrubbed += out[j];
+    j += 1;
+  }
+
+  return scrubbed.replace(/\s+/g, ' ').trim();
 }
 
 function extractHtmlSections(content, filePath) {

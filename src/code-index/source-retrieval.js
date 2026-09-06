@@ -106,7 +106,8 @@ function mapSearchRow(row, i) {
 }
 
 function searchCodeLike(query, repoName, kind, maxResults) {
-  const likeQuery = `%${query.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
+  // Escape the ESCAPE character itself first, then the LIKE wildcards.
+  const likeQuery = `%${query.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
   let sql = `
     SELECT
       s.id, r.name AS repo, s.file_path AS file,
@@ -116,7 +117,7 @@ function searchCodeLike(query, repoName, kind, maxResults) {
       0.0 AS score
     FROM code_symbols s
     JOIN code_repos r ON r.id = s.repo_id
-    WHERE (s.name LIKE ? OR s.qualified_name LIKE ? OR s.signature LIKE ? OR s.summary LIKE ?)
+    WHERE (s.name LIKE ? ESCAPE '\\' OR s.qualified_name LIKE ? ESCAPE '\\' OR s.signature LIKE ? ESCAPE '\\' OR s.summary LIKE ? ESCAPE '\\')
   `;
   const params = [likeQuery, likeQuery, likeQuery, likeQuery];
 

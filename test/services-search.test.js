@@ -217,3 +217,37 @@ describe('services/search: symbolCluster', () => {
     expect(call[1]).toContain('my-repo');
   });
 });
+
+describe('services/search: sanitization regressions', () => {
+  it('escapes backslash before LIKE wildcards in fallback search', () => {
+    const deps = {
+        sqlJson: vi.fn(() => []),
+        jsonErrNoExit: vi.fn((msg) => ({ error: msg })),
+      },
+      result = _search(deps, { query: '50%_off\\' });
+    expect(result.error).toBeUndefined();
+    const likeCall = deps.sqlJson.mock.calls.find((c) => c[0].includes("LIKE ? ESCAPE '\\'"));
+    expect(likeCall).toBeDefined();
+    // Backslash escaped first ("\" -> "\\"), then % and _ -> "\%", "\_":
+    // a trailing "\" can no longer escape the wildcard markers.
+    expect(likeCall[1][0]).toBe('%50\\%\\_off\\\\%');
+  });
+
+  it('ranks adversarial path-like text without pathological backtracking', () => {
+    // Long single token with no match: quadratic backtracking under the old
+    // whole-text pathPattern.test(); bounded token matching keeps it linear.
+    const evil = `a/${'b'.repeat(50000)}!`,
+      rows = [
+        { id: 1, title: evil, type: 'decision', created_at: '2025-01-01T00:00:00', rank: 0 },
+        {
+          id: 2,
+          title: 'see src/utils/readme.md for details',
+          type: 'decision',
+          created_at: '2025-01-01T00:00:00',
+          rank: 0,
+        },
+      ],
+      ranked = rankObservations(rows, 'where file');
+    expect(ranked[0].id).toBe(2); // real path still gets the navigation boost
+  });
+});

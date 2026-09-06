@@ -4,7 +4,31 @@ const { CODE_EXTENSIONS, IGNORE_DIRS_CODE } = require('../../utils');
 
 const DEFAULT_MAX_FILE_SIZE = 1024 * 1024;
 const DEFAULT_MAX_FILES = 20000;
-const SECRET_FILE_RE = /(^|[/\\])(\.env($|\.)|id_rsa$|id_dsa$|id_ecdsa$|id_ed25519$|.*\.(pem|key|p12|pfx)$)/i;
+// Linear-time replacement for the former polynomial-ReDoS secret-path regex
+// /(^|[/\\])(\.env($|\.)|id_rsa$|id_dsa$|id_ecdsa$|id_ed25519$|.*\.(pem|key|p12|pfx)$)/i.
+// That regex matched when, at the path start or right after any `/` or `\`,
+// the remainder began with `.env` followed by end-of-path or `.`, began with
+// an exact key name followed by end-of-path, or ended with a key extension.
+const SECRET_KEY_NAMES = new Set(['id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519']);
+const SECRET_KEY_EXTENSIONS = ['.pem', '.key', '.p12', '.pfx'];
+
+function isSecretFilePath(filePath) {
+  const s = filePath.toLowerCase();
+  const n = s.length;
+  let segStart = 0;
+  for (let i = 0; i <= n; i++) {
+    if (i === n || s[i] === '/' || s[i] === '\\') {
+      if (s.startsWith('.env', segStart) && (i - segStart === 4 ? i === n : s.charCodeAt(segStart + 4) === 46)) {
+        return true;
+      }
+      if (i === n && SECRET_KEY_NAMES.has(s.slice(segStart, i))) {
+        return true;
+      }
+      segStart = i + 1;
+    }
+  }
+  return SECRET_KEY_EXTENSIONS.some((ext) => s.endsWith(ext));
+}
 const SKIP_FILE_RE =
   /(^|[/\\])(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|Gemfile\.lock|poetry\.lock|Cargo\.lock|composer\.lock|pipfile\.lock|bun\.lockb|bun\.lock|conan\.lock|mix\.lock|podfile\.lock|go\.sum|requirements\.txt\.lock|\.yarn\/integrity|package\.json|bower\.json|composer\.json|tsconfig\.json|tsconfig\.[^/\\]+\.json|jsconfig\.json|\.babelrc|babel\.config\.[^/\\]+|\.eslintrc|eslint\.config\.[^/\\]+|\.prettierrc|prettier\.config\.[^/\\]+|\.stylelintrc|manifest\.json|manifest\.webmanifest|\.node-version|\.nvmrc|\.tool-versions)$|\.lock$|\.lock\.json$/i;
 const PRIORITY_DIRS = ['src/', 'lib/', 'pkg/', 'cmd/', 'internal/', 'app/', 'packages/'];
@@ -278,7 +302,7 @@ function scanRepository(repoPath, options = {}) {
           // oxlint-disable-next-line no-continue
           continue;
         }
-        if (SECRET_FILE_RE.test(relativePath.replace(/\\/g, '/'))) {
+        if (isSecretFilePath(relativePath)) {
           mark('secret', entry.name, relativePath);
           // oxlint-disable-next-line no-continue
           continue;
@@ -332,6 +356,6 @@ module.exports = {
   shouldSkipDir,
   loadGitignoreRules,
   pathIsInside,
-  SECRET_FILE_RE,
+  isSecretFilePath,
   SKIP_FILE_RE,
 };

@@ -51,7 +51,8 @@ function buildTopicQueryMatch(needles) {
   const scoreParams = [];
 
   for (const needle of needles) {
-    const like = `%${needle.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
+    // Escape the ESCAPE character itself first, then the LIKE wildcards.
+    const like = `%${needle.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
     whereParts.push(`(${fields.map((field) => `${field} LIKE ? ESCAPE '\\'`).join(' OR ')})`);
     whereParams.push(...fields.map(() => like));
     for (const field of fields) {

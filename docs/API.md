@@ -39,7 +39,7 @@ LaPis includes an optional HTTP server for programmatic access to the Aurex doma
 node memory-store.js serve [--host 127.0.0.1] [--port 9100]
 ```
 
-Defaults to `127.0.0.1:9100`. Binding to `0.0.0.0` or `::` **without an API key is refused at startup**; with an API key set it prints a network-exposure warning.
+Defaults to `127.0.0.1:9100`. **Without an API key the server is loopback-only**: binding to any non-loopback address (including `0.0.0.0`, `::`, or a LAN IP) is refused at startup, and requests whose `Host` header is not loopback — or whose `Origin` is present but not loopback — are rejected with 403 (this keeps web pages and DNS-rebinding attacks from driving the API). With an API key set (`--api-key` or `LAPIS_HTTP_API_KEY`) any bind is allowed, authenticated via `x-api-key` or `Authorization: Bearer`, and non-loopback binds print a network-exposure warning.
 
 ### Health
 
