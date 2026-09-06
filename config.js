@@ -56,6 +56,40 @@ function deepMerge(target, source) {
   return result;
 }
 
+// Known tool tiers (gateway.js maps them to command sets). An unknown tier
+// must fail closed, not silently degrade to unrestricted (#302).
+const KNOWN_TIERS = new Set(['core', 'standard', 'full']);
+
+/**
+ * Read the tier config (JSONC). ENOENT keeps the out-of-box unrestricted
+ * default; ANY other problem — invalid JSON (including the old bug of `//`
+ * inside URL strings truncating the document), a non-object, a missing
+ * tier, or an unknown tier name — warns and fails CLOSED to the strictest
+ * tier instead of the old silent fail-open to 'full' (#302).
+ */
+function readTierConfig() {
+  try {
+    const configPath = getConfig().tier_config_path,
+      raw = fs.readFileSync(configPath, 'utf-8'),
+      parsed = JSON.parse(stripJsoncComments(raw));
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      typeof parsed.tier !== 'string' ||
+      !KNOWN_TIERS.has(parsed.tier.trim())
+    ) {
+      throw new Error('tier_config must be an object with a known "tier" (core|standard|full)');
+    }
+    return { tier: parsed.tier.trim() };
+  } catch (e) {
+    if (e.code === 'ENOENT') {
+      return { tier: 'full' };
+    }
+    console.warn(`[config] tier config unavailable (${e.message}); failing closed to 'core'`);
+    return { tier: 'core' };
+  }
+}
+
 function stripJsoncComments(raw) {
   let result = '',
     i = 0;
@@ -164,4 +198,5 @@ module.exports = {
   applyEnvOverrides,
   DEFAULTS,
   CONFIG_PATH,
+  readTierConfig,
 };
