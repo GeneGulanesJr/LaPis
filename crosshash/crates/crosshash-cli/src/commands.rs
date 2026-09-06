@@ -1171,14 +1171,26 @@ fn execute_feedback(format: OutputFormat, db: Option<PathBuf>, cmd: FeedbackComm
             let suggestion = storage
                 .get_suggestion_by_id(&id)?
                 .ok_or_else(|| anyhow!("suggestion not found: {edge_id}"))?;
-            storage.update_suggestion_status(&id, "accepted")?;
-            let fb_id = Uuid::now_v7();
-            storage.insert_feedback(&fb_id, &id, "accept", None)?;
-            let exporter =
-                Uuid::parse_str(suggestion["exporter_entity_id"].as_str().unwrap_or("")).ok();
-            let consumer =
-                Uuid::parse_str(suggestion["consumer_entity_id"].as_str().unwrap_or("")).ok();
-            if let (Some(exporter_id), Some(consumer_id)) = (exporter, consumer) {
+            // Validate entity ids BEFORE mutating anything (#328): a failed
+            // parse must leave the suggestion pending, not report success
+            // without an edge.
+            let exporter = Uuid::parse_str(suggestion["exporter_entity_id"].as_str().unwrap_or(""));
+            let consumer = Uuid::parse_str(suggestion["consumer_entity_id"].as_str().unwrap_or(""));
+            let (exporter_id, consumer_id) = match (exporter, consumer) {
+                (Ok(e), Ok(c)) => (e, c),
+                _ => anyhow::bail!(
+                    "cannot accept suggestion {edge_id}: exporter/consumer entity ids missing or invalid (exporter={:?}, consumer={:?}); suggestion left unchanged",
+                    suggestion["exporter_entity_id"].as_str(),
+                    suggestion["consumer_entity_id"].as_str()
+                ),
+            };
+            let already_exists = storage.get_edges_all()?.iter().any(|e| {
+                e.source_entity_id == consumer_id
+                    && e.target_entity_id == exporter_id
+                    && e.kind == EdgeKind::PackageDep
+                    && e.source == EdgeSource::AiInferred
+            });
+            if !already_exists {
                 let edge = Edge {
                     id: Uuid::now_v7(),
                     source_entity_id: consumer_id,
@@ -1195,6 +1207,11 @@ fn execute_feedback(format: OutputFormat, db: Option<PathBuf>, cmd: FeedbackComm
                 };
                 storage.insert_edge(&edge)?;
             }
+            // Status flip + feedback only happen once the edge exists (or
+            // already did).
+            storage.update_suggestion_status(&id, "accepted")?;
+            let fb_id = Uuid::now_v7();
+            storage.insert_feedback(&fb_id, &id, "accept", None)?;
             format!("accepted AI edge suggestion {edge_id}")
         }
         Some(FeedbackAction::Reject { edge_id }) => {
