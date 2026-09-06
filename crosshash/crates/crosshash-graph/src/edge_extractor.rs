@@ -115,7 +115,11 @@ fn parse_ts_import_names(line: &str) -> Option<Vec<String>> {
 }
 
 fn parse_ts_module_path(line: &str) -> Option<String> {
-    let lower = line.to_lowercase();
+    // to_ascii_lowercase is byte-length-preserving, so the offset found here
+    // maps exactly onto `line` and the slice stays on a char boundary.
+    // to_lowercase is NOT length-preserving ('İ' grows) and panicked on
+    // non-char boundaries for valid identifiers (#319).
+    let lower = line.to_ascii_lowercase();
     let pos = lower.find(" from ")?;
     let rest = line[pos + 6..].trim();
     if rest.is_empty() {
@@ -1360,5 +1364,14 @@ mod tests {
             parse_ts_module_path("export { X } from '../bar'"),
             Some("../bar".to_string())
         );
+    }
+
+    #[test]
+    fn parse_ts_module_path_handles_non_ascii_before_from() {
+        // 'İ' (U+0130) lowercases to a 3-byte sequence, so offsets from the
+        // lowercased line used to slice `line` mid-character and panic
+        // (#319). to_ascii_lowercase keeps byte lengths identical.
+        let line = "import { İ } from './x';";
+        assert_eq!(parse_ts_module_path(line).as_deref(), Some("./x"));
     }
 }
