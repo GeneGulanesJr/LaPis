@@ -160,6 +160,34 @@ function atomicWrite(filePath, state) {
   fs.renameSync(tmpPath, filePath);
 }
 
+/**
+ * Locked unlink — SessionEnd must not race an in-flight mutateState that
+ * would otherwise recreate the file right after the clear (#296). A null
+ * (unusable) session_id is a no-op (#224).
+ */
+async function clearStateLocked(sessionId, opts) {
+  const filePath = statePath(sessionId, opts);
+  if (!filePath) {
+    return;
+  }
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const lockPath = `${filePath}.lock`,
+    acquired = await acquireLock(lockPath, opts);
+  try {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      if (e.code !== 'ENOENT') {
+        throw e;
+      }
+    }
+  } finally {
+    if (acquired) {
+      releaseLock(lockPath);
+    }
+  }
+}
+
 /** Unlink the state file; idempotent on ENOENT. A null key is a no-op (#224). */
 function clearState(sessionId, opts) {
   const filePath = statePath(sessionId, opts);
@@ -325,6 +353,7 @@ module.exports = {
   loadState,
   saveState,
   clearState,
+  clearStateLocked,
   mutateState,
   sweepStaleSessions,
   sanitizeKey,

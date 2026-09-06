@@ -40,6 +40,9 @@ function makeStateStore() {
     clearState: (id) => {
       map.delete(id);
     },
+    clearStateLocked: async (id) => {
+      map.delete(id);
+    },
     sweepStaleSessions: () => ({ swept: 0 }),
     // Test-only inspection
     _peek: (id) => map.get(id),
