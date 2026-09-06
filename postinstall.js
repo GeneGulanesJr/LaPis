@@ -43,6 +43,10 @@ const fs = require('fs'),
       integrity: 'sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==',
     },
   };
+  // Only copies at these (vulnerable) versions are patched. Overwriting a
+  // copy at an unrelated version could put a dependent outside its declared
+  // range (#303).
+  const VULNERABLE_VERSIONS = new Set(['5.0.6']);
 
   // Locate every nested copy of a target package under node_modules and return
   // The directory paths. Skips the top-level node_modules/<pkg> copy (which is
@@ -119,10 +123,30 @@ const fs = require('fs'),
     if (fs.existsSync(safeSrc)) {
       for (const dir of nestedDirs) {
         try {
+          // Only patch copies whose version is in the known-vulnerable set.
+          let currentVersion;
+          try {
+            currentVersion = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).version;
+          } catch {}
+          if (currentVersion && !VULNERABLE_VERSIONS.has(currentVersion)) {
+            continue;
+          }
+          // Atomic swap: stage the safe copy, then replace in one rename.
+          // The old rm-then-copy pair could leave node_modules without the
+          // package at all if the copy failed partway (ENOSPC/EACCES) — and
+          // the bare catch swallowed the evidence (#303).
+          const stagedDir = `${dir}.patched-${process.pid}`;
+          fs.rmSync(stagedDir, { recursive: true, force: true });
+          fs.cpSync(safeSrc, stagedDir, { recursive: true, force: true });
           fs.rmSync(dir, { recursive: true, force: true });
-          fs.cpSync(safeSrc, dir, { recursive: true, force: true });
+          fs.renameSync(stagedDir, dir);
           filesPatched = true;
-        } catch {}
+        } catch (e) {
+          console.error(`[postinstall] failed to patch nested ${pkg} at ${dir}: ${e.message}`);
+          try {
+            fs.rmSync(`${dir}.patched-${process.pid}`, { recursive: true, force: true });
+          } catch {}
+        }
       }
     }
 
