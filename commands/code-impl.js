@@ -55,6 +55,15 @@ function indexStatus(args) {
   return codeIndexingService.indexStatusInternal(jobId);
 }
 
+function cancelIndex(args) {
+  const jobId = parseInt(args.job, 10);
+  if (!jobId || Number.isNaN(jobId)) {
+    const { jsonErrNoExit } = require('../db');
+    return jsonErrNoExit('Usage: cancel-index --job <id>');
+  }
+  return codeIndexingService.cancelIndexJobInternal(jobId);
+}
+
 function listIndexJobs(args) {
   return codeIndexingService.listIndexJobsInternal({
     onlyRunning: args.running === 'true',
@@ -147,4 +156,5 @@ module.exports = {
   getCodeSource,
   listCodeRepos,
   removeCodeRepo,
+  cancelIndex,
 };

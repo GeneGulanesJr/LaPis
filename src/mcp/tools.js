@@ -440,6 +440,18 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
         return { cmd: 'index-status', args: { job: String(p.job) } };
       },
     },
+
+    // ============ cancel-index ============
+    {
+      name: 'cancel-index',
+      description: 'Cancel a running async code-indexing job by ID.',
+      inputSchema: obj({
+        job: { schema: str('Job ID returned by index-repo-async') },
+      }),
+      toCommand(p) {
+        return { cmd: 'cancel-index', args: { job: String(p.job) } };
+      },
+    },
   ];
 
   module.exports.tools = tools;

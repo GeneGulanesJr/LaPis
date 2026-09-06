@@ -3,6 +3,7 @@ const codeCmd = require('../../../commands/code-impl'),
     'index-repo': '--path <path> [--name NAME]',
     'index-repo-async': '--path <path> [--name NAME] [--mode full|incremental]',
     'index-status': '--job <id>',
+    'cancel-index': '--job <id>',
     'list-index-jobs': '[--running] [--limit N]',
     'reindex-repo': '--repo <repo-name> [--mode full|incremental]',
     'health-code-repo': '--repo <repo-name>',
@@ -25,6 +26,7 @@ function register(commands) {
   commands['remove-code-repo'] = (args) => codeCmd.removeCodeRepo(args);
   commands['index-repo-async'] = (args) => codeCmd.indexRepoAsync(args);
   commands['index-status'] = (args) => codeCmd.indexStatus(args);
+  commands['cancel-index'] = (args) => codeCmd.cancelIndex(args);
   commands['list-index-jobs'] = (args) => codeCmd.listIndexJobs(args);
 }
 
