@@ -437,7 +437,12 @@ async fn index_one_repo(
         // errors and the `?` aborts the whole index run (#317).
         if matches!(
             language,
-            Language::Html | Language::Css | Language::Unknown | Language::Swift | Language::Dart | Language::Zig
+            Language::Html
+                | Language::Css
+                | Language::Unknown
+                | Language::Swift
+                | Language::Dart
+                | Language::Zig
         ) {
             skipped_files += 1;
             continue;

@@ -1063,8 +1063,12 @@ mod tests {
             validated_at: None,
         };
 
-        storage.insert_edge(&mk(EdgeSource::Static, EdgeKind::Calls)).unwrap();
-        storage.insert_edge(&mk(EdgeSource::AiInferred, EdgeKind::Calls)).unwrap();
+        storage
+            .insert_edge(&mk(EdgeSource::Static, EdgeKind::Calls))
+            .unwrap();
+        storage
+            .insert_edge(&mk(EdgeSource::AiInferred, EdgeKind::Calls))
+            .unwrap();
 
         storage.remove_edges_for_repo(repo.id).unwrap();
 
