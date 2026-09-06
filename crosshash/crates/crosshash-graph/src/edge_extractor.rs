@@ -439,6 +439,62 @@ fn import_confidence(target_in_resolved_file: bool, file_resolved: bool, is_rela
     }
 }
 
+/// Collect identifiers that appear immediately followed by an optional
+/// whitespace and `(` — i.e. call-site candidate names. One linear pass over
+/// the body, replacing the old per-target `format!` + substring scan that
+/// was quadratic in entity count (#321).
+fn called_names(body: &str) -> std::collections::HashSet<&str> {
+    let bytes = body.as_bytes();
+    let mut names = std::collections::HashSet::new();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let is_ident_start = bytes[i] == b'_' || bytes[i].is_ascii_alphabetic();
+        let prev_is_word = i > 0 && (bytes[i - 1].is_ascii_alphanumeric() || bytes[i - 1] == b'_');
+        if is_ident_start && !prev_is_word {
+            let start = i;
+            while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+                i += 1;
+            }
+            let mut j = i;
+            while j < bytes.len() && (bytes[j] == b' ' || bytes[j] == b'\t') {
+                j += 1;
+            }
+            if j < bytes.len() && bytes[j] == b'(' {
+                names.insert(&body[start..i]);
+            }
+        } else {
+            i += 1;
+        }
+    }
+    names
+}
+
+/// Collect the identifier token immediately following each occurrence of a
+/// keyword (e.g. "extends", "implements", ": ") in a lowercased body. Linear
+/// per keyword (#321).
+fn identifiers_after(body: &str, keyword: &str) -> std::collections::HashSet<String> {
+    let bytes = body.as_bytes();
+    let mut out = std::collections::HashSet::new();
+    let mut from = 0usize;
+    while let Some(rel) = body[from..].find(keyword) {
+        let mut i = from + rel + keyword.len();
+        while i < bytes.len() && (bytes[i] == b' ' || bytes[i] == b'\t') {
+            i += 1;
+        }
+        if i < bytes.len() && (bytes[i] == b'_' || bytes[i].is_ascii_alphabetic()) {
+            let start = i;
+            while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+                i += 1;
+            }
+            out.insert(body[start..i].to_string());
+            from = i;
+        } else {
+            from += i - from + keyword.len() - keyword.len() + 1;
+        }
+    }
+    out
+}
+
 /// Look for `extends`/`implements` in class/interface definitions.
 fn extract_inheritance_edges(
     entities: &[Entity],
@@ -446,6 +502,22 @@ fn extract_inheritance_edges(
 ) -> Vec<(Uuid, Uuid, EdgeKind)> {
     let mut results = Vec::new();
     let source_set: HashSet<_> = source_by_file.keys().collect();
+
+    // Target lookup by lowercase name — targets are entities whose file is
+    // part of this index run (same filter as before, hoisted out of the
+    // loop). Keyword tokens are collected in one linear pass per body
+    // instead of a per-target format! + substring scan (#321).
+    let mut by_name_lower: std::collections::HashMap<String, Vec<&Entity>> =
+        std::collections::HashMap::new();
+    for target in entities
+        .iter()
+        .filter(|e| source_by_file.contains_key(&e.file_path))
+    {
+        by_name_lower
+            .entry(target.name.to_lowercase())
+            .or_default()
+            .push(target);
+    }
 
     for entity in entities.iter().filter(|e| {
         matches!(
@@ -462,20 +534,31 @@ fn extract_inheritance_edges(
             .unwrap_or("");
         let body_lower = body.to_lowercase();
 
-        for target in entities.iter().filter(|e| e.id != entity.id) {
-            if !source_by_file.contains_key(&target.file_path) {
-                continue;
-            }
-            if body_lower.contains(&format!("extends {}", target.name.to_lowercase()))
-                || body_lower.contains(&format!("extends {}<", target.name.to_lowercase()))
-            {
-                results.push((entity.id, target.id, EdgeKind::Extends));
-            }
-            if (entity.language == Language::TypeScript || entity.language == Language::JavaScript)
-                && (body_lower.contains(&format!("implements {}", target.name.to_lowercase()))
-                    || body_lower.contains(&format!(": {}", target.name.to_lowercase())))
-            {
-                results.push((entity.id, target.id, EdgeKind::Implements));
+        let is_ts_js =
+            entity.language == Language::TypeScript || entity.language == Language::JavaScript;
+        let extends_names = identifiers_after(&body_lower, "extends ");
+        let implements_names = if is_ts_js {
+            let mut set = identifiers_after(&body_lower, "implements ");
+            set.extend(identifiers_after(&body_lower, ": "));
+            set
+        } else {
+            std::collections::HashSet::new()
+        };
+
+        // Mirrors the old dual check: a name after both keywords yields both
+        // edges, exactly like the two independent `contains` checks did.
+        for (names, kind) in [
+            (&extends_names, EdgeKind::Extends),
+            (&implements_names, EdgeKind::Implements),
+        ] {
+            for name in names {
+                if let Some(targets) = by_name_lower.get(name) {
+                    for target in targets {
+                        if target.id != entity.id {
+                            results.push((entity.id, target.id, kind));
+                        }
+                    }
+                }
             }
         }
     }
@@ -487,6 +570,21 @@ fn extract_call_edges(
     entities: &[Entity],
     source_by_file: &HashMap<String, String>,
 ) -> Vec<(Uuid, Uuid)> {
+    // Call-site names are collected in one linear pass per body; targets are
+    // looked up by exact name (HashMap) instead of scanning every entity per
+    // pair — the old loop was quadratic with a format! allocation per pair
+    // and effectively hung on 10k+ entities (#321). Note this is slightly
+    // MORE precise than before: "myfoo(" no longer matches a target named
+    // "foo" (the old substring check ignored word boundaries).
+    let by_name: std::collections::HashMap<&str, Vec<&Entity>> = {
+        let mut map: std::collections::HashMap<&str, Vec<&Entity>> =
+            std::collections::HashMap::new();
+        for target in entities {
+            map.entry(target.name.as_str()).or_default().push(target);
+        }
+        map
+    };
+
     let mut results = Vec::new();
     for entity in entities {
         let Some(file_source) = source_by_file.get(&entity.file_path) else {
@@ -495,9 +593,13 @@ fn extract_call_edges(
         let body = file_source
             .get(entity.start_byte as usize..entity.end_byte as usize)
             .unwrap_or("");
-        for target in entities.iter().filter(|e| e.id != entity.id) {
-            if body.contains(&format!("{}(", target.name)) {
-                results.push((entity.id, target.id));
+        for name in called_names(body) {
+            if let Some(targets) = by_name.get(name) {
+                for target in targets {
+                    if target.id != entity.id {
+                        results.push((entity.id, target.id));
+                    }
+                }
             }
         }
     }
@@ -506,7 +608,6 @@ fn extract_call_edges(
 
 /// Extract contains edges (parent → child for structs/classes/modules containing functions/methods).
 fn extract_contains_edges(entities: &[Entity]) -> Vec<(Uuid, Uuid)> {
-    let mut results = Vec::new();
     let is_container = |kind: EntityKind| -> bool {
         matches!(
             kind,
@@ -517,11 +618,23 @@ fn extract_contains_edges(entities: &[Entity]) -> Vec<(Uuid, Uuid)> {
                 | EntityKind::Module
         )
     };
-    for parent in entities.iter().filter(|e| is_container(e.kind)) {
-        let prefix = format!("{}::", parent.qualified_name);
-        for child in entities.iter().filter(|e| e.id != parent.id) {
-            if child.qualified_name.starts_with(&prefix) {
-                results.push((parent.id, child.id));
+    // Walk each child's qualified-name ancestor chain instead of testing
+    // every (parent, child) pair — linear in names×segments (#321).
+    let containers: std::collections::HashMap<&str, &Entity> = entities
+        .iter()
+        .filter(|e| is_container(e.kind))
+        .map(|e| (e.qualified_name.as_str(), e))
+        .collect();
+
+    let mut results = Vec::new();
+    for child in entities {
+        let mut qualified = child.qualified_name.as_str();
+        while let Some(idx) = qualified.rfind("::") {
+            qualified = &qualified[..idx];
+            if let Some(parent) = containers.get(qualified) {
+                if parent.id != child.id {
+                    results.push((parent.id, child.id));
+                }
             }
         }
     }
@@ -1373,5 +1486,81 @@ mod tests {
         // (#319). to_ascii_lowercase keeps byte lengths identical.
         let line = "import { İ } from './x';";
         assert_eq!(parse_ts_module_path(line).as_deref(), Some("./x"));
+    }
+
+    #[test]
+    fn call_edges_require_exact_token_match() {
+        // "myfoo(" is a different identifier — the old substring scan
+        // reported it as a call of "foo" (#321).
+        let target = entity("foo", "src/a.ts", Language::TypeScript);
+        let src_no = "function caller() { myfoo(); }";
+        let mut caller = entity_with_span(
+            "caller",
+            "src/b.ts",
+            Language::TypeScript,
+            0,
+            0,
+            0,
+            src_no.len() as u32,
+        );
+        let mut sources = HashMap::new();
+        sources.insert("src/b.ts".to_string(), src_no.to_string());
+        let edges = extract_call_edges(&[caller.clone(), target.clone()], &sources);
+        assert!(edges.is_empty());
+
+        // A real call still links.
+        let src_yes = "function caller() { foo(); }";
+        caller.end_byte = src_yes.len() as u32;
+        sources.insert("src/b.ts".to_string(), src_yes.to_string());
+        let edges = extract_call_edges(&[caller, target.clone()], &sources);
+        assert_eq!(edges.len(), 1);
+    }
+
+    #[test]
+    fn inheritance_edges_from_extends_and_implements() {
+        let base = entity("Base", "src/base.ts", Language::TypeScript);
+        let logger = entity("Logger", "src/log.ts", Language::TypeScript);
+        let src = "class Child extends Base implements Logger { }";
+        let mut child = entity_with_span(
+            "Child",
+            "src/child.ts",
+            Language::TypeScript,
+            0,
+            0,
+            0,
+            src.len() as u32,
+        );
+        child.kind = EntityKind::Class;
+
+        let mut sources = HashMap::new();
+        sources.insert("src/base.ts".to_string(), "class Base {}".to_string());
+        sources.insert("src/log.ts".to_string(), "interface Logger {}".to_string());
+        sources.insert("src/child.ts".to_string(), src.to_string());
+
+        let edges =
+            extract_inheritance_edges(&[base.clone(), logger.clone(), child.clone()], &sources);
+        assert!(edges.contains(&(child.id, base.id, EdgeKind::Extends)));
+        assert!(edges.contains(&(child.id, logger.id, EdgeKind::Implements)));
+    }
+
+    #[test]
+    fn contains_edges_reach_all_ancestors() {
+        let mut grand = entity("A", "src/a.ts", Language::TypeScript);
+        grand.kind = EntityKind::Module;
+        grand.qualified_name = "A".into();
+        let mut mid = entity("B", "src/a.ts", Language::TypeScript);
+        mid.kind = EntityKind::Module;
+        mid.qualified_name = "A::B".into();
+        let mut child = entity("c", "src/a.ts", Language::TypeScript);
+        child.qualified_name = "A::B::c".into();
+
+        // Three pairs: A->B, A->c, B->c (B is itself a child of A — the old
+        // pair scan produced the same three, so the linearized walk
+        // preserves multi-level ancestors exactly).
+        let edges = extract_contains_edges(&[grand.clone(), mid.clone(), child.clone()]);
+        assert_eq!(edges.len(), 3);
+        assert!(edges.contains(&(grand.id, mid.id)));
+        assert!(edges.contains(&(grand.id, child.id)));
+        assert!(edges.contains(&(mid.id, child.id)));
     }
 }
