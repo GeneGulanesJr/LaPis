@@ -157,7 +157,20 @@ if (require.main === module) {
       softDeleteObservation = (id) => obsDA.softDeleteObservation({ sqlJson, sqlRun, sqlRaw }, id),
       deps = { sqlJson, sqlRun, sqlRaw, withTransaction, softDeleteObservation },
       opts = {
-        keepLast: args['keep-last'] ? parseInt(args['keep-last'], 10) : 10,
+        keepLast: (() => {
+          const raw = args['keep-last'];
+          if (!raw) {
+            return 10;
+          }
+          const parsed = parseInt(raw, 10);
+          // NaN used to flow into LIMIT ?/OFFSET ? and crash mid-transaction
+          // with a datatype mismatch (#304).
+          if (Number.isNaN(parsed) || parsed < 0) {
+            console.error(`cleanup-sessions: --keep-last must be a non-negative integer, got "${raw}"`);
+            process.exit(1);
+          }
+          return parsed;
+        })(),
         project: args.project || null,
         yes: args.yes === true,
         includeDream: args['include-dream'] === true,

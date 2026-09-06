@@ -195,6 +195,7 @@ export async function memStreaming(
 
       return getTimeout(cmd);
     })();
+  let timedOut = false;
   try {
     return await new Promise<MemResult | null>((resolve, reject) => {
       const child = spawn(process.execPath, [MEMORY_SCRIPT, ...argList], {
@@ -202,14 +203,24 @@ export async function memStreaming(
       });
 
       let stdout = '',
-        timer: ReturnType<typeof setTimeout> | null = null;
+        timer: ReturnType<typeof setTimeout> | null = null,
+        killTimer: ReturnType<typeof setTimeout> | null = null;
       {
         const resetTimer = () => {
           if (timer) {
             clearTimeout(timer);
           }
           timer = setTimeout(() => {
+            timedOut = true;
             child.kill();
+            // SIGTERM cannot interrupt a child wedged in a synchronous
+            // better-sqlite3 call — escalate to SIGKILL after a grace
+            // window so it cannot keep holding the DB (#304).
+            killTimer = setTimeout(() => {
+              try {
+                child.kill('SIGKILL');
+              } catch {}
+            }, 2000);
             reject(new Error(`${cmd} timed out after ${timeout}ms without output`));
           }, timeout + 5000);
         };
@@ -246,6 +257,9 @@ export async function memStreaming(
           if (timer) {
             clearTimeout(timer);
           }
+          if (killTimer) {
+            clearTimeout(killTimer);
+          }
           if (code !== 0 && !stdout.trim()) {
             reject(new Error(`${cmd} exited with code ${code}`));
             return;
@@ -267,6 +281,14 @@ export async function memStreaming(
       }
     });
   } catch {
+    // A timed-out child was already killed — re-running the whole command
+    // (for index-repo/reindex-repo: a second full index racing the first)
+    // is worse than reporting the timeout (#304). The mem() fallback stays
+    // for genuine spawn/startup failures.
+    if (timedOut) {
+      console.error(`[memory-layer] ${cmd} timed out and was terminated; not retrying`);
+      return null;
+    }
     return mem(cmd, args);
   }
 }
