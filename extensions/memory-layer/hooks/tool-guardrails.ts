@@ -247,7 +247,9 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
 
     const resultText = typeof event.result === 'string' ? event.result : JSON.stringify(event.result),
       // Match relative file paths like "src/foo.ts" or "extensions/memory-layer/hooks/tool-guardrails.ts"
-      filePaths = resultText.match(/[\w/.-]+\.(ts|js|tsx|jsx|mjs|cjs|py|go|rs)/g) || [];
+      // Longest-first alternation + boundary: short-first matched '.tsx' as
+      // '.ts', so harvested names pointed at files that do not exist (#304).
+      filePaths = resultText.match(/[\w/.-]+\.(tsx|jsx|mts|cts|mjs|cjs|ts|js|py|go|rs)\b/g) || [];
     for (const fp of filePaths) {
       deps.state.exploredFiles.add(fp.toLowerCase());
       const basename = fp.split('/').pop();

@@ -85,7 +85,14 @@ const {
       const { startHttpServer } = require('./src/http/server');
       await startHttpServer({
         host: args.host ?? '127.0.0.1',
-        port: Number(args.port ?? 9100),
+        port: (() => {
+          const parsed = Number(args.port ?? 9100);
+          if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+            console.error(`lapis serve: --port must be an integer between 1 and 65535, got "${args.port}"`);
+            process.exit(1);
+          }
+          return parsed;
+        })(),
         apiKey: args['api-key'] ?? args.apiKey ?? null,
       });
       return;

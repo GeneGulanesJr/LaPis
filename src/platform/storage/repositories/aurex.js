@@ -16,6 +16,9 @@ function createAurexRepository(deps) {
       },
       updateMissionStatus(id, status) {
         sqlRun('UPDATE missions SET status = ? WHERE id = ?', [status, id]);
+        // Re-select so handlers can 404 on a missing id instead of
+        // reporting blind success (#288).
+        return sqlJson('SELECT * FROM missions WHERE id = ?', [id]);
       },
 
       // --- Milestones ---
@@ -31,6 +34,7 @@ function createAurexRepository(deps) {
       },
       updateMilestoneStatus(id, status) {
         sqlRun('UPDATE milestones SET status = ? WHERE id = ?', [status, id]);
+        return sqlJson('SELECT * FROM milestones WHERE id = ?', [id]);
       },
       listMilestonesForMission(missionId) {
         return sqlJson('SELECT * FROM milestones WHERE mission_id = ? ORDER BY order_index ASC', [missionId]);
@@ -72,6 +76,7 @@ function createAurexRepository(deps) {
       },
       updateWorkingUnitStatus(id, status) {
         sqlRun('UPDATE working_units SET status = ? WHERE id = ?', [status, id]);
+        return sqlJson('SELECT * FROM working_units WHERE id = ?', [id]);
       },
 
       // --- Worker Handoffs ---
@@ -194,6 +199,7 @@ function createAurexRepository(deps) {
       },
       classifyVerdict(id, classification) {
         sqlRun('UPDATE validation_verdicts SET classification = ? WHERE id = ?', [classification, id]);
+        return sqlJson('SELECT * FROM validation_verdicts WHERE id = ?', [id]);
       },
       getVerdicts(milestoneId) {
         return sqlJson('SELECT * FROM validation_verdicts WHERE milestone_id = ?', [milestoneId]);
@@ -309,9 +315,15 @@ function createAurexRepository(deps) {
       incrementRetry(milestoneId) {
         sqlRun('UPDATE milestones SET retries = retries + 1 WHERE id = ?', [milestoneId]);
         const rows = sqlJson('SELECT retries, rescopes FROM milestones WHERE id = ?', [milestoneId]);
-        return rows.length > 0 ? rows[0] : { milestoneId, retries: 0, rescopes: 0 };
+        // null (not a fabricated counter object) when the milestone does
+        // not exist, so the handler can 404 (#288).
+        return rows.length > 0 ? rows[0] : null;
       },
       logRescope(milestoneId, event) {
+        const exists = sqlJson('SELECT id FROM milestones WHERE id = ?', [milestoneId]);
+        if (exists.length === 0) {
+          return false;
+        }
         sqlRun('UPDATE milestones SET rescopes = rescopes + 1 WHERE id = ?', [milestoneId]);
         sqlRun(
           'INSERT INTO rescope_events (id, milestone_id, contract_id, reason, previous_scope, new_scope) VALUES (?, ?, ?, ?, ?, ?)',
@@ -324,6 +336,7 @@ function createAurexRepository(deps) {
             event.newScope || '',
           ],
         );
+        return true;
       },
 
       // --- Todo Ledgers ---

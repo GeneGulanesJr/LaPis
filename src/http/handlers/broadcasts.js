@@ -1,4 +1,4 @@
-const { jsonOk, jsonCreated } = require('../errors');
+const { jsonOk, jsonCreated, jsonError } = require('../errors');
 
 function writeBroadcast(repo) {
   return async (req, res, ctx) => {
@@ -33,7 +33,10 @@ function transitionBroadcast(repo) {
   return async (req, res, ctx) => {
     const { newStatus, actorId } = ctx.body,
       rows = repo.transitionBroadcast(ctx.params.id, newStatus);
-    jsonOk(res, rows[0] || { id: ctx.params.id, status: newStatus });
+    if (!rows || rows.length === 0) {
+      return jsonError(res, 404, 'not_found', 'Broadcast not found');
+    }
+    jsonOk(res, rows[0]);
   };
 }
 

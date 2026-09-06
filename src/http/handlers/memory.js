@@ -13,10 +13,21 @@ function mapSearchRows(rows) {
 
 function searchMemory(deps) {
   return async (req, res, ctx) => {
-    const { query, limit } = ctx.body,
+    const { query, limit, project, type, scope } = ctx.body,
       searchDeps = { sqlJson: deps.sqlJson, sqlRun: deps.sqlRun, jsonErrNoExit: (msg) => ({ error: msg }) },
       search = require('../../memory-domain/search').search,
-      result = search(searchDeps, { query, limit: String(limit || 10) });
+      // Non-numeric limits used to bind NaN into LIMIT ? and 500 (#304).
+      parsedLimit = Number.parseInt(limit, 10),
+      safeLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? String(Math.min(parsedLimit, 100)) : '10',
+      result = search(searchDeps, {
+        query,
+        limit: safeLimit,
+        // The underlying search supports these filters; dropping them made
+        // every route search cross-project silently (#304).
+        ...(project ? { project: String(project) } : {}),
+        ...(type ? { type: String(type) } : {}),
+        ...(scope ? { scope: String(scope) } : {}),
+      });
     if (result?.error) {
       return jsonError(res, 400, 'invalid_search', result.error);
     }
