@@ -6,6 +6,114 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-07
+
+Security hardening, correctness, and resilience release: a full code review
+(JS + Rust) produced 37 verified issues — all fixed — plus path-aware trust
+linking and index-job cancellation.
+
+### Added
+
+- **Index-job cancellation** — `cancel-index --job <id>` (CLI), `cancel-index`
+  MCP tool, and a matching Pi extension tool. Cancellation is cooperative: the
+  worker aborts through its progress hook and releases its repo lock cleanly;
+  forced termination cleans up stranded locks (#295, #316).
+- **Path-aware trust links** — `link-symbol --file <path>` records where the
+  linked symbol lives (migration V27: `symbol_links.symbol_path`), and
+  `sync-code-trust` matches changes on (path, name): a same-named symbol
+  changing in an unrelated file no longer penalizes path-anchored memories at
+  all. Path-less links keep the legacy name-based behavior (#300, #333).
+- **`discover-edges` runs static extraction** — `--static-only` now actually
+  computes static edges instead of being a silent no-op (#324).
+
+### Fixed
+
+- **Index pipeline**
+  - One pathological file no longer aborts a full index; parse failures are
+    isolated per file with error diagnostics (#286).
+  - Incremental (git-delta) re-index now sees uncommitted working-tree edits
+    and untracked files — previously stale until a full reindex (#282).
+  - Deferred full-index no longer buffers every file's full content (multi-GB
+    RSS) (#294); one-file crash isolation also covers parse workers (#286).
+  - Derived-graph builder failures surface as `derived_errors` +
+    `partial: true` instead of silent empty graphs (#287).
+  - Co-change builder: commits over 50 files skipped for pairing, single
+    transaction, bounded git output — no more silent empty data on active
+    repos (#293).
+  - Cancellation is reachable and works; worker termination no longer strands
+    a 10-minute repo lock (#295).
+- **Memory / trust**
+  - Dream Cycle no longer deletes live memories: superseded memories require a
+    live replacement, progress/correction cleanups gained age gates, low-
+    confidence relations are ignored, consolidation preserves type (#281).
+  - `sync-code-trust` is path-aware (see Added) and boundary (fuzzy) name
+    matches take a reduced penalty instead of the full wipe (#300, #333).
+  - `auto-link` no longer writes `__unlinked__` placeholder rows that
+    permanently blocked re-linking, and reports honest counts (#301).
+  - Memory tools (`memory-search`/`related`/`load-context`/
+    `sync-code-trust`) surface backend errors as tool errors instead of
+    "No memories found."; session-start no longer sets `sessionId = undefined`
+    (#291).
+- **HTTP API**
+  - Keyless server is loopback-only: non-loopback `Host`/`Origin` requests are
+    refused (web pages and DNS rebinding could previously drive the API), and
+    non-loopback binds without an API key are refused at startup (#285).
+  - Mission-family mutations return 404 for missing ids and 400 for invalid
+    status bodies instead of blind `200 {ok:true}`; code-index endpoints map
+    failures to 404/500 (#288).
+- **Claude Code / Hermes integrations**
+  - SessionStart/SessionEnd state writes go through the locked
+    `mutateState`/locked clear — no more lost updates or resurrected state on
+    session resume (#296).
+  - Daemon dispatch POST has a 5s timeout and falls back to direct mode when
+    the daemon wedges (#297).
+  - Hermes `install` tolerates a corrupt/null shell-hooks allowlist file
+    (#298); Hermes `saveState` runs under a lock (#296).
+- **Token saver / protocol**
+  - `runCommand` no longer hangs forever on piped commands that exceed the
+    output cap, kills the whole process group on timeout, and decodes UTF-8
+    across chunk boundaries (#280).
+  - Compact wire format round-trips losslessly (numeric-looking strings,
+    empty strings, `@`-prefixed literals, booleans); lists that cannot be
+    represented losslessly stay JSON (#283).
+  - Compressed mission state is persisted (`mission_compression_log.
+important_output`, migration V26) instead of being discarded (#284).
+- **Security hardening (23 open CodeQL alerts resolved)**
+  - 9 polynomial-ReDoS regexes replaced with linear scanners (secret-file
+    paths, learning-item extraction, Bearer header parse, prompt
+    classification, `mcp__` tool names, doc-index token matching).
+  - Doc-index HTML text extraction: script/style stripping runs to a fixpoint
+    and the output is hard-scrubbed, so encoded payloads
+    (`&lt;script&gt;`, `<<scr<script>ipt>`) cannot survive; LIKE sanitizers
+    escape the escape character and `ESCAPE ''` clauses were added where
+    missing (#333/#334).
+- **Integrations / CLI**
+  - `crosshash` (Rust): index no longer aborts on .swift/.dart/.zig repos;
+    re-index preserves AI-inferred and cross-repo edges; Unicode byte-slice
+    panic fixed; index/remove writes are transactional; O(N²) edge extraction
+    linearized; watcher failures no longer busy-spin at 100% CPU (#317–#328).
+  - Gateway init failures are retryable instead of permanently bricking MCP
+    tool calls (#289); `dream` runs off Pi's main thread (#290).
+  - Tier config parsing is string-aware and fails closed to `core` instead of
+    silently failing open to unrestricted (#302).
+  - `postinstall` transitive-vuln patching is atomic, version-gated, and
+    logged (#303).
+  - Prototype-pollution-safe maps in token-saver rules (`__proto__` log lines
+    no longer corrupt `Object.prototype`) (#299).
+  - CLI arg validation: `--keep-last abc` / `serve --port abc` exit with
+    usage errors instead of NaN crashes (#304).
+
+### Changed
+
+- **Keyless HTTP server is loopback-only** (see Fixed → HTTP API). Set
+  `LAPIS_HTTP_API_KEY` for authenticated remote use (#285).
+- **Tier config fails closed** to `core` on any parse problem other than a
+  missing file (#302).
+- **`auto-link`** reports honestly: no `__unlinked__` placeholder rows, so
+  unlinked memories stay eligible for future linking (#301).
+- Docs: `cancel-index`, `link-symbol --file`, and the loopback-only serve
+  posture are documented across INDEX/COMMANDS/code-indexing/API (#316, #334).
+
 ## [1.1.4] - 2026-08-06
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "@genegulanesjr/lapis",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "💎 LaPis — Persistent memory for the Pi coding agent. One SQLite DB, zero cloud, zero API keys.",
   "keywords": [
     "pi-package"
