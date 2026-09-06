@@ -2,6 +2,18 @@ const { indexRepository, reindexRepository, getCodeRepoHealth } = require('../..
   { getDependencyCycles } = require('../../code-analysis/graph'),
   { getDb } = require('../../../db');
 
+// Indexer failures used to be written out with HTTP 200, so automation
+// checking the status code treated a failed index as success (#288).
+function sendIndexResult(res, result) {
+  if (result && result.error) {
+    const status = /not found/i.test(result.error) ? 404 : 500;
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(result));
+  }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  return res.end(JSON.stringify(result));
+}
+
 // Compute real dependency cycles; degrade gracefully to a zero-value so a
 // Graph-build failure never 500s the whole summary/graph endpoint.
 function safeDependencyCycles(db, repoId) {
@@ -22,8 +34,7 @@ function indexRepo(deps) {
     const path = require('path'),
       repoName = name || path.basename(repoPath),
       result = await indexRepository({ db: getDb(), args: {} }, repoPath, repoName);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
+    return sendIndexResult(res, result);
   };
 }
 
@@ -35,8 +46,7 @@ function reindexRepo(deps) {
       return res.end(JSON.stringify({ error: 'repo is required' }));
     }
     const result = await reindexRepository({ db: getDb(), args: {} }, repo, mode || 'incremental');
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
+    return sendIndexResult(res, result);
   };
 }
 
@@ -48,8 +58,7 @@ function codeRepoHealthHandler(deps) {
       return res.end(JSON.stringify({ error: 'repo is required' }));
     }
     const result = await getCodeRepoHealth({ db: getDb(), args: {} }, repo);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
+    return sendIndexResult(res, result);
   };
 }
 

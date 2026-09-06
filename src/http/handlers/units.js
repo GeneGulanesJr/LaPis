@@ -1,4 +1,4 @@
-const { jsonOk, jsonCreated } = require('../errors');
+const { jsonOk, jsonCreated, jsonError } = require('../errors');
 
 function createWorkingUnit(repo) {
   return async (req, res, ctx) => {
@@ -35,8 +35,14 @@ function getWorkingUnitsForMilestone(repo) {
 function updateWorkingUnitStatus(repo) {
   return async (req, res, ctx) => {
     const { status } = ctx.body;
-    repo.updateWorkingUnitStatus(ctx.params.id, status);
-    jsonOk(res, { ok: true });
+    if (typeof status !== 'string' || status.trim().length === 0) {
+      return jsonError(res, 400, 'invalid_status', 'status is required and must be a non-empty string');
+    }
+    const rows = repo.updateWorkingUnitStatus(ctx.params.id, status);
+    if (!rows || rows.length === 0) {
+      return jsonError(res, 404, 'not_found', 'Working unit not found');
+    }
+    jsonOk(res, rows[0]);
   };
 }
 

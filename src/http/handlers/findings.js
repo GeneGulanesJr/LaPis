@@ -1,4 +1,4 @@
-const { jsonOk, jsonCreated } = require('../errors');
+const { jsonOk, jsonCreated, jsonError } = require('../errors');
 
 function writeFinding(repo) {
   return async (req, res, ctx) => {
@@ -31,7 +31,10 @@ function transitionFinding(repo) {
   return async (req, res, ctx) => {
     const { newStatus, actorId, actorContext } = ctx.body,
       rows = repo.transitionFinding(ctx.params.id, newStatus);
-    jsonOk(res, rows[0] || { id: ctx.params.id, status: newStatus });
+    if (!rows || rows.length === 0) {
+      return jsonError(res, 404, 'not_found', 'Finding not found');
+    }
+    jsonOk(res, rows[0]);
   };
 }
 

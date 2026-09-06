@@ -26,8 +26,14 @@ function getMission(repo) {
 function updateMissionStatus(repo) {
   return async (req, res, ctx) => {
     const { status } = ctx.body;
-    repo.updateMissionStatus(ctx.params.id, status);
-    jsonOk(res, { ok: true });
+    if (typeof status !== 'string' || status.trim().length === 0) {
+      return jsonError(res, 400, 'invalid_status', 'status is required and must be a non-empty string');
+    }
+    const rows = repo.updateMissionStatus(ctx.params.id, status);
+    if (!rows || rows.length === 0) {
+      return jsonError(res, 404, 'not_found', 'Mission not found');
+    }
+    jsonOk(res, rows[0]);
   };
 }
 

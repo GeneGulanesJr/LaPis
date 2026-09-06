@@ -20,8 +20,14 @@ function writeVerdict(repo) {
 function classifyVerdict(repo) {
   return async (req, res, ctx) => {
     const { classification } = ctx.body;
-    repo.classifyVerdict(ctx.params.id, classification);
-    jsonOk(res, { ok: true });
+    if (typeof classification !== 'string' || classification.trim().length === 0) {
+      return jsonError(res, 400, 'invalid_classification', 'classification is required and must be a non-empty string');
+    }
+    const rows = repo.classifyVerdict(ctx.params.id, classification);
+    if (!rows || rows.length === 0) {
+      return jsonError(res, 404, 'not_found', 'Verdict not found');
+    }
+    jsonOk(res, rows[0]);
   };
 }
 
