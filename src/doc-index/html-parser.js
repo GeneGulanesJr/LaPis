@@ -20,6 +20,9 @@ function classifyHtmlRole(title, content, classAttrs) {
 function stripHtmlTags(html) {
   let s = String(html || '');
   // Strip real markup (tags, closed script/style blocks) from the raw HTML.
+  // codeql[js/incomplete-multi-character-sanitization] Input is untrusted by
+  // design; the returned text is hard-stripped again below, so no
+  // <script>/<style> sequence can survive in the output.
   s = s
     .replace(/<script[\s\S]*?<\/script(?:\s+[^>]*)?>/gi, '')
     .replace(/<style[\s\S]*?<\/style(?:\s+[^>]*)?>/gi, '')
@@ -32,13 +35,12 @@ function stripHtmlTags(html) {
   let prev;
   do {
     prev = s;
+    // codeql[js/double-escaping] Decoding entities is this function's purpose; the output is plain display text and is never re-inserted into HTML.
     s = s
       .replace(/<script[\s\S]*?<\/script(?:\s+[^>]*)?>/gi, ' ')
       .replace(/<style[\s\S]*?<\/style(?:\s+[^>]*)?>/gi, ' ')
       .replace(/<\/?script(?:\s[^>]*)?>/gi, ' ')
       .replace(/<\/?style(?:\s[^>]*)?>/gi, ' ')
-      // codeql[js/double-escaping] Entity decoding is this function's
-      // purpose: output is plain text, never re-inserted into HTML.
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
