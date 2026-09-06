@@ -25,7 +25,7 @@ const { resolveCwd } = require('../../hooks-engine/project'),
  * @param {Function} ctx.dispatch        injected dispatch (direct mode)
  * @param {Function} ctx.getKnownRepos   known code repos (direct mode read)
  * @param {Function} ctx.getKnownProjects known code+doc projects (direct mode read)
- * @param {object} ctx.stateStore        { loadState, saveState, sweepStaleSessions }
+ * @param {object} ctx.stateStore        { mutateState, clearStateLocked, sweepStaleSessions }
  * @returns {Promise<object|null>}       Claude Code JSON or null
  */
 async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore }) {
@@ -35,9 +35,12 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownPr
     claudeSessionId = payload.session_id,
     isCompact = source === 'compact';
 
-  let state = stateStore.loadState(claudeSessionId);
+  let state;
 
   // Compact re-uses the existing sessionId and skips session-start entirely.
+  // Both branches run through the locked mutateState: an unlocked full-file
+  // write here could revert a concurrent PostToolUse/Stop hook's just-saved
+  // state (Claude Code reuses session ids on resume/clear) (#296).
 
   if (!isCompact) {
     // GC orphaned state files from force-killed sessions before starting fresh.
@@ -56,34 +59,38 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownPr
       // GC is best-effort.
     }
 
-    // Reset session-derived counters for a genuine start.
-    state = {
-      ...stateStore.defaultState(),
-      nativeChecked: state.nativeChecked,
-    };
-    state.currentProject = project;
-    state.turnCount = 0;
-    state.lastMemoryToolCall = 0;
-    state.lastAutoDecisionSave = 0;
-    state.dreamTriggeredThisSession = false;
-    state.hasInjectedContext = false;
-    state.editedFiles = [];
-    state.exploredFiles = [];
-
     const result = await dispatch('session-start', { project });
     // A nullish server value must NOT overwrite the default null — SessionEnd's
     // Guard treats sessionId === null as "no session ever started" and skips the
     // Summary. Only accept a concrete value so the two checks stay symmetric.
-    if (result && result.sessionId !== undefined && result.sessionId !== null) {
-      state.sessionId = result.sessionId;
-      state.projectSessionCount = result.sessionCount || 0;
-    }
-    // Orphan recovery is automatic server-side; surface only if returned.
-    stateStore.saveState(claudeSessionId, state);
-  } else if (state.currentProject !== project) {
+    state = await stateStore.mutateState(claudeSessionId, (current) => {
+      // Reset session-derived counters for a genuine start. NOTE: mutateState
+      // persists the state object it passed us — mutate it in place, never
+      // return a fresh replacement.
+      const next = {
+        ...stateStore.defaultState(),
+        nativeChecked: current.nativeChecked,
+      };
+      for (const key of Object.keys(current)) {
+        delete current[key];
+      }
+      Object.assign(current, next);
+      current.currentProject = project;
+      if (result && result.sessionId !== undefined && result.sessionId !== null) {
+        current.sessionId = result.sessionId;
+        current.projectSessionCount = result.sessionCount || 0;
+      }
+      // Orphan recovery is automatic server-side; surface only if returned.
+      return current;
+    });
+  } else {
     // Compact re-inject: refresh project when cwd moved (e.g. monorepo subdir).
-    state.currentProject = project;
-    stateStore.saveState(claudeSessionId, state);
+    state = await stateStore.mutateState(claudeSessionId, (current) => {
+      if (current.currentProject !== project) {
+        current.currentProject = project;
+      }
+      return current;
+    });
   }
 
   // Inject (or re-inject after compact) context. sessionId may be null on a

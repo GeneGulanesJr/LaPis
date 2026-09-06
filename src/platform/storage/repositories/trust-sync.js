@@ -11,6 +11,9 @@ function createTrustSyncRepository(deps) {
     insertSymbolLink(params) {
       return symbols.insertSymbolLink(deps, params);
     },
+    deletePlaceholderLinks(project) {
+      return symbols.deletePlaceholderLinks(deps, project);
+    },
     adjustTrust(params) {
       return symbols.adjustTrust(deps, params);
     },

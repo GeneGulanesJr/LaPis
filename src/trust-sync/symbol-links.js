@@ -77,23 +77,29 @@ function linkSymbol(deps, args) {
 }
 
 function autoLink(deps, args) {
-  const project = args.project,
-    repository = project ? getTrustSyncRepository(deps, ['findUnlinked', 'insertSymbolLink']) : undefined,
-    unlinked = project ? repository.findUnlinked(project) : undefined;
+  const project = args.project;
   if (!project) {
     return deps.jsonErrNoExit('--project required');
   }
-  let linked = 0;
-  for (const row of unlinked) {
-    repository.insertSymbolLink({
-      memoryId: row.memory_id,
-      symbolId: '__unlinked__',
-      repo: project,
-      trustScore: 0.5,
-    });
-    linked++;
-  }
-  return { ok: true, linked, total: unlinked.length };
+  const repository = getTrustSyncRepository(deps, ['findUnlinked', 'insertSymbolLink', 'deletePlaceholderLinks']),
+    unlinked = repository.findUnlinked(project);
+
+  // There is no symbol-resolution logic here (yet): writing a placeholder
+  // '__unlinked__' row used to report fake success AND permanently exclude
+  // those memories from future linking, because findUnlinked skips memories
+  // that have any link row (#301). Purge legacy placeholders so poisoned
+  // memories become eligible again, and leave unlinked memories unlinked.
+  repository.deletePlaceholderLinks(project);
+
+  return {
+    ok: true,
+    linked: 0,
+    total: unlinked.length,
+    message:
+      unlinked.length > 0
+        ? `${unlinked.length} memories have no symbol links yet; they remain eligible for automatic linking.`
+        : 'All memories already have symbol links.',
+  };
 }
 
 function adjustTrust(deps, args) {

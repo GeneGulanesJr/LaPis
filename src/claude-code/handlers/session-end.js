@@ -25,7 +25,7 @@ async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore,
 
   // No session ever started (e.g. SessionStart failed) — nothing to close.
   if (state.sessionId === null || state.sessionId === undefined) {
-    stateStore.clearState(claudeSessionId);
+    await stateStore.clearStateLocked(claudeSessionId);
     return null;
   }
 
@@ -54,7 +54,7 @@ async function handleSessionEnd({ payload, dispatch, dispatchClient, stateStore,
       process.stderr.write(`claude-code session-end failed: ${e instanceof Error ? e.message : String(e)}\n`);
     }
 
-    stateStore.clearState(claudeSessionId);
+    await stateStore.clearStateLocked(claudeSessionId);
     return null; // Silent — no stdout for SessionEnd
   }
 }

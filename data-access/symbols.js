@@ -16,6 +16,15 @@ function linkSymbol(deps, { memoryId, symbolId, repo, trust }) {
   return { ok: true, memoryId, symbolId: symVal, repo, trustScore: trust };
 }
 
+/**
+ * Remove '__unlinked__' placeholder rows for a project (#301): they anchored
+ * nothing and permanently excluded those memories from future linking.
+ */
+function deletePlaceholderLinks(deps, project) {
+  const { sqlRun } = deps;
+  sqlRun("DELETE FROM symbol_links WHERE symbol_id = '__unlinked__' AND repo = ?", [project]);
+}
+
 function findUnlinked(deps, project) {
   const { sqlJson } = deps;
   return sqlJson(
@@ -157,6 +166,7 @@ function getRelatedMemories(deps, { memoryId, symbolIds, _limit }) {
 }
 
 module.exports = {
+  deletePlaceholderLinks,
   linkSymbol,
   findUnlinked,
   insertSymbolLink,

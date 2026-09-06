@@ -38,7 +38,12 @@ function evaluateTrustSync(links, changedSet) {
 
   for (const link of links) {
     if (isChangedLink(link, changedSet)) {
-      const delta = TRUST_DELTA.SYMBOL_CHANGED,
+      // Exact id equality is certain. A boundary match inside a larger
+      // symbol id is ambiguous — the same unqualified name usually also
+      // exists, unchanged, in other files — so it takes a reduced penalty
+      // instead of the full wipe (#300).
+      const exact = changedSet.has(link.symbol_id),
+        delta = exact ? TRUST_DELTA.SYMBOL_CHANGED : Math.round((TRUST_DELTA.SYMBOL_CHANGED / 2) * 100) / 100,
         newTrust = clampTrust(link.trust_score + delta);
       result.adjusted.push({
         memory_id: link.memory_id,
@@ -46,7 +51,12 @@ function evaluateTrustSync(links, changedSet) {
         old_trust: link.trust_score,
         new_trust: newTrust,
       });
-      result.operations.push({ link, newTrust, delta, reason: 'symbol_changed' });
+      result.operations.push({
+        link,
+        newTrust,
+        delta,
+        reason: exact ? 'symbol_changed' : 'symbol_changed_fuzzy',
+      });
     } else if (link.trust_score < TRUST_DELTA.MAX_SURVIVED) {
       const delta = TRUST_DELTA.SURVIVED_UNCHANGED,
         newTrust = clampTrust(link.trust_score + delta);
