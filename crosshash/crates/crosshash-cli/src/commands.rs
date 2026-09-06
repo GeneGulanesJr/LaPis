@@ -907,6 +907,42 @@ async fn execute_discover_edges(
             json!({"surfaces": surfaces.iter().map(|s| s.2.to_prompt_json()).collect::<Vec<_>>(), "repo_count": filtered_repos.len()}),
         );
     }
+    // Static extraction, using the same pipeline as the index path
+    // (`infer_static_edges`). Previously this command only built API surfaces
+    // and the summary always claimed "static edges found" without computing
+    // any (#324). `--static-only` stops here, before any LLM call.
+    let mut static_edges_stored = 0usize;
+    for repo in &filtered_repos {
+        let root = PathBuf::from(&repo.root_path);
+        let entities = storage.get_entities_by_repo(repo.id)?;
+        if entities.is_empty() {
+            continue;
+        }
+        let mut source_by_file: HashMap<String, String> = HashMap::new();
+        for file in collect_source_files(&root, &repo.languages)? {
+            let rel = file
+                .strip_prefix(&root)
+                .unwrap_or(&file)
+                .to_string_lossy()
+                .to_string();
+            match std::fs::read_to_string(&file) {
+                Ok(source) => {
+                    source_by_file.insert(rel, source);
+                }
+                Err(e) => eprintln!("[discover-edges] skipping unreadable file {rel}: {e}"),
+            }
+        }
+        for edge in infer_static_edges(repo.id, &root, &entities, &source_by_file) {
+            if let Err(e) = storage.insert_edge(&edge) {
+                eprintln!(
+                    "[discover-edges] failed to persist static edge {}: {e}",
+                    edge.id
+                );
+            } else {
+                static_edges_stored += 1;
+            }
+        }
+    }
     let ai_config = load_ai_config();
     let decision = crosshash_ai::AiGate::decide(&crosshash_ai::GateInput {
         ai_enabled: ai_config.enabled && !cmd.static_only,
@@ -1048,7 +1084,7 @@ async fn execute_discover_edges(
         }
     }
     let text = format!(
-        "static edges found, AI edges suggested: {ai_edges_suggested}, auto-accepted: {ai_edges_auto_accepted}, AI cost: ${total_cost:.4}, gate_run_ai={}",
+        "static edges stored: {static_edges_stored}, AI edges suggested: {ai_edges_suggested}, auto-accepted: {ai_edges_auto_accepted}, AI cost: ${total_cost:.4}, gate_run_ai={}",
         decision.should_run_ai
     );
     print(
@@ -1057,6 +1093,7 @@ async fn execute_discover_edges(
         json!({
             "surfaces": surfaces.iter().map(|s| s.2.to_prompt_json()).collect::<Vec<_>>(),
             "gate": decision,
+            "static_edges_stored": static_edges_stored,
             "ai_edges_suggested": ai_edges_suggested,
             "ai_edges_auto_accepted": ai_edges_auto_accepted,
             "ai_cost": total_cost,
