@@ -17,6 +17,9 @@ node memory-store.js index-repo --path ./myrepo --async
 # Poll progress
 node memory-store.js index-status --job 42
 
+# Cancel a running job (cooperative: the worker releases its repo lock cleanly)
+node memory-store.js cancel-index --job 42
+
 # List recent jobs
 node memory-store.js list-index-jobs
 node memory-store.js list-index-jobs --running
@@ -24,7 +27,7 @@ node memory-store.js list-index-jobs --running
 
 ## Extension tool
 
-Inside the Pi extension, the `index-status` tool renders a progress bar, current file, and language breakdown:
+Inside the Pi extension, the `index-status` tool renders a progress bar, current file, and language breakdown (a matching `cancel-index` tool cancels a running job):
 
 ```
 ⏳ Index job #42 (myrepo) — running

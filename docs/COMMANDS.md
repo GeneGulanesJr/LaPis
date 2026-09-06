@@ -41,6 +41,7 @@ Results are returned as JSON to stdout.
 | `index-repo --path`                    | Index a local folder with tree-sitter. Auto-switches to async for large repos. |
 | `index-repo-async --path --name`       | Explicit async index. Returns a job ID immediately. |
 | `index-status --job`                   | Poll progress of an async index job.         |
+| `cancel-index --job`                   | Cancel a running async index job.            |
 | `list-index-jobs [--running]`          | List recent index jobs (optionally only running). |
 | `reindex-repo --repo`                  | Incrementally reindex via mtime.             |
 | `health-code-repo --repo`              | Report freshness, diagnostics, and index quality. |
@@ -124,7 +125,7 @@ See [`docs/code-indexing.md`](code-indexing.md) for the async indexing pipeline 
 
 | Command                          | Purpose                                              |
 | -------------------------------- | ---------------------------------------------------- |
-| `link-symbol --memory --symbol`  | Link a memory to a code symbol.                      |
+| `link-symbol --memory --symbol [--file PATH]` | Link a memory to a code symbol. `--file` records the symbol's file path so trust sync matches changes on (path, name). |
 | `auto-link --project`            | Automatically link memories to relevant code symbols. |
 | `adjust-trust --id`              | Manually adjust trust score for a memory.            |
 | `record-recall --id`             | Record that a memory was recalled in a session.      |
