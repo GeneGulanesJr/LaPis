@@ -29,7 +29,7 @@ function writeFinding(repo) {
 
 function transitionFinding(repo) {
   return async (req, res, ctx) => {
-    const { newStatus, actorId, actorContext } = ctx.body,
+    const { newStatus } = ctx.body,
       rows = repo.transitionFinding(ctx.params.id, newStatus);
     if (!rows || rows.length === 0) {
       return jsonError(res, 404, 'not_found', 'Finding not found');

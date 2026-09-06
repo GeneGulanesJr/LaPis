@@ -11,7 +11,7 @@ const path = require('path'),
 const CANCEL_GRACE_MS = 3000;
 
 function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps, cancelGraceMs = CANCEL_GRACE_MS }) {
-  const workers = new Map(), // jobId -> { worker, status }
+  const workers = new Map(), // JobId -> { worker, status }
     emitter = new EventEmitter();
 
   function startJob(jobId, payload) {
@@ -42,7 +42,7 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps, cancelGra
             status: entry.status,
             error: entry.status === 'error' ? `worker exited with code ${code}` : undefined,
           });
-        } catch (_) {
+        } catch {
           /* Best-effort */
         }
       }
@@ -73,7 +73,7 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps, cancelGra
       entry.status = 'error';
       try {
         jobStore.completeJob(deps, jobId, { status: 'error', error: msg.error || 'unknown' });
-      } catch (_) {
+      } catch {
         /* Best-effort */
       }
     }
@@ -92,14 +92,14 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps, cancelGra
       return false;
     }
     // Ask the worker to cancel cooperatively first (postMessage → the
-    // worker's onProgress hook aborts the index and its repo lock is
-    // released by the normal finally path). Previously cancel() only called
-    // terminate(), which killed the thread with the lock held — and because
-    // worker threads share the parent pid, the stranded lock looked alive
-    // and stalled every future index of that repo (#295).
+    // Worker's onProgress hook aborts the index and its repo lock is
+    // Released by the normal finally path). Previously cancel() only called
+    // Terminate(), which killed the thread with the lock held — and because
+    // Worker threads share the parent pid, the stranded lock looked alive
+    // And stalled every future index of that repo (#295).
     try {
       entry.worker.postMessage({ type: 'cancel' });
-    } catch (_) {
+    } catch {
       /* Ignore */
     }
     const exitedCleanly = await new Promise((resolve) => {
@@ -112,17 +112,17 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps, cancelGra
     if (!exitedCleanly) {
       try {
         await entry.worker.terminate();
-      } catch (_) {
+      } catch {
         /* Ignore */
       }
       // The terminated thread never ran its finally: drop any repo locks it
-      // still holds. Worker threads share the parent pid, so the holder
-      // prefix must also match this worker's threadId.
+      // Still holds. Worker threads share the parent pid, so the holder
+      // Prefix must also match this worker's threadId.
       if (typeof entry.worker.threadId === 'number' && typeof deps?.sqlRun === 'function') {
         try {
           const { releaseLocksForHolderPrefix } = require('./repo-lock');
           releaseLocksForHolderPrefix(deps.sqlRun, `${process.pid}:${entry.worker.threadId}`);
-        } catch (_) {
+        } catch {
           /* Best-effort */
         }
       }
@@ -130,7 +130,7 @@ function createJobQueue({ Worker: WorkerCtor = Worker, jobStore, deps, cancelGra
     entry.status = 'cancelled';
     try {
       jobStore.completeJob(deps, jobId, { status: 'cancelled' });
-    } catch (_) {
+    } catch {
       /* Best-effort */
     }
     return true;

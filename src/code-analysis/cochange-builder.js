@@ -5,7 +5,7 @@
 const { execFileSync } = require('child_process');
 
 // Commits touching more files than this (deps-lock bumps, mass renames) are
-// skipped for pairing: N files would generate N(N-1)/2 meaningless pairs.
+// Skipped for pairing: N files would generate N(N-1)/2 meaningless pairs.
 const MAX_FILES_PER_COMMIT = 50;
 
 /**
@@ -56,7 +56,7 @@ function storeCochangePairs(db, repoId, pairs, pathToId, windowDays) {
        strength = excluded.strength`,
     ),
     // Loop instead of Math.max(...values): the spread throws for very large
-    // pair maps.
+    // Pair maps.
     maxCount = (() => {
       let max = 1;
       for (const count of Object.values(pairs)) {
@@ -114,9 +114,9 @@ function buildCochangeEdges(db, repoId, opts = {}) {
       pathToId = new Map(files.map((f) => [f.path, f.id])),
       pairCount = (() => {
         // One transaction for the whole rewrite: previously millions of
-        // autocommit statements stalled the index for minutes on active
-        // repos. better-sqlite3 nests this as a savepoint if the caller is
-        // already inside a transaction.
+        // Autocommit statements stalled the index for minutes on active
+        // Repos. better-sqlite3 nests this as a savepoint if the caller is
+        // Already inside a transaction.
         const write = db.transaction(() => {
           db.prepare('DELETE FROM file_cochange WHERE repo_id = ? AND window_days = ?').run(repoId, windowDays);
           storeCochangePairs(db, repoId, pairs, pathToId, windowDays);

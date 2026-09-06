@@ -95,7 +95,7 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
         const repos = await deps.getKnownRepos(),
           resolvedCwd = path.resolve(process.cwd()),
           // Anchor on a path separator: `~/work/api-v2` must not match the
-          // repo at `~/work/api` (#292).
+          // Repo at `~/work/api` (#292).
           matchedRepo = repos.find((r) => {
             const repoPath = path.resolve(r.path);
             return resolvedCwd === repoPath || resolvedCwd.startsWith(repoPath + path.sep);
@@ -175,7 +175,7 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
       }
 
       const absPath = path.resolve(filePath),
-        // ponytail: cross-project reads (files outside cwd) bypass the outline guard
+        // Ponytail: cross-project reads (files outside cwd) bypass the outline guard
         cwd = process.cwd();
       if (absPath !== cwd && !absPath.startsWith(cwd + path.sep)) {
         return;

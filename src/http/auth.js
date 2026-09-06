@@ -61,10 +61,10 @@ function requireHttpAuth(apiKey) {
   return (req, res) => {
     if (!apiKey) {
       // Unauthenticated server: refuse anything that is not addressed to this
-      // machine's loopback interface. This is what keeps a web page from
-      // driving the API (browsers always attach an Origin on cross-origin
-      // requests) and defeats DNS rebinding (Host would name the attacker's
-      // domain, not loopback).
+      // Machine's loopback interface. This is what keeps a web page from
+      // Driving the API (browsers always attach an Origin on cross-origin
+      // Requests) and defeats DNS rebinding (Host would name the attacker's
+      // Domain, not loopback).
       const reason = assertLocalOnlyRequest(req);
       if (reason) {
         jsonError(
@@ -104,7 +104,7 @@ function isLoopbackHost(hostname) {
 }
 
 // Returns null when the request is addressed locally, or a short reason
-// string when the unauthenticated server must refuse it.
+// String when the unauthenticated server must refuse it.
 function assertLocalOnlyRequest(req) {
   const hostHeader = headerValue(req.headers.host),
     hostname = hostHeader ? hostHeader.replace(/:\d+$/, '').replace(/^\[/, '').replace(/\]$/, '') : '',
@@ -129,7 +129,7 @@ function assertServeHostPolicy(host, apiKey) {
     return;
   }
   // Any non-loopback bind is unrestricted — not just the literal 0.0.0.0/::
-  // wildcards. A LAN address like 192.168.1.5 exposes the API just the same.
+  // Wildcards. A LAN address like 192.168.1.5 exposes the API just the same.
   if (!isLoopbackHost(host)) {
     throw new Error(
       'Refusing to bind HTTP server to a non-loopback address without an API key. Pass --api-key, set LAPIS_HTTP_API_KEY, or bind to 127.0.0.1.',

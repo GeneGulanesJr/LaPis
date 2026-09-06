@@ -116,12 +116,12 @@ function getDeadCode(db, repoId, opts) {
             // ── Symbols that are re-exported (barrel exports) ──
             // Populate the name set from `file_scope_bindings` where kind='re_export'.
             // `code_imports` only stores the target module path (e.g. './utils') — it
-            // does NOT record the exported identifier name — so we cannot derive the
+            // Does NOT record the exported identifier name — so we cannot derive the
             // exported symbol name set from that table alone. Scope bindings, however,
-            // capture the binding name (`export { foo } from './bar'` → name='foo').
+            // Capture the binding name (`export { foo } from './bar'` → name='foo').
             // Falling back to scope bindings is the correct fix; the previous
-            // implementation compared module paths against symbol names and matched
-            // essentially never, so the RE_EXPORTED_PENALTY was dead and the
+            // Implementation compared module paths against symbol names and matched
+            // Essentially never, so the RE_EXPORTED_PENALTY was dead and the
             // NO_CALLERS_WEIGHT was always added even for barrel-re-exported symbols.
             reExportedNames = new Set(
               db

@@ -1,7 +1,7 @@
 const { getDb } = require('../../../db');
 
 function healthCheck(deps) {
-  return async (req, res, ctx) => {
+  return async (req, res, _ctx) => {
     const { jsonOk } = require('../errors'),
       // Prefer an injected getDb (test seam), else fall back to the shared DB.
       getDbFn = (deps && deps.getDb) || getDb;

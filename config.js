@@ -57,7 +57,7 @@ function deepMerge(target, source) {
 }
 
 // Known tool tiers (gateway.js maps them to command sets). An unknown tier
-// must fail closed, not silently degrade to unrestricted (#302).
+// Must fail closed, not silently degrade to unrestricted (#302).
 const KNOWN_TIERS = new Set(['core', 'standard', 'full']);
 
 /**

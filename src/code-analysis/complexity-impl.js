@@ -3,7 +3,7 @@ const path = require('path');
 
 // oxlint-disable-next-line no-unused-vars
 {
-  const { codeParser, _requireNativeDb, COMPLEXITY } = require('./shared-deps'),
+  const { _requireNativeDb, COMPLEXITY } = require('./shared-deps'),
     DECISION_PATTERNS = [
       // (?<!else\s+) excludes the `if` token in `else if` (with any whitespace —
       // Space, tab, newline, or multiple) so it's counted once by the dedicated
@@ -20,7 +20,7 @@ const path = require('path');
       /\?\?/g,
     ],
     // PERF(issue #133): Ternary pattern hoisted alongside DECISION_PATTERNS for the
-    // same reason (was re-created per symbol). lastIndex is reset before its
+    // Same reason (was re-created per symbol). lastIndex is reset before its
     // .exec() loop below.
     TERNARY_RE = /\?(?:\s*[^.:])/g;
 

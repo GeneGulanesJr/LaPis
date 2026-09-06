@@ -6,8 +6,8 @@ const crypto = require('crypto'),
   LOCK_POLL_MS = 200;
 
 // Holder ids embed the (pid, threadId) pair: worker threads share the
-// parent's pid, so a lock stranded by worker.terminate() would otherwise
-// look alive forever and stall every future index of that repo (#295).
+// Parent's pid, so a lock stranded by worker.terminate() would otherwise
+// Look alive forever and stall every future index of that repo (#295).
 function makeHolderId() {
   return `${process.pid}:${threadId}:${crypto.randomBytes(4).toString('hex')}`;
 }

@@ -125,7 +125,7 @@ function compressMissionState({ sqlJson, missionId, windowSize = 50 }) {
       return {
         summary: compressed.summary,
         // The compressed state itself — persisting this is the whole point;
-        // summary/tokensSaved alone describe a compression nobody can read.
+        // Summary/tokensSaved alone describe a compression nobody can read.
         compressed: compressed.importantOutput || '',
         tokensSaved,
       };

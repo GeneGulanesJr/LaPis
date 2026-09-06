@@ -1,7 +1,6 @@
 // Extensions/memory-layer/hooks/output-compression.ts
 // oxlint-disable sort-imports
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { isBashToolResult } from '@earendil-works/pi-coding-agent';
+import { type ExtensionAPI, isBashToolResult } from '@earendil-works/pi-coding-agent';
 import { state } from '../state';
 import { classifyCommand } from '../../../src/token-saver/classify-command';
 import { compressOutput } from '../../../src/token-saver/compress-output';
@@ -61,7 +60,7 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
           commandType = classifyCommand(commandArgs),
           exitCode = event.isError ? 1 : 0,
           // Pi's bash tool uses child_process.exec which merges stdout/stderr into
-          // a single stream. We pass the combined output as stdout with empty stderr.
+          // A single stream. We pass the combined output as stdout with empty stderr.
           // If Pi ever separates streams, this would need updating.
           compressed = compressOutput({
             commandType,

@@ -17,7 +17,7 @@ function createAurexRepository(deps) {
       updateMissionStatus(id, status) {
         sqlRun('UPDATE missions SET status = ? WHERE id = ?', [status, id]);
         // Re-select so handlers can 404 on a missing id instead of
-        // reporting blind success (#288).
+        // Reporting blind success (#288).
         return sqlJson('SELECT * FROM missions WHERE id = ?', [id]);
       },
 
@@ -315,8 +315,8 @@ function createAurexRepository(deps) {
       incrementRetry(milestoneId) {
         sqlRun('UPDATE milestones SET retries = retries + 1 WHERE id = ?', [milestoneId]);
         const rows = sqlJson('SELECT retries, rescopes FROM milestones WHERE id = ?', [milestoneId]);
-        // null (not a fabricated counter object) when the milestone does
-        // not exist, so the handler can 404 (#288).
+        // Null (not a fabricated counter object) when the milestone does
+        // Not exist, so the handler can 404 (#288).
         return rows.length > 0 ? rows[0] : null;
       },
       logRescope(milestoneId, event) {

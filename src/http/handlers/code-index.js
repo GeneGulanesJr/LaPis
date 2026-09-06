@@ -3,7 +3,7 @@ const { indexRepository, reindexRepository, getCodeRepoHealth } = require('../..
   { getDb } = require('../../../db');
 
 // Indexer failures used to be written out with HTTP 200, so automation
-// checking the status code treated a failed index as success (#288).
+// Checking the status code treated a failed index as success (#288).
 function sendIndexResult(res, result) {
   if (result && result.error) {
     const status = /not found/i.test(result.error) ? 404 : 500;
@@ -24,7 +24,7 @@ function safeDependencyCycles(db, repoId) {
   }
 }
 
-function indexRepo(deps) {
+function indexRepo(_deps) {
   return async (req, res, { body }) => {
     const { path: repoPath, name } = body || {};
     if (!repoPath) {
@@ -38,7 +38,7 @@ function indexRepo(deps) {
   };
 }
 
-function reindexRepo(deps) {
+function reindexRepo(_deps) {
   return async (req, res, { body }) => {
     const { repo, mode } = body || {};
     if (!repo) {
@@ -50,7 +50,7 @@ function reindexRepo(deps) {
   };
 }
 
-function codeRepoHealthHandler(deps) {
+function codeRepoHealthHandler(_deps) {
   return async (req, res, { params }) => {
     const { repo } = params;
     if (!repo) {
@@ -79,7 +79,7 @@ function detectModule(filePath) {
   return parts[0] || 'root';
 }
 
-function codeRepoSummary(deps) {
+function codeRepoSummary(_deps) {
   return async (req, res, { params }) => {
     const { repo } = params;
     if (!repo) {
@@ -136,7 +136,7 @@ function codeRepoSummary(deps) {
   };
 }
 
-function codeRepoGraph(deps) {
+function codeRepoGraph(_deps) {
   return async (req, res, { params }) => {
     const { repo } = params;
     if (!repo) {
@@ -204,7 +204,7 @@ function codeRepoGraph(deps) {
   };
 }
 
-function codeRepoHotspots(deps) {
+function codeRepoHotspots(_deps) {
   return async (req, res, { params }) => {
     const { repo } = params;
     if (!repo) {

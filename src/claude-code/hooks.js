@@ -92,7 +92,7 @@ async function runHook(argv, opts = {}) {
 
   if (subcommand !== 'hook' || !event) {
     process.stderr.write('Usage: lapis claude-code hook <event> [--only <role>] [--skip <role>]\n');
-    process.exitCode = process.exitCode || 2;
+    process.exitCode ||= 2;
     return;
   }
 
@@ -137,7 +137,7 @@ async function runHook(argv, opts = {}) {
           process.stderr.write(
             `claude-code: database initialization failed: ${e instanceof Error ? e.message : String(e)}\n`,
           );
-          process.exitCode = process.exitCode || 1;
+          process.exitCode ||= 1;
           return;
         }
       }

@@ -66,10 +66,10 @@ const MIN_SYMBOL_LENGTH = 4,
     ]),
     RAW_CODE_DISCOVERY_RE = /\b(rg|grep|ag|ack|find)\b/i,
     // Raw-search binaries, matched in COMMAND position only — the bare word
-    // is not enough: `npm run find:deadcode` contains the word "find" but is
-    // a package script, not a raw search (#292). Detection is token-based
+    // Is not enough: `npm run find:deadcode` contains the word "find" but is
+    // A package script, not a raw search (#292). Detection is token-based
     // (leadingCommandBinary) rather than regex: the quantified-prefix regex
-    // form is polynomial on uncontrolled input (CodeQL).
+    // Form is polynomial on uncontrolled input (CodeQL).
     SEARCH_BINARIES = new Set(['rg', 'grep', 'ag', 'ack', 'find']),
     isRawCodeDiscoveryCommand = (cmd) =>
       typeof cmd === 'string' && splitRawCommandSegments(cmd).some((segment) => leadingCommandBinary(segment) !== null),
@@ -80,19 +80,19 @@ const MIN_SYMBOL_LENGTH = 4,
     // --- native-tool search guardrails (Claude Code Grep / Glob) ---
     //
     // Claude Code's agent is *instructed* to prefer the Grep (ripgrep) and Glob
-    // tools over bash grep/find, so the PRIMARY code-search guardrail lives on
-    // those native tools rather than Bash. These helpers classify a Grep/Glob
-    // tool_input as "targeted" (allow) vs "broad" (deny + memory-code guidance),
-    // keeping parity with the Bash isTargetedSymbolLookup logic above.
+    // Tools over bash grep/find, so the PRIMARY code-search guardrail lives on
+    // Those native tools rather than Bash. These helpers classify a Grep/Glob
+    // Tool_input as "targeted" (allow) vs "broad" (deny + memory-code guidance),
+    // Keeping parity with the Bash isTargetedSymbolLookup logic above.
 
     // Regex metacharacters that mark a Grep pattern as a broad/structural search
-    // rather than a single-symbol lookup. Mirrors the check in
-    // isTargetedSymbolLookup so Grep and Bash gate identically.
+    // Rather than a single-symbol lookup. Mirrors the check in
+    // IsTargetedSymbolLookup so Grep and Bash gate identically.
     GREP_METACHAR_RE = /[.*+?|^$()[\]{}\\]/,
     // Single source of truth for the set of code file extensions. Both the
     // "specific code file" classifier (below) and the bridge's harvest regex
     // (src/claude-code/handlers/post-tool-use.js CODE_PATH_RE) build from this so
-    // they never drift (#230).
+    // They never drift (#230).
     CODE_EXTENSIONS = [
       'cjs',
       'cts',
@@ -217,7 +217,7 @@ const MIN_SYMBOL_LENGTH = 4,
     MIN_SYMBOL_LENGTH,
   };
   // Tokenize a command segment respecting quotes. Linear: the alternatives
-  // are disjoint on their first character, so there is no backtracking.
+  // Are disjoint on their first character, so there is no backtracking.
   function tokenizeCommandSegment(segment) {
     return String(segment).match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
   }
@@ -227,8 +227,8 @@ const MIN_SYMBOL_LENGTH = 4,
   }
 
   // Walk the leading tokens (sudo/git/env/VAR=value prefixes) and return the
-  // command binary, or null. Purely iterative — no regex backtracking on
-  // uncontrolled input (CodeQL polynomial-regex alert).
+  // Command binary, or null. Purely iterative — no regex backtracking on
+  // Uncontrolled input (CodeQL polynomial-regex alert).
   function leadingCommandBinary(segment) {
     const tokens = tokenizeCommandSegment(segment);
     let index = 0;
@@ -248,7 +248,7 @@ const MIN_SYMBOL_LENGTH = 4,
   }
 
   // Split on pipeline/sequence separators and command-substitution openers so
-  // each segment can be checked for a search binary in command position.
+  // Each segment can be checked for a search binary in command position.
   // Simple alternation of literals — linear, no backtracking.
   function splitRawCommandSegments(cmd) {
     return cmd.split(/(?:\$\(|[|;&`])/);
@@ -292,8 +292,8 @@ const MIN_SYMBOL_LENGTH = 4,
     return filterStages.some((stage) => FILTER_COMMAND_RE.test(stage));
   }
   // Path-like arguments of a command stage: tokens that contain a path
-  // separator or end in a file extension, excluding flags. A quoted token is
-  // the search pattern, not a path argument.
+  // Separator or end in a file extension, excluding flags. A quoted token is
+  // The search pattern, not a path argument.
   function extractPathArgs(stage) {
     const tokens = String(stage).match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
     return tokens
@@ -307,7 +307,7 @@ const MIN_SYMBOL_LENGTH = 4,
   function isTargetedTextFileLookup(cmd) {
     const stages = splitPipeline(cmd);
     // Must be a search binary in command position — and `find` itself is a
-    // file-finder, not a content search (#292).
+    // File-finder, not a content search (#292).
     if (!isSearchCommandStage(stages[0]) || isFindCommandStage(stages[0])) {
       return false;
     }
@@ -320,7 +320,7 @@ const MIN_SYMBOL_LENGTH = 4,
     }
 
     // Every path-like argument must be a text file. Testing the whole command
-    // string let a single README.md mention wave a broad
+    // String let a single README.md mention wave a broad
     // `grep -rn needle src/` scan through (#292).
     const pathArgs = extractPathArgs(stages[0]);
     if (pathArgs.length === 0) {
@@ -331,8 +331,8 @@ const MIN_SYMBOL_LENGTH = 4,
   function isTargetedSymbolLookup(cmd) {
     const stages = splitPipeline(cmd);
     // Search binary in command position; a literal `find` command
-    // disqualifies, but the word "find" inside a pattern or a script name
-    // must not (#292).
+    // Disqualifies, but the word "find" inside a pattern or a script name
+    // Must not (#292).
     if (!isSearchCommandStage(stages[0]) || isFindCommandStage(stages[0])) {
       return false;
     }

@@ -38,8 +38,8 @@ export function registerSessionStart(pi: ExtensionAPI, deps: SessionDeps) {
     }
 
     // The gateway reports backend failures as { error } — without this check
-    // the failure silently became sessionId = undefined ("session undefined",
-    // shutdown sending --id undefined) (#291).
+    // The failure silently became sessionId = undefined ("session undefined",
+    // Shutdown sending --id undefined) (#291).
     if ((result as any).error) {
       ctx.ui.notify(`Memory: failed to start session: ${(result as any).error}`, 'error');
       return;

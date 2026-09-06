@@ -28,7 +28,7 @@ const fs = require('node:fs'),
   SKILL_DEST_REL = ['skills', 'memory', 'lapis', 'SKILL.md'],
   // Hermes shell-hook events LaPis wires. Matchers are regex fullmatch on the
   // Hermes tool name; the same hook command handles every event (the event and
-  // tool arrive on stdin — see hook.js).
+  // Tool arrive on stdin — see hook.js).
   HOOK_EVENTS = [
     { event: 'pre_tool_call', matcher: '^(read_file|search_files)$', timeout: 15 },
     { event: 'post_tool_call', matcher: '^(write_file|patch)$', timeout: 20 },
@@ -149,8 +149,8 @@ function mergeAllowlist(filePath, command) {
     data = { approvals: [] };
   }
   // JSON.parse succeeds for any valid JSON — including `null` and scalars,
-  // which would crash the approvals access below. Degrade to a fresh
-  // allowlist, same as a parse failure.
+  // Which would crash the approvals access below. Degrade to a fresh
+  // Allowlist, same as a parse failure.
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     data = { approvals: [] };
   }

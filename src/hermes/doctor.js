@@ -9,7 +9,6 @@
  */
 
 const fs = require('node:fs'),
-  path = require('node:path'),
   { readText, topBlockRange } = require('./config-editor'),
   { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
 
@@ -102,7 +101,7 @@ function checkAllowlist(paths) {
   return { ok: true, name: 'Hook consent', detail: `${HOOK_EVENTS.length} approval(s) present` };
 }
 
-function checkDatabase(io) {
+function checkDatabase(_io) {
   try {
     const db = require('../../db');
     db.ensureDb();
@@ -119,7 +118,7 @@ function checkDatabase(io) {
   }
 }
 
-function checkNativeModule(io) {
+function checkNativeModule(_io) {
   try {
     require('better-sqlite3');
     return { ok: true, name: 'Native module', detail: 'better-sqlite3 loads' };

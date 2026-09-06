@@ -126,7 +126,7 @@ function _buildBehaviorSummary(symbol) {
 /**
  * Enrich all symbols in a repo with metadata.
  */
-function enrichSymbols(db, repoId, opts = {}) {
+function enrichSymbols(db, repoId, _opts = {}) {
   const guard = _requireNativeDb(db);
   if (guard) {
     return guard;

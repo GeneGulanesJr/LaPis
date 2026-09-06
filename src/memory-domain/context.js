@@ -197,10 +197,10 @@ function context(deps, args) {
   const truncatedCount = budgeted.filter((o) => o._truncated).length;
 
   // Passive context injection does not write to recall_log — it is not a search
-  // recall and logging here (even as was_useful=0) poisons ranking useful_ratio.
+  // Recall and logging here (even as was_useful=0) poisons ranking useful_ratio.
 
   // Supplemental cross-project suggestions: when project-scoped, also find
-  // relevant memories from other projects so insights transfer across projects.
+  // Relevant memories from other projects so insights transfer across projects.
   let crossProjectSuggestions = [];
   if (!crossProject && project && filtered.length > 0 && topicQuery) {
     const supplementLimit = CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3;

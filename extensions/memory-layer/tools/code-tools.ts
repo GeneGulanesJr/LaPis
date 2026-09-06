@@ -84,7 +84,7 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
     }),
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, onUpdate, ctx) {
-      params = params ?? {};
+      params ??= {};
       try {
         const cmdMap: Record<string, string> = {
           search: 'search-code',

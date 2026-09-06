@@ -3,7 +3,7 @@ const fs = require('fs'),
   { RESULT_LIMITS } = require('../../constants');
 
 function searchDocs(db, repoId, query, opts) {
-  opts = opts || {};
+  opts ||= {};
   let sql = `SELECT ds.id, ds.title, ds.level, ds.role, ds.tags, ds.content, ds.content_hash, df.path as file_path,
     length(ds.content) as content_length
     FROM doc_sections_fts

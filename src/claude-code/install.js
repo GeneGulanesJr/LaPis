@@ -701,8 +701,8 @@ async function runInstall(argv, io) {
     targets = routeTargets(flags, invocation, paths, cwd),
     written = [],
     // READ PHASE — parse every target file before writing any of them, so a
-    // corrupt file aborts the whole install instead of leaving a half-installed
-    // state (readJson throws on corrupt JSON rather than clobbering it).
+    // Corrupt file aborts the whole install instead of leaving a half-installed
+    // State (readJson throws on corrupt JSON rather than clobbering it).
     mcpConfig = readJson(targets.mcp.file),
     settings = readJson(targets.hooksFile),
     groups = (() => {

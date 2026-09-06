@@ -13,7 +13,7 @@ const {
     MemoryError,
     withTransaction,
   } = require('./db'),
-  { getConfig, readTierConfig } = require('./config'),
+  { getConfig } = require('./config'),
   obsDA = require('./data-access/observations'),
   fs = require('fs'),
   { buildCommandMap, getAllUsage, ANALYSIS_TOOLS, _wrapAnalysis } = require('./src/cli/gateway'),

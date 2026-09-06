@@ -122,7 +122,7 @@ function sessionEnd(deps, args) {
             : deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log'),
           sessionCount = row && row[0] ? parseInt(row[0].cnt, 10) : 0;
         vacuumDue = sessionCount > 0 && sessionCount % compactInterval === 0;
-      } catch (_e) {
+      } catch {
         // If the count query fails, skip vacuum rather than block exit.
         vacuumDue = false;
       }

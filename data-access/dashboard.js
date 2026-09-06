@@ -30,7 +30,7 @@ function getDashboard(deps) {
     expiringSoon = one(
       "SELECT COUNT(*) as cnt FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now', '+7 days') AND deleted_at IS NULL",
     ).cnt;
-  } catch (_e) {
+  } catch {
     // Column may not exist in older DBs
   }
 
@@ -86,7 +86,7 @@ function getDashboard(deps) {
         totalCleaned: dreamTotalCleaned[0]?.value || null,
         runCount: dreamRunCount[0]?.value || null,
       };
-    } catch (_e) {
+    } catch {
       // Settings table may not exist in older DBs — dream stats unavailable
     }
 
