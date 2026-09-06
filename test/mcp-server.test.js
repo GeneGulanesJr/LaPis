@@ -12,10 +12,11 @@
 describe('MCP tool catalog', () => {
   const { tools, toolByName, CODE_MODE_TO_COMMAND, DOC_MODE_TO_COMMAND } = require('../src/mcp/tools');
 
-  it('exposes the 11 expected tools', () => {
+  it('exposes the 12 expected tools', () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
+        'cancel-index',
         'index-status',
         'memory-code',
         'memory-delete',

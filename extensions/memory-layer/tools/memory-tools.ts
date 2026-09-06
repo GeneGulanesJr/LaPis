@@ -630,6 +630,41 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
   });
 
   pi.registerTool({
+    name: 'cancel-index',
+    label: 'Cancel Index Job',
+    description: 'Cancel a running async code-indexing job by ID.',
+    parameters: Type.Object({
+      job: Type.String({ description: 'Job ID returned by index-repo-async' }),
+    }),
+    renderResult: renderCompactToolResult,
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
+      try {
+        const result = await deps.mem('cancel-index', { job: String(params.job) });
+        if (!result || (result as any).error) {
+          return {
+            content: [{ type: 'text', text: `Error: ${(result as any)?.error || 'unknown'}` }],
+            details: {},
+            isError: true,
+          };
+        }
+        const cancelled = (result as any).cancelled === true || (result as any).ok === true,
+          text = cancelled
+            ? `🚫 Cancelled index job #${String(params.job)} (a job that already finished also reports cancelled).`
+            : `Could not cancel index job #${String(params.job)} — no such running job.`;
+        return {
+          content: [{ type: 'text', text }],
+          details: result ?? {},
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text', text: `Unexpected error: ${err instanceof Error ? err.message : String(err)}` }],
+          details: {},
+          isError: true,
+        };
+      }
+    },
+  });
+  pi.registerTool({
     name: 'index-status',
     label: 'Index Job Status',
     description:
