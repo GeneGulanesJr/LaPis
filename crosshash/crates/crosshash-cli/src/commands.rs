@@ -931,6 +931,42 @@ async fn execute_discover_edges(
             json!({"surfaces": surfaces.iter().map(|s| s.2.to_prompt_json()).collect::<Vec<_>>(), "repo_count": filtered_repos.len()}),
         );
     }
+    // Static extraction, using the same pipeline as the index path
+    // (`infer_static_edges`). Previously this command only built API surfaces
+    // and the summary always claimed "static edges found" without computing
+    // any (#324). `--static-only` stops here, before any LLM call.
+    let mut static_edges_stored = 0usize;
+    for repo in &filtered_repos {
+        let root = PathBuf::from(&repo.root_path);
+        let entities = storage.get_entities_by_repo(repo.id)?;
+        if entities.is_empty() {
+            continue;
+        }
+        let mut source_by_file: HashMap<String, String> = HashMap::new();
+        for file in collect_source_files(&root, &repo.languages)? {
+            let rel = file
+                .strip_prefix(&root)
+                .unwrap_or(&file)
+                .to_string_lossy()
+                .to_string();
+            match std::fs::read_to_string(&file) {
+                Ok(source) => {
+                    source_by_file.insert(rel, source);
+                }
+                Err(e) => eprintln!("[discover-edges] skipping unreadable file {rel}: {e}"),
+            }
+        }
+        for edge in infer_static_edges(repo.id, &root, &entities, &source_by_file) {
+            if let Err(e) = storage.insert_edge(&edge) {
+                eprintln!(
+                    "[discover-edges] failed to persist static edge {}: {e}",
+                    edge.id
+                );
+            } else {
+                static_edges_stored += 1;
+            }
+        }
+    }
     let ai_config = load_ai_config();
     let decision = crosshash_ai::AiGate::decide(&crosshash_ai::GateInput {
         ai_enabled: ai_config.enabled && !cmd.static_only,
@@ -1091,7 +1127,7 @@ async fn execute_discover_edges(
         }
     }
     let text = format!(
-        "static edges found, AI edges suggested: {ai_edges_suggested}, auto-accepted: {ai_edges_auto_accepted}, AI cost: ${total_cost:.4}, gate_run_ai={}",
+        "static edges stored: {static_edges_stored}, AI edges suggested: {ai_edges_suggested}, auto-accepted: {ai_edges_auto_accepted}, AI cost: ${total_cost:.4}, gate_run_ai={}",
         decision.should_run_ai
     );
     print(
@@ -1100,6 +1136,7 @@ async fn execute_discover_edges(
         json!({
             "surfaces": surfaces.iter().map(|s| s.2.to_prompt_json()).collect::<Vec<_>>(),
             "gate": decision,
+            "static_edges_stored": static_edges_stored,
             "ai_edges_suggested": ai_edges_suggested,
             "ai_edges_auto_accepted": ai_edges_auto_accepted,
             "ai_cost": total_cost,
@@ -1177,14 +1214,26 @@ fn execute_feedback(format: OutputFormat, db: Option<PathBuf>, cmd: FeedbackComm
             let suggestion = storage
                 .get_suggestion_by_id(&id)?
                 .ok_or_else(|| anyhow!("suggestion not found: {edge_id}"))?;
-            storage.update_suggestion_status(&id, "accepted")?;
-            let fb_id = Uuid::now_v7();
-            storage.insert_feedback(&fb_id, &id, "accept", None)?;
-            let exporter =
-                Uuid::parse_str(suggestion["exporter_entity_id"].as_str().unwrap_or("")).ok();
-            let consumer =
-                Uuid::parse_str(suggestion["consumer_entity_id"].as_str().unwrap_or("")).ok();
-            if let (Some(exporter_id), Some(consumer_id)) = (exporter, consumer) {
+            // Validate entity ids BEFORE mutating anything (#328): a failed
+            // parse must leave the suggestion pending, not report success
+            // without an edge.
+            let exporter = Uuid::parse_str(suggestion["exporter_entity_id"].as_str().unwrap_or(""));
+            let consumer = Uuid::parse_str(suggestion["consumer_entity_id"].as_str().unwrap_or(""));
+            let (exporter_id, consumer_id) = match (exporter, consumer) {
+                (Ok(e), Ok(c)) => (e, c),
+                _ => anyhow::bail!(
+                    "cannot accept suggestion {edge_id}: exporter/consumer entity ids missing or invalid (exporter={:?}, consumer={:?}); suggestion left unchanged",
+                    suggestion["exporter_entity_id"].as_str(),
+                    suggestion["consumer_entity_id"].as_str()
+                ),
+            };
+            let already_exists = storage.get_edges_all()?.iter().any(|e| {
+                e.source_entity_id == consumer_id
+                    && e.target_entity_id == exporter_id
+                    && e.kind == EdgeKind::PackageDep
+                    && e.source == EdgeSource::AiInferred
+            });
+            if !already_exists {
                 let edge = Edge {
                     id: Uuid::now_v7(),
                     source_entity_id: consumer_id,
@@ -1201,6 +1250,11 @@ fn execute_feedback(format: OutputFormat, db: Option<PathBuf>, cmd: FeedbackComm
                 };
                 storage.insert_edge(&edge)?;
             }
+            // Status flip + feedback only happen once the edge exists (or
+            // already did).
+            storage.update_suggestion_status(&id, "accepted")?;
+            let fb_id = Uuid::now_v7();
+            storage.insert_feedback(&fb_id, &id, "accept", None)?;
             format!("accepted AI edge suggestion {edge_id}")
         }
         Some(FeedbackAction::Reject { edge_id }) => {
@@ -1652,38 +1706,56 @@ async fn execute_watch(
         .collect();
 
     let root_names: Vec<String> = watch_roots.iter().map(|(n, _)| n.clone()).collect();
-    std::thread::spawn(move || -> Result<()> {
-        let (notify_tx, notify_rx) = std::sync::mpsc::channel::<notify::Event>();
-        let mut watcher = notify::RecommendedWatcher::new(
-            move |res: Result<notify::Event, notify::Error>| {
-                if let Ok(event) = res {
-                    let _ = notify_tx.send(event);
+    // The watcher thread owns the only channel sender. If it dies (e.g. a repo
+    // root becomes unwatchable), the channel closes and the recv loop below
+    // must stop instead of busy-spinning on a closed channel (#323). The
+    // thread's error is stored here so the user sees why watching stopped.
+    let watcher_error: std::sync::Arc<std::sync::Mutex<Option<String>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    {
+        let watcher_error = std::sync::Arc::clone(&watcher_error);
+        std::thread::spawn(move || {
+            let result: Result<()> = (|| {
+                let (notify_tx, notify_rx) = std::sync::mpsc::channel::<notify::Event>();
+                let mut watcher = notify::RecommendedWatcher::new(
+                    move |res: Result<notify::Event, notify::Error>| {
+                        if let Ok(event) = res {
+                            let _ = notify_tx.send(event);
+                        }
+                    },
+                    notify::Config::default(),
+                )?;
+                for (name, path) in &watch_roots {
+                    watcher
+                        .watch(std::path::Path::new(path), notify::RecursiveMode::Recursive)
+                        .map_err(|e| anyhow!("failed to watch {name} ({path}): {e}"))?;
                 }
-            },
-            notify::Config::default(),
-        )?;
-        for (_, path) in &watch_roots {
-            watcher.watch(std::path::Path::new(path), notify::RecursiveMode::Recursive)?;
-        }
-        for event in notify_rx.iter() {
-            if matches!(
-                event.kind,
-                notify::EventKind::Create(_)
-                    | notify::EventKind::Modify(_)
-                    | notify::EventKind::Remove(_)
-            ) {
-                for path in &event.paths {
-                    for (name, root) in &watch_roots {
-                        if path.starts_with(root) {
-                            let _ = tx.blocking_send(name.clone());
-                            break;
+                for event in notify_rx.iter() {
+                    if matches!(
+                        event.kind,
+                        notify::EventKind::Create(_)
+                            | notify::EventKind::Modify(_)
+                            | notify::EventKind::Remove(_)
+                    ) {
+                        for path in &event.paths {
+                            for (name, root) in &watch_roots {
+                                if path.starts_with(root) {
+                                    let _ = tx.blocking_send(name.clone());
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
+                Ok(())
+            })();
+            if let Err(e) = result {
+                if let Ok(mut slot) = watcher_error.lock() {
+                    *slot = Some(e.to_string());
+                }
             }
-        }
-        Ok(())
-    });
+        });
+    }
 
     for name in &root_names {
         eprintln!("watching {name}");
@@ -1696,47 +1768,56 @@ async fn execute_watch(
 
     let debounce = Duration::from_millis(cmd.debounce_ms);
     loop {
-        if let Some(repo_name) = rx.recv().await {
-            let mut pending = HashSet::new();
-            pending.insert(repo_name);
+        // A closed channel means the watcher thread exited: stop instead of
+        // spinning on `recv() == Err` (#323), and tell the user why.
+        let Some(repo_name) = rx.recv().await else {
+            let reason = watcher_error
+                .lock()
+                .ok()
+                .and_then(|slot| slot.clone())
+                .unwrap_or_else(|| "watcher thread exited unexpectedly".to_string());
+            eprintln!("[watch] file watching stopped: {reason}");
+            return Ok(());
+        };
+        let mut pending = HashSet::new();
+        pending.insert(repo_name);
 
-            let deadline = tokio::time::Instant::now() + debounce;
-            loop {
-                tokio::select! {
-                    Some(name) = rx.recv() => {
-                        pending.insert(name);
-                    }
-                    _ = tokio::time::sleep_until(deadline) => {
-                        break;
-                    }
+        let deadline = tokio::time::Instant::now() + debounce;
+        loop {
+            tokio::select! {
+                Some(name) = rx.recv() => {
+                    pending.insert(name);
+                }
+                _ = tokio::time::sleep_until(deadline) => {
+                    break;
                 }
             }
+        }
 
-            for name in &pending {
-                eprintln!("[watch] re-indexing {name}...");
-                let idx_db = db
-                    .clone()
-                    .unwrap_or_else(|| PathBuf::from(".crosshash/crosshash.db"));
-                match open_storage(Some(idx_db)) {
-                    Ok(idx_storage) => {
-                        if let Some(repo) = idx_storage.get_repo_by_name(name)? {
-                            let index_cmd = IndexCommand {
-                                repo: Some(name.clone()),
-                                incremental: true,
-                                no_ai: false,
-                                force_ai: false,
-                            };
-                            match index_one_repo(&idx_storage, &repo, true, &index_cmd).await {
-                                Ok(summary) => eprintln!(
-                                    "[watch] {}: {} entities, {} edges",
-                                    name, summary.entities_extracted, summary.edges
-                                ),
-                                Err(e) => eprintln!("[watch] error indexing {name}: {e}"),
-                            }
+        for name in &pending {
+            eprintln!("[watch] re-indexing {name}...");
+            let idx_db = db
+                .clone()
+                .unwrap_or_else(|| PathBuf::from(".crosshash/crosshash.db"));
+            match open_storage(Some(idx_db)) {
+                Ok(idx_storage) => {
+                    if let Some(repo) = idx_storage.get_repo_by_name(name)? {
+                        let index_cmd = IndexCommand {
+                            repo: Some(name.clone()),
+                            incremental: true,
+                            no_ai: false,
+                            force_ai: false,
+                        };
+                        match index_one_repo(&idx_storage, &repo, true, &index_cmd).await {
+                            Ok(summary) => eprintln!(
+                                "[watch] {}: {} entities, {} edges",
+                                name, summary.entities_extracted, summary.edges
+                            ),
+                            Err(e) => eprintln!("[watch] error indexing {name}: {e}"),
                         }
                     }
-                    Err(e) => eprintln!("[watch] error opening storage: {e}"),
                 }
+                Err(e) => eprintln!("[watch] error opening storage: {e}"),
             }
         }
     }
