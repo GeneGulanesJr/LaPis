@@ -1,6 +1,6 @@
 const symCmd = require('../../../commands/symbols'),
   USAGE = {
-    'link-symbol': '--memory-id ID --repo X [--trust N]',
+    'link-symbol': '--memory-id ID --repo X [--file PATH] [--trust N]',
     'auto-link': '--project X',
     'adjust-trust': '--memory-id ID [--delta N] [--reason R]',
     'record-recall': '--session-id ID --memory-id ID',

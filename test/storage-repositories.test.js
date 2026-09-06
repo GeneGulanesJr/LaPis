@@ -122,6 +122,7 @@ describe('platform storage repositories', () => {
     expect(trustSyncRepository.linkSymbol).toHaveBeenCalledWith({
       memoryId: '1',
       symbolId: 'S',
+      symbolPath: null,
       repo: 'repo',
       trust: 0.8,
     });

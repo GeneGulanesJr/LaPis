@@ -66,14 +66,23 @@ function linkSymbol(deps, args) {
   const memoryId = args['memory-id'] || args.memoryId,
     symbolId = args['symbol-id'] || args.symbolId,
     repo = args.repo,
-    trust = parseFloat(args.trust || '0.5');
+    trust = parseFloat(args.trust || '0.5'),
+    // File path of the linked symbol — enables path-aware trust matching
+    // (#300). Accept relative (repo-root) or absolute paths.
+    symbolPath = args.file || args['file-path'] || args.symbolPath || null;
   if (!memoryId) {
     return deps.jsonErrNoExit('--memory-id required');
   }
   if (!repo) {
     return deps.jsonErrNoExit('--repo required');
   }
-  return getTrustSyncRepository(deps, ['linkSymbol']).linkSymbol({ memoryId, symbolId, repo, trust });
+  return getTrustSyncRepository(deps, ['linkSymbol']).linkSymbol({
+    memoryId,
+    symbolId,
+    repo,
+    trust,
+    symbolPath,
+  });
 }
 
 function autoLink(deps, args) {
@@ -173,7 +182,7 @@ function syncCodeTrust(deps, args) {
   // Evaluate trust adjustments
   const repository = getTrustSyncRepository(deps, ['getAnchoredLinks', 'updateLinkTrust', 'insertTrustAdjustment']),
     allLinks = repository.getAnchoredLinks(repo),
-    evaluated = evaluateTrustSync(allLinks, detected.changedSet),
+    evaluated = evaluateTrustSync(allLinks, detected.changedSet, detected.changed_paths, detected.repo_path),
     applyTrustUpdates = () => {
       for (const operation of evaluated.operations) {
         repository.updateLinkTrust({

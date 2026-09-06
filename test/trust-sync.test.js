@@ -49,6 +49,41 @@ describe('src/trust-sync trust policy', () => {
     expect(stripOperations(result).operations).toBeUndefined();
   });
 
+  it('path-aware links only react when their own file changed (#300)', () => {
+    const changedSet = new Set(['handler']),
+      changedPaths = ['/repo/src/handler.ts'],
+      links = [
+        // Linked to handler.ts (the changed file) -> penalized.
+        { memory_id: '1', symbol_id: 'handler', trust_score: 0.8, symbol_path: '/repo/src/handler.ts' },
+        // Same NAME, but anchored to an untouched file -> NOT penalized.
+        { memory_id: '2', symbol_id: 'handler', trust_score: 0.8, symbol_path: '/repo/src/other.ts' },
+        // Relative recorded path resolving into the changed file -> penalized.
+        { memory_id: '3', symbol_id: 'handler', trust_score: 0.8, symbol_path: 'src/handler.ts' },
+        // No recorded path -> legacy name-based behavior (fuzzy half).
+        { memory_id: '4', symbol_id: 'handler', trust_score: 0.8 },
+      ],
+      result = evaluateTrustSync(links, changedSet, changedPaths, '/repo');
+
+    const byMemory = Object.fromEntries(result.adjusted.map((a) => [a.memory_id, a]));
+    expect(byMemory['1'].new_trust).toBe(0.5); // full penalty
+    expect(byMemory['3'].new_trust).toBe(0.5); // full penalty
+    expect(result.survived.map((s) => s.memory_id)).toContain('2');
+    expect(result.adjusted.map((a) => a.memory_id)).not.toContain('2');
+    // Legacy path-less link: boundary match inside 'handler' is exact here,
+    // so full penalty applies.
+    expect(byMemory['4'].new_trust).toBe(0.5);
+  });
+
+  it('path-aware links earn survived recovery when their file is untouched', () => {
+    const changedSet = new Set(['handler']),
+      changedPaths = ['/repo/src/handler.ts'],
+      links = [{ memory_id: '9', symbol_id: 'handler', trust_score: 0.5, symbol_path: '/repo/src/other.ts' }],
+      result = evaluateTrustSync(links, changedSet, changedPaths, '/repo');
+    expect(result.survived).toHaveLength(1);
+    expect(result.survived[0].new_trust).toBe(0.55); // SURVIVED_UNCHANGED credit
+    expect(result.adjusted).toHaveLength(0);
+  });
+
   it('matches changed symbols only on symbol boundaries', () => {
     expect(symbolMatchesChange('pkg::bar', 'bar')).toBe(true);
     expect(symbolMatchesChange('pkg.Class.bar', 'bar')).toBe(true);

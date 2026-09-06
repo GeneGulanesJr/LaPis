@@ -4,16 +4,17 @@ const { TRUST_DELTA } = require('../constants');
  * Upsert a symbol link for a memory (`symbolId` defaults to `'__unlinked__'`).
  * @returns {{ ok:boolean, memoryId, symbolId, repo, trustScore }}
  */
-function linkSymbol(deps, { memoryId, symbolId, repo, trust }) {
+function linkSymbol(deps, { memoryId, symbolId, repo, trust, symbolPath }) {
   const { sqlRun } = deps,
     symVal = symbolId || '__unlinked__';
-  sqlRun('INSERT OR REPLACE INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)', [
-    memoryId,
-    symVal,
-    repo,
-    trust,
-  ]);
-  return { ok: true, memoryId, symbolId: symVal, repo, trustScore: trust };
+  // symbolPath records WHERE the symbol lives so trust sync can match
+  // changes on (path, name) — bare-name matching penalized same-named
+  // symbols in unrelated files (#300).
+  sqlRun(
+    'INSERT OR REPLACE INTO symbol_links (memory_id, symbol_id, repo, trust_score, symbol_path) VALUES (?, ?, ?, ?, ?)',
+    [memoryId, symVal, repo, trust, symbolPath || null],
+  );
+  return { ok: true, memoryId, symbolId: symVal, repo, trustScore: trust, symbolPath: symbolPath || null };
 }
 
 /**
@@ -83,7 +84,7 @@ function getStaleLinks(deps, repo) {
 function getAnchoredLinks(deps, repo) {
   const { sqlJson } = deps;
   return sqlJson(
-    `SELECT memory_id, symbol_id, trust_score, last_verified
+    `SELECT memory_id, symbol_id, trust_score, last_verified, symbol_path
      FROM symbol_links WHERE repo = ? AND symbol_id != '__unlinked__'`,
     [repo],
   );

@@ -187,10 +187,12 @@ function detectChangedSymbols(deps, repoName) {
     return {
       ok: true,
       repo: repoName,
+      repo_path: repoPath,
       old_head: storedHead,
       new_head: currentHead,
       changed_files: changedFiles.length,
       changed_symbols: changedSet.size,
+      changed_paths: indexedPaths,
       changedSet,
     };
   }

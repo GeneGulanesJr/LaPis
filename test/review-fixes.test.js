@@ -45,13 +45,16 @@ describe('review fixes', () => {
           hasTotalFilesChanged = churnCols.some((c) => c.name === 'total_files_changed'),
           hasTopFilesJson = churnCols.some((c) => c.name === 'top_files_json'),
           compressionCols = reopened.prepare('PRAGMA table_info(mission_compression_log)').all(),
-          hasImportantOutput = compressionCols.some((c) => c.name === 'important_output');
-        expect(version).toBe(26);
+          hasImportantOutput = compressionCols.some((c) => c.name === 'important_output'),
+          linkCols = reopened.prepare('PRAGMA table_info(symbol_links)').all(),
+          hasSymbolPath = linkCols.some((c) => c.name === 'symbol_path');
+        expect(version).toBe(27);
         expect(table).toBeTruthy();
         expect(sourceModuleCol).toBe(true);
         expect(hasTotalFilesChanged).toBe(true);
         expect(hasTopFilesJson).toBe(true);
         expect(hasImportantOutput).toBe(true);
+        expect(hasSymbolPath).toBe(true);
       }
     });
   });
