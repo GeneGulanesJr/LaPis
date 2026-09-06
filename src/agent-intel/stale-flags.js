@@ -19,11 +19,11 @@ const STALE_FLAG_PATTERNS = [
 ];
 
 // Pattern to detect one-sided branches where if block is empty or just a comment,
-// meaning the else block always runs
+// Meaning the else block always runs
 const ONE_SIDED_IF_PATTERNS = [
-  // if (!x) { /* empty or only comments */ } else { ... }
+  // If (!x) { /* empty or only comments */ } else { ... }
   /\bif\s*\(\s*![^)]+\)\s*\{\s*\/(?:\/|\*)[^\}]*\}\s*else/g,
-  // if (constant_expression) { never_runs(); } else { always_runs(); }
+  // If (constant_expression) { never_runs(); } else { always_runs(); }
   // Detect when if body clearly never executes (throw, return, etc.)
   /\bif\s*\(\s*(?:true|false|1\s*==\s*1|0\s*==\s*1)\s*\)\s*\{\s*(?:return|throw|break|continue)[^}]*\}\s*else/g,
 ];
@@ -31,7 +31,9 @@ const ONE_SIDED_IF_PATTERNS = [
 const ALWAYS_TRUE_CONTEXT = ['process.env.NODE_ENV', 'process.env.DEBUG', 'process.env.TESTING'];
 
 function scanFileForStaleFlags(filePath) {
-  if (!fs.existsSync(filePath)) return [];
+  if (!fs.existsSync(filePath)) {
+    return [];
+  }
 
   const content = fs.readFileSync(filePath, 'utf-8');
   const lines = content.split('\n');
@@ -148,12 +150,16 @@ function extractCondition(context) {
 }
 
 function persistStaleFlags(db, findings) {
-  if (findings.length === 0) return { inserted: 0, errors: [] };
+  if (findings.length === 0) {
+    return { inserted: 0, errors: [] };
+  }
 
   // Check if table exists before inserting
   try {
     const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='stale_flags'").get();
-    if (!tableCheck) return { inserted: 0, errors: ['stale_flags table does not exist'] };
+    if (!tableCheck) {
+      return { inserted: 0, errors: ['stale_flags table does not exist'] };
+    }
   } catch (e) {
     return { inserted: 0, errors: [e.message] };
   }

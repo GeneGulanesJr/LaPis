@@ -39,8 +39,8 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownPr
 
   // Compact re-uses the existing sessionId and skips session-start entirely.
   // Both branches run through the locked mutateState: an unlocked full-file
-  // write here could revert a concurrent PostToolUse/Stop hook's just-saved
-  // state (Claude Code reuses session ids on resume/clear) (#296).
+  // Write here could revert a concurrent PostToolUse/Stop hook's just-saved
+  // State (Claude Code reuses session ids on resume/clear) (#296).
 
   if (!isCompact) {
     // GC orphaned state files from force-killed sessions before starting fresh.
@@ -65,8 +65,8 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownPr
     // Summary. Only accept a concrete value so the two checks stay symmetric.
     state = await stateStore.mutateState(claudeSessionId, (current) => {
       // Reset session-derived counters for a genuine start. NOTE: mutateState
-      // persists the state object it passed us — mutate it in place, never
-      // return a fresh replacement.
+      // Persists the state object it passed us — mutate it in place, never
+      // Return a fresh replacement.
       const next = {
         ...stateStore.defaultState(),
         nativeChecked: current.nativeChecked,

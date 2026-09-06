@@ -2,8 +2,7 @@
 // Ingests Istanbul/NYC coverage JSON and stores runtime hotness per symbol.
 // Must not mutate code indexes or memory.
 
-const path = require('path'),
-  fs = require('fs'),
+const fs = require('fs'),
   /**
    * Istanbul coverage JSON shape:
    * {

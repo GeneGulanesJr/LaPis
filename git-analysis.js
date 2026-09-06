@@ -77,8 +77,8 @@ function getChurn(db, repoId, target, days, refresh) {
     return resolved;
   }
 
-  days = days || 90;
-  refresh = refresh || false;
+  days ||= 90;
+  refresh ||= false;
 
   if (!refresh) {
     const cached = getCachedChurn(db, repoId, resolved.filePath, days);

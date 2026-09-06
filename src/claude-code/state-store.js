@@ -28,13 +28,13 @@ const fs = require('node:fs'),
   DEFAULT_DIR = path.join(HOME, '.pi', 'memory', 'claude-sessions'),
   DEFAULT_TTL_HOURS = 24,
   // Lock tuning for mutateState (#228). A crashed holder leaves a lockfile; it is
-  // broken once older than LOCK_STALE_MS so a wedged lock never permanently
-  // blocks the fast path.
+  // Broken once older than LOCK_STALE_MS so a wedged lock never permanently
+  // Blocks the fast path.
   LOCK_TIMEOUT_MS = 5000,
   LOCK_POLL_MS = 25,
   LOCK_STALE_MS = 10_000,
   // Placeholders that String(...) of a missing session_id collapses to; refusing
-  // them prevents every keyless session sharing one file (#224).
+  // Them prevents every keyless session sharing one file (#224).
   PLACEHOLDER_KEYS = new Set(['undefined', 'null', 'nan', '', '_', '__', '___']);
 
 // Field set mirrors extensions/memory-layer/state.ts (session-relevant subset;

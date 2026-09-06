@@ -35,9 +35,9 @@ function runCommand(commandArgs, options = {}) {
     } else {
       const escaped = commandArgs.map(shellEscape).join(' ');
       // Detached: the command becomes its own process-group leader so the
-      // timeout kill below can take down pipeline grandchildren. Killing only
-      // the shell leaves grandchildren alive holding the stdio pipe write
-      // ends, and then 'close' never fires and this promise never resolves.
+      // Timeout kill below can take down pipeline grandchildren. Killing only
+      // The shell leaves grandchildren alive holding the stdio pipe write
+      // Ends, and then 'close' never fires and this promise never resolves.
       child = spawn('/bin/sh', ['-c', escaped], {
         cwd,
         env,
@@ -46,15 +46,15 @@ function runCommand(commandArgs, options = {}) {
       });
     }
 
-    // setEncoding decodes through a StringDecoder, so a multi-byte character
-    // split across two 'data' chunks no longer becomes U+FFFD.
+    // SetEncoding decodes through a StringDecoder, so a multi-byte character
+    // Split across two 'data' chunks no longer becomes U+FFFD.
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
 
     child.stdout.on('data', (chunk) => {
       // Keep draining after the cap and discard — pausing the stream would
-      // block the child on a full pipe, and 'close' would only fire after the
-      // timeout SIGKILL (misreporting finished commands as timed out).
+      // Block the child on a full pipe, and 'close' would only fire after the
+      // Timeout SIGKILL (misreporting finished commands as timed out).
       if (stdout.length < maxBufferChars) {
         stdout += chunk;
         if (stdout.length >= maxBufferChars) {
@@ -81,7 +81,7 @@ function runCommand(commandArgs, options = {}) {
         return;
       }
       // Kill the entire process group; fall back to the direct kill if the
-      // group is already gone (leader exited, no other members).
+      // Group is already gone (leader exited, no other members).
       try {
         process.kill(-child.pid, 'SIGKILL');
       } catch {

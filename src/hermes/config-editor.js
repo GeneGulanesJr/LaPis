@@ -17,7 +17,6 @@
 
 const fs = require('node:fs'),
   path = require('node:path'),
-  os = require('node:os'),
   TOP_KEY_RE = /^[A-Za-z0-9_.-]+\s*:/;
 
 function escapeRegExp(s) {

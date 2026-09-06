@@ -86,9 +86,9 @@ function autoLink(deps, args) {
 
   // There is no symbol-resolution logic here (yet): writing a placeholder
   // '__unlinked__' row used to report fake success AND permanently exclude
-  // those memories from future linking, because findUnlinked skips memories
-  // that have any link row (#301). Purge legacy placeholders so poisoned
-  // memories become eligible again, and leave unlinked memories unlinked.
+  // Those memories from future linking, because findUnlinked skips memories
+  // That have any link row (#301). Purge legacy placeholders so poisoned
+  // Memories become eligible again, and leave unlinked memories unlinked.
   repository.deletePlaceholderLinks(project);
 
   return {

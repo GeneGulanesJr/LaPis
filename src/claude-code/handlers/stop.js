@@ -128,7 +128,7 @@ async function handleStop({ payload, dispatch, stateStore, getKnownRepos, getKno
     return null;
   }
 
-  const cwd = resolveCwd(payload.cwd),
+  const _cwd = resolveCwd(payload.cwd),
     { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
     claudeSessionId = payload.session_id,
     now = Date.now(),

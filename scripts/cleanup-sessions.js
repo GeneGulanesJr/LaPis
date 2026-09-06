@@ -164,7 +164,7 @@ if (require.main === module) {
           }
           const parsed = parseInt(raw, 10);
           // NaN used to flow into LIMIT ?/OFFSET ? and crash mid-transaction
-          // with a datatype mismatch (#304).
+          // With a datatype mismatch (#304).
           if (Number.isNaN(parsed) || parsed < 0) {
             console.error(`cleanup-sessions: --keep-last must be a non-negative integer, got "${raw}"`);
             process.exit(1);

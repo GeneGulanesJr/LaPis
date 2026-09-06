@@ -23,7 +23,7 @@ function searchMemory(deps) {
         query,
         limit: safeLimit,
         // The underlying search supports these filters; dropping them made
-        // every route search cross-project silently (#304).
+        // Every route search cross-project silently (#304).
         ...(project ? { project: String(project) } : {}),
         ...(type ? { type: String(type) } : {}),
         ...(scope ? { scope: String(scope) } : {}),

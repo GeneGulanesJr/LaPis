@@ -126,7 +126,7 @@ function dream(deps, args = {}) {
   {
     const cleanedIds = [],
       // Pre-phase: hard-delete expired observations before any dream phases
-      // so expired rows don't get soft-deleted or consolidated unnecessarily
+      // So expired rows don't get soft-deleted or consolidated unnecessarily
       expiredCount = deps.sqlJson(
         "SELECT COUNT(*) as cnt FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')",
       ),
@@ -354,7 +354,7 @@ function dream(deps, args = {}) {
 
                 // Keep the kept row's own type — forcing every consolidated
                 // Group to 'decision' permanently broke --type filtering for
-                // merged bugfix/pattern/preference entries.
+                // Merged bugfix/pattern/preference entries.
                 deps.sqlRun('UPDATE observations SET content = ?, title = ? WHERE id = ?', [
                   mergedContent,
                   mergedTitle,

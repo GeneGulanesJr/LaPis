@@ -35,9 +35,9 @@ const path = require('node:path'),
   { postToolRole } = require('../tool-map'),
   { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust'),
   // Harvest relative code paths from a memory-code response (parity with the Pi
-  // tool_result handler in tool-guardrails.ts). The extension alternation is the
-  // same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
-  // classifier (#230).
+  // Tool_result handler in tool-guardrails.ts). The extension alternation is the
+  // Same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
+  // Classifier (#230).
   CODE_PATH_RE = new RegExp(`[\\w/.-]+\\.(${CODE_EXTENSIONS.join('|')})`, 'g');
 
 function addEditedFile(state, filePath) {

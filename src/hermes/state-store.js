@@ -16,9 +16,9 @@ const fs = require('node:fs'),
   LOCK_POLL_MS = 25;
 
 // Synchronous bounded lock (saveState must stay sync — hook.js calls it
-// fire-and-forget and the process can exit right after). Atomic mkdir as
-// the lock primitive; stale locks from crashed holders break after 5s. On
-// timeout it proceeds unlocked — a possible lost write beats blocking the
+// Fire-and-forget and the process can exit right after). Atomic mkdir as
+// The lock primitive; stale locks from crashed holders break after 5s. On
+// Timeout it proceeds unlocked — a possible lost write beats blocking the
 // Hook past Hermes' timeout.
 function acquireSyncLock(lockPath) {
   const deadline = Date.now() + LOCK_TIMEOUT_MS;

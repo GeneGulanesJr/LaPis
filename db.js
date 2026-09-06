@@ -1140,7 +1140,7 @@ class MemoryError extends Error {
       try {
         withTransaction(() => {
           // Store the compressed mission state itself, not just the
-          // bookkeeping (summary/tokens_saved) — see issue #284.
+          // Bookkeeping (summary/tokens_saved) — see issue #284.
           try {
             sqlRaw('ALTER TABLE mission_compression_log ADD COLUMN important_output TEXT');
           } catch (e) {

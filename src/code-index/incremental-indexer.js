@@ -64,8 +64,8 @@ function logDerivedError(step, e) {
 }
 
 // Collects per-builder failures so indexRepository/reindexRepository can
-// report them (derived_errors + partial) instead of advertising success with
-// silently-empty graphs. Logging stays as before.
+// Report them (derived_errors + partial) instead of advertising success with
+// Silently-empty graphs. Logging stays as before.
 function makeDerivedErrorCollector() {
   const errors = [];
   return {
@@ -78,8 +78,8 @@ function makeDerivedErrorCollector() {
 }
 
 // Thrown by the async worker's onProgress hook to abort the index; must
-// propagate through emitProgress instead of being swallowed (previously
-// cancellation was dead-wired: the abort never reached the indexer) (#295).
+// Propagate through emitProgress instead of being swallowed (previously
+// Cancellation was dead-wired: the abort never reached the indexer) (#295).
 const CANCELLED = 'lapis-index-cancelled';
 
 function emitProgress(args, phase, detail, stats) {
@@ -239,8 +239,8 @@ function getGitDelta(repoPath, baseCommit) {
       }),
       // Working-tree state (staged + unstaged vs HEAD). Without this, any
       // File edited but not yet committed — the normal state while an agent
-      // works — is invisible to delta mode and stays stale after head_commit
-      // advances past it.
+      // Works — is invisible to delta mode and stays stale after head_commit
+      // Advances past it.
       wtOutput = execFileSync('git', ['diff', '--name-status', 'HEAD'], {
         cwd: repoPath,
         encoding: 'utf-8',
@@ -335,11 +335,11 @@ function fileRecordToParams(repoId, record) {
 }
 
 // Precompute everything the commit needs from a parsed record, then drop the
-// raw content. Deferring used to buffer the full source of every parsed file
+// Raw content. Deferring used to buffer the full source of every parsed file
 // (plus its live tree-sitter tree) until the single final commit — multi-GB
 // RSS on large repos (#294). Scope bindings are computed here, while the
-// content (and the tree) are still available, and only compact write
-// instructions are buffered.
+// Content (and the tree) are still available, and only compact write
+// Instructions are buffered.
 function buildDeferredEntry(entry, repoId, registry, scopeDb) {
   const { record, hotSymbols, coldSymbols, tree } = entry,
     fileParams = fileRecordToParams(repoId, record);
@@ -363,7 +363,7 @@ function buildDeferredEntry(entry, repoId, registry, scopeDb) {
   }
   if (tree) {
     // The immediate path deletes inside commitParsedBatch; the deferred path
-    // must free the WASM tree now or it stays alive until the final commit.
+    // Must free the WASM tree now or it stays alive until the final commit.
     tree.delete();
   }
   return {
@@ -535,7 +535,7 @@ function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCo
       cochangeEdges = cc2.count;
     } else {
       // A silent {success:false} here used to leave cochange data empty with
-      // no trace in the result (#293).
+      // No trace in the result (#293).
       derivedErrors.log('cochange', new Error(cc2.reason || 'cochange builder failed'));
     }
   } catch (e) {
@@ -862,7 +862,7 @@ function commitParsedBatch(repository, repoId, parsedRecords, ctx) {
 
   for (const entry of parsedRecords) {
     // Deferred entries (full-index) arrive precomputed with no raw content;
-    // immediate entries (incremental path) carry the parsed record + tree.
+    // Immediate entries (incremental path) carry the parsed record + tree.
     const deferred = entry.deferred === true,
       filePath = deferred ? entry.filePath : entry.record.filePath,
       record = deferred ? null : entry.record;
@@ -907,7 +907,7 @@ function commitParsedBatch(repository, repoId, parsedRecords, ctx) {
       ctx.fileCount++;
 
       // Deferred entries already computed (and freed) their scope bindings
-      // at parse time (#294); the immediate path still owns the live tree.
+      // At parse time (#294); the immediate path still owns the live tree.
       if (!deferred) {
         try {
           const scopeBuilder = require('./scope-builder').getScopeBuilder,
@@ -1122,7 +1122,7 @@ async function parsePhase(files, deps, repoId, args) {
           } catch (e) {
             // One pathological file must not abort the whole index: record an
             // Error diagnostic and skip it (same contract as the incremental
-            // path's per-file guard).
+            // Path's per-file guard).
             const message = e instanceof Error ? e.message : String(e);
             skipped.push({ file: record.filePath, error: message });
             recordDiagnostic(repository, repoId, record, 'error', `Symbol extraction failed: ${message}`, 0, {
@@ -1384,7 +1384,7 @@ async function indexRepository(deps, repoPath, repoName) {
       result = {
         success: true,
         // Symbols are committed, but if any derived builder failed the graphs
-        // are incomplete — say so instead of advertising a clean success.
+        // Are incomplete — say so instead of advertising a clean success.
         partial: (derived.derived_errors || []).length > 0,
         derived_errors: derived.derived_errors || [],
         repo: repoName,

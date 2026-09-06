@@ -31,8 +31,12 @@ function save(deps, args) {
   }
 
   const missing = [];
-  if (!title) missing.push('--title');
-  if (!content) missing.push('--content');
+  if (!title) {
+    missing.push('--title');
+  }
+  if (!content) {
+    missing.push('--content');
+  }
   if (missing.length > 0) {
     return jsonErrNoExit(`Missing ${missing.join(' and ')}`);
   }

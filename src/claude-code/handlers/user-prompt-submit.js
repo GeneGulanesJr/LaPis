@@ -13,8 +13,7 @@
  * rejecting — best-effort, never blocks the prompt.
  */
 
-const path = require('node:path'),
-  { CONTEXT } = require('../../../constants'),
+const { CONTEXT } = require('../../../constants'),
   { findMatchingRepo } = require('../../hooks-engine/project'),
   { resolveProjectForCwd } = require('../project-resolve'),
   { isPreflightWorthyPrompt } = require('../../hooks-engine/prompt-classifiers'),

@@ -42,8 +42,8 @@ function loadDirectDispatch() {
 }
 
 // A daemon that accepts the connection but never responds (wedged event
-// loop, stuck write) must degrade to the direct-mode fallback instead of
-// hanging the calling hook until the external timeout kills it.
+// Loop, stuck write) must degrade to the direct-mode fallback instead of
+// Hanging the calling hook until the external timeout kills it.
 const DAEMON_TIMEOUT_MS = 5000;
 
 /**

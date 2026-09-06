@@ -31,7 +31,7 @@ function writeBroadcast(repo) {
 
 function transitionBroadcast(repo) {
   return async (req, res, ctx) => {
-    const { newStatus, actorId } = ctx.body,
+    const { newStatus } = ctx.body,
       rows = repo.transitionBroadcast(ctx.params.id, newStatus);
     if (!rows || rows.length === 0) {
       return jsonError(res, 404, 'not_found', 'Broadcast not found');

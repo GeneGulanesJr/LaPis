@@ -7,10 +7,10 @@ export type { MemResult };
 
 let _inProcessDispatch: ((cmd: string, args: Record<string, string>) => Promise<MemResult | null>) | null = null,
   // In-process dispatch can fail for reasons unrelated to correctness (e.g. the
-  // host runtime can't dlopen better-sqlite3). When that happens we fall back to
-  // a child process — but we should only surface the failure ONCE per session,
-  // not on every preflight/coding-context call. The real cause is reported via
-  // openDb()'s improved error message (see db.js).
+  // Host runtime can't dlopen better-sqlite3). When that happens we fall back to
+  // A child process — but we should only surface the failure ONCE per session,
+  // Not on every preflight/coding-context call. The real cause is reported via
+  // OpenDb()'s improved error message (see db.js).
   _inProcessFailureReported = false;
 
 const MAIN_THREAD_BLOCKING_COMMANDS = new Set([
@@ -110,8 +110,8 @@ async function memViaChildProcess(
 
 export async function memCmd(cmd: string): Promise<MemResult | null> {
   // Same contract as mem(): blocking commands (dream, reindex, …) must always
-  // take the child-process path — running them through the in-process gateway
-  // freezes the UI thread for the whole multi-phase cycle.
+  // Take the child-process path — running them through the in-process gateway
+  // Freezes the UI thread for the whole multi-phase cycle.
   if (MAIN_THREAD_BLOCKING_COMMANDS.has(cmd)) {
     return memViaChildProcess(cmd, {});
   }
@@ -214,8 +214,8 @@ export async function memStreaming(
             timedOut = true;
             child.kill();
             // SIGTERM cannot interrupt a child wedged in a synchronous
-            // better-sqlite3 call — escalate to SIGKILL after a grace
-            // window so it cannot keep holding the DB (#304).
+            // Better-sqlite3 call — escalate to SIGKILL after a grace
+            // Window so it cannot keep holding the DB (#304).
             killTimer = setTimeout(() => {
               try {
                 child.kill('SIGKILL');
@@ -283,8 +283,8 @@ export async function memStreaming(
   } catch {
     // A timed-out child was already killed — re-running the whole command
     // (for index-repo/reindex-repo: a second full index racing the first)
-    // is worse than reporting the timeout (#304). The mem() fallback stays
-    // for genuine spawn/startup failures.
+    // Is worse than reporting the timeout (#304). The mem() fallback stays
+    // For genuine spawn/startup failures.
     if (timedOut) {
       console.error(`[memory-layer] ${cmd} timed out and was terminated; not retrying`);
       return null;

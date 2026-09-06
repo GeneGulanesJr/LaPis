@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * hooks-engine: prompt-classifiers
+ * Hooks-engine: prompt-classifiers
  *
  * Pure prompt/message classifiers extracted from
  * extensions/memory-layer/hooks/context-injection.ts (extractUserPrompt,

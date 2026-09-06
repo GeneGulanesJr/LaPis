@@ -78,7 +78,7 @@ function updateHeadCommit(deps, repoId, headCommit) {
  * Uses git diff + the built-in code index (zero external dependencies).
  */
 function detectChangedSymbols(deps, repoName) {
-  const { sqlJson, sqlRun, jsonErrNoExit } = deps,
+  const { sqlJson, jsonErrNoExit } = deps,
     // Look up the indexed repo
     repoRow = sqlJson('SELECT id, path, head_commit FROM code_repos WHERE name = ?', [repoName]);
   if (!repoRow || repoRow.length === 0) {

@@ -21,7 +21,7 @@ parentPort.on('message', (msg) => {
 function safeGetLanguage(filePath) {
   try {
     return getLanguageForFile(filePath);
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -60,7 +60,7 @@ async function main() {
       if (cancelled) {
         try {
           jobStore.completeJob(deps, jobId, { status: 'cancelled' });
-        } catch (_) {}
+        } catch {}
         emit('cancelled');
         return;
       }
@@ -72,7 +72,7 @@ async function main() {
           languageBreakdown: Object.fromEntries(languageCounters),
         });
         jobStore.completeJob(deps, jobId, { status: result?.error ? 'error' : 'completed', error: result?.error });
-      } catch (_) {
+      } catch {
         /* Best-effort */
       }
 
@@ -80,7 +80,7 @@ async function main() {
       function onProgress({ phase, files_total, files_done, current_file, language }) {
         if (cancelled) {
           // The sentinel propagates through emitProgress and aborts the
-          // index; the outer catch below reports the job as cancelled.
+          // Index; the outer catch below reports the job as cancelled.
           throw CANCELLED;
         }
         // Derive language from current_file if not provided by the indexer.
@@ -99,7 +99,7 @@ async function main() {
               currentFile: current_file,
               languageBreakdown: Object.fromEntries(languageCounters),
             });
-          } catch (_) {
+          } catch {
             /* Best-effort */
           }
           lastWrite = now;
@@ -112,7 +112,7 @@ async function main() {
     try {
       const deps = { sqlJson: dbModule.sqlJson, sqlRun: dbModule.sqlRun };
       jobStore.completeJob(deps, jobId, { status, error: e.message });
-    } catch (_) {}
+    } catch {}
     if (cancelled) {
       emit('cancelled');
     } else {

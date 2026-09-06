@@ -39,9 +39,9 @@ function evaluateTrustSync(links, changedSet) {
   for (const link of links) {
     if (isChangedLink(link, changedSet)) {
       // Exact id equality is certain. A boundary match inside a larger
-      // symbol id is ambiguous — the same unqualified name usually also
-      // exists, unchanged, in other files — so it takes a reduced penalty
-      // instead of the full wipe (#300).
+      // Symbol id is ambiguous — the same unqualified name usually also
+      // Exists, unchanged, in other files — so it takes a reduced penalty
+      // Instead of the full wipe (#300).
       const exact = changedSet.has(link.symbol_id),
         delta = exact ? TRUST_DELTA.SYMBOL_CHANGED : Math.round((TRUST_DELTA.SYMBOL_CHANGED / 2) * 100) / 100,
         newTrust = clampTrust(link.trust_score + delta);

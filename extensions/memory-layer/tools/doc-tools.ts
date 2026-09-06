@@ -59,7 +59,7 @@ export function registerDocTools(pi: ExtensionAPI, deps: DocDeps) {
     }),
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
-      params = params ?? {};
+      params ??= {};
       try {
         const cmdMap: Record<string, string> = {
           search: 'doc-search',
