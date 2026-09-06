@@ -432,7 +432,18 @@ async fn index_one_repo(
             continue;
         };
         // Skip languages that don't support entity extraction
-        if matches!(language, Language::Html | Language::Css | Language::Unknown) {
+        // Swift/Dart/Zig have language detection + extractors dispatched but
+        // no working parser grammar yet — without skipping them, parse_file
+        // errors and the `?` aborts the whole index run (#317).
+        if matches!(
+            language,
+            Language::Html
+                | Language::Css
+                | Language::Unknown
+                | Language::Swift
+                | Language::Dart
+                | Language::Zig
+        ) {
             skipped_files += 1;
             continue;
         }
