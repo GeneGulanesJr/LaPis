@@ -40,18 +40,48 @@ const MCP_PREFIX = 'mcp__lapis__';
 // Any MCP server name (Claude Code prefixes tools with `mcp__<server>__`).
 // A hardcoded `mcp__lapis__` here would silently kill tool-state mirroring
 // And guardrail seeding for installs that renamed the server via --mcp-name.
-const MCP_TOOL_RE = /^mcp__[A-Za-z0-9_-]+__(.+)$/;
+
+// Server-name chars from the former /^mcp__[A-Za-z0-9_-]+__(.+)$/ regex,
+// replaced with a linear scan (the class overlapped the `__` separator, so
+// underscore runs split ambiguously — polynomial backtracking on untrusted
+// tool names).
+function isServerNameChar(code) {
+  return (
+    (code >= 48 && code <= 57) || // 0-9
+    (code >= 65 && code <= 90) || // A-Z
+    (code >= 97 && code <= 122) || // a-z
+    code === 45 || // -
+    code === 95 // _
+  );
+}
 
 /**
  * Strip the `mcp__<server>__` prefix, returning the bare tool name (e.g.
  * `memory-code`) or null when the tool is not an MCP tool.
  */
 function mcpToolName(toolName) {
-  if (typeof toolName !== 'string') {
+  if (typeof toolName !== 'string' || !toolName.startsWith('mcp__')) {
     return null;
   }
-  const match = MCP_TOOL_RE.exec(toolName);
-  return match ? match[1] : null;
+  const n = toolName.length;
+  // Server-name run [5, runEnd): the old greedy class matched maximally, so
+  // the separator is the rightmost `__` fully inside this run.
+  let runEnd = 5;
+  while (runEnd < n && isServerNameChar(toolName.charCodeAt(runEnd))) {
+    runEnd++;
+  }
+  for (let sep = runEnd - 2; sep >= 6; sep--) {
+    if (toolName.charCodeAt(sep) === 95 && toolName.charCodeAt(sep + 1) === 95) {
+      const tool = toolName.slice(sep + 2);
+      // `.+` requires at least one char and JS `.` never matches line
+      // terminators; on failure the old regex backtracked to an earlier
+      // `__`, which this loop reproduces.
+      if (tool.length > 0 && !/[\n\r\u2028\u2029]/.test(tool)) {
+        return tool;
+      }
+    }
+  }
+  return null;
 }
 
 /** True for any LaPis memory-* MCP tool (memory-save, memory-search, …). */

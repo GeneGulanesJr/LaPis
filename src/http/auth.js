@@ -49,9 +49,17 @@ function isAuthorized(req, apiKey) {
   }
   const auth = headerValue(req.headers.authorization);
   if (auth) {
-    const bearerMatch = auth.match(/^Bearer\s+(.+)$/i);
-    if (bearerMatch && keysMatch(bearerMatch[1], apiKey)) {
-      return true;
+    // Linear-time Bearer parse: the former /^Bearer\s+(.+)$/i let the
+    // whitespace run split ambiguously against `.+`. Split at the first
+    // whitespace char, compare the scheme case-insensitively, and strip the
+    // rest of the leading whitespace run (the greedy `\s+` did the same);
+    // the token itself is kept verbatim, as the old capture group was.
+    const wsAt = auth.search(/\s/);
+    if (wsAt !== -1 && auth.slice(0, wsAt).toLowerCase() === 'bearer') {
+      const token = auth.slice(wsAt).replace(/^\s+/, '');
+      if (keysMatch(token, apiKey)) {
+        return true;
+      }
     }
   }
   return false;

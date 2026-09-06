@@ -80,6 +80,83 @@ function save(deps, args) {
   return { id: rows[0].id, title, created_at: rows[0].created_at, expires_at: rows[0].expires_at };
 }
 
+const WS_CHAR = /\s/;
+
+function skipWsWhile(section, i) {
+  while (i < section.length && WS_CHAR.test(section[i])) {
+    i++;
+  }
+  return i;
+}
+
+// Length of the list marker (`-`, `*`, `N.` or `N)`) at section[i], or 0.
+function bulletLengthAt(section, i) {
+  const ch = section[i];
+  if (ch === '-' || ch === '*') {
+    return 1;
+  }
+  if (ch >= '0' && ch <= '9') {
+    let j = i;
+    while (j < section.length && section[j] >= '0' && section[j] <= '9') {
+      j++;
+    }
+    if (j < section.length && (section[j] === '.' || section[j] === ')')) {
+      return j - i + 1;
+    }
+  }
+  return 0;
+}
+
+// Extract list items from a "Key Learnings" section — linear-time equivalent
+// of the former polynomial-ReDoS item regex
+// /(?:^|\n)\s*(?:[-*]|\d+[.)])\s*([^\n]*(?:\n(?!\s*(?:[-*]|\d+[.)])\s*)[^\n]*)*)/g.
+// An item starts at a (possibly indented, possibly preceded by blank lines)
+// `-`, `*`, `N.` or `N)` marker and spans every following line that does not
+// itself begin with a marker.
+function extractLearningItems(section) {
+  const items = [];
+  const n = section.length;
+  let anchor = 0;
+  while (anchor < n) {
+    // The old regex could only anchor at the string start or after a newline.
+    if (anchor !== 0 && section[anchor] !== '\n') {
+      anchor++;
+      continue;
+    }
+    const bulletAt = skipWsWhile(section, anchor === 0 ? 0 : anchor + 1);
+    const mark = bulletLengthAt(section, bulletAt);
+    if (mark === 0) {
+      // No marker: every candidate anchor inside the skipped whitespace run
+      // lands on this same non-marker position, so jump past it.
+      anchor = bulletAt > anchor ? bulletAt : anchor + 1;
+      continue;
+    }
+    const start = skipWsWhile(section, bulletAt + mark);
+    let end = start;
+    for (;;) {
+      const nl = section.indexOf('\n', end);
+      if (nl === -1) {
+        end = n;
+        break;
+      }
+      if (bulletLengthAt(section, skipWsWhile(section, nl + 1)) > 0) {
+        // After any blank/whitespace lines a new marker starts: stop before
+        // consuming this newline.
+        end = nl;
+        break;
+      }
+      const nextNl = section.indexOf('\n', nl + 1);
+      end = nextNl === -1 ? n : nextNl;
+    }
+    const cleaned = section.slice(start, end).replace(/\n\s+/g, ' ').trim();
+    if (cleaned) {
+      items.push(cleaned);
+    }
+    anchor = end;
+  }
+  return items;
+}
+
 function capturePassive(deps, args) {
   const { jsonErrNoExit, insertCapturePassiveObservation, findLatestSession } = deps;
   const content = args.content;
@@ -92,16 +169,7 @@ function capturePassive(deps, args) {
     return { extracted: 0, items: [] };
   }
 
-  const section = match[1];
-  const itemRe = /(?:^|\n)\s*(?:[-*]|\d+[.)])\s*([^\n]*(?:\n(?!\s*(?:[-*]|\d+[.)])\s*)[^\n]*)*)/g;
-  const items = [];
-  let m;
-  while ((m = itemRe.exec(section)) !== null) {
-    const cleaned = m[1].replace(/\n\s+/g, ' ').trim();
-    if (cleaned) {
-      items.push(cleaned);
-    }
-  }
+  const items = extractLearningItems(match[1]);
 
   let inserted = 0;
   const sessionId = findLatestSession(null);
@@ -123,7 +191,10 @@ function suggestTopicKey(args) {
   const key = source
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    // Anchored single-pass trims (the former global `^-+|-+$` alternation
+    // re-scanned every position with quadratic backtracking on dash runs).
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
     .replace(/-+/g, '-');
   return { topic_key: key || 'untitled' };
 }

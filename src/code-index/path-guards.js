@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { pathIsInside, SECRET_FILE_RE } = require('./scanner');
+const { pathIsInside, isSecretFilePath } = require('./scanner');
 
 /**
  * Resolve a changed-path entry to an absolute path inside repoRoot.
@@ -38,7 +38,7 @@ function resolveRepoScopedPath(repoPath, filePath, rejections) {
     }
     return null;
   }
-  if (SECRET_FILE_RE.test(resolved.replace(/\\/g, '/'))) {
+  if (isSecretFilePath(resolved)) {
     if (rejections) {
       rejections.push({ path: filePath, reason: 'secret_file' });
     }
@@ -69,7 +69,7 @@ function resolveRepoScopedDeletedPath(absRoot, filePath, rejections) {
     }
     return null;
   }
-  if (SECRET_FILE_RE.test(abs.replace(/\\/g, '/'))) {
+  if (isSecretFilePath(abs)) {
     if (rejections) {
       rejections.push({ path: filePath, reason: 'secret_file' });
     }
