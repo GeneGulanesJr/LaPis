@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `memory-save-classified` tool — atomic LaPis memory-save + LayaMCP
+  classification. Refuses prompt injections by default. New module
+  `src/memory-domain/laya-mcp.js` provides the LayaMCP HTTP client.
+  Configurable via `LAPIS_LAYAMCP_URL`, `LAPIS_LAYAMCP_ENABLED`,
+  `LAPIS_LAYAMCP_TIMEOUT_MS`.
+
 ## [1.2.0] - 2026-09-07
 
 Security hardening, correctness, and resilience release: a full code review

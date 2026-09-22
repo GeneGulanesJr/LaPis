@@ -25,6 +25,7 @@ describe('MCP tool catalog', () => {
         'memory-load-context',
         'memory-related',
         'memory-save',
+        'memory-save-classified',
         'memory-search',
         'memory-sync-code-trust',
         'memory-update',
@@ -372,6 +373,8 @@ describe('startMcpServer', () => {
 function sampleParams(name) {
   switch (name) {
     case 'memory-save':
+      return { title: 'T', content: 'C' };
+    case 'memory-save-classified':
       return { title: 'T', content: 'C' };
     case 'memory-search':
       return { query: 'q' };
