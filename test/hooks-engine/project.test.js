@@ -117,6 +117,10 @@ describe('hooks-engine project: resolveIndexedRepo', () => {
 describe('hooks-engine project: resolveProjectKey', () => {
   const repos = [{ name: 'my-monorepo', path: '/repos/my-monorepo' }];
 
+  afterEach(() => {
+    delete process.env.LAPIS_PROJECT_KEY;
+  });
+
   test('returns indexed repo name for monorepo subdirectories', () => {
     expect(resolveProjectKey('/repos/my-monorepo/packages/foo', repos)).toBe('my-monorepo');
   });
@@ -127,5 +131,31 @@ describe('hooks-engine project: resolveProjectKey', () => {
 
   test('uses knownProjects up-tree walk before basename', () => {
     expect(resolveProjectKey('/home/me/lapis/src', [], ['lapis'])).toBe('lapis');
+  });
+
+  // Aelvyril D7: per-conversation namespace override. When the gateway
+  // spawns a pi child for a Clerk user, it injects LAPIS_PROJECT_KEY=user:<id>
+  // so multi-user access to the same repo doesn't collide on basename(cwd).
+  test('LAPIS_PROJECT_KEY preempts indexed-repo and basename resolution', () => {
+    process.env.LAPIS_PROJECT_KEY = 'user:user_alice';
+    // Even when cwd looks like a monorepo subdir, the env wins.
+    expect(resolveProjectKey('/repos/my-monorepo/packages/foo', repos)).toBe('user:user_alice');
+    // And when cwd has no matching repo, the env still wins (no basename fallback).
+    expect(resolveProjectKey('/tmp/standalone', repos)).toBe('user:user_alice');
+  });
+
+  test('LAPIS_PROJECT_KEY is lowercased (matches upstream projectFromCwd semantics)', () => {
+    process.env.LAPIS_PROJECT_KEY = 'USER:User_Alice';
+    expect(resolveProjectKey('/tmp/standalone', repos)).toBe('user:user_alice');
+  });
+
+  test('empty LAPIS_PROJECT_KEY falls through to existing resolution', () => {
+    process.env.LAPIS_PROJECT_KEY = '   ';
+    expect(resolveProjectKey('/repos/my-monorepo/packages/foo', repos)).toBe('my-monorepo');
+  });
+
+  test('unset LAPIS_PROJECT_KEY falls through (backward compatible)', () => {
+    delete process.env.LAPIS_PROJECT_KEY;
+    expect(resolveProjectKey('/repos/my-monorepo/packages/foo', repos)).toBe('my-monorepo');
   });
 });
