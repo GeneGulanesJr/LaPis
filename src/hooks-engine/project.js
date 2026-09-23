@@ -133,6 +133,12 @@ function resolveIndexedRepo(resolvedCwd, repos, currentProject) {
  * @returns {string}
  */
 function resolveProjectKey(resolvedCwd, repos, knownProjects) {
+  // Aelvyril D7: per-conversation namespace override. When the gateway
+  // spawns a pi child for a Clerk user, it injects LAPIS_PROJECT_KEY=user:<id>
+  // so multi-user access to the same repo doesn't collide on basename(cwd).
+  // Backward compatible — unset env falls through to existing resolution.
+  const envKey = process.env.LAPIS_PROJECT_KEY;
+  if (envKey && envKey.trim()) return envKey.trim().toLowerCase();
   const repo = findMatchingRepo(resolvedCwd, repos);
   if (repo?.name) {
     return repo.name.toLowerCase();
