@@ -3,6 +3,12 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Git tag to publish (e.g. v1.2.0). Defaults to the current ref.'
+        required: false
+        type: string
 
 jobs:
   # ── Gate: validate the packed tarball as a real consumer would install it ──
@@ -29,10 +35,10 @@ jobs:
   publish:
     needs: [pack-verify, test]
     runs-on: ubuntu-latest
-    environment: publish
+    environment: lapis
     permissions:
       contents: read
-      id-token: write # OIDC for npm Trusted Publishing
+      id-token: write # OIDC for npm --provenance
     steps:
       - uses: actions/checkout@v4
 
@@ -45,10 +51,15 @@ jobs:
 
       # Verify package.json version matches the release tag
       - name: Verify version matches tag
+        env:
+          TAG_NAME: ${{ inputs.tag || github.ref_name }}
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${TAG_NAME#v}"
           echo "package.json: $PKG_VERSION  |  tag: $TAG_VERSION"
           [ "$PKG_VERSION" = "$TAG_VERSION" ] || { echo "::error::Version mismatch — tag=$TAG_VERSION pkg=$PKG_VERSION"; exit 1; }
 
-      - run: npm publish --provenance --access public
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.ACCESSTOKEN }}
+        run: npm publish --provenance --access public
