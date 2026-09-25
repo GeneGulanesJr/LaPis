@@ -1,0 +1,96 @@
+name: Auto Release
+
+# Bump `version` in package.json, push to main → this tags v{version},
+# creates a GitHub Release with generated notes, and publishes to npm.
+# No other manual steps required.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+  workflow_dispatch: # manual escape hatch — e.g. when the bump commit landed before this file existed
+
+permissions:
+  contents: write # push tag + create release
+
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ── Gate: same quality bar as the publish workflow, before any tag exists ──
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      should_release: ${{ steps.version.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need full history to see existing tags
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check version is untagged
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null \
+            || git rev-parse -q --verify "refs/tags/${VERSION}" >/dev/null; then
+            echo "v${VERSION} already tagged — nothing to release"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v${VERSION} is new — releasing"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: npm ci
+        if: steps.version.outputs.should_release == 'true'
+
+      - run: npm run lint
+        if: steps.version.outputs.should_release == 'true'
+
+      - run: npm test
+        if: steps.version.outputs.should_release == 'true'
+
+  # ── Tag + GitHub Release (notes auto-generated from commits since last tag) ──
+  release:
+    needs: gate
+    if: needs.gate.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: tag
+        run: echo "tag=v${{ needs.gate.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.tag.outputs.tag }}" "$GITHUB_SHA"
+          git push origin "${{ steps.tag.outputs.tag }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" \
+            --title "${{ steps.tag.outputs.tag }}" \
+            --generate-notes \
+            --target "$GITHUB_SHA"
+
+  # ── Reuse the publish pipeline directly (GITHUB_TOKEN releases can't
+  #    trigger `on: release` workflows — GitHub blocks event recursion) ──
+  publish:
+    needs: [gate, release]
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets: inherit
