@@ -11,9 +11,6 @@ on:
       - 'package.json'
   workflow_dispatch: # manual escape hatch — e.g. when the bump commit landed before this file existed
 
-permissions:
-  contents: write # push tag + create release
-
 concurrency:
   group: auto-release-${{ github.ref }}
   cancel-in-progress: false
@@ -62,6 +59,8 @@ jobs:
     needs: gate
     if: needs.gate.outputs.should_release == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # push tag + create release
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
