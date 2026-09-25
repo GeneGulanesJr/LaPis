@@ -89,6 +89,9 @@ jobs:
   #    trigger `on: release` workflows — GitHub blocks event recursion) ──
   publish:
     needs: [gate, release]
+    permissions:
+      contents: read
+      id-token: write # caller must grant this — nested jobs can never exceed the top-level run's scopes
     uses: ./.github/workflows/publish.yml
     with:
       tag: ${{ needs.release.outputs.tag }}
