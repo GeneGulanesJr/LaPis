@@ -68,6 +68,14 @@ jobs:
           echo "package.json: $PKG_VERSION  |  tag: $TAG_VERSION"
           [ "$PKG_VERSION" = "$TAG_VERSION" ] || { echo "::error::Version mismatch — tag=$TAG_VERSION pkg=$PKG_VERSION"; exit 1; }
 
+      # TEMP DEBUG: print the OIDC identity GitHub presents to npm — compare with
+      # the Trusted Publisher form on npmjs.com field by field, then remove me.
+      - name: Debug OIDC claims
+        run: |
+          echo "npm version: $(npm --version)"
+          TOKEN=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}" | jq -r '.value')
+          echo "$TOKEN" | cut -d. -f2 | python3 -c "import sys,base64,json;s=sys.stdin.read().strip();s+='='*(-len(s)%4);c=json.loads(base64.urlsafe_b64decode(s));print(json.dumps({k:c.get(k) for k in ['aud','repository','repository_owner','workflow','workflow_ref','job_workflow_ref','ref','environment','sub']},indent=2))"
+
       # Authenticates via OIDC trusted publishing — no npm token needed.
       # npmjs.com package settings must list this workflow as a Trusted Publisher.
       - name: Publish to npm
