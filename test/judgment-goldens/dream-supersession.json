@@ -1,0 +1,17 @@
+{
+  "surface": "dream",
+  "name": "dream-supersession",
+  "policy": { "threshold": 0.6, "expectBlocked": ["sup-1"], "expectWarned": [] },
+  "questions": [
+    {
+      "id": "sup-1",
+      "judgment": { "kind": "probability", "claim": "Memory #12 (v1 auth flow) is fully superseded by memory #48 (v2 auth flow)" },
+      "instructions": "Decide whether the first memory is fully superseded — nothing unique remains — by the second. Answer p = probability of full supersession.",
+      "state": {
+        "memory_a": { "id": 12, "title": "Auth flow v1 — session cookie design", "content": "**What**: session cookie flow… **Why**: single-host…" },
+        "memory_b": { "id": 48, "title": "Auth flow v2 — session cookie + CSRF redesign", "content": "**What**: replaces v1 session cookie flow with… **Why**: CSRF hardening…" }
+      }
+    }
+  ],
+  "expected": [{ "id": "sup-1", "p": 0.95, "confidence": 0.9 }]
+}
