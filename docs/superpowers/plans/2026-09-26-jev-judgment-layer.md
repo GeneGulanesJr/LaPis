@@ -6,7 +6,7 @@
 
 **Architecture:** LaPis owns the judgment vocabulary (`classify` / `probability` / `grade`). Providers are adapters behind `JudgeAdapter`. `judge()` never throws: off/missing-key/timeout/malformed all return `unavailable`/`invalid` and call sites fall back to existing heuristics. Polarity ("dangerous" answers) is declared on questions and evaluated only via pure functions in `evaluate.js`.
 
-**Tech Stack:** Node CJS (`.js` + JSDoc — house style for `src/`; the spec's `.ts` sketch is aligned to this), vitest, oxlint + oxfmt (`npm run check`). Jev wire contract ported from the proven RetellMCP `qa/jev.mjs` (POST `https://api.typesafe.ai/v1/systemone`, Bearer `TYPESAFE_API_KEY`, body `{model, state, questions}`, reply `{answers: {id: {noul|choice|score, confidence}}, model, usage}`).
+**Tech Stack:** Node CJS (`.js` + JSDoc — house style for `src/`; the spec's `.ts` sketch is aligned to this), vitest **with globals** (existing tests never import vitest — do NOT add `require('vitest')`), oxlint + oxfmt (`npm run check`). Jev wire contract ported from the proven RetellMCP `qa/jev.mjs` (POST `https://api.typesafe.ai/v1/systemone`, Bearer `TYPESAFE_API_KEY`, body `{model, state, questions}`, reply `{answers: {id: {noul|choice|score, confidence}}, model, usage}`).
 
 **Spec:** `docs/superpowers/specs/2026-09-26-jev-judgment-layer-design.md`
 
@@ -67,7 +67,7 @@ Expected: `Switched to a new branch 'feat/judgment-layer'`
 
 ```js
 // test/judgment-internal.test.js
-const { describe, it, expect } = require('vitest');
+// vitest globals are enabled (house style); do not import vitest
 const { normalizeScore, band, capText, chunk, CONFIDENT_THRESHOLD } = require('../src/judgment/internal');
 
 describe('normalizeScore', () => {
@@ -132,9 +132,8 @@ const CONFIDENT_THRESHOLD = 0.6;
 
 /** Coerce to a finite float in [0,1]; null when not numeric. (Contract rule R2.) */
 function normalizeScore(x) {
-  const n = Number(x);
-  if (!Number.isFinite(n)) return null;
-  return Math.min(1, Math.max(0, n));
+  if (typeof x !== 'number' || !Number.isFinite(x)) return null; // Number(null)===0 and Number('0.9') coerce — guard type first
+  return Math.min(1, Math.max(0, x));
 }
 
 /** Ordered banding, inclusive lower bounds. thresholds: {high, medium} upper bounds. */
@@ -185,7 +184,7 @@ git commit -m "feat(judgment): shared kernel (normalizeScore/band/capText/chunk,
 
 ```js
 // test/judgment-contract.test.js
-const { describe, it, expect } = require('vitest');
+// vitest globals are enabled (house style); do not import vitest
 const { assertValidQuestion, assertValidAnswers, SURFACES } = require('../src/judgment/contract');
 
 const classifyQ = {
@@ -349,7 +348,7 @@ git commit -m "feat(judgment): LaPis-owned contract types + boundary validators"
 
 ```js
 // test/judgment-evaluate.test.js
-const { describe, it, expect } = require('vitest');
+// vitest globals are enabled (house style); do not import vitest
 const { evaluate } = require('../src/judgment/evaluate');
 
 const blockBad = {
@@ -488,7 +487,7 @@ git commit -m "feat(judgment): pure policy evaluation — declarative polarity, 
 
 ```js
 // test/judgment-heuristic.test.js
-const { describe, it, expect } = require('vitest');
+// vitest globals are enabled (house style); do not import vitest
 const { createHeuristicAdapter } = require('../src/judgment/adapters/heuristic');
 
 describe('heuristic adapter', () => {
@@ -566,7 +565,7 @@ Bearer `TYPESAFE_API_KEY`, body `{model, state, questions}`, reply `{answers:{id
 ```js
 // test/judgment-jev.test.js
 // Wire tests via injected fetchImpl — NO network, ungated (spec §11.1).
-const { describe, it, expect, vi } = require('vitest');
+// vitest globals are enabled (house style): describe/it/expect/vi are globals — do not import vitest
 const { createJevAdapter } = require('../src/judgment/adapters/jev');
 
 const probQ = {
@@ -1197,7 +1196,7 @@ Each golden: `{surface, questions, expected, policy:{threshold, expectBlocked, e
 // PURE pipeline (contract → evaluate) on expected answers, and shape-checks the
 // jev translation — all with NO network. A future provider passes these same
 // files through its adapter; that is the switch acceptance run.
-const { describe, it, expect } = require('vitest');
+// vitest globals are enabled (house style); do not import vitest
 const fs = require('fs');
 const path = require('path');
 const { assertValidQuestion, assertValidAnswers } = require('../src/judgment/contract');

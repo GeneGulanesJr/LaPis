@@ -1,4 +1,4 @@
-const { describe, it, expect } = await import('vitest');
+// vitest globals are enabled (house style — see test/changed-paths.test.js); never import vitest
 const { normalizeScore, band, capText, chunk, CONFIDENT_THRESHOLD } = require('../src/judgment/internal');
 
 describe('normalizeScore', () => {
