@@ -181,6 +181,11 @@ function loadConfig() {
       cleaned = stripJsoncComments(raw),
       userConfig = JSON.parse(cleaned),
       merged = deepMerge(DEFAULTS, userConfig);
+    // deepMerge passes keys ABSENT from userConfig through by reference, so
+    // merged.judgment may alias DEFAULTS.judgment. applyEnvOverrides mutates
+    // nested judgment fields (provider/disables) — re-clone the section first
+    // or every load would pollute the shared DEFAULTS object.
+    merged.judgment = deepMerge(DEFAULTS.judgment, merged.judgment || {});
     merged.db_path = expandTilde(merged.db_path);
     merged.tier_config_path = expandTilde(merged.tier_config_path);
     applyEnvOverrides(merged);
@@ -191,10 +196,10 @@ function loadConfig() {
     } else if (e.code !== 'ENOENT') {
       console.error(`[config] Error reading ${CONFIG_PATH}: ${e.message}`);
     }
-    // deepMerge (not { ...DEFAULTS }): the fallback must deep-copy nested
-    // sections — applyEnvOverrides mutates config.judgment.disables etc., and a
-    // shallow copy would leak those mutations into the shared DEFAULTS object.
-    const fallback = deepMerge(DEFAULTS, {});
+    // structuredClone (not deepMerge(DEFAULTS, {})): deepMerge shallow-copies
+    // target-only keys, so the fallback would still alias DEFAULTS.judgment and
+    // applyEnvOverrides would pollute the shared DEFAULTS on every load.
+    const fallback = structuredClone(DEFAULTS);
     applyEnvOverrides(fallback);
     return fallback;
   }
