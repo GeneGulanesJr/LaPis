@@ -34,6 +34,20 @@ const path = require('path'),
     tool_guardrails: {
       enabled: true, // Master toggle — set false to disable raw grep/find + unread-file guardrails
     },
+    // Provider-agnostic semantic judgments (docs/JUDGMENT.md, spec 2026-09-26).
+    // DEFAULT OFF — LaPis is zero-cloud/zero-keys by identity (spec §4);
+    // opting in requires LAPIS_JUDGE_PROVIDER=jev AND a machine-scoped
+    // TYPESAFE_API_KEY. Off = every call site keeps its heuristic fallback.
+    judgment: {
+      provider: 'heuristic', // 'heuristic' | 'jev' | 'off'
+      timeout_ms: 5000,
+      max_retries: 2,
+      local_only: false, // kill switch: force heuristic path everywhere
+      confident_threshold: 0.6,
+      breaker_threshold: 3, // consecutive failures before the breaker opens
+      breaker_cooldown_ms: 60000,
+      disables: {}, // per-surface opt-outs, e.g. { dream: true }
+    },
   };
 
 function deepMerge(target, source) {
@@ -141,6 +155,22 @@ function applyEnvOverrides(config) {
       if (parsed > 0) {
         config.async_index_file_threshold = parsed;
       }
+    }
+  }
+  const j = config.judgment || (config.judgment = {});
+  if (process.env.LAPIS_JUDGE_PROVIDER) j.provider = process.env.LAPIS_JUDGE_PROVIDER;
+  if (process.env.LAPIS_JUDGE_TIMEOUT_MS) {
+    const n = parseInt(process.env.LAPIS_JUDGE_TIMEOUT_MS, 10);
+    if (Number.isFinite(n)) j.timeout_ms = n;
+  }
+  if (process.env.LAPIS_JUDGE_LOCAL_ONLY === '1' || process.env.LAPIS_JUDGE_LOCAL_ONLY === 'true') {
+    j.local_only = true;
+  }
+  for (const [k, v] of Object.entries(process.env)) {
+    const m = /^LAPIS_JUDGE_DISABLE_([A-Z0-9_]+)$/.exec(k);
+    if (m && (v === '1' || v === 'true')) {
+      j.disables = j.disables || {};
+      j.disables[m[1].toLowerCase()] = true;
     }
   }
 }
