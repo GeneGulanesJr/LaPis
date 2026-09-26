@@ -1,7 +1,7 @@
 import { AUTO_DECISION_COOLDOWN, CHECKPOINT_INTERVAL, state } from '../state';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { mem, memCmd } from '../host/memory-client';
-import { shouldAutoCapture } from './pattern-matcher';
+import { shouldAutoCapture, shouldAutoCaptureWithJudge } from './pattern-matcher';
 import path from 'node:path';
 
 // Engine delegation (pure transport-agnostic core).
@@ -12,6 +12,22 @@ import {
   shouldCheckpoint,
   shouldDream,
 } from '../../../src/hooks-engine/passive-capture.js';
+
+// Slice 2: judgment-backed auto-save (default provider = heuristic → inert
+// unless LAPIS_JUDGE_PROVIDER=jev). Failures degrade to regex-only behavior
+// inside shouldAutoCaptureWithJudge.
+import { createJudge } from '../../../src/judgment/index.js';
+import { createJevAdapter } from '../../../src/judgment/adapters/jev.js';
+import { getConfig } from '../../../config.js';
+
+let _judge: ReturnType<typeof createJudge> | null = null;
+function getJudge() {
+  if (_judge) return _judge;
+  const cfg = getConfig().judgment || ({} as any);
+  const adapters = cfg.provider === 'jev' ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) } : {};
+  _judge = createJudge({ config: getConfig(), adapters });
+  return _judge;
+}
 
 interface PassiveCaptureDeps {
   state: typeof state;
@@ -57,13 +73,13 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
     }
 
     {
-      const capture = shouldAutoCapture(text),
-        payload = buildAutoDecisionPayload({
-          text,
-          capture,
-          project: deps.state.currentProject,
-          sessionId: deps.state.sessionId,
-        });
+      const capture = await shouldAutoCaptureWithJudge(text, { judge: getJudge() });
+      const payload = buildAutoDecisionPayload({
+        text,
+        capture,
+        project: deps.state.currentProject,
+        sessionId: deps.state.sessionId,
+      });
       if (payload) {
         deps.state.lastAutoDecisionSave = Date.now();
         await deps.mem('save', payload);

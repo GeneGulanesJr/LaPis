@@ -85,4 +85,54 @@ function shouldAutoCapture(text) {
   return { match: false, confidence: 'low' };
 }
 
-module.exports = { shouldAutoCapture, DECISION_PATTERNS, HEDGING_SIGNALS, CONFIDENCE_SIGNALS };
+// Slice 2: regex-first cascade (spec §10). High/medium regex matches return
+// exactly as today — the judgment runs ONLY on no-match, and any judgment
+// failure is indistinguishable from a no-match. Never throws.
+const AUTOSAVE_ENUM = ['decision', 'bugfix', 'discovery', 'architecture', 'pattern', 'nothing'];
+
+async function shouldAutoCaptureWithJudge(text, { judge, floor } = {}) {
+  const base = shouldAutoCapture(text);
+  if (base.match || base.confidence === 'high') return base;
+  if (!judge || !text || text.length < 150) return base; // same 150-char gate as shouldAutoCapture
+  try {
+    const result = await judge(
+      [
+        {
+          id: 'autosave-0',
+          judgment: { kind: 'classify', enum: AUTOSAVE_ENUM, dangerous: 'nothing' },
+          instructions:
+            'Classify this assistant message for persistent-memory saving. Choose the single best type, or nothing if the message is routine work not worth saving as a memory. Marking real content as nothing is the dangerous outcome.',
+          state: { message: text.slice(0, 4000) },
+        },
+      ],
+      { surface: 'autosave' },
+    );
+    if (!result || result.status !== 'ok') return base;
+    const a = result.answers && result.answers[0];
+    const minConf = typeof floor === 'number' ? floor : 0.6;
+    if (
+      !a ||
+      a.pick === 'nothing' ||
+      a.pick === undefined ||
+      typeof a.confidence !== 'number' ||
+      a.confidence < minConf
+    )
+      return base;
+    return {
+      match: true,
+      confidence: 'medium',
+      source: 'judgment',
+      pattern: { type: a.pick, label: 'Jev semantic match', minConfidence: 'medium' },
+    };
+  } catch {
+    return base;
+  }
+}
+
+module.exports = {
+  shouldAutoCapture,
+  shouldAutoCaptureWithJudge,
+  DECISION_PATTERNS,
+  HEDGING_SIGNALS,
+  CONFIDENCE_SIGNALS,
+};
