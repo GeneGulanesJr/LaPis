@@ -1,0 +1,18 @@
+{
+  "surface": "autosave",
+  "name": "autosave-classify",
+  "policy": { "threshold": 0.6, "expectBlocked": [], "expectWarned": [] },
+  "questions": [
+    {
+      "id": "msg-1",
+      "judgment": {
+        "kind": "classify",
+        "enum": ["decision", "bugfix", "discovery", "pattern", "nothing"],
+        "dangerous": "nothing"
+      },
+      "instructions": "Classify this assistant message for persistent-memory saving. 'nothing' means it is not worth saving. Marking real content as nothing is the dangerous outcome.",
+      "state": { "message": "Chose vitest over node:test because mutation-score diffing needs per-file filtering." }
+    }
+  ],
+  "expected": [{ "id": "msg-1", "pick": "decision", "confidence": 0.88 }]
+}
