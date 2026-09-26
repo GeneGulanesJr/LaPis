@@ -16,13 +16,15 @@ import {
 // Slice 2: judgment-backed auto-save (default provider = heuristic → inert
 // unless LAPIS_JUDGE_PROVIDER=jev). Failures degrade to regex-only behavior
 // inside shouldAutoCaptureWithJudge.
-import { createJudge } from '../../../src/judgment/index.js';
-import { createJevAdapter } from '../../../src/judgment/adapters/jev.js';
 import { getConfig } from '../../../config.js';
+import { createJevAdapter } from '../../../src/judgment/adapters/jev.js';
+import { createJudge } from '../../../src/judgment/index.js';
 
 let _judge: ReturnType<typeof createJudge> | null = null;
 function getJudge() {
-  if (_judge) return _judge;
+  if (_judge) {
+    return _judge;
+  }
   const cfg = getConfig().judgment || ({} as any);
   const adapters = cfg.provider === 'jev' ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) } : {};
   _judge = createJudge({ config: getConfig(), adapters });
