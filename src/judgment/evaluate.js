@@ -39,7 +39,10 @@ function evaluate({ questions, answers, threshold, strictConfidence = false }) {
     const conf = typeof confidence === 'number' && Number.isFinite(confidence) ? confidence : null;
     if (conf === null || conf < floor) {
       if (strictConfidence) {
-        escalated.push({ id: a.id, reason: `dangerous answer with ${conf === null ? 'missing' : 'sub-floor'} confidence ${conf}` });
+        escalated.push({
+          id: a.id,
+          reason: `dangerous answer with ${conf === null ? 'missing' : 'sub-floor'} confidence ${conf}`,
+        });
       } else {
         warned.push({ id: a.id, reason: `dangerous answer below confidence floor (${conf})` });
       }

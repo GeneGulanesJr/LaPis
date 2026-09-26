@@ -61,7 +61,9 @@ function createJudge({ config, adapters } = {}) {
       const timeoutMs = Number(c.timeout_ms ?? 5000);
       const result = await Promise.race([
         Promise.resolve(adapter.judge(questions)),
-        new Promise((resolve) => setTimeout(() => resolve({ status: 'unavailable', reason: `judge timeout after ${timeoutMs}ms` }), timeoutMs)),
+        new Promise((resolve) =>
+          setTimeout(() => resolve({ status: 'unavailable', reason: `judge timeout after ${timeoutMs}ms` }), timeoutMs),
+        ),
       ]);
       if (result && result.status === 'ok') {
         consecutiveFailures = 0;

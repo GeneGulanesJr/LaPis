@@ -29,10 +29,19 @@ describe('assertValidQuestion', () => {
     expect(() => assertValidQuestion({ ...classifyQ, judgment: { kind: 'classify', enum: [] } })).toThrow(/enum/);
   });
   it('rejects probability without claim', () => {
-    expect(() => assertValidQuestion({ id: 'x', judgment: { kind: 'probability' }, instructions: 'i', state: { a: 1 } })).toThrow(/claim/);
+    expect(() =>
+      assertValidQuestion({ id: 'x', judgment: { kind: 'probability' }, instructions: 'i', state: { a: 1 } }),
+    ).toThrow(/claim/);
   });
   it('rejects grade without 2+ levels', () => {
-    expect(() => assertValidQuestion({ id: 'x', judgment: { kind: 'grade', levels: ['only'] }, instructions: 'i', state: { a: 1 } })).toThrow(/levels/);
+    expect(() =>
+      assertValidQuestion({
+        id: 'x',
+        judgment: { kind: 'grade', levels: ['only'] },
+        instructions: 'i',
+        state: { a: 1 },
+      }),
+    ).toThrow(/levels/);
   });
 });
 
@@ -46,9 +55,9 @@ describe('assertValidAnswers', () => {
   });
   it('rejects unknown answer ids and kind/field mismatches (R3: malformed = invalid)', () => {
     expect(() => assertValidAnswers([probQ], [{ id: 'nope', p: 1, confidence: 1 }])).toThrow(/unknown answer id/);
-    expect(() => assertValidAnswers([probQ], [{ id: 'superseded', confidence: 0.9 }])).toThrow(/p/);          // missing p
+    expect(() => assertValidAnswers([probQ], [{ id: 'superseded', confidence: 0.9 }])).toThrow(/p/); // missing p
     expect(() => assertValidAnswers([probQ], [{ id: 'superseded', p: 'high', confidence: 0.9 }])).toThrow(/p/); // non-numeric p
-    expect(() => assertValidAnswers([probQ], [{ id: 'superseded', p: 5, confidence: 0.9 }])).toThrow(/p/);      // out of range
+    expect(() => assertValidAnswers([probQ], [{ id: 'superseded', p: 5, confidence: 0.9 }])).toThrow(/p/); // out of range
     expect(() => assertValidAnswers([classifyQ], [{ id: 'msg-type', pick: 'alien', confidence: 0.9 }])).toThrow(/enum/);
     expect(() => assertValidAnswers([probQ], [{ id: 'superseded', p: 0.5 }])).toThrow(/confidence/);
   });

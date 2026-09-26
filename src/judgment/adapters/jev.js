@@ -62,7 +62,8 @@ function createJevAdapter({ apiKey, endpoint, fetchImpl, model, timeoutMs, maxRe
     },
     async judge(questions) {
       // 1. missing key → unavailable BEFORE any work (P1 #2)
-      if (!apiKey) return { status: 'unavailable', reason: 'TYPESAFE_API_KEY not set (machine-scoped; never project .env)' };
+      if (!apiKey)
+        return { status: 'unavailable', reason: 'TYPESAFE_API_KEY not set (machine-scoped; never project .env)' };
       // 2. validate + translate questions → invalid without fetching
       let wireQuestions;
       try {

@@ -34,7 +34,15 @@ describe('jev adapter — request side', () => {
     let captured;
     const fetchImpl = vi.fn(async (url, opts) => {
       captured = { url, opts, body: JSON.parse(opts.body) };
-      return jsonResponse({ answers: { sup: { noul: 0.2, confidence: 0.8 }, type: { choice: 'decision', confidence: 0.9 }, rel: { score: 1, confidence: 0.7 } }, model: 'jev', usage: {} });
+      return jsonResponse({
+        answers: {
+          sup: { noul: 0.2, confidence: 0.8 },
+          type: { choice: 'decision', confidence: 0.9 },
+          rel: { score: 1, confidence: 0.7 },
+        },
+        model: 'jev',
+        usage: {},
+      });
     });
     const a = makeAdapter(fetchImpl);
     const r = await a.judge([probQ, clsQ, gradeQ]);
@@ -42,7 +50,10 @@ describe('jev adapter — request side', () => {
     expect(captured.opts.headers.Authorization).toBe('Bearer k-test');
     expect(captured.body.model).toBe('jev-latest');
     // claim is folded into instructions so the wire question is self-contained
-    expect(captured.body.questions.sup).toEqual({ type: 'noul', instructions: 'Judge supersession. Claim: A superseded by B' });
+    expect(captured.body.questions.sup).toEqual({
+      type: 'noul',
+      instructions: 'Judge supersession. Claim: A superseded by B',
+    });
     // polarity is NOT annotated into criteria — dangerous-marking lives in evaluate.js only
     expect(captured.body.questions.type.criteria).toEqual({ decision: 'decision', nothing: 'nothing' });
     expect(captured.body.questions.rel.criteria).toEqual(['irrelevant', 'related', 'central']);
@@ -54,7 +65,15 @@ describe('jev adapter — request side', () => {
 describe('jev adapter — response side', () => {
   it('maps and normalizes the reply to typed answers', async () => {
     const fetchImpl = vi.fn(async () =>
-      jsonResponse({ answers: { sup: { noul: 0.2, confidence: 0.8 }, type: { choice: 'decision', confidence: 0.9 }, rel: { score: 2, confidence: 0.7 } }, model: 'jev', usage: {} })
+      jsonResponse({
+        answers: {
+          sup: { noul: 0.2, confidence: 0.8 },
+          type: { choice: 'decision', confidence: 0.9 },
+          rel: { score: 2, confidence: 0.7 },
+        },
+        model: 'jev',
+        usage: {},
+      }),
     );
     const r = await makeAdapter(fetchImpl).judge([probQ, clsQ, gradeQ]);
     expect(r.status).toBe('ok');
@@ -85,7 +104,9 @@ describe('jev adapter — response side', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
   it('network throw → unavailable after retries', async () => {
-    const fetchImpl = vi.fn(async () => { throw new Error('ECONNREFUSED'); });
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('ECONNREFUSED');
+    });
     const r = await makeAdapter(fetchImpl, { maxRetries: 1 }).judge([probQ]);
     expect(r.status).toBe('unavailable');
     expect(fetchImpl).toHaveBeenCalledTimes(2); // 1 + maxRetries

@@ -4,7 +4,16 @@ const { createJudge } = require('../src/judgment/index');
 const q = { id: 'a', judgment: { kind: 'probability', claim: 'c' }, instructions: 'i', state: { s: 1 } };
 
 function fakeConfig(over = {}) {
-  return { judgment: { provider: 'jev', timeout_ms: 50, breaker_threshold: 2, breaker_cooldown_ms: 100, disables: {}, ...over } };
+  return {
+    judgment: {
+      provider: 'jev',
+      timeout_ms: 50,
+      breaker_threshold: 2,
+      breaker_cooldown_ms: 100,
+      disables: {},
+      ...over,
+    },
+  };
 }
 
 describe('createJudge — total-function guarantee (spec §7)', () => {
@@ -39,7 +48,10 @@ describe('createJudge — total-function guarantee (spec §7)', () => {
     expect(r.reason).toMatch(/timeout/i);
   });
   it('happy path passes adapter answers through', async () => {
-    const ok = { name: 'jev', judge: vi.fn(async () => ({ status: 'ok', answers: [{ id: 'a', p: 0.25, confidence: 0.8 }] })) };
+    const ok = {
+      name: 'jev',
+      judge: vi.fn(async () => ({ status: 'ok', answers: [{ id: 'a', p: 0.25, confidence: 0.8 }] })),
+    };
     const j = createJudge({ config: fakeConfig(), adapters: { jev: ok } });
     const r = await j.judge([q]);
     expect(r.status).toBe('ok');
@@ -51,7 +63,10 @@ describe('circuit breaker', () => {
   it('opens after threshold consecutive failures; calls skip the adapter; recovers after cooldown', async () => {
     vi.useFakeTimers();
     const failing = { name: 'jev', judge: vi.fn(async () => ({ status: 'unavailable', reason: 'HTTP 503' })) };
-    const j = createJudge({ config: fakeConfig({ breaker_threshold: 2, breaker_cooldown_ms: 100 }), adapters: { jev: failing } });
+    const j = createJudge({
+      config: fakeConfig({ breaker_threshold: 2, breaker_cooldown_ms: 100 }),
+      adapters: { jev: failing },
+    });
     await j.judge([q]);
     await j.judge([q]);
     expect(failing.judge).toHaveBeenCalledTimes(2);
@@ -72,7 +87,11 @@ describe('circuit breaker', () => {
 });
 
 it('heuristic default: createJudge() with no adapters uses heuristic and is unavailable', async () => {
-  const j = createJudge({ config: { judgment: { provider: 'heuristic', timeout_ms: 50, breaker_threshold: 3, breaker_cooldown_ms: 100, disables: {} } } });
+  const j = createJudge({
+    config: {
+      judgment: { provider: 'heuristic', timeout_ms: 50, breaker_threshold: 3, breaker_cooldown_ms: 100, disables: {} },
+    },
+  });
   const r = await j.judge([q]);
   expect(r.status).toBe('unavailable');
 });

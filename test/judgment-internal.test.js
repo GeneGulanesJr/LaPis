@@ -6,7 +6,7 @@ describe('normalizeScore', () => {
     expect(normalizeScore(0.5)).toBe(0.5);
     expect(normalizeScore(-1)).toBe(0);
     expect(normalizeScore(2)).toBe(1);
-    expect(normalizeScore(1)).toBe(1);        // integer input still allowed, value is float
+    expect(normalizeScore(1)).toBe(1); // integer input still allowed, value is float
   });
   it('returns null for non-numeric (incl. NaN)', () => {
     expect(normalizeScore(NaN)).toBeNull();
@@ -20,7 +20,7 @@ describe('band', () => {
   // ONE convention: inclusive lower bounds everywhere (spec §12).
   it('bands with inclusive lower bounds', () => {
     expect(band(0.9, { high: 0.8, medium: 0.5 })).toBe('high');
-    expect(band(0.8, { high: 0.8, medium: 0.5 })).toBe('high');   // inclusive
+    expect(band(0.8, { high: 0.8, medium: 0.5 })).toBe('high'); // inclusive
     expect(band(0.5, { high: 0.8, medium: 0.5 })).toBe('medium'); // inclusive
     expect(band(0.1, { high: 0.8, medium: 0.5 })).toBe('low');
   });

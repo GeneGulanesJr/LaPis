@@ -16,18 +16,31 @@ const probQ = {
 
 describe('evaluate', () => {
   it('blocks dangerous picks at/above the confidence floor', () => {
-    const r = evaluate({ questions: [blockBad], answers: [{ id: 'check', pick: 'unsafe', confidence: 0.9 }], threshold: 0.6 });
+    const r = evaluate({
+      questions: [blockBad],
+      answers: [{ id: 'check', pick: 'unsafe', confidence: 0.9 }],
+      threshold: 0.6,
+    });
     expect(r.blocked.map((b) => b.id)).toEqual(['check']);
     expect(r.ok).toBe(false);
   });
   it('warns (not blocks) on sub-floor dangerous picks (RetellMCP P1 lesson)', () => {
-    const r = evaluate({ questions: [blockBad], answers: [{ id: 'check', pick: 'unsafe', confidence: 0.4 }], threshold: 0.6 });
+    const r = evaluate({
+      questions: [blockBad],
+      answers: [{ id: 'check', pick: 'unsafe', confidence: 0.4 }],
+      threshold: 0.6,
+    });
     expect(r.blocked).toEqual([]);
     expect(r.warned.map((w) => w.id)).toEqual(['check']);
     expect(r.ok).toBe(true);
   });
   it('escalates missing/unknown confidence instead of silently passing (§7 missing evidence)', () => {
-    const r = evaluate({ questions: [blockBad], answers: [{ id: 'check', pick: 'unsafe', confidence: 0.4 }], threshold: 0.6, strictConfidence: true });
+    const r = evaluate({
+      questions: [blockBad],
+      answers: [{ id: 'check', pick: 'unsafe', confidence: 0.4 }],
+      threshold: 0.6,
+      strictConfidence: true,
+    });
     expect(r.escalated.length).toBe(1);
   });
   it('blocks probability when claim is true (p > 0.5) at/above floor', () => {
@@ -38,7 +51,11 @@ describe('evaluate', () => {
     expect(clean.blocked).toEqual([]);
   });
   it('safe picks never block regardless of confidence', () => {
-    const r = evaluate({ questions: [blockBad], answers: [{ id: 'check', pick: 'safe', confidence: 0.1 }], threshold: 0.6 });
+    const r = evaluate({
+      questions: [blockBad],
+      answers: [{ id: 'check', pick: 'safe', confidence: 0.1 }],
+      threshold: 0.6,
+    });
     expect(r.ok).toBe(true);
   });
   it('ignores answers for questions without a declared dangerous answer', () => {

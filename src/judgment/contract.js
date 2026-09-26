@@ -24,7 +24,8 @@ function assertValidQuestion(q) {
   if (!j || typeof j !== 'object') throw new Error('question.judgment is required');
   if (j.kind === 'classify') {
     if (!Array.isArray(j.enum) || j.enum.length === 0) throw new Error('classify judgment requires non-empty enum');
-    if (j.dangerous !== undefined && !j.enum.includes(j.dangerous)) throw new Error('classify.dangerous must be one of enum');
+    if (j.dangerous !== undefined && !j.enum.includes(j.dangerous))
+      throw new Error('classify.dangerous must be one of enum');
   } else if (j.kind === 'probability') {
     if (typeof j.claim !== 'string' || j.claim.length === 0) throw new Error('probability judgment requires claim');
   } else if (j.kind === 'grade') {
@@ -32,7 +33,8 @@ function assertValidQuestion(q) {
   } else {
     throw new Error(`unknown judgment kind: ${j.kind}`);
   }
-  if (typeof q.instructions !== 'string' || q.instructions.length === 0) throw new Error('question.instructions must be a non-empty string');
+  if (typeof q.instructions !== 'string' || q.instructions.length === 0)
+    throw new Error('question.instructions must be a non-empty string');
   if (!q.state || typeof q.state !== 'object' || Array.isArray(q.state) || Object.keys(q.state).length === 0) {
     throw new Error('question.state must be a non-empty object');
   }

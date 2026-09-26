@@ -10,10 +10,13 @@ const { evaluate } = require('../src/judgment/evaluate');
 const { buildWireQuestion } = require('../src/judgment/adapters/jev');
 
 const GOLDEN_DIR = path.join(__dirname, 'judgment-goldens');
-const goldens = fs.readdirSync(GOLDEN_DIR).filter((f) => f.endsWith('.json')).map((f) => ({
-  file: f,
-  golden: JSON.parse(fs.readFileSync(path.join(GOLDEN_DIR, f), 'utf-8')),
-}));
+const goldens = fs
+  .readdirSync(GOLDEN_DIR)
+  .filter((f) => f.endsWith('.json'))
+  .map((f) => ({
+    file: f,
+    golden: JSON.parse(fs.readFileSync(path.join(GOLDEN_DIR, f), 'utf-8')),
+  }));
 
 describe('judgment goldens replay', () => {
   it('has at least the two seed goldens', () => {
