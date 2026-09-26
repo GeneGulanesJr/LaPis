@@ -191,7 +191,10 @@ function loadConfig() {
     } else if (e.code !== 'ENOENT') {
       console.error(`[config] Error reading ${CONFIG_PATH}: ${e.message}`);
     }
-    const fallback = { ...DEFAULTS };
+    // deepMerge (not { ...DEFAULTS }): the fallback must deep-copy nested
+    // sections — applyEnvOverrides mutates config.judgment.disables etc., and a
+    // shallow copy would leak those mutations into the shared DEFAULTS object.
+    const fallback = deepMerge(DEFAULTS, {});
     applyEnvOverrides(fallback);
     return fallback;
   }
