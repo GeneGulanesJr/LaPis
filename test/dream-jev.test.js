@@ -115,3 +115,47 @@ describe('dreamJevReview — advisory only', () => {
     expect(judge).toHaveBeenCalledTimes(3); // 25 sup + 0 cor → chunks 10,10,5
   });
 });
+
+describe('maybeDreamJevReview — single guard for all dream callers', () => {
+  const { maybeDreamJevReview } = require('../src/memory-domain/dream-jev');
+  const deps = { sqlJson: () => [] };
+
+  it('default config (heuristic) → null, dream pipeline untouched', async () => {
+    const r = await maybeDreamJevReview(deps, { _judge: makeJudge([]) });
+    expect(r).toBeNull();
+  });
+
+  it('disabled surface → null even with jev provider + key', async () => {
+    process.env.LAPIS_JUDGE_PROVIDER = 'jev';
+    process.env.LAPIS_JUDGE_DISABLE_DREAM = '1';
+    process.env.TYPESAFE_API_KEY = 'k-test';
+    try {
+      const { resetConfigCache } = require('../config');
+      resetConfigCache();
+      const r = await maybeDreamJevReview(deps, {});
+      expect(r).toBeNull();
+    } finally {
+      delete process.env.LAPIS_JUDGE_PROVIDER;
+      delete process.env.LAPIS_JUDGE_DISABLE_DREAM;
+      delete process.env.TYPESAFE_API_KEY;
+      require('../config').resetConfigCache();
+    }
+  });
+
+  it('jev + key + args._judge → passes through to dreamJevReview (test injection)', async () => {
+    process.env.LAPIS_JUDGE_PROVIDER = 'jev';
+    process.env.TYPESAFE_API_KEY = 'k-test';
+    try {
+      const { resetConfigCache } = require('../config');
+      resetConfigCache();
+      const judge = makeJudge([]);
+      const r = await maybeDreamJevReview(deps, { _judge: judge });
+      expect(r.ok).toBe(true);
+      expect(r.unavailable).toBeUndefined(); // passthrough reached the review, not the null guard
+    } finally {
+      delete process.env.LAPIS_JUDGE_PROVIDER;
+      delete process.env.TYPESAFE_API_KEY;
+      require('../config').resetConfigCache();
+    }
+  });
+});

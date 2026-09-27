@@ -106,4 +106,25 @@ async function dreamJevReview(deps, args = {}) {
   return report;
 }
 
-module.exports = { dreamJevReview };
+/**
+ * Guard: should the current process annotate dreams with Jev? Default-off —
+ * requires provider=jev + machine-scoped key + surface not disabled.
+ */
+function dreamJevEnabled() {
+  const cfg = getConfig().judgment || {};
+  return cfg.provider === 'jev' && !!process.env.TYPESAFE_API_KEY && !(cfg.disables && cfg.disables.dream);
+}
+
+/**
+ * maybeDreamJevReview(deps, args) — the ONE guarded entry point for callers
+ * (gateway dream command, cleanup-sessions CLI). Returns null when disabled
+ * (callers then annotate nothing — identical to pre-judgment behavior),
+ * otherwise the dreamJevReview report (all failures already contained).
+ * args._judge passes through for tests.
+ */
+async function maybeDreamJevReview(deps, args = {}) {
+  if (!dreamJevEnabled()) return null;
+  return dreamJevReview(deps, args);
+}
+
+module.exports = { dreamJevReview, maybeDreamJevReview, dreamJevEnabled };
