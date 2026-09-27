@@ -48,8 +48,8 @@ function recoverOrphans(deps) {
   return recoveryService.recoverOrphans(deps);
 }
 
-function dream(deps, args) {
-  return dreamService.dream(
+async function dream(deps, args) {
+  const result = dreamService.dream(
     {
       sqlJson: deps.sqlJson,
       sqlRun: deps.sqlRun,
@@ -57,6 +57,12 @@ function dream(deps, args) {
     },
     args,
   );
+  // Slice 1 annotation: judge-verify dream candidates (advisory, default-off).
+  // Inert unless LAPIS_JUDGE_PROVIDER=jev + TYPESAFE_API_KEY + surface enabled.
+  // The gateway dispatcher awaits command results, so this is safe to await.
+  const review = await require('../src/memory-domain/dream-jev').maybeDreamJevReview({ sqlJson: deps.sqlJson });
+  if (review) result.dreamJevReview = review;
+  return result;
 }
 
 function compact() {

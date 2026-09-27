@@ -187,19 +187,12 @@ if (require.main === module) {
       })();
 
     // Slice 1 (judgment): advisory dreamJevReview — annotates the report and
-    // continues; never blocks or alters the dream result. Default config
-    // (provider=heuristic / no TYPESAFE_API_KEY) skips this entirely, so the
+    // continues; never blocks or alters the dream result. Guard lives in ONE
+    // place (maybeDreamJevReview): default config skips this entirely, so the
     // default CLI path is unchanged.
     try {
-      const judgment = require('../config').getConfig().judgment || {};
-      if (
-        judgment.provider === 'jev' &&
-        process.env.TYPESAFE_API_KEY &&
-        !(judgment.disables && judgment.disables.dream)
-      ) {
-        const { dreamJevReview } = require('../src/memory-domain/dream-jev');
-        result.phases.dreamJevReview = await dreamJevReview({ sqlJson }, {});
-      }
+      const review = await require('../src/memory-domain/dream-jev').maybeDreamJevReview({ sqlJson });
+      if (review) result.phases.dreamJevReview = review;
     } catch (e) {
       result.phases.dreamJevReview = { ok: false, reason: (e && e.message) || String(e) };
     }
