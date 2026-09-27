@@ -83,6 +83,35 @@ describe('jev adapter — response side', () => {
       { id: 'rel', level: 2, confidence: 0.7 },
     ]);
   });
+  it('live shape jev-1.13.0: noul reply WITHOUT confidence → derived confidence |p−0.5|×2', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ answers: { sup: { type: 'noul', noul: 0.76 } }, model: 'jev-1.13.0', usage: {} }),
+    );
+    const r = await makeAdapter(fetchImpl).judge([probQ]);
+    expect(r.status).toBe('ok');
+    expect(r.answers[0].p).toBe(0.76);
+    expect(r.answers[0].confidence).toBeCloseTo(0.52); // |0.76−0.5|×2
+  });
+  it('live shape jev-1.13.0: FLOAT score (1.82) + legend → rounds to nearest level index', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({
+        answers: {
+          rel: {
+            type: 'score',
+            score: 1.82,
+            confidence: 0.73,
+            legend: { 0: 'irrelevant', 1: 'related', 2: 'central' },
+            probabilities: { 0: 0.08, 1: 0.03, 2: 0.89 },
+          },
+        },
+        model: 'jev-1.13.0',
+        usage: {},
+      }),
+    );
+    const r = await makeAdapter(fetchImpl).judge([gradeQ]);
+    expect(r.status).toBe('ok');
+    expect(r.answers[0]).toEqual({ id: 'rel', level: 2, confidence: 0.73 });
+  });
   it('non-2xx → unavailable (never throws)', async () => {
     const fetchImpl = vi.fn(async () => ({ ok: false, status: 503, text: async () => 'boom', json: async () => ({}) }));
     const r = await makeAdapter(fetchImpl).judge([probQ]);

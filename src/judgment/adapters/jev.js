@@ -99,8 +99,14 @@ function createJevAdapter({ apiKey, endpoint, fetchImpl, model, timeoutMs, maxRe
       for (const q of questions) {
         const a = raw[q.id];
         if (!a || typeof a !== 'object') return { status: 'invalid', reason: `reply missing answer ${q.id}` };
-        const confidence = normalizeScore(a.confidence);
         const kind = q.judgment.kind;
+        // Live wire (jev-1.13.0): noul replies OMIT confidence — derive it at the
+        // boundary as distance-from-indecision (contract: distribution concentration).
+        let confidence = normalizeScore(a.confidence);
+        if (kind === 'probability' && confidence === null) {
+          const pForConf = normalizeScore(a.noul);
+          confidence = pForConf === null ? null : Math.abs(pForConf - 0.5) * 2;
+        }
         if (confidence === null) return { status: 'invalid', reason: `answer ${q.id}: bad confidence` };
         if (kind === 'probability') {
           const p = normalizeScore(a.noul);
@@ -112,10 +118,11 @@ function createJevAdapter({ apiKey, endpoint, fetchImpl, model, timeoutMs, maxRe
           }
           answers.push({ id: q.id, pick: a.choice, confidence });
         } else {
-          const idx = Number(a.score);
-          if (!Number.isInteger(idx) || idx < 0 || idx >= q.judgment.levels.length) {
-            return { status: 'invalid', reason: `answer ${q.id}: score outside levels` };
-          }
+          // Live wire (jev-1.13.0): score is a FLOAT (probability-weighted position,
+          // e.g. 1.82 of levels 0..2) — round to nearest level index, clamped.
+          const rawScore = Number(a.score);
+          if (!Number.isFinite(rawScore)) return { status: 'invalid', reason: `answer ${q.id}: bad score` };
+          const idx = Math.min(q.judgment.levels.length - 1, Math.max(0, Math.round(rawScore)));
           answers.push({ id: q.id, level: idx, confidence });
         }
       }

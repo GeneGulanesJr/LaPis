@@ -49,6 +49,12 @@ them: `npx vitest run test/judgment-goldens.test.js` plus the adapter's own wire
 tests, then a live acceptance run (`LAPIS_JUDGE_LIVE=1`). Goldens measure the new
 provider — they are the switch acceptance test, not a formality.
 
+## Live wire shapes (verified 2026-09-26, jev-1.13.0)
+
+- `noul` replies: `{type, noul}` — **confidence omitted** → adapter derives it as `|p−0.5|×2`
+- `score` replies: **float** position (e.g. `1.82`) + `legend` + `probabilities` → adapter rounds to nearest level index
+- `choice` replies: `{type, choice, confidence, probabilities}` — as expected
+
 ## Module map
 
 | File | Responsibility |
