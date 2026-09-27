@@ -2,7 +2,8 @@ const obsService = require('../services/observations'),
   obsDA = require('../data-access/observations'),
   dedupService = require('../services/dedup'),
   sessionsService = require('../services/sessions'),
-  { parseExpiresIn } = require('../src/memory-domain/ttl');
+  { parseExpiresIn } = require('../src/memory-domain/ttl'),
+  { jevVerifyDuplicates, dedupeJevEnabled } = require('../src/memory-domain/dedupe-jev');
 
 function getMemoryRepository(deps) {
   if (deps.memoryRepository) {
@@ -26,20 +27,45 @@ function getMemoryRepository(deps) {
   };
 }
 
-function save(deps, args) {
-  const memoryRepository = getMemoryRepository(deps);
-  return obsService.save(
-    {
-      ...deps,
-      insertObservation: (params) => memoryRepository.insertObservation(params),
-      insertObservationRelation: (params) => memoryRepository.insertObservationRelation(params),
-      softDeleteObservation: (id) => memoryRepository.softDeleteObservation(id),
-      checkDuplicate: (title, type, project, topicKey) =>
-        dedupService.checkDuplicate({ sqlJson: deps.sqlJson }, title, type, project, topicKey),
-      findLatestSession: sessionsService.findLatestSession,
-    },
-    args,
-  );
+// Slice D (judgment): Advisory semantic verification of duplicate warnings.
+// Opt-in only (dedupeJevEnabled); READ-ONLY — enriches the potential_duplicate
+// Payload with `jevVerified` probabilities. Any failure or disabled state
+// Degrades to today's payload untouched. The gateway dispatch awaits, so an
+// Async wrapper is safe.
+async function save(deps, args) {
+  const memoryRepository = getMemoryRepository(deps),
+    result = obsService.save(
+      {
+        ...deps,
+        insertObservation: (params) => memoryRepository.insertObservation(params),
+        insertObservationRelation: (params) => memoryRepository.insertObservationRelation(params),
+        softDeleteObservation: (id) => memoryRepository.softDeleteObservation(id),
+        checkDuplicate: (title, type, project, topicKey) =>
+          dedupService.checkDuplicate({ sqlJson: deps.sqlJson }, title, type, project, topicKey),
+        findLatestSession: sessionsService.findLatestSession,
+      },
+      args,
+    );
+  try {
+    if (
+      result &&
+      result.status === 'potential_duplicate' &&
+      Array.isArray(result.matches) &&
+      result.matches.length > 0 &&
+      dedupeJevEnabled()
+    ) {
+      const res = await jevVerifyDuplicates({ sqlJson: deps.sqlJson }, result.matches, {
+        incomingTitle: args.title,
+        incomingContent: args.content,
+      });
+      if (!res.unavailable && res.verified.length > 0) {
+        result.jevVerified = res.verified;
+      }
+    }
+  } catch {
+    // Advisory: judgment must never break the save path.
+  }
+  return result;
 }
 
 function get(deps, args) {

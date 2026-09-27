@@ -25,8 +25,13 @@ function register(commands, deps) {
     memoryRepository = repositories && repositories.memory;
 
   commands.save = (args) => obsCmd.save({ sqlJson, sqlRun, sqlRaw, jsonErrNoExit, memoryRepository }, args);
-  commands.search = (args) =>
-    searchCmd.search(
+  // Slice A (judgment): advisory Jev rerank of the ranked results — opt-in.
+  // Default config (provider=heuristic / no TYPESAFE_API_KEY) returns the sync
+  // result unchanged: no awaits on the judgment path, no new fields. Any
+  // judgment failure degrades to the lexical order. The gateway dispatch()
+  // awaits command results, so an async wrapper here is safe.
+  commands.search = async (args) => {
+    const result = searchCmd.search(
       {
         sqlJson,
         sqlRun,
@@ -35,6 +40,17 @@ function register(commands, deps) {
       },
       args,
     );
+    try {
+      const { searchJevEnabled, jevRerank } = require('../../memory-domain/search-jev');
+      if (searchJevEnabled() && result && Array.isArray(result.results) && result.results.length > 0) {
+        const rerank = await jevRerank(result.results, args.query, args);
+        if (rerank && rerank.reranked) result.results = rerank.rows;
+      }
+    } catch {
+      // advisory only — lexical result unchanged
+    }
+    return result;
+  };
   commands.context = (args) =>
     searchCmd.context(
       {
