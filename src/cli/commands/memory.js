@@ -51,8 +51,14 @@ function register(commands, deps) {
     }
     return result;
   };
-  commands.context = (args) =>
-    searchCmd.context(
+  // Slice G (judgment): advisory Jev selection of the context candidates —
+  // opt-in. Default config (provider=heuristic / no TYPESAFE_API_KEY) returns
+  // the sync result unchanged: no new fields, no selection change. Any
+  // judgment failure degrades to the builder's own ordering. The gateway
+  // dispatch() awaits command results, so an async wrapper here is safe.
+  // The sync core context builder (src/memory-domain/context.js) is untouched.
+  commands.context = async (args) => {
+    const result = searchCmd.context(
       {
         sqlJson,
         sqlRun,
@@ -61,6 +67,25 @@ function register(commands, deps) {
       },
       args,
     );
+    try {
+      const { contextJevEnabled, maybeContextJevSelection } = require('../../memory-domain/context-jev');
+      if (contextJevEnabled() && result && Array.isArray(result.observations) && result.observations.length > 0) {
+        const sel = await maybeContextJevSelection(
+          result.observations,
+          args.query || args['topic-key'] || 'context-auto',
+          null,
+          args,
+        );
+        if (sel && !sel.unavailable && Array.isArray(sel.selected)) {
+          result.observations = sel.selected;
+          result.jevSelected = true; // advisory marker — all other result fields kept
+        }
+      }
+    } catch {
+      // advisory only — builder's selection unchanged
+    }
+    return result;
+  };
   commands.get = (args) => obsCmd.get({ sqlJson, sqlRun, jsonErrNoExit, memoryRepository }, args);
   commands.update = (args) => obsCmd.update({ sqlJson, sqlRun, jsonErrNoExit, memoryRepository }, args);
   commands.delete = (args) => obsCmd.del({ sqlJson, sqlRun, jsonErrNoExit, memoryRepository }, args);
