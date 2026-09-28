@@ -11,10 +11,7 @@
 // re-injection path is never blocked.
 
 import { jevAsk, isJevDryRun } from '../host/jev-client.ts';
-import {
-  buildReclassifyQuestion,
-  buildVerdictQuestion,
-} from '../host/jev-questions.ts';
+import { buildReclassifyQuestion, buildVerdictQuestion } from '../host/jev-questions.ts';
 
 export type PostCompactInput = {
   currentProject: string;

@@ -15,7 +15,8 @@
 
 const { resolveCwd } = require('../../hooks-engine/project'),
   { resolveProjectForCwd } = require('../project-resolve'),
-  { buildInjectedContext } = require('../context-inject');
+  { buildInjectedContext } = require('../context-inject'),
+  { maybeStartAutoIndex, describeAutoIndex } = require('../auto-index');
 
 /**
  * Run SessionStart.
@@ -26,11 +27,19 @@ const { resolveCwd } = require('../../hooks-engine/project'),
  * @param {Function} ctx.getKnownRepos   known code repos (direct mode read)
  * @param {Function} ctx.getKnownProjects known code+doc projects (direct mode read)
  * @param {object} ctx.stateStore        { mutateState, clearStateLocked, sweepStaleSessions }
+ * @param {Function} [ctx.autoIndex]     injectable auto-index starter (defaults to maybeStartAutoIndex)
  * @returns {Promise<object|null>}       Claude Code JSON or null
  */
-async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore }) {
+async function handleSessionStart({
+  payload,
+  dispatch,
+  getKnownRepos,
+  getKnownProjects,
+  stateStore,
+  autoIndex = maybeStartAutoIndex,
+}) {
   const source = payload.source || 'startup',
-    { project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
+    { project, repos, resolvedCwd } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
     cwd = resolveCwd(payload.cwd),
     claudeSessionId = payload.session_id,
     isCompact = source === 'compact';
@@ -93,17 +102,27 @@ async function handleSessionStart({ payload, dispatch, getKnownRepos, getKnownPr
     });
   }
 
+  // Unindexed git repo → kick off a detached background index (returns at once)
+  // And tell the agent, so it stops silently skipping memory-code. Best-effort.
+  let indexNote = null;
+  try {
+    indexNote = describeAutoIndex(autoIndex({ cwd: resolvedCwd, repos, currentProject: project }));
+  } catch {
+    // Auto-index must never break SessionStart.
+  }
+
   // Inject (or re-inject after compact) context. sessionId may be null on a
   // Failed session-start; context still loads without a session binding.
   {
-    const additionalContext = await buildInjectedContext({
-      dispatch,
-      getKnownRepos,
-      project,
-      cwd,
-      query: null,
-      sessionId: state.sessionId,
-    }).catch(() => null);
+    const baseContext = await buildInjectedContext({
+        dispatch,
+        getKnownRepos,
+        project,
+        cwd,
+        query: null,
+        sessionId: state.sessionId,
+      }).catch(() => null),
+      additionalContext = [baseContext, indexNote].filter(Boolean).join('\n\n');
 
     if (!additionalContext) {
       return null;

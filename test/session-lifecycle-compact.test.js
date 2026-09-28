@@ -109,11 +109,7 @@ describe('session_compact with Jev post-compact', () => {
     const jevMessage = result.messages.find((m) => m.customType === 'jev-post-compact');
     expect(jevMessage).toBeDefined();
     expect(jevMessage.details).toBeDefined();
-    expect(
-      jevMessage.details.some(
-        (d) => d.kind === 'reclassify' || d.kind === 'verdict',
-      ),
-    ).toBe(true);
+    expect(jevMessage.details.some((d) => d.kind === 'reclassify' || d.kind === 'verdict')).toBe(true);
   });
 
   test('does not emit Jev messages when JEV_ENABLED unset (and not in dry-run)', async () => {
@@ -121,9 +117,7 @@ describe('session_compact with Jev post-compact', () => {
     delete process.env.JEV_ENABLED;
 
     const deps = buildDeps(async () => ({
-      observations: [
-        { id: 1, type: 'decision', title: 'x', trust_score: 0.9 },
-      ],
+      observations: [{ id: 1, type: 'decision', title: 'x', trust_score: 0.9 }],
       personal: [],
       stats: { total_memories: 1 },
     }));
@@ -175,8 +169,10 @@ describe('session_compact with Jev post-compact', () => {
     // The C question (reclassify) was asked and contained the policies
     const reclassifyCall = fetchMock.mock.calls.find(([, init]) => {
       const body = JSON.parse(init.body);
-      return body.questions?.[0]?.question?.includes('PINNED POLICIES') ||
-             body.questions?.[0]?.question?.includes('pinned polic');
+      return (
+        body.questions?.[0]?.question?.includes('PINNED POLICIES') ||
+        body.questions?.[0]?.question?.includes('pinned polic')
+      );
     });
     expect(reclassifyCall).toBeDefined();
     const body = JSON.parse(reclassifyCall[1].body);
@@ -221,14 +217,17 @@ describe('session_compact with Jev post-compact', () => {
     delete process.env.JEV_DRY_RUN;
 
     const state = { currentProject: 'TestProject', sessionId: 1, preCompactTitles: null };
-    const deps = { state, mem: vi.fn(async () => ({
-      observations: [
-        { id: 1, type: 'decision', title: 'phase 5 fallback', trust_score: 0.9 },
-        { id: 2, type: 'pattern', title: 'bun chosen', trust_score: 0.8 },
-      ],
-      personal: [],
-      stats: { total_memories: 2 },
-    })) };
+    const deps = {
+      state,
+      mem: vi.fn(async () => ({
+        observations: [
+          { id: 1, type: 'decision', title: 'phase 5 fallback', trust_score: 0.9 },
+          { id: 2, type: 'pattern', title: 'bun chosen', trust_score: 0.8 },
+        ],
+        personal: [],
+        stats: { total_memories: 2 },
+      })),
+    };
     const handler = extractHandler(deps);
     await handler({}, {});
 

@@ -64,9 +64,7 @@ function dryRunAnswer(q: JevQuestion): JevAnswer {
 async function liveAsk(question: JevQuestion): Promise<JevAnswer> {
   const apiKey = process.env.JEV_API_KEY;
   if (!apiKey) {
-    throw new Error(
-      'JEV_API_KEY is not set; set it in ~/.zshenv or run with JEV_DRY_RUN=1',
-    );
+    throw new Error('JEV_API_KEY is not set; set it in ~/.zshenv or run with JEV_DRY_RUN=1');
   }
 
   const retries = maxRetries();
@@ -102,8 +100,7 @@ async function liveAsk(question: JevQuestion): Promise<JevAnswer> {
 
       if (question.kind === 'choice') {
         return {
-          choice:
-            typeof answer.choice === 'string' ? answer.choice : answer.choice?.key,
+          choice: typeof answer.choice === 'string' ? answer.choice : answer.choice?.key,
           confidence: Number(answer.confidence ?? 0),
         };
       }
@@ -117,9 +114,7 @@ async function liveAsk(question: JevQuestion): Promise<JevAnswer> {
       if (attempt >= retries) break;
     }
   }
-  throw new Error(
-    `Jev request failed after ${retries + 1} attempts: ${lastErr?.message ?? 'unknown'}`,
-  );
+  throw new Error(`Jev request failed after ${retries + 1} attempts: ${lastErr?.message ?? 'unknown'}`);
 }
 
 export async function jevAsk(question: JevQuestion): Promise<JevAnswer> {

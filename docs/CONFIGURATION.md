@@ -52,6 +52,9 @@ Supported settings include:
   "context_limit": 5,
   "tier_config_path": "~/.pi/memory/tier.jsonc",
   "async_index_file_threshold": 500,
+  "auto_index": {
+    "enabled": true
+  },
   "output_compression": {
     "enabled": true,
     "min_chars": 2000,
@@ -74,6 +77,7 @@ Supported settings include:
 | `context_limit`             | `5`                                  | Default context-packet size for the `context` command.                  |
 | `tier_config_path`          | `~/.pi/memory/tier.jsonc`            | Path to the tool tier configuration file.                               |
 | `async_index_file_threshold` | `500`                                | File count at which `index-repo` auto-switches to async.                |
+| `auto_index.enabled`        | `true`                               | Claude Code bridge: start a detached background `index-repo` when a hook sees an unindexed git repo. Override with `LAPIS_AUTO_INDEX=0\|1` (env wins). See [Auto-indexing](CLAUDE_CODE.md#auto-indexing). |
 | `output_compression.*`      | `{ enabled: true, min_chars: 2000, min_savings_percent: 30 }` | Output compression defaults for the `run` subcommand and extension tool guardrails. |
 
 ## Tool Tier Configuration
