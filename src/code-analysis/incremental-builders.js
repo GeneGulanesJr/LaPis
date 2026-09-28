@@ -589,9 +589,13 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
             }
           }
 
-          return /\?(?:\s*[^.:])/g;
+          // Excludes both `?.` (optional chaining) and `??` (nullish coalescing)
+          // from counting as a ternary — without the `?` exclusion, `??` was
+          // matched here (its second `?` isn't `.` or `:`) on top of the `\?\?`
+          // decisionPatterns entry, double-counting every nullish-coalescing op.
+          return /\?(?:\s*[^.:?])/g;
         })();
-      while ((_ternaryMatch = ternaryRe.exec(body)) !== null) {
+      while ((__ternaryMatch = ternaryRe.exec(body)) !== null) {
         cyclomatic++;
       }
 

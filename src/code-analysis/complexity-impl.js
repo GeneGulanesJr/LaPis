@@ -22,7 +22,11 @@ const path = require('path');
     // PERF(issue #133): Ternary pattern hoisted alongside DECISION_PATTERNS for the
     // Same reason (was re-created per symbol). lastIndex is reset before its
     // .exec() loop below.
-    TERNARY_RE = /\?(?:\s*[^.:])/g;
+    // Excludes both `?.` (optional chaining) and `??` (nullish coalescing) from
+    // counting as a ternary — without the `?` exclusion, `??` was matched here
+    // (its second `?` isn't `.` or `:`) on top of the `\?\?` DECISION_PATTERNS
+    // entry, double-counting every nullish-coalescing operator.
+    TERNARY_RE = /\?(?:\s*[^.:?])/g;
 
   // Escape SQL LIKE wildcard characters.
   function _likeEscape(str) {

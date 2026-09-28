@@ -298,11 +298,11 @@ function createCodeIndexRepository(deps) {
       );
     },
     insertSymbol(params) {
+      // Reuses the same SQL as the batched/prepared-statement path
+      // (_insertSymbolsPrepared) so a schema change only needs updating in one
+      // place instead of two independently hand-written copies.
       sqlRun(
-        `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
-         start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
-         stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        _symbolInsertSql,
         [
           params.repoId,
           params.fileId,
