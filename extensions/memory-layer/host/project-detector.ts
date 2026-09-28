@@ -115,7 +115,7 @@ export async function detectProject(cwd: string): Promise<string> {
       while (candidateDir !== root && candidateDir !== path.dirname(candidateDir)) {
         for (const repo of codeRepos) {
           if (candidateDir.toLowerCase() === repo.path.toLowerCase()) {
-            const depth = candidateDir.split('/').length;
+            const depth = candidateDir.split(path.sep).length;
             if (!bestRepo || depth > bestRepo.depth) {
               bestRepo = { repo, depth };
             }
@@ -142,4 +142,56 @@ export async function detectProject(cwd: string): Promise<string> {
   }
 
   return path.basename(resolved) || 'unknown';
+}
+
+// Normalize a path for case-insensitive, separator-tolerant comparison.
+// Works on both POSIX (where case matters) and Windows (where the FS is
+// Case-insensitive and uses `\`) without hard-coding either convention.
+const normalizePath = (p: string): string =>
+  p
+    .replace(/[\\/]+/g, '/')
+    .replace(/\/$/, '')
+    .toLowerCase();
+
+function pathStartsWith(child: string, parent: string): boolean {
+  const c = normalizePath(child),
+    p = normalizePath(parent);
+  return c === p || c.startsWith(`${p}/`);
+}
+
+/**
+ * Return the indexed repo whose path is the longest prefix of `filePath`.
+ * Returns `null` when the file is not inside any indexed repo. Used by the
+ * turn_end checkpoint to pick a code repo for audit-diff that actually
+ * contains the edited files (rather than the memory project label, which
+ * is a different concept).
+ */
+export function findRepoForFile(filePath: string, repos: Array<RepoInfo>): RepoInfo | null {
+  if (!filePath) {
+    return null;
+  }
+  const abs = path.resolve(filePath),
+    candidates = repos.filter((r) => r.path && pathStartsWith(abs, r.path));
+  if (candidates.length === 0) {
+    return null;
+  }
+  return candidates.reduce<RepoInfo | null>(
+    (acc, r) => (acc === null || r.path!.length > acc.path!.length ? r : acc),
+    null,
+  );
+}
+
+/**
+ * Return the indexed repo whose path is the longest prefix of *any* of the
+ * given file paths. Returns `null` when no file maps to an indexed repo.
+ */
+export function findRepoForAnyFile(filePaths: Iterable<string>, repos: Array<RepoInfo>): RepoInfo | null {
+  let best: RepoInfo | null = null;
+  for (const f of filePaths) {
+    const candidate = findRepoForFile(f, repos);
+    if (candidate && (!best || candidate.path!.length > best.path!.length)) {
+      best = candidate;
+    }
+  }
+  return best;
 }
