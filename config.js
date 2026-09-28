@@ -34,6 +34,11 @@ const path = require('path'),
     tool_guardrails: {
       enabled: true, // Master toggle — set false to disable raw grep/find + unread-file guardrails
     },
+    // Claude Code bridge: start a detached background `index-repo` when a hook
+    // sees a git repo that is not indexed yet. Override with LAPIS_AUTO_INDEX=0.
+    auto_index: {
+      enabled: true,
+    },
     // Provider-agnostic semantic judgments (docs/JUDGMENT.md, spec 2026-09-26).
     // DEFAULT OFF — LaPis is zero-cloud/zero-keys by identity (spec §4);
     // opting in requires LAPIS_JUDGE_PROVIDER=jev AND a machine-scoped
@@ -157,6 +162,12 @@ function applyEnvOverrides(config) {
       }
     }
   }
+  const autoIndex = process.env.LAPIS_AUTO_INDEX;
+  if (autoIndex !== undefined && autoIndex.trim() !== '') {
+    (config.auto_index || (config.auto_index = {})).enabled = !['0', 'false', 'off', 'no'].includes(
+      autoIndex.trim().toLowerCase(),
+    );
+  }
   const j = config.judgment || (config.judgment = {});
   if (process.env.LAPIS_JUDGE_PROVIDER) j.provider = process.env.LAPIS_JUDGE_PROVIDER;
   if (process.env.LAPIS_JUDGE_TIMEOUT_MS) {
@@ -186,6 +197,7 @@ function loadConfig() {
     // nested judgment fields (provider/disables) — re-clone the section first
     // or every load would pollute the shared DEFAULTS object.
     merged.judgment = deepMerge(DEFAULTS.judgment, merged.judgment || {});
+    merged.auto_index = deepMerge(DEFAULTS.auto_index, merged.auto_index || {});
     merged.db_path = expandTilde(merged.db_path);
     merged.tier_config_path = expandTilde(merged.tier_config_path);
     applyEnvOverrides(merged);

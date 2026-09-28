@@ -102,6 +102,8 @@ When working in [Claude Code](https://code.claude.com/docs/en/overview) with LaP
 
 Guardrails run via Claude Code `PreToolUse` hooks (not MCP): whole-file `Read` blocks, `Grep`/`Glob` search redirects, and secondary `Bash` search detection. Prefer native `Grep`/`Glob` over bash `grep`/`find` in indexed repos.
 
+In an **unindexed git repo** the hooks don't skip silently: `SessionStart` / `PreToolUse` start a detached background `index-repo` and tell the agent (on by default; opt out with `auto_index.enabled: false` or `LAPIS_AUTO_INDEX=0`). See [Auto-indexing](docs/CLAUDE_CODE.md#auto-indexing).
+
 Claude Code spawns a **fresh process per hook**, so session state (`turnCount`, `editedFiles`, recall feedback) lives on disk at `~/.pi/memory/claude-sessions/`, not in-process. The SQLite database at `~/.pi/memory/memory.db` is **shared** with Pi — same memories and indexes.
 
 Full setup: [`docs/CLAUDE_CODE.md`](docs/CLAUDE_CODE.md). Verify with `lapis claude-code doctor`.

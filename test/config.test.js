@@ -12,11 +12,24 @@ const fs = require('fs'),
 
 describe('config.js', () => {
   const ORIGINAL_READ = fs.readFileSync,
-    ORIGINAL_EXISTS = fs.existsSync;
+    ORIGINAL_EXISTS = fs.existsSync,
+    ORIGINAL_AUTO_INDEX = process.env.LAPIS_AUTO_INDEX;
+
+  // Defaults are compared verbatim below; an ambient LAPIS_AUTO_INDEX (the
+  // Vitest config sets it to 0 so hook tests never spawn an indexer) would
+  // Legitimately override auto_index.enabled.
+  beforeEach(() => {
+    delete process.env.LAPIS_AUTO_INDEX;
+  });
 
   afterEach(() => {
     fs.readFileSync = ORIGINAL_READ;
     fs.existsSync = ORIGINAL_EXISTS;
+    if (ORIGINAL_AUTO_INDEX === undefined) {
+      delete process.env.LAPIS_AUTO_INDEX;
+    } else {
+      process.env.LAPIS_AUTO_INDEX = ORIGINAL_AUTO_INDEX;
+    }
     resetConfigCache();
   });
 

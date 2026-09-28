@@ -59,7 +59,7 @@ const realStateStore = require('../../src/claude-code/state-store'),
       expect(isDeny(await runRead({ file_path: 'src/db.js' }, { stateStore }))).toBe(false);
     });
 
-    test('allows reads in an unindexed project (deferred auto-index)', async () => {
+    test('allows reads in an unindexed project (background auto-index handles it)', async () => {
       expect(isDeny(await runRead({ file_path: 'src/db.js' }, { repos: () => [] }))).toBe(false);
     });
 

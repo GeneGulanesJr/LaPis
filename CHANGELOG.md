@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Claude Code auto-indexing** — an unindexed git repo used to be skipped
+  silently (guardrails only fire in indexed repos). `SessionStart` and the
+  `PreToolUse` guardrails now start a detached background `index-repo` for it
+  and tell the agent, so `memory-code` and the guardrails take over once the
+  index lands. On by default; disable with `auto_index.enabled: false` or
+  `LAPIS_AUTO_INDEX=0`. Never indexes inline (no hook-timeout risk), only
+  git work trees, never `$HOME`/tmp, one indexer per repo with a cooldown.
+
 ## [1.2.0] - 2026-09-07
 
 Security hardening, correctness, and resilience release: a full code review
