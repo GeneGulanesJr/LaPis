@@ -33,7 +33,7 @@ describe('session_compact re-injection', () => {
       }),
       handler = extractHandler(deps),
       result = await handler({}, {}),
-      content = result.message.content;
+      content = result.messages[0].content;
 
     // Pre-fix bug: fetched cross-project memories were discarded, showing "0 memories".
     expect(content).toContain('Cross-project decision');
@@ -52,7 +52,7 @@ describe('session_compact re-injection', () => {
       },
       handler = extractHandler(deps),
       result = await handler({}, {}),
-      content = result.message.content;
+      content = result.messages[0].content;
 
     expect(content).toContain('Project pattern');
     expect(content).toContain('5 memories');
@@ -74,9 +74,65 @@ describe('session_compact re-injection', () => {
       }),
       handler = extractHandler(deps),
       result = await handler({}, {}),
-      content = result.message.content;
+      content = result.messages[0].content;
 
     expect(content).toContain('🆕 new project');
     expect(content).toContain('Related from elsewhere');
+  });
+});
+
+describe('session_compact with Jev post-compact', () => {
+  beforeEach(() => {
+    process.env.JEV_DRY_RUN = '1';
+  });
+
+  test('emits a second Jev message when JEV_ENABLED=1', async () => {
+    // Use dry-run so the Jev client returns canned answers (no API key needed).
+    process.env.JEV_DRY_RUN = '1';
+    process.env.JEV_ENABLED = '1';
+
+    const deps = buildDeps(async () => ({
+      observations: [
+        { id: 1, type: 'decision', title: 'bun chosen', trust_score: 0.9 },
+        { id: 2, type: 'pattern', title: 'phase 5 fallback', trust_score: 0.8 },
+      ],
+      personal: [],
+      stats: { total_memories: 2 },
+    }));
+
+    const handler = extractHandler(deps);
+    const result = await handler({}, {});
+
+    expect(result.messages).toBeDefined();
+    expect(Array.isArray(result.messages)).toBe(true);
+    expect(result.messages.length).toBeGreaterThan(0);
+    const jevMessage = result.messages.find((m) => m.customType === 'jev-post-compact');
+    expect(jevMessage).toBeDefined();
+    expect(jevMessage.details).toBeDefined();
+    expect(
+      jevMessage.details.some(
+        (d) => d.kind === 'reclassify' || d.kind === 'verdict',
+      ),
+    ).toBe(true);
+  });
+
+  test('does not emit Jev messages when JEV_ENABLED unset (and not in dry-run)', async () => {
+    delete process.env.JEV_DRY_RUN;
+    delete process.env.JEV_ENABLED;
+
+    const deps = buildDeps(async () => ({
+      observations: [
+        { id: 1, type: 'decision', title: 'x', trust_score: 0.9 },
+      ],
+      personal: [],
+      stats: { total_memories: 1 },
+    }));
+
+    const handler = extractHandler(deps);
+    const result = await handler({}, {});
+
+    // Only the memory-context message — no Jev overlay
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].customType).toBe('memory-context');
   });
 });

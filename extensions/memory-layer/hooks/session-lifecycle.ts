@@ -7,6 +7,7 @@ import { detectProject } from '../host/project-detector';
 
 // Engine delegation (pure transport-agnostic core).
 import { buildSessionSummary } from '../../../src/hooks-engine/session-summary.js';
+import { runJevPostCompact } from './jev-post-compact.ts';
 
 interface SessionDeps {
   state: typeof state;
@@ -60,7 +61,7 @@ export function registerSessionStart(pi: ExtensionAPI, deps: SessionDeps) {
 export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
   pi.on('session_compact', async (_event, _ctx) => {
     if (!deps.state.currentProject) {
-      return;
+      return { messages: [] };
     }
 
     const contextResult = await deps.mem('context', {
@@ -82,69 +83,97 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
 
     if (!contextResult && !crossProjectResult) {
       return {
-        message: {
+        messages: [{
           customType: 'memory-context',
           content:
             '⚠️ **Memory context failed to re-load after compaction.** Memory state may be stale.\n' +
             'Use `memory-search` and `memory-save` manually if needed.',
           display: true,
-        },
+        }],
       };
     }
 
-    {
-      const effectiveContext = contextResult || crossProjectResult,
-        isNewProject = !hasProjectContext && crossProjectResult !== null,
-        effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : contextObservations,
-        stats = effectiveContext.stats as any,
-        personal = (effectiveContext.personal as any[]) || [],
-        lines: string[] = ['## Memory Context (re-injected after compaction)', ''];
+    const effectiveContext = contextResult || crossProjectResult,
+      isNewProject = !hasProjectContext && crossProjectResult !== null,
+      effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : contextObservations,
+      stats = effectiveContext.stats as any,
+      personal = (effectiveContext.personal as any[]) || [],
+      lines: string[] = ['## Memory Context (re-injected after compaction)', ''];
 
-      if (isNewProject) {
-        lines.push(`Project: **${deps.state.currentProject}** | 🆕 new project`);
-        if (effectiveObservations.length > 0) {
-          lines.push('');
-          lines.push('### 🔗 Related memories from other projects');
-          for (const o of effectiveObservations.slice(0, 5)) {
-            lines.push(`- [${o.type}] ${o.title}`);
-          }
-        }
-      } else {
-        lines.push(`Project: **${deps.state.currentProject}** | ${stats?.total_memories || 0} memories`);
-        if (effectiveObservations.length > 0) {
-          lines.push('');
-          lines.push('### Recent Relevant Memory');
-          for (const o of effectiveObservations) {
-            let trust = '';
-            if (o.trust_score < 0.5) {
-              trust = '⚠️';
-            } else if (o.trust_score < 0.8) {
-              trust = '🔎';
-            }
-            lines.push(`- [${o.type}] ${o.title} ${trust}`);
-          }
-        }
-      }
-
-      if (personal.length > 0) {
+    if (isNewProject) {
+      lines.push(`Project: **${deps.state.currentProject}** | 🆕 new project`);
+      if (effectiveObservations.length > 0) {
         lines.push('');
-        lines.push('### Your Preferences (cross-project)');
-        for (const p of personal.slice(0, 3)) {
-          lines.push(`- ${p.title}`);
+        lines.push('### 🔗 Related memories from other projects');
+        for (const o of effectiveObservations.slice(0, 5)) {
+          lines.push(`- [${o.type}] ${o.title}`);
         }
       }
-
-      lines.push('');
-      lines.push('Use `memory-save`, `memory-search`, and `memory-get` tools to interact with memory.');
-
-      return {
-        message: {
-          customType: 'memory-context',
-          content: lines.join('\n'),
-          display: false,
-        },
-      };
+    } else {
+      lines.push(`Project: **${deps.state.currentProject}** | ${stats?.total_memories || 0} memories`);
+      if (effectiveObservations.length > 0) {
+        lines.push('');
+        lines.push('### Recent Relevant Memory');
+        for (const o of effectiveObservations) {
+          let trust = '';
+          if (o.trust_score < 0.5) {
+            trust = '⚠️';
+          } else if (o.trust_score < 0.8) {
+            trust = '🔎';
+          }
+          lines.push(`- [${o.type}] ${o.title} ${trust}`);
+        }
+      }
     }
+
+    if (personal.length > 0) {
+      lines.push('');
+      lines.push('### Your Preferences (cross-project)');
+      for (const p of personal.slice(0, 3)) {
+        lines.push(`- ${p.title}`);
+      }
+    }
+
+    lines.push('');
+    lines.push('Use `memory-save`, `memory-search`, and `memory-get` tools to interact with memory.');
+
+    // Build the memory-context message
+    const messages: any[] = [{
+      customType: 'memory-context',
+      content: lines.join('\n'),
+      display: false,
+    }];
+
+    // Run Jev post-compact (C + A) if enabled. Never throws — degrades to
+    // empty output on failure. TODO(future): parse pinned policies from
+    // AGENTS.md; diff pre/post-compaction titles from a session_start cache.
+    const jevOutput = await runJevPostCompact({
+      currentProject: deps.state.currentProject,
+      sessionId: deps.state.sessionId,
+      pinnedPolicies: [],
+      reInjectedTitles: effectiveObservations.map((o: any) => o.title),
+      lostTopics: [],
+    });
+
+    if (jevOutput.messages.length > 0) {
+      const summary = jevOutput.messages
+        .map((m) => {
+          if (m.kind === 'reclassify') {
+            return `policies: **${m.choice}** (conf ${m.confidence.toFixed(2)})`;
+          }
+          return `coverage: **${m.label}** (score ${m.score}/3)`;
+        })
+        .join(' · ');
+
+      messages.push({
+        customType: 'jev-post-compact',
+        content: `🧠 Jev post-compact: ${summary}`,
+        display: true,
+        details: jevOutput.messages,
+      });
+    }
+
+    return { messages };
   });
 }
 
