@@ -1367,11 +1367,11 @@ class MemoryError extends Error {
       const msg = (e && e.message) || '';
       return /database is locked|SQLITE_BUSY/i.test(msg);
     }
+    // Blocks the calling thread for `ms` without spinning the CPU. better-sqlite3
+    // is fully synchronous, so an async setTimeout sleep isn't an option here —
+    // Atomics.wait on a private buffer gives a true OS-level blocking wait instead.
     function sleepMs(ms) {
-      const end = Date.now() + ms;
-      while (Date.now() < end) {
-        /* Spin */
-      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
     }
     function retryOnBusy(fn, label) {
       const maxRetries = safeInt(getConfig().busy_retry_max, 5);
