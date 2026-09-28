@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  buildReclassifyQuestion,
-  buildVerdictQuestion,
-} from '../extensions/memory-layer/host/jev-questions.ts';
+import { buildReclassifyQuestion, buildVerdictQuestion } from '../extensions/memory-layer/host/jev-questions.ts';
 
 describe('jev-questions', () => {
   describe('buildReclassifyQuestion (C)', () => {

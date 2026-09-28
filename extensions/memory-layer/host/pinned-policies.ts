@@ -90,7 +90,9 @@ export function parsePinnedPolicies(md: unknown): PinnedPolicy[] {
     // Strip a trailing colon from the captured title (AGENTS.md writes
     // "**Title:** text"; tolerate "**Title** text" too).
     const rawTitle = m[1].replace(/:\s*$/, '').trim();
-    const text = String(m[2] ?? '').replace(/\s+/g, ' ').trim();
+    const text = String(m[2] ?? '')
+      .replace(/\s+/g, ' ')
+      .trim();
     // Strip parenthetical qualifiers: "(PINNED)",
     // "(PINNED, FINAL_SPELLING_ATTEMPT_V2 — AMENDED round 7)".
     const cleanTitle = rawTitle.replace(/\s*\([^)]*\)/g, '').trim() || rawTitle;
@@ -136,10 +138,7 @@ export function loadPinnedPolicies(cwd: string): PinnedPolicy[] {
 
   const policies = parsePinnedPolicies(md);
   if (policies.length === 0) {
-    warnOnce(
-      agentsPath,
-      `⚠ pinned-policies: no "Pinned policies" section found in ${agentsPath}`,
-    );
+    warnOnce(agentsPath, `⚠ pinned-policies: no "Pinned policies" section found in ${agentsPath}`);
   }
   cache.set(agentsPath, { mtimeMs, policies });
   return policies;

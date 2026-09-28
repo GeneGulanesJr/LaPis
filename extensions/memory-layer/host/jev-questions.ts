@@ -16,13 +16,9 @@ export function buildReclassifyQuestion(input: {
 }): JevChoiceQuestion {
   const { pinnedPolicies, reInjectedTitles } = input;
   const policyList =
-    pinnedPolicies.length > 0
-      ? pinnedPolicies.map((p) => `- ${p}`).join('\n')
-      : '(no pinned policies declared)';
+    pinnedPolicies.length > 0 ? pinnedPolicies.map((p) => `- ${p}`).join('\n') : '(no pinned policies declared)';
   const titleList =
-    reInjectedTitles.length > 0
-      ? reInjectedTitles.map((t) => `- ${t}`).join('\n')
-      : '(no re-injected memories)';
+    reInjectedTitles.length > 0 ? reInjectedTitles.map((t) => `- ${t}`).join('\n') : '(no re-injected memories)';
 
   return {
     kind: 'choice',
@@ -41,19 +37,14 @@ export function buildReclassifyQuestion(input: {
   };
 }
 
-export function buildVerdictQuestion(input: {
-  lostTopics: string[];
-  reInjectedTitles: string[];
-}): JevScoreQuestion {
+export function buildVerdictQuestion(input: { lostTopics: string[]; reInjectedTitles: string[] }): JevScoreQuestion {
   const { lostTopics, reInjectedTitles } = input;
   const lostList =
     lostTopics.length > 0
       ? lostTopics.map((t) => `- ${t}`).join('\n')
       : '(nothing was lost — compaction removed nothing)';
   const titleList =
-    reInjectedTitles.length > 0
-      ? reInjectedTitles.map((t) => `- ${t}`).join('\n')
-      : '(no re-injected memories)';
+    reInjectedTitles.length > 0 ? reInjectedTitles.map((t) => `- ${t}`).join('\n') : '(no re-injected memories)';
 
   return {
     kind: 'score',

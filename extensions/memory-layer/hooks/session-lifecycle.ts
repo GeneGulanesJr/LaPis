@@ -85,13 +85,15 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
 
     if (!contextResult && !crossProjectResult) {
       return {
-        messages: [{
-          customType: 'memory-context',
-          content:
-            '⚠️ **Memory context failed to re-load after compaction.** Memory state may be stale.\n' +
-            'Use `memory-search` and `memory-save` manually if needed.',
-          display: true,
-        }],
+        messages: [
+          {
+            customType: 'memory-context',
+            content:
+              '⚠️ **Memory context failed to re-load after compaction.** Memory state may be stale.\n' +
+              'Use `memory-search` and `memory-save` manually if needed.',
+            display: true,
+          },
+        ],
       };
     }
 
@@ -140,22 +142,20 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
     lines.push('Use `memory-save`, `memory-search`, and `memory-get` tools to interact with memory.');
 
     // Build the memory-context message
-    const messages: any[] = [{
-      customType: 'memory-context',
-      content: lines.join('\n'),
-      display: false,
-    }];
+    const messages: any[] = [
+      {
+        customType: 'memory-context',
+        content: lines.join('\n'),
+        display: false,
+      },
+    ];
 
     // Run Jev post-compact (C + A) if enabled. Never throws — degrades to
     // empty output on failure. Pinned policies come from <ctx.cwd>/AGENTS.md;
     // lost topics are diffed against state.preCompactTitles (snapshot taken
     // at session_start, refreshed after each compact).
-    const pinnedPolicies = loadPinnedPolicies(ctx?.cwd ?? '').map(
-      (p) => `${p.title}: ${p.text}`,
-    );
-    const newTitles = effectiveObservations
-      .map((o: any) => o.title)
-      .filter(Boolean);
+    const pinnedPolicies = loadPinnedPolicies(ctx?.cwd ?? '').map((p) => `${p.title}: ${p.text}`);
+    const newTitles = effectiveObservations.map((o: any) => o.title).filter(Boolean);
     const lostTopics = diffLostTopics(deps.state.preCompactTitles, newTitles);
     deps.state.preCompactTitles = newTitles; // refresh baseline for next compact
     const jevOutput = await runJevPostCompact({

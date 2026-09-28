@@ -56,9 +56,7 @@ function runCommand(commandArgs, options = {}) {
       // interprets it; every other shape keeps the per-token escaping so
       // literal values (e.g. a commit message) survive round-tripping through
       // /bin/sh -c intact.
-      const escaped = isSingleShellExpression(commandArgs)
-        ? commandArgs[0]
-        : commandArgs.map(shellEscape).join(' ');
+      const escaped = isSingleShellExpression(commandArgs) ? commandArgs[0] : commandArgs.map(shellEscape).join(' ');
       // Detached: the command becomes its own process-group leader so the
       // Timeout kill below can take down pipeline grandchildren. Killing only
       // The shell leaves grandchildren alive holding the stdio pipe write
