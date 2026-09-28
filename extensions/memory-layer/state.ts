@@ -132,4 +132,11 @@ export const state = {
     totalCompressedTokens: 0 as number,
     totalSavedTokens: 0 as number,
   },
+  /**
+   * Snapshot of memory titles visible at session start, refreshed after each
+   * session_compact. Used by the Jev post-compact integration to diff what
+   * was lost during compaction (input to question A — verdict). null = no
+   * baseline yet (initial snapshot failed or not yet taken).
+   */
+  preCompactTitles: null as string[] | null,
 };

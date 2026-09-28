@@ -207,4 +207,106 @@ describe('session_compact with Jev post-compact', () => {
     const jevMessage = result.messages.find((m) => m.customType === 'jev-post-compact');
     expect(jevMessage).toBeDefined();
   });
+
+  test('first compact in session sends empty lostTopics when no baseline exists', async () => {
+    process.env.JEV_DRY_RUN = '1';
+    process.env.JEV_ENABLED = '1';
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ answers: [{ score: 2, confidence: 0.8 }] }),
+    });
+    globalThis.fetch = fetchMock;
+    process.env.JEV_API_KEY = 'test-key';
+    delete process.env.JEV_DRY_RUN;
+
+    const state = { currentProject: 'TestProject', sessionId: 1, preCompactTitles: null };
+    const deps = { state, mem: vi.fn(async () => ({
+      observations: [
+        { id: 1, type: 'decision', title: 'phase 5 fallback', trust_score: 0.9 },
+        { id: 2, type: 'pattern', title: 'bun chosen', trust_score: 0.8 },
+      ],
+      personal: [],
+      stats: { total_memories: 2 },
+    })) };
+    const handler = extractHandler(deps);
+    await handler({}, {});
+
+    // Find the verdict question call (A)
+    const verdictCall = fetchMock.mock.calls.find(([, init]) => {
+      const body = JSON.parse(init.body);
+      const q = body.questions?.[0]?.question || '';
+      return q.includes('lost') || q.includes('completely');
+    });
+    expect(verdictCall).toBeDefined();
+    const body = JSON.parse(verdictCall[1].body);
+    expect(body.questions[0].question).toMatch(/nothing (was )?lost/);
+
+    // State was updated for the next compact in the same session
+    expect(state.preCompactTitles).toEqual(['phase 5 fallback', 'bun chosen']);
+  });
+
+  test('second compact diffs lost topics against post-first-compact baseline', async () => {
+    process.env.JEV_DRY_RUN = '1';
+    process.env.JEV_ENABLED = '1';
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ answers: [{ score: 1, confidence: 0.7 }] }),
+    });
+    globalThis.fetch = fetchMock;
+    process.env.JEV_API_KEY = 'test-key';
+    delete process.env.JEV_DRY_RUN;
+
+    // Simulate that the first compact already ran; baseline now reflects
+    // post-first-compact titles.
+    const state = {
+      currentProject: 'TestProject',
+      sessionId: 1,
+      preCompactTitles: ['phase 5 fallback', 'bun chosen', 'verifier ready'],
+    };
+    let callIndex = 0;
+    const deps = {
+      state,
+      mem: vi.fn(async () => {
+        callIndex += 1;
+        if (callIndex === 1) {
+          // Project context call returns the new (post-compact) titles
+          return {
+            observations: [
+              { id: 1, type: 'decision', title: 'phase 5 fallback', trust_score: 0.9 },
+              { id: 2, type: 'pattern', title: 'bun chosen', trust_score: 0.8 },
+            ],
+            personal: [],
+            stats: { total_memories: 2 },
+          };
+        }
+        return null;
+      }),
+    };
+    const handler = extractHandler(deps);
+    await handler({}, {});
+
+    // Find the verdict question call (A)
+    const verdictCall = fetchMock.mock.calls.find(([, init]) => {
+      const body = JSON.parse(init.body);
+      const q = body.questions?.[0]?.question || '';
+      return q.includes('Topics lost') || q.includes('completely');
+    });
+    expect(verdictCall).toBeDefined();
+    const body = JSON.parse(verdictCall[1].body);
+    // 'verifier ready' was in before but not in after -> lost topic
+    expect(body.questions[0].question).toContain('verifier ready');
+    // 'phase 5 fallback' is also in after -> NOT a lost topic (it's in the
+    // re-injected section, which is fine; the lost-topics list does not
+    // include it). The lost-topics block uses '- <topic>\n' format.
+    const lostBlock = body.questions[0].question
+      .split('Topics lost during compaction:\n')[1]
+      .split('\n\nMemories re-injected')[0];
+    expect(lostBlock).toContain('verifier ready');
+    expect(lostBlock).not.toContain('phase 5 fallback');
+
+    // Baseline updated to new titles
+    expect(state.preCompactTitles).toEqual(['phase 5 fallback', 'bun chosen']);
+  });
 });

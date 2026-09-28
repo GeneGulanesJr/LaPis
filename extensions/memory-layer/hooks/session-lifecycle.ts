@@ -9,6 +9,7 @@ import { detectProject } from '../host/project-detector';
 import { buildSessionSummary } from '../../../src/hooks-engine/session-summary.js';
 import { runJevPostCompact } from './jev-post-compact.ts';
 import { loadPinnedPolicies } from '../host/pinned-policies.ts';
+import { diffLostTopics } from '../host/jev-lost-topics.ts';
 
 interface SessionDeps {
   state: typeof state;
@@ -147,16 +148,22 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
 
     // Run Jev post-compact (C + A) if enabled. Never throws — degrades to
     // empty output on failure. Pinned policies come from <ctx.cwd>/AGENTS.md;
-    // TODO(future): diff pre/post-compaction titles from a session_start cache.
+    // lost topics are diffed against state.preCompactTitles (snapshot taken
+    // at session_start, refreshed after each compact).
     const pinnedPolicies = loadPinnedPolicies(ctx?.cwd ?? '').map(
       (p) => `${p.title}: ${p.text}`,
     );
+    const newTitles = effectiveObservations
+      .map((o: any) => o.title)
+      .filter(Boolean);
+    const lostTopics = diffLostTopics(deps.state.preCompactTitles, newTitles);
+    deps.state.preCompactTitles = newTitles; // refresh baseline for next compact
     const jevOutput = await runJevPostCompact({
       currentProject: deps.state.currentProject,
       sessionId: deps.state.sessionId,
       pinnedPolicies,
-      reInjectedTitles: effectiveObservations.map((o: any) => o.title),
-      lostTopics: [],
+      reInjectedTitles: newTitles,
+      lostTopics,
     });
 
     if (jevOutput.messages.length > 0) {
