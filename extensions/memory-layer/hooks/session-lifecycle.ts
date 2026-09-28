@@ -8,6 +8,7 @@ import { detectProject } from '../host/project-detector';
 // Engine delegation (pure transport-agnostic core).
 import { buildSessionSummary } from '../../../src/hooks-engine/session-summary.js';
 import { runJevPostCompact } from './jev-post-compact.ts';
+import { loadPinnedPolicies } from '../host/pinned-policies.ts';
 
 interface SessionDeps {
   state: typeof state;
@@ -59,7 +60,7 @@ export function registerSessionStart(pi: ExtensionAPI, deps: SessionDeps) {
 }
 
 export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
-  pi.on('session_compact', async (_event, _ctx) => {
+  pi.on('session_compact', async (_event, ctx) => {
     if (!deps.state.currentProject) {
       return { messages: [] };
     }
@@ -145,12 +146,15 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
     }];
 
     // Run Jev post-compact (C + A) if enabled. Never throws — degrades to
-    // empty output on failure. TODO(future): parse pinned policies from
-    // AGENTS.md; diff pre/post-compaction titles from a session_start cache.
+    // empty output on failure. Pinned policies come from <ctx.cwd>/AGENTS.md;
+    // TODO(future): diff pre/post-compaction titles from a session_start cache.
+    const pinnedPolicies = loadPinnedPolicies(ctx?.cwd ?? '').map(
+      (p) => `${p.title}: ${p.text}`,
+    );
     const jevOutput = await runJevPostCompact({
       currentProject: deps.state.currentProject,
       sessionId: deps.state.sessionId,
-      pinnedPolicies: [],
+      pinnedPolicies,
       reInjectedTitles: effectiveObservations.map((o: any) => o.title),
       lostTopics: [],
     });

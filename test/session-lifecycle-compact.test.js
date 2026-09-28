@@ -135,4 +135,76 @@ describe('session_compact with Jev post-compact', () => {
     expect(result.messages).toHaveLength(1);
     expect(result.messages[0].customType).toBe('memory-context');
   });
+
+  test('picks up pinned policies from <cwd>/AGENTS.md when JEV_ENABLED=1', async () => {
+    process.env.JEV_DRY_RUN = '1';
+    process.env.JEV_ENABLED = '1';
+
+    const { mkdtempSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const cwd = mkdtempSync(join(tmpdir(), 'lapis-compact-policies-'));
+    writeFileSync(
+      join(cwd, 'AGENTS.md'),
+      `**PINNED POLICIES:**
+
+- **Spelling:** letter-by-letter.
+- **Confirmation:** exactly once.
+`,
+    );
+
+    // Spy on the Jev client by mocking global fetch and inspecting the
+    // request body (which contains the question text with policy strings).
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ answers: [{ choice: 'yes', confidence: 0.9 }] }),
+    });
+    globalThis.fetch = fetchMock;
+    process.env.JEV_API_KEY = 'test-key';
+    delete process.env.JEV_DRY_RUN;
+
+    const deps = buildDeps(async () => ({
+      observations: [{ id: 1, type: 'decision', title: 'phase 5', trust_score: 0.9 }],
+      personal: [],
+      stats: { total_memories: 1 },
+    }));
+
+    const handler = extractHandler(deps);
+    await handler({}, { cwd });
+
+    // The C question (reclassify) was asked and contained the policies
+    const reclassifyCall = fetchMock.mock.calls.find(([, init]) => {
+      const body = JSON.parse(init.body);
+      return body.questions?.[0]?.question?.includes('PINNED POLICIES') ||
+             body.questions?.[0]?.question?.includes('pinned polic');
+    });
+    expect(reclassifyCall).toBeDefined();
+    const body = JSON.parse(reclassifyCall[1].body);
+    expect(body.questions[0].question).toContain('Spelling: letter-by-letter');
+    expect(body.questions[0].question).toContain('Confirmation: exactly once');
+  });
+
+  test('gracefully degrades when cwd has no AGENTS.md', async () => {
+    process.env.JEV_DRY_RUN = '1';
+    process.env.JEV_ENABLED = '1';
+
+    const { mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const cwd = mkdtempSync(join(tmpdir(), 'lapis-compact-empty-'));
+    // no AGENTS.md written
+
+    const deps = buildDeps(async () => ({
+      observations: [{ id: 1, type: 'decision', title: 'phase 5', trust_score: 0.9 }],
+      personal: [],
+      stats: { total_memories: 1 },
+    }));
+
+    const handler = extractHandler(deps);
+    const result = await handler({}, { cwd });
+
+    // Jev still called (with "no pinned policies declared"); no error
+    const jevMessage = result.messages.find((m) => m.customType === 'jev-post-compact');
+    expect(jevMessage).toBeDefined();
+  });
 });
