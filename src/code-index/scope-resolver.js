@@ -10,9 +10,25 @@ const _path = require('path'),
   MAX_RESOLUTION_PASSES = 10,
   WILDCARD_EXPANSION_CAP = 50;
 
-function resolveTargetFileId(db, binding) {
+function resolveTargetFileId(db, binding, importsIndex = null) {
   if (binding.source_file_id) {
     return binding.source_file_id;
+  }
+  // Optional in-memory fast path: code_imports is immutable during resolution,
+  // So a snapshot index built once per pass returns the same rows as the
+  // Per-binding SQL (first rowid-order match wins, exactly like LIMIT 1).
+  if (importsIndex) {
+    const entry = importsIndex.get(binding.file_id);
+    if (!entry) {
+      return null;
+    }
+    if (binding.source_module) {
+      const moduleTarget = entry.byModule.get(binding.source_module);
+      if (moduleTarget) {
+        return moduleTarget;
+      }
+    }
+    return entry.first || null;
   }
   if (binding.source_module) {
     const moduleMatch = db
@@ -117,16 +133,72 @@ function runDirectResolution(db, repoId) {
     insertResolution = db.prepare(
       `INSERT INTO scope_resolution (binding_id, resolved_symbol_id, resolved_file_id, status, resolved_at_pass, confidence) VALUES (?, ?, ?, ?, ?, ?)`,
     ),
-    // Cache for import target resolution
-    _importTargetCache = new Map(),
-    // Cache for file path lookup
-    filePathCache = new Map(),
-    _getFilePath = (fileId) => {
-      if (!filePathCache.has(fileId)) {
-        const row = db.prepare('SELECT path FROM code_files WHERE id = ?').get(fileId);
-        filePathCache.set(fileId, row ? row.path : null);
+    // PERF: in-memory indexes for the per-binding lookups below. The original
+    // Loop prepared + ran 1-3 SQL queries per binding (~8K bindings per full
+    // Index, ~290ms of serial time). code_symbols/code_imports are immutable
+    // For the duration of resolution, so one snapshot pass each is equivalent.
+    // Symbols are kept in rowid order per (file_id, name), matching the
+    // Index-scan order the original LIMIT 1 queries relied on.
+    symbolsByFileAndName = (() => {
+      const index = new Map();
+      for (const row of db
+        .prepare('SELECT id, file_id, name, start_line, end_line FROM code_symbols WHERE repo_id = ?')
+        .all(repoId)) {
+        let byName = index.get(row.file_id);
+        if (!byName) {
+          byName = new Map();
+          index.set(row.file_id, byName);
+        }
+        let rows = byName.get(row.name);
+        if (!rows) {
+          rows = [];
+          byName.set(row.name, rows);
+        }
+        rows.push(row);
       }
-      return filePathCache.get(fileId);
+      return index;
+    })(),
+    importsBySourceFile = (() => {
+      const index = new Map();
+      for (const row of db
+        .prepare(
+          'SELECT source_file_id, target_module, target_file_id FROM code_imports WHERE target_file_id IS NOT NULL ORDER BY rowid',
+        )
+        .all()) {
+        let entry = index.get(row.source_file_id);
+        if (!entry) {
+          entry = { byModule: new Map(), first: row.target_file_id };
+          index.set(row.source_file_id, entry);
+        }
+        if (!entry.byModule.has(row.target_module)) {
+          entry.byModule.set(row.target_module, row.target_file_id);
+        }
+      }
+      return index;
+    })(),
+    findSymbolInFile = (fileId, name) => {
+      const rows = symbolsByFileAndName.get(fileId)?.get(name);
+      return rows ? rows[0] : null;
+    },
+    // Same semantics as ORDER BY (end_line - start_line) ASC LIMIT 1 over the
+    // Containment filter; first-min wins ties.
+    findLocalSymbol = (fileId, name, bindingLineStart, bindingLineEnd) => {
+      const rows = symbolsByFileAndName.get(fileId)?.get(name);
+      if (!rows) {
+        return null;
+      }
+      let best = null,
+        bestSpan = 0;
+      for (const row of rows) {
+        if (row.start_line <= bindingLineEnd && row.end_line >= bindingLineStart) {
+          const span = row.end_line - row.start_line;
+          if (!best || span < bestSpan) {
+            best = row;
+            bestSpan = span;
+          }
+        }
+      }
+      return best;
     },
     runInTx =
       typeof db.transaction === 'function'
@@ -165,15 +237,13 @@ function runDirectResolution(db, repoId) {
 
         // If no source_file_id yet, try to resolve from import edges
         if (!targetFileId) {
-          targetFileId = resolveTargetFileId(db, binding);
+          targetFileId = resolveTargetFileId(db, binding, importsBySourceFile);
         }
 
         if (targetFileId) {
           // Try to find the symbol in the target file
           const sourceName = binding.source_name || binding.name,
-            symbolRow = db
-              .prepare(`SELECT id FROM code_symbols WHERE file_id = ? AND name = ? LIMIT 1`)
-              .get(targetFileId, sourceName);
+            symbolRow = findSymbolInFile(targetFileId, sourceName);
 
           if (symbolRow) {
             insertResolution.run(binding.id, symbolRow.id, targetFileId, 'resolved_internal', 2, 1.0);
@@ -193,14 +263,7 @@ function runDirectResolution(db, repoId) {
 
       if (binding.origin === 'local') {
         // Find matching code_symbols row in the same file
-        const symbolRow = db
-          .prepare(`
-          SELECT id FROM code_symbols
-          WHERE file_id = ? AND name = ? AND start_line <= ? AND end_line >= ?
-          ORDER BY (end_line - start_line) ASC
-          LIMIT 1
-        `)
-          .get(binding.file_id, binding.name, binding.line_end, binding.line_start);
+        const symbolRow = findLocalSymbol(binding.file_id, binding.name, binding.line_start, binding.line_end);
 
         if (symbolRow) {
           insertResolution.run(binding.id, symbolRow.id, null, 'resolved_internal', 2, 1.0);
@@ -266,31 +329,31 @@ function runReexportResolution(db, repoId, passNum) {
   runInTx(() => {
     // ── Re-export chains ─────────────────────────────────
     const reexportBindings = db
-      .prepare(`
+        .prepare(`
       SELECT fsb.id, fsb.file_id, fsb.name, fsb.kind, fsb.source_file_id, fsb.source_name
       FROM file_scope_bindings fsb
       JOIN scope_resolution sr ON sr.binding_id = fsb.id
       WHERE fsb.repo_id = ? AND fsb.kind = 're_export' AND sr.status = 'unresolved'
         AND fsb.source_file_id IS NOT NULL
     `)
-      .all(repoId);
-
-    for (const binding of reexportBindings) {
-      // Follow the chain: find the original binding in the source file
-      const sourceBinding = db
-        .prepare(`
+        .all(repoId),
+      sourceBindingStmt = db.prepare(`
         SELECT fsb.id, sr.resolved_symbol_id, sr.status
         FROM file_scope_bindings fsb
         JOIN scope_resolution sr ON sr.binding_id = fsb.id
         WHERE fsb.file_id = ? AND fsb.name = ? AND sr.status = 'resolved_internal'
         LIMIT 1
-      `)
-        .get(binding.source_file_id, binding.source_name || binding.name);
+      `),
+      updateResolutionStmt = db.prepare(
+        `UPDATE scope_resolution SET resolved_symbol_id = ?, status = 'resolved_internal', resolved_at_pass = ?, confidence = 0.9 WHERE binding_id = ?`,
+      );
+
+    for (const binding of reexportBindings) {
+      // Follow the chain: find the original binding in the source file
+      const sourceBinding = sourceBindingStmt.get(binding.source_file_id, binding.source_name || binding.name);
 
       if (sourceBinding && sourceBinding.resolved_symbol_id) {
-        db.prepare(
-          `UPDATE scope_resolution SET resolved_symbol_id = ?, status = 'resolved_internal', resolved_at_pass = ?, confidence = 0.9 WHERE binding_id = ?`,
-        ).run(sourceBinding.resolved_symbol_id, passNum, binding.id);
+        updateResolutionStmt.run(sourceBinding.resolved_symbol_id, passNum, binding.id);
         resolved++;
       }
     }
@@ -312,14 +375,16 @@ function runReexportResolution(db, repoId, passNum) {
       insertResolution = db.prepare(
         `INSERT INTO scope_resolution (binding_id, resolved_symbol_id, resolved_file_id, status, resolved_at_pass, confidence) VALUES (?, ?, ?, ?, ?, ?)`,
       ),
+      exportedSymbolsStmt = db.prepare(
+        `SELECT id, name, start_line, end_line FROM code_symbols WHERE file_id = ? AND name IS NOT NULL LIMIT ?`,
+      ),
+      markResolvedExternalStmt = db.prepare(
+        `UPDATE scope_resolution SET status = 'resolved_external', resolved_at_pass = ? WHERE binding_id = ?`,
+      ),
       namespaceBindings = (() => {
         for (const binding of wildcardBindings) {
           // Enumerate exported symbols from the source file
-          const exportedSymbols = db
-            .prepare(
-              `SELECT id, name, start_line, end_line FROM code_symbols WHERE file_id = ? AND name IS NOT NULL LIMIT ?`,
-            )
-            .all(binding.source_file_id, WILDCARD_EXPANSION_CAP + 1);
+          const exportedSymbols = exportedSymbolsStmt.all(binding.source_file_id, WILDCARD_EXPANSION_CAP + 1);
 
           if (exportedSymbols.length > WILDCARD_EXPANSION_CAP) {
             warnings.push(
@@ -349,9 +414,7 @@ function runReexportResolution(db, repoId, passNum) {
           }
 
           // Mark the wildcard binding itself as resolved
-          db.prepare(
-            `UPDATE scope_resolution SET status = 'resolved_external', resolved_at_pass = ? WHERE binding_id = ?`,
-          ).run(passNum, binding.id);
+          markResolvedExternalStmt.run(passNum, binding.id);
           resolved++;
         }
 
@@ -368,11 +431,7 @@ function runReexportResolution(db, repoId, passNum) {
           .all(repoId);
       })();
     for (const binding of namespaceBindings) {
-      const exportedSymbols = db
-        .prepare(
-          `SELECT id, name, start_line, end_line FROM code_symbols WHERE file_id = ? AND name IS NOT NULL LIMIT ?`,
-        )
-        .all(binding.source_file_id, WILDCARD_EXPANSION_CAP + 1);
+      const exportedSymbols = exportedSymbolsStmt.all(binding.source_file_id, WILDCARD_EXPANSION_CAP + 1);
 
       if (exportedSymbols.length > WILDCARD_EXPANSION_CAP) {
         warnings.push(
@@ -400,9 +459,7 @@ function runReexportResolution(db, repoId, passNum) {
       }
 
       // Mark the namespace binding itself as resolved
-      db.prepare(
-        `UPDATE scope_resolution SET status = 'resolved_external', resolved_at_pass = ? WHERE binding_id = ?`,
-      ).run(passNum, binding.id);
+      markResolvedExternalStmt.run(passNum, binding.id);
       resolved++;
     }
   });
@@ -410,8 +467,17 @@ function runReexportResolution(db, repoId, passNum) {
   return { resolved, warnings };
 }
 
+// Prepared-statement cache: getBindingLineRange is called once per synthetic
+// (wildcard/namespace) binding; re-preparing the same SELECT each call is waste.
+const _bindingLineRangeStmts = new WeakMap();
+
 function getBindingLineRange(db, bindingId) {
-  const row = db.prepare('SELECT line_start, line_end FROM file_scope_bindings WHERE id = ?').get(bindingId);
+  let stmt = _bindingLineRangeStmts.get(db);
+  if (!stmt) {
+    stmt = db.prepare('SELECT line_start, line_end FROM file_scope_bindings WHERE id = ?');
+    _bindingLineRangeStmts.set(db, stmt);
+  }
+  const row = stmt.get(bindingId);
   return row ? [row.line_start, row.line_end] : [0, 0];
 }
 

@@ -287,7 +287,19 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
   it('detectMcpProject prefers indexed repo path over cwd basename', () => {
     const dbPath = require.resolve('../db'),
       realDb = require(dbPath),
-      prev = require.cache[dbPath].exports;
+      prev = require.cache[dbPath].exports,
+      { clearProjectDbCache } = require('../src/platform/project-db'),
+      SNAPSHOT_TTL_ENV = 'LAPIS_REPO_SNAPSHOT_TTL_MS',
+      prevTtl = process.env[SNAPSHOT_TTL_ENV];
+
+    // The cross-process repos snapshot (a real file next to the shared dev DB,
+    // Refreshed by any LaPis hook running on this machine) answers before the
+    // Stubbed sqlJson is ever consulted, bypassing the exact seam this test
+    // Exercises. Disable the layer for the duration — the same protocol as
+    // Used by test/platform/project-db.test.js. Clearing happens while the
+    // Layer is disabled so the real snapshot file is never unlinked.
+    process.env[SNAPSHOT_TTL_ENV] = '0';
+    clearProjectDbCache();
 
     require.cache[dbPath].exports = {
       ...realDb,
@@ -306,6 +318,12 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
       expect(detectMcpProject('/repos/my-monorepo/packages/foo')).toBe('my-monorepo');
     } finally {
       require.cache[dbPath].exports = prev;
+      clearProjectDbCache(); // Layer still disabled: memory-only, no unlink
+      if (prevTtl === undefined) {
+        delete process.env[SNAPSHOT_TTL_ENV];
+      } else {
+        process.env[SNAPSHOT_TTL_ENV] = prevTtl;
+      }
     }
   });
 });

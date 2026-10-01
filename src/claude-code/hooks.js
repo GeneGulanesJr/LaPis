@@ -19,19 +19,29 @@
 const { stripTuiArtifacts } = require('../mcp/translate-result'),
   dispatchClient = require('./dispatch-client'),
   stateStore = require('./state-store'),
-  { handleSessionStart } = require('./handlers/session-start'),
-  { handleUserPromptSubmit } = require('./handlers/user-prompt-submit'),
-  { handleStop } = require('./handlers/stop'),
-  { handleSessionEnd } = require('./handlers/session-end'),
-  { handlePreToolUse } = require('./handlers/pre-tool-use'),
-  { handlePostToolUse } = require('./handlers/post-tool-use'),
+  // Lazy handler registry: a hook process serves exactly one event, so each
+  // handler module is required on first access instead of loading all six
+  // subtrees (~30ms of the per-hook module budget) for the five that never run.
+  // Property shape is unchanged — HANDLERS.<Event> still yields the function.
   HANDLERS = {
-    SessionStart: handleSessionStart,
-    UserPromptSubmit: handleUserPromptSubmit,
-    Stop: handleStop,
-    SessionEnd: handleSessionEnd,
-    PreToolUse: handlePreToolUse,
-    PostToolUse: handlePostToolUse,
+    get SessionStart() {
+      return require('./handlers/session-start').handleSessionStart;
+    },
+    get UserPromptSubmit() {
+      return require('./handlers/user-prompt-submit').handleUserPromptSubmit;
+    },
+    get Stop() {
+      return require('./handlers/stop').handleStop;
+    },
+    get SessionEnd() {
+      return require('./handlers/session-end').handleSessionEnd;
+    },
+    get PreToolUse() {
+      return require('./handlers/pre-tool-use').handlePreToolUse;
+    },
+    get PostToolUse() {
+      return require('./handlers/post-tool-use').handlePostToolUse;
+    },
   };
 
 function readStdin() {
@@ -129,8 +139,16 @@ async function runHook(argv, opts = {}) {
       // Client the same way they inject dispatch/getKnownRepos (#231). `dispatch`
       // And `getKnownRepos` fall back to the (possibly injected) client's methods.
 
-      // EnsureDb once — mirrors src/mcp/server.js:118-130.
-      if (opts.ensureDb !== false) {
+      // EnsureDb is no longer eager: a fresh hook process used to pay a full
+      // SQLite open (~55-110ms) even when the handler never touches the DB
+      // (PreToolUse reads repos/projects from the project-db file snapshot).
+      // Every remaining DB touch self-ensures lazily — gateway.dispatch does
+      // Its own ensureDb in direct mode (src/cli/gateway.js) and the db.js
+      // SQL/getDb/withTransaction entry points open on first use. DB-init
+      // Failures therefore surface at first DB use and fail open inside the
+      // Handler try/catch below, consistent with the hooks-fail-open contract.
+      // Passing opts.ensureDb === true still forces the old eager init.
+      if (opts.ensureDb === true) {
         try {
           require('../../db').ensureDb();
         } catch (e) {

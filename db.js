@@ -1245,6 +1245,9 @@ class MemoryError extends Error {
       MemoryError,
     };
     function getDb() {
+      if (!_db) {
+        ensureDb();
+      }
       return _db;
     }
     function getEngine() {
@@ -1394,6 +1397,9 @@ class MemoryError extends Error {
       throw lastError;
     }
     function _sqlJson(query, params = []) {
+      if (!_db) {
+        ensureDb();
+      }
       return retryOnBusy(() => {
         try {
           const stmt = _db.prepare(query);
@@ -1404,6 +1410,9 @@ class MemoryError extends Error {
       }, 'sqlJson');
     }
     function _sqlRun(query, params = []) {
+      if (!_db) {
+        ensureDb();
+      }
       return retryOnBusy(() => {
         try {
           const stmt = _db.prepare(query);
@@ -1414,6 +1423,9 @@ class MemoryError extends Error {
       }, 'sqlRun');
     }
     function _sqlExec(sql) {
+      if (!_db) {
+        ensureDb();
+      }
       return retryOnBusy(() => {
         try {
           _db.exec(sql);
@@ -1424,7 +1436,7 @@ class MemoryError extends Error {
     }
     function withTransaction(fn, onRollbackError) {
       if (!_db) {
-        throw new MemoryError('Database not initialized. Call ensureDb() first.');
+        ensureDb();
       }
       if (typeof _db.transaction === 'function') {
         return _db.transaction(fn)();
