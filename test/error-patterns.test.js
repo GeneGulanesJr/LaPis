@@ -53,24 +53,59 @@ describe('Error patterns and DB isolation', () => {
   });
 
   describe('db.js — withTransaction', () => {
-    it('should throw MemoryError when db not initialized', () => {
+    it('lazily opens the DB when the handle is unset and runs the transaction', () => {
+      // Since the lazy-open change, an unset handle is no longer an error:
+      // The first SQL use self-ensures (opens the global DB) and proceeds.
       dbModule.resetDb();
       try {
-        expect(() => dbModule.withTransaction(() => {})).toThrow(MemoryError);
+        let ran = false;
+        expect(() =>
+          dbModule.withTransaction(() => {
+            ran = true;
+          }),
+        ).not.toThrow();
+        expect(ran).toBe(true);
+        expect(dbModule.getEngine()).toBe('better-sqlite3');
       } finally {
         dbModule.ensureDb();
+      }
+    });
+
+    it('still fails loudly (backend error) when the DB cannot be opened', () => {
+      // The real error path the old "MemoryError when not initialized" test
+      // Guarded: an unavailable DB must surface at the first SQL use, never
+      // Silently no-op. A directory where the DB file belongs makes
+      // The better-sqlite3 open fail, so the lazy self-ensure throws.
+      const { getConfig } = require('../config'),
+        badDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-bad-db-')),
+        badPath = path.join(badDir, 'memory.db'),
+        savedConfig = getConfig._cached;
+      fs.mkdirSync(badPath);
+      dbModule.resetDb();
+      getConfig._cached = { ...savedConfig, db_path: badPath };
+      try {
+        expect(() => dbModule.withTransaction(() => {})).toThrow(/No SQLite backend found/);
+      } finally {
+        getConfig._cached = savedConfig;
+        dbModule.resetDb();
+        dbModule.ensureDb();
+        fs.rmSync(badDir, { recursive: true, force: true });
       }
     });
   });
 
   describe('db.js — resetDb / createDb (Issue #36)', () => {
-    it('resetDb should null out _db and _engine', () => {
+    it('resetDb should drop the handle; the next access lazily re-opens', () => {
       dbModule.ensureDb();
-      expect(dbModule.getDb()).toBeTruthy();
+      expect(dbModule.getEngine()).toBeTruthy();
 
       dbModule.resetDb();
-      expect(dbModule.getDb()).toBeNull();
+      // The unguarded getEngine() accessor proves the reset happened.
       expect(dbModule.getEngine()).toBeNull();
+      // In contrast, getDb() self-ensures since the lazy-open change: the next
+      // Consumer gets a fresh global-DB handle instead of null — this mirrors
+      // The resetDb expectation in test/db.test.js.
+      expect(dbModule.getDb()).toBeTruthy();
 
       // Restore for other tests
       dbModule.ensureDb();
