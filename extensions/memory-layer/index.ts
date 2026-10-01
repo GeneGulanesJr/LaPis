@@ -28,6 +28,11 @@ import { ensureNativeModules } from './host/native-health';
 import { registerCodeTools } from './tools/code-tools';
 import { registerDocTools } from './tools/doc-tools';
 import { registerDashboardCommand } from './commands/dashboard';
+import { createJevCompactionPlanner } from './hooks/jev-compaction-planner';
+import { registerCompactionJudg } from './host/compaction-judg';
+import { JevCompactionJudg } from './host/strategies/jev-compaction-judg';
+import { DefaultCompactionJudg } from './host/strategies/default-compaction-judg';
+import { NoopCompactionJudg } from './host/strategies/noop-compaction-judg';
 import { formatCodeResult } from './tools/format-code-result';
 import { formatDocResult } from './tools/format-doc-result';
 import { registerMemoryTools } from './tools/memory-tools';
@@ -66,6 +71,24 @@ export default function memoryLayer(pi: ExtensionAPI) {
   };
 
   safeRegister(pi, deps, 'session-lifecycle hooks', registerSessionStart);
+  // Jev-driven compaction (OFF by default — see docs/JEV_DRIVEN_COMPACTION.md).
+  // Strategies are registered eagerly so they're discoverable, but the planner
+  // is a no-op unless `compaction.judg` / `PI_COMPACTION_JUDG` opts in.
+  try {
+    registerCompactionJudg('default', new DefaultCompactionJudg());
+    registerCompactionJudg('noop', new NoopCompactionJudg());
+    registerCompactionJudg('jev', new JevCompactionJudg());
+  } catch (e) {
+    console.error('[memory-layer] failed to register compaction strategies:', e);
+    registrationFailures.push('compaction strategies');
+  }
+  try {
+    createJevCompactionPlanner().register(pi);
+  } catch (e) {
+    console.error('[memory-layer] failed to register compaction planner:', e);
+    registrationFailures.push('compaction planner');
+  }
+
   safeRegister(pi, deps, 'session-compact hook', registerSessionCompact);
   safeRegister(pi, deps, 'before-agent-start hook', registerBeforeAgentStart);
   safeRegister(pi, deps, 'context-reminder hook', registerContextReminder);
