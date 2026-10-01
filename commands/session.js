@@ -24,6 +24,7 @@ function sessionEnd(deps, args) {
       trustRecovery: dreamService.trustRecovery,
       runCompactCheap: dreamService.runCompactCheap,
       runVacuum: dreamService.runVacuum,
+      checkpointWal: dreamService.checkpointWal,
     },
     args,
   );

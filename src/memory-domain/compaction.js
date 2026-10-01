@@ -1,6 +1,8 @@
 const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../constants'),
   { createTrustSyncRepository } = require('../platform/storage/repositories/trust-sync'),
-  trustSync = require('../trust-sync');
+  trustSync = require('../trust-sync'),
+  fs = require('fs'),
+  { getConfig } = require('../../config');
 
 // Cheap, lock-light cleanup: all the DELETEs + trust decay. No VACUUM, no FTS optimize.
 // Safe to run on every session-end without blocking exit.
@@ -73,6 +75,56 @@ function runCompactCheap(deps) {
   return report;
 }
 
+// WAL maintenance: the passive autocheckpoint (wal_autocheckpoint pages) only
+// resets the WAL when no other process holds a read snapshot; with long-lived
+// readers the WAL ratchets up unboundedly — doubled disk footprint, slower
+// recent-page reads, and a multi-second WAL replay after an unclean shutdown.
+// checkpointWal() runs a best-effort TRUNCATE checkpoint at quiescent points
+// (session end, after VACUUM): size-gated so healthy WALs cost one statSync,
+// bounded by a short busy timeout so exit never blocks long, and
+// failure-tolerant — the next session end tries again.
+const WAL_TRUNCATE_THRESHOLD_BYTES = 256 * 1024 * 1024;
+const WAL_CHECKPOINT_BUSY_TIMEOUT_MS = 1000;
+
+function checkpointWal(deps, opts = {}) {
+  const { sqlRaw } = deps,
+    report = { attempted: false, truncated: false };
+  try {
+    if (typeof sqlRaw !== 'function') {
+      report.skipped = 'no-sqlRaw';
+      return report;
+    }
+    const dbPath = opts.dbPath || getConfig().db_path;
+    try {
+      report.walBytes = fs.statSync(`${dbPath}-wal`).size;
+    } catch {
+      report.skipped = 'no-wal';
+      return report;
+    }
+    const threshold = opts.thresholdBytes ?? WAL_TRUNCATE_THRESHOLD_BYTES;
+    if (report.walBytes <= threshold) {
+      report.skipped = 'below-threshold';
+      return report;
+    }
+    report.attempted = true;
+    sqlRaw(`PRAGMA busy_timeout = ${opts.busyTimeoutMs ?? WAL_CHECKPOINT_BUSY_TIMEOUT_MS}`);
+    try {
+      sqlRaw('PRAGMA wal_checkpoint(TRUNCATE)');
+      report.truncated = true;
+    } finally {
+      sqlRaw(`PRAGMA busy_timeout = ${getConfig().busy_timeout_ms || 30000}`);
+    }
+    try {
+      report.walBytesAfter = fs.statSync(`${dbPath}-wal`).size;
+    } catch {
+      // WAL file removed entirely by the truncate — fine.
+    }
+  } catch (e) {
+    report.error = e.message;
+  }
+  return report;
+}
+
 // Expensive: VACUUM rewrites the whole DB under an exclusive lock; FTS 'optimize'
 // Rebuilds the index b-trees. Only run on a gated cadence (every N sessions),
 // Never on every exit — otherwise quitting Pi blocks for seconds on large DBs.
@@ -87,6 +139,9 @@ function runVacuum(deps) {
     sqlRaw("INSERT INTO observations_fts(observations_fts) VALUES('optimize')");
     sqlRaw("INSERT INTO prompts_fts(prompts_fts) VALUES('optimize')");
     report.steps.ftsOptimized = true;
+
+    // VACUUM just copied the whole database through the WAL — reclaim it now.
+    report.steps.wal = checkpointWal(deps);
 
     report.completedAt = new Date().toISOString();
     report.ok = true;
@@ -496,4 +551,4 @@ function trustRecovery(deps, args) {
   return trustSync.trustRecovery({ jsonErrNoExit: deps.jsonErrNoExit, trustSyncRepository }, args);
 }
 
-module.exports = { runCompact, runCompactCheap, runVacuum, compact, dream, trustRecovery };
+module.exports = { runCompact, runCompactCheap, runVacuum, checkpointWal, compact, dream, trustRecovery };

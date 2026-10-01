@@ -1320,6 +1320,11 @@ class MemoryError extends Error {
         d.pragma('temp_store = MEMORY');
         d.pragma(`busy_timeout = ${safeInt(cfg.busy_timeout_ms, 30000)}`);
         d.pragma(`wal_autocheckpoint = ${safeInt(cfg.wal_autocheckpoint, 1000)}`);
+        // Bound WAL disk usage: the passive autocheckpoint cannot reset the WAL
+        // while any reader holds a snapshot, so the file can ratchet to GBs
+        // (measured at 1.3GB alongside a 1.3GB database). journal_size_limit
+        // truncates it whenever SQLite resets or closes it.
+        d.pragma('journal_size_limit = 268435456');
         d.pragma('foreign_keys = ON');
         return d;
       } catch (e) {

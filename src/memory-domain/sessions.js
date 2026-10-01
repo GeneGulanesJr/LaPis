@@ -131,6 +131,12 @@ function sessionEnd(deps, args) {
       }
     }
 
+    // Quiescent point: reclaim a runaway WAL (size-gated, bounded wait).
+    // runVacuum already checkpoints, so skip when it just ran.
+    if (!vacuumResult && deps.checkpointWal) {
+      deps.checkpointWal();
+    }
+
     {
       const result = { ok: true, sessionId: parseInt(id, 10) };
       if (trustRecoveryResult) {
