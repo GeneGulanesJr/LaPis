@@ -25,7 +25,6 @@
  */
 
 const path = require('node:path'),
-  { isCodeFile } = require('../../code-index/scanner'),
   { resolveIndexedRepo, normalizeRepoPath } = require('../../hooks-engine/project'),
   { resolveProjectForCwd } = require('../project-resolve'),
   { maybeStartAutoIndex, describeAutoIndex } = require('../auto-index'),
@@ -71,6 +70,11 @@ function resolveRepo(resolvedCwd, repos, currentProject) {
 // --- guardrails ---------------------------------------------------------
 
 function readGuardrail({ input, repos, cwd, state }) {
+  // Lazy require: PreToolUse fires before EVERY tool call, but only Read-tool
+  // inputs reach this guard. Loading code-index/scanner (~5.4ms, mostly
+  // tree-sitter-adjacent module init) cost that time on every non-Read tool
+  // call. The require cache keeps repeat guard calls cheap.
+  const { isCodeFile } = require('../../code-index/scanner');
   const filePath = typeof input.file_path === 'string' ? input.file_path : input.path;
   if (typeof filePath !== 'string' || !filePath) {
     return null;

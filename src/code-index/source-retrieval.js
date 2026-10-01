@@ -60,25 +60,72 @@ function ensureCodeFts() {
   }
 }
 
-function centralityBySymbol(repoName) {
-  const rows = sqlJson(
-    `SELECT s.id,
-      COALESCE(in_calls.count, 0) AS inbound_calls,
-      COALESCE(out_calls.count, 0) AS outbound_calls,
-      COALESCE(importers.count, 0) AS importers
-     FROM code_symbols s
-     JOIN code_repos r ON r.id = s.repo_id
-     LEFT JOIN (SELECT callee_symbol_id AS id, COUNT(*) AS count FROM code_calls WHERE callee_symbol_id IS NOT NULL GROUP BY callee_symbol_id) in_calls ON in_calls.id = s.id
-     LEFT JOIN (SELECT caller_symbol_id AS id, COUNT(*) AS count FROM code_calls GROUP BY caller_symbol_id) out_calls ON out_calls.id = s.id
-     LEFT JOIN (SELECT cf.id AS file_id, COUNT(*) AS count FROM code_imports ci JOIN code_files cf ON cf.id = ci.target_file_id GROUP BY cf.id) importers ON importers.file_id = s.file_id
-     WHERE (? IS NULL OR r.name = ?)`,
-    [repoName, repoName],
-  );
+// Centrality scoring for searchCode's rerank step. Only the FTS candidates
+// (<= maxResults*4 ids) are ever scored downstream, so the aggregates are
+// computed per candidate via chunked IN lookups on idx_cc_callee / idx_cc_caller
+// / idx_ci_target. The previous form ran three unbounded GROUP BYs over
+// code_calls (~1M rows) plus code_imports and LEFT JOINed every code_symbol in
+// scope (up to ~1.4M rows) on EVERY code search (~700ms measured), building a
+// Map of millions of scores of which only ~40 were read. The normalization max
+// is now the max among candidates, which also keeps the 0.25 centrality weight
+// meaningful when an off-scope hub symbol dominates the global maximum.
+function centralityBySymbol(symbolIds) {
   const scores = new Map();
+  if (!Array.isArray(symbolIds) || symbolIds.length === 0) {
+    return { scores, max: 1 };
+  }
+  const CHUNK = 500;
+  const inCalls = new Map(),
+    outCalls = new Map(),
+    importersByFile = new Map(),
+    fileOf = new Map();
+  for (let i = 0; i < symbolIds.length; i += CHUNK) {
+    const chunk = symbolIds.slice(i, i + CHUNK),
+      placeholders = chunk.map(() => '?').join(',');
+    for (const row of sqlJson(`SELECT id, file_id FROM code_symbols WHERE id IN (${placeholders})`, chunk)) {
+      scores.set(row.id, 0);
+      if (row.file_id !== null && row.file_id !== undefined) {
+        fileOf.set(row.id, row.file_id);
+      }
+    }
+    for (const row of sqlJson(
+      `SELECT callee_symbol_id AS id, COUNT(*) AS count
+       FROM code_calls
+       WHERE callee_symbol_id IN (${placeholders})
+       GROUP BY callee_symbol_id`,
+      chunk,
+    )) {
+      inCalls.set(row.id, row.count);
+    }
+    for (const row of sqlJson(
+      `SELECT caller_symbol_id AS id, COUNT(*) AS count
+       FROM code_calls
+       WHERE caller_symbol_id IN (${placeholders})
+       GROUP BY caller_symbol_id`,
+      chunk,
+    )) {
+      outCalls.set(row.id, row.count);
+    }
+  }
+  const fileIds = [...new Set(fileOf.values())];
+  for (let i = 0; i < fileIds.length; i += CHUNK) {
+    const chunk = fileIds.slice(i, i + CHUNK),
+      placeholders = chunk.map(() => '?').join(',');
+    for (const row of sqlJson(
+      `SELECT target_file_id AS file_id, COUNT(*) AS count
+       FROM code_imports
+       WHERE target_file_id IN (${placeholders})
+       GROUP BY target_file_id`,
+      chunk,
+    )) {
+      importersByFile.set(row.file_id, row.count);
+    }
+  }
   let max = 0;
-  for (const row of rows) {
-    const score = row.inbound_calls * 2 + row.importers * 1.5 + row.outbound_calls * 0.25;
-    scores.set(row.id, score);
+  for (const [id, file_id] of fileOf) {
+    const score =
+      (inCalls.get(id) || 0) * 2 + (importersByFile.get(file_id) || 0) * 1.5 + (outCalls.get(id) || 0) * 0.25;
+    scores.set(id, score);
     if (score > max) {
       max = score;
     }
@@ -190,7 +237,7 @@ function searchCode(query, repoName, kind, maxResults) {
   } catch {
     return searchCodeLike(query, repoName, kind, maxResults);
   }
-  const { scores, max } = centralityBySymbol(repoName || null);
+  const { scores, max } = centralityBySymbol(rows.map((row) => row.id));
   const reranked = rows
     .map((row) => {
       const bm25Raw = Math.max(0, -Number(row.bm25_score || 0));

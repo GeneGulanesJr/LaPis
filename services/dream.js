@@ -35,4 +35,8 @@ function runVacuum(deps = defaultDeps()) {
   return compactionDomain.runVacuum(deps);
 }
 
-module.exports = { runCompact, runCompactCheap, runVacuum, compact, dream, trustRecovery };
+function checkpointWal(deps = defaultDeps()) {
+  return compactionDomain.checkpointWal(deps);
+}
+
+module.exports = { runCompact, runCompactCheap, runVacuum, checkpointWal, compact, dream, trustRecovery };
