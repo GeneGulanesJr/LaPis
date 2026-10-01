@@ -15,7 +15,7 @@
  * both can be stubbed; nothing here touches the real DB unless invoked.
  */
 
-const { resolveDaemonUrl } = require('./daemon'),
+const { resolveDaemonUrl, ensureDaemonRunning } = require('./daemon'),
   { getKnownRepos, getKnownProjects } = require('../platform/project-db');
 
 /**
@@ -84,10 +84,17 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
 
 /**
  * Dispatch a gateway command. Uses daemon mode when available, else direct.
+ * With LAPIS_HOOK_AUTODAEMON=1/true, a hook process that finds no running
+ * daemon starts one (bounded wait) before falling back to direct mode, so
+ * every later hook dispatches over HTTP instead of paying in-process module
+ * loading and a cold SQLite open.
  */
 async function dispatch(cmd, args, opts = {}) {
-  const resolveUrl = opts.resolveDaemonUrl || resolveDaemonUrl,
-    daemonUrl = resolveUrl(opts);
+  const resolveUrl = opts.resolveDaemonUrl || resolveDaemonUrl;
+  let daemonUrl = resolveUrl(opts);
+  if (!daemonUrl && !opts.forceDirect) {
+    daemonUrl = await ensureDaemonRunning(opts);
+  }
   if (daemonUrl && !opts.forceDirect) {
     try {
       return await dispatchViaDaemon(daemonUrl, cmd, args || {}, opts);
