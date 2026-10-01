@@ -115,6 +115,30 @@ describe('#292 raw-discovery gate uses command position', () => {
     expect(isRawCodeDiscoveryCommand('echo find')).toBe(false);
     expect(isRawCodeDiscoveryCommand('node scripts/cleanup.js --tool=grep')).toBe(false);
   });
+
+  it('ignores here-document bodies, quoted text and arguments', () => {
+    expect(isRawCodeDiscoveryCommand("cat > f.mjs <<'EOF'\nfind . -name x\ngrep -rn y src\nEOF\nnode f.mjs")).toBe(
+      false,
+    );
+    expect(isRawCodeDiscoveryCommand('cat > f.md <<-EOF\n\tgrep this\n\tEOF')).toBe(false);
+    expect(isRawCodeDiscoveryCommand(`node -e 'rows.find((x) => x); a | grep'`)).toBe(false);
+    expect(isRawCodeDiscoveryCommand('echo "a | grep b; find c"')).toBe(false);
+    expect(isRawCodeDiscoveryCommand('git log --grep=fix')).toBe(false);
+    expect(isRawCodeDiscoveryCommand('cat <<<"grep here-string"')).toBe(false);
+  });
+
+  it('still finds real searches anywhere the shell would run them', () => {
+    expect(isRawCodeDiscoveryCommand('cd app\ngrep -rn foo src')).toBe(true);
+    expect(isRawCodeDiscoveryCommand('cd app && \\\n  grep -rn foo src')).toBe(true);
+    expect(isRawCodeDiscoveryCommand('ls src | xargs -0 grep -n foo')).toBe(true);
+    expect(isRawCodeDiscoveryCommand('timeout 10 rg foo')).toBe(true);
+    expect(isRawCodeDiscoveryCommand(`bash -c "find . -name '*.ts'"`)).toBe(true);
+    expect(isRawCodeDiscoveryCommand('sh -lc "cd x; grep -r foo ."')).toBe(true);
+    expect(isRawCodeDiscoveryCommand('echo "$(grep -rl foo src)"')).toBe(true);
+    expect(isRawCodeDiscoveryCommand('(cd app && find . -type f)')).toBe(true);
+    expect(isRawCodeDiscoveryCommand('bash <<EOF\ngrep -rn foo src\nEOF')).toBe(true);
+    expect(isRawCodeDiscoveryCommand('cat > f <<EOF\ndata\nEOF\nfind . -name x')).toBe(true);
+  });
 });
 
 describe('#292 isTargetedTextFileLookup requires every path argument to be a text file', () => {

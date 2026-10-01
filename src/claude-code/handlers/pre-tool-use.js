@@ -34,7 +34,7 @@ const path = require('node:path'),
     isTargetedGrepLookup,
     isBroadGlob,
     CONFIG_FILENAMES,
-    RAW_CODE_DISCOVERY_RE,
+    isRawCodeDiscoveryCommand,
     CODE_PATH_HINT_RE,
   } = require('../../hooks-engine/guardrail-utils'),
   { preToolRole } = require('../tool-map'),
@@ -175,7 +175,10 @@ function globGuardrail({ input, repos, cwd, state }) {
 
 function bashGuardrail({ input, repos, cwd, state }) {
   const cmd = typeof input.command === 'string' ? input.command : '';
-  if (!cmd || !RAW_CODE_DISCOVERY_RE.test(cmd)) {
+  // Command position only (same detector as Pi's tool-guardrails.ts) — the
+  // Bare-word regex also blocked heredoc file contents, `x.find(…)` inside
+  // `node -e '…'`, and prose that merely mentioned grep/find.
+  if (!cmd || !isRawCodeDiscoveryCommand(cmd)) {
     return null;
   }
   const repo = resolveRepo(cwd, repos, state.currentProject);
