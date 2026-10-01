@@ -75,14 +75,21 @@ const REGISTRY = new Map<string, CompactionJudg>();
 const FILE_CACHE = new Map<string, CompactionJudg>();
 
 export function registerCompactionJudg(name: string, impl: CompactionJudg): void {
-  if (REGISTRY.has(name)) {
-    throw new Error(`CompactionJudg "${name}" already registered`);
-  }
   if (typeof name !== 'string' || name.length === 0) {
     throw new Error('CompactionJudg name must be a non-empty string');
   }
   if (!impl || typeof impl.decideKeep !== 'function' || typeof impl.name !== 'string') {
     throw new Error('CompactionJudg impl must satisfy { name, decideKeep }');
+  }
+  // Idempotent re-registration: overwriting with the same instance is fine
+  // (e.g. when memoryLayer() is called twice during a hot-reload, or when
+  // index.ts re-runs after a settings edit). Reject ONLY when the same name
+  // is registered with a DIFFERENT impl, which is a real conflict.
+  const existing = REGISTRY.get(name);
+  if (existing && existing !== impl) {
+    throw new Error(
+      `CompactionJudg "${name}" already registered with a different impl (got "${impl.name}")`,
+    );
   }
   REGISTRY.set(name, impl);
 }
