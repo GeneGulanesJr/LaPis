@@ -270,8 +270,10 @@ const MIN_SYMBOL_LENGTH = 4,
         if (token === 'timeout' && /^\d/.test(tokens[index] ?? '')) {
           index++;
         }
-        while (index < tokens.length && tokens[index].startsWith('-') && token !== 'git') {
-          index += PREFIX_FLAGS_WITH_VALUE.has(tokens[index]) ? 2 : 1;
+        // Skip the runner's own flags (`xargs -0 -n 1 grep`) — not git's: `git -C dir`
+        // Is not a search either way, and `git grep` has no flags before `grep`.
+        if (token !== 'git') {
+          index = skipFlags(tokens, index);
         }
         continue;
       }
@@ -284,6 +286,23 @@ const MIN_SYMBOL_LENGTH = 4,
     return SEARCH_BINARIES.has(tokens[index]) ? tokens[index] : null;
   }
 
+  // Index of the first token after a run of option flags (and the value of the
+  // Few flags that take one), starting at `start`.
+  function skipFlags(tokens, start) {
+    let index = start;
+    while (index < tokens.length && tokens[index].startsWith('-')) {
+      index += PREFIX_FLAGS_WITH_VALUE.has(tokens[index]) ? 2 : 1;
+    }
+    return index;
+  }
+
+  // A short-option cluster that includes `c` (`-c`, `-lc`, `-ic`). Single
+  // Character class + includes() — no ambiguous quantifier pair, so no
+  // Polynomial backtracking on uncontrolled input (CodeQL js/polynomial-redos).
+  function isDashCFlag(token) {
+    return /^-[a-z]+$/.test(token) && token.includes('c');
+  }
+
   // `bash -c "cmd"` / `sh -c 'cmd'` / `zsh -lc …` → the inner command string, else null.
   function shellDashCBody(segment) {
     const tokens = tokenizeCommandSegment(segment);
@@ -291,7 +310,7 @@ const MIN_SYMBOL_LENGTH = 4,
       return null;
     }
     for (let i = 1; i < tokens.length - 1; i++) {
-      if (/^-[a-z]*c[a-z]*$/.test(tokens[i])) {
+      if (isDashCFlag(tokens[i])) {
         const body = tokens[i + 1];
         return body.length >= 2 && (body[0] === '"' || body[0] === "'") ? body.slice(1, -1) : body;
       }
