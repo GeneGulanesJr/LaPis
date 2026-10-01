@@ -222,16 +222,22 @@ function trustRecovery(deps, args) {
   }
 
   let recovered = 0;
-  for (const row of recalled) {
-    const memoryId = String(row.memory_id);
-    repository.updateLinkTrustByMemoryId({ memoryId, newTrust: TRUST_DELTA.PASSIVE_SURVIVAL });
-    repository.insertTrustAdjustment({
-      memoryId,
-      reason: 'passive_survival',
-      delta: TRUST_DELTA.PASSIVE_SURVIVAL,
-    });
-    recovered++;
-  }
+  // One transaction for the whole recovery pass: the loop used to issue two
+  // autocommitted statements per recalled memory (2N commits per session end).
+  // Same pattern as syncCodeTrust above.
+  const tx = deps.withTransaction || require('../../db').withTransaction;
+  tx(() => {
+    for (const row of recalled) {
+      const memoryId = String(row.memory_id);
+      repository.updateLinkTrustByMemoryId({ memoryId, newTrust: TRUST_DELTA.PASSIVE_SURVIVAL });
+      repository.insertTrustAdjustment({
+        memoryId,
+        reason: 'passive_survival',
+        delta: TRUST_DELTA.PASSIVE_SURVIVAL,
+      });
+      recovered++;
+    }
+  });
   return { ok: true, memoriesRecovered: recovered };
 }
 
