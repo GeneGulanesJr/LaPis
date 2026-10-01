@@ -48,14 +48,11 @@ export function readPlannerSettings(settings: any): PlannerSettings {
   const compaction = settings?.compaction ?? {};
   const envName = process.env.PI_COMPACTION_JUDG?.trim() || null;
   const envPath = process.env.PI_COMPACTION_JUDG_PATH?.trim() || null;
-  const envEnabled =
-    process.env.PI_COMPACTION_JUDG_ENABLED === '1' ||
-    process.env.JEV_COMPACTION_ENABLED === '1';
+  const envEnabled = process.env.PI_COMPACTION_JUDG_ENABLED === '1' || process.env.JEV_COMPACTION_ENABLED === '1';
   const envThreshold = process.env.PI_COMPACTION_JUDG_THRESHOLD
     ? Number(process.env.PI_COMPACTION_JUDG_THRESHOLD)
     : null;
-  const envDryRun =
-    process.env.PI_COMPACTION_JUDG_DRY_RUN === '1' || process.env.JEV_DRY_RUN === '1';
+  const envDryRun = process.env.PI_COMPACTION_JUDG_DRY_RUN === '1' || process.env.JEV_DRY_RUN === '1';
 
   // env overrides settings when present
   const name = envName ?? (typeof compaction.judg === 'string' ? compaction.judg : null);
@@ -63,7 +60,7 @@ export function readPlannerSettings(settings: any): PlannerSettings {
   const enabled =
     (envEnabled && (envName !== null || envPath !== null || compaction.judg != null)) ||
     (name !== null && name !== 'default' && name !== 'noop') ||
-    (path !== null);
+    path !== null;
   const threshold = envThreshold ?? clampPlainInt(compaction.judgThresholdTokens, 100_000);
   const dryRun = envDryRun || compaction.judgDryRun === true;
 
@@ -176,10 +173,7 @@ async function resolveStrategy(settings: PlannerSettings): Promise<CompactionJud
   return new NoopCompactionJudg();
 }
 
-async function judgeAll(
-  judg: CompactionJudg,
-  event: any,
-): Promise<DecideKeepResult[]> {
+async function judgeAll(judg: CompactionJudg, event: any): Promise<DecideKeepResult[]> {
   const messages: AgentMessage[] = event.preparation.messagesToSummarize ?? [];
   const total = messages.length;
   if (total === 0) return [];
@@ -226,10 +220,7 @@ async function judgeAll(
  * message must stay, we promote the dropped one to summarize (keep its gist
  * in the rollup, don't drop entirely).
  */
-export function enforceCutPointRules(
-  verdicts: DecideKeepResult[],
-  messages: AgentMessage[],
-): DecideKeepResult[] {
+export function enforceCutPointRules(verdicts: DecideKeepResult[], messages: AgentMessage[]): DecideKeepResult[] {
   if (verdicts.length === 0) return verdicts;
   const out = verdicts.slice();
 

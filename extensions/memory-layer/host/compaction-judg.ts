@@ -87,9 +87,7 @@ export function registerCompactionJudg(name: string, impl: CompactionJudg): void
   // is registered with a DIFFERENT impl, which is a real conflict.
   const existing = REGISTRY.get(name);
   if (existing && existing !== impl) {
-    throw new Error(
-      `CompactionJudg "${name}" already registered with a different impl (got "${impl.name}")`,
-    );
+    throw new Error(`CompactionJudg "${name}" already registered with a different impl (got "${impl.name}")`);
   }
   REGISTRY.set(name, impl);
 }
@@ -111,18 +109,14 @@ export async function resolveCompactionJudg(name: string): Promise<CompactionJud
     const mod = await import(name);
     const impl = mod.default ?? mod.compactionJudg ?? mod;
     if (!impl || typeof impl.decideKeep !== 'function' || typeof impl.name !== 'string') {
-      throw new Error(
-        `CompactionJudg file "${name}" must default-export an object with { name, decideKeep }`,
-      );
+      throw new Error(`CompactionJudg file "${name}" must default-export an object with { name, decideKeep }`);
     }
     const wrapped: CompactionJudg = { name: impl.name, decideKeep: impl.decideKeep.bind(impl) };
     FILE_CACHE.set(name, wrapped);
     return wrapped;
   } catch (err) {
     // Surface the failure for telemetry; do not throw from the registry.
-    process.stderr.write(
-      `[compaction-judg] failed to load "${name}": ${(err as Error).message}\n`,
-    );
+    process.stderr.write(`[compaction-judg] failed to load "${name}": ${(err as Error).message}\n`);
     return undefined;
   }
 }

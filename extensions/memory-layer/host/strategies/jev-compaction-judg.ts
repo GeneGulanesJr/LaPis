@@ -34,10 +34,7 @@ const SCORE_LEVELS = ['drop', 'summarize', 'keep-verbatim', 'keep-with-tools'];
 export class JevCompactionJudg implements CompactionJudg {
   readonly name = 'jev';
 
-  async decideKeep(
-    inp: DecideKeepInput,
-    signal?: AbortSignal,
-  ): Promise<DecideKeepResult> {
+  async decideKeep(inp: DecideKeepInput, signal?: AbortSignal): Promise<DecideKeepResult> {
     const question = buildKeepQuestion(inp);
     const answer = await jevAskWithAbort(question, signal);
     return mapAnswer(answer);
@@ -45,14 +42,9 @@ export class JevCompactionJudg implements CompactionJudg {
 }
 
 function buildKeepQuestion(inp: DecideKeepInput) {
-  const readList =
-    inp.fileOps.readFiles.length > 0
-      ? inp.fileOps.readFiles.slice(-20).join(', ')
-      : '(none)';
+  const readList = inp.fileOps.readFiles.length > 0 ? inp.fileOps.readFiles.slice(-20).join(', ') : '(none)';
   const modifiedList =
-    inp.fileOps.modifiedFiles.length > 0
-      ? inp.fileOps.modifiedFiles.slice(-20).join(', ')
-      : '(none)';
+    inp.fileOps.modifiedFiles.length > 0 ? inp.fileOps.modifiedFiles.slice(-20).join(', ') : '(none)';
 
   // Serialize the message into the textual form the model can judge.
   // Tool-result cap (2000) is applied inside it.

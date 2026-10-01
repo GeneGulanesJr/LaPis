@@ -54,7 +54,10 @@ const messagesToSummarize = [
   // 1: assistant tool-call (high value — keep, forces next tool-result keep)
   {
     role: 'assistant',
-    content: [{ type: 'text', text: 'Reading current package.json' }, { type: 'toolCall', name: 'read', args: { path: 'package.json' } }],
+    content: [
+      { type: 'text', text: 'Reading current package.json' },
+      { type: 'toolCall', name: 'read', args: { path: 'package.json' } },
+    ],
   },
   // 2: tool result (must stay with the call above)
   { role: 'toolResult', content: '{ "version": "0.1.0" }' },

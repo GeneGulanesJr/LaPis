@@ -4,10 +4,7 @@ process.env.JEV_DRY_RUN = '1';
 process.env.PI_COMPACTION_JUDG_ENABLED = '1';
 process.env.PI_COMPACTION_JUDG = 'jev';
 
-import {
-  readPlannerSettings,
-  enforceCutPointRules,
-} from '../extensions/memory-layer/hooks/jev-compaction-planner.ts';
+import { readPlannerSettings, enforceCutPointRules } from '../extensions/memory-layer/hooks/jev-compaction-planner.ts';
 import {
   registerCompactionJudg,
   __resetJudgRegistryForTests,
