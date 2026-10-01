@@ -82,10 +82,7 @@ function centralityBySymbol(symbolIds) {
   for (let i = 0; i < symbolIds.length; i += CHUNK) {
     const chunk = symbolIds.slice(i, i + CHUNK),
       placeholders = chunk.map(() => '?').join(',');
-    for (const row of sqlJson(
-      `SELECT id, file_id FROM code_symbols WHERE id IN (${placeholders})`,
-      chunk,
-    )) {
+    for (const row of sqlJson(`SELECT id, file_id FROM code_symbols WHERE id IN (${placeholders})`, chunk)) {
       scores.set(row.id, 0);
       if (row.file_id !== null && row.file_id !== undefined) {
         fileOf.set(row.id, row.file_id);
