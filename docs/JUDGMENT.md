@@ -55,6 +55,19 @@ provider — they are the switch acceptance test, not a formality.
 - `score` replies: **float** position (e.g. `1.82`) + `legend` + `probabilities` → adapter rounds to nearest level index
 - `choice` replies: `{type, choice, confidence, probabilities}` — as expected
 
+## Compaction integration
+
+The same judgment primitives power the **Jev-driven compaction** feature in
+`extensions/memory-layer/`. It uses a `CompactionJudg` strategy to score each
+candidate message before summarization (verdict = drop / summarize /
+keep-verbatim / keep-with-tools) and assembles a custom summary from those
+per-message decisions. The post-compact C+A integration in
+`extensions/memory-layer/hooks/jev-post-compact.ts` then validates the
+re-injected slice against pinned policies and lost topics — closing a
+Jev-decides-in / Jev-validates-out loop. Both features share `JEV_ENABLED` /
+`JEV_DRY_RUN` / `TYPESAFE_API_KEY` gating and the never-throw guarantee. **Off
+by default.** See [`JEV_DRIVEN_COMPACTION.md`](./JEV_DRIVEN_COMPACTION.md).
+
 ## Module map
 
 | File | Responsibility |
