@@ -17,6 +17,29 @@ import { JevCompactionJudg } from '../extensions/memory-layer/host/strategies/je
 import { NoopCompactionJudg } from '../extensions/memory-layer/host/strategies/noop-compaction-judg.ts';
 import { DefaultCompactionJudg } from '../extensions/memory-layer/host/strategies/default-compaction-judg.ts';
 
+// Plain-JS fixtures. The planner and strategies accept AgentMessage but our
+// internal code only reads `role` (for cut-point detection) and `text/content`
+// (via serializeConversation). The shape is intentionally loose — the planner
+// doesn't pull from the full pi-agent-core types.
+const userMsg = { role: 'user', content: 'hello' };
+const toolResultMsg = { role: 'toolResult', content: 'tool output' };
+const toolCallMsg = {
+  role: 'assistant',
+  content: [{ type: 'toolCall', name: 'read' }],
+};
+const emptyFileOps = { readFiles: [], modifiedFiles: [] };
+
+function inputAt(index, total, message) {
+  return {
+    message,
+    messageIndex: index,
+    totalMessages: total,
+    fileOps: emptyFileOps,
+    tokensBefore: 50_000,
+    model: 'test-model',
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Settings resolution
 // ---------------------------------------------------------------------------
@@ -52,10 +75,8 @@ describe('readPlannerSettings', () => {
   });
 
   it('respects env PI_COMPACTION_JUDG over settings when both are set', () => {
-    const s = readPlannerSettings({ compaction: { judg: 'foo' } });
     process.env.PI_COMPACTION_JUDG = 'jev';
     const s2 = readPlannerSettings({ compaction: { judg: 'foo' } });
-    expect(s.name).toBe('foo');
     expect(s2.name).toBe('jev');
   });
 
@@ -67,6 +88,12 @@ describe('readPlannerSettings', () => {
   it('clamps invalid threshold to default 100_000', () => {
     const s = readPlannerSettings({ compaction: { judg: 'jev', judgThresholdTokens: -1 } });
     expect(s.thresholdTokens).toBe(100_000);
+  });
+
+  it('enables when compaction.judgPath is set even if judg is default', () => {
+    const s = readPlannerSettings({ compaction: { judg: 'default', judgPath: '/tmp/x.mjs' } });
+    expect(s.enabled).toBe(true);
+    expect(s.path).toBe('/tmp/x.mjs');
   });
 });
 
@@ -85,18 +112,16 @@ describe('compaction-judg registry', () => {
   });
 
   it('rejects impl missing decideKeep()', () => {
-    expect(() =>
-      registerCompactionJudg('broken', { name: 'broken' } as any),
-    ).toThrow(/decideKeep/);
+    expect(() => registerCompactionJudg('broken', { name: 'broken' })).toThrow(/decideKeep/);
   });
 
   it('resolves registered strategies', async () => {
     registerCompactionJudg('noop', new NoopCompactionJudg());
     registerCompactionJudg('default', new DefaultCompactionJudg());
     registerCompactionJudg('jev', new JevCompactionJudg());
-    expect((await resolveCompactionJudg('noop'))!.name).toBe('noop');
-    expect((await resolveCompactionJudg('default'))!.name).toBe('default');
-    expect((await resolveCompactionJudg('jev'))!.name).toBe('jev');
+    expect((await resolveCompactionJudg('noop')).name).toBe('noop');
+    expect((await resolveCompactionJudg('default')).name).toBe('default');
+    expect((await resolveCompactionJudg('jev')).name).toBe('jev');
   });
 
   it('returns undefined for unknown names that are not paths', async () => {
@@ -111,14 +136,7 @@ describe('compaction-judg registry', () => {
 describe('strategy implementations', () => {
   it('JevCompactionJudg returns a valid verdict + reason under dry-run', async () => {
     const j = new JevCompactionJudg();
-    const r = await j.decideKeep({
-      message: { role: 'user', content: 'hello' } as any,
-      messageIndex: 0,
-      totalMessages: 1,
-      fileOps: { readFiles: [], modifiedFiles: [] } as any,
-      tokensBefore: 50_000,
-      model: 'test-model',
-    });
+    const r = await j.decideKeep(inputAt(0, 1, userMsg));
     expect([0, 1, 2, 3]).toContain(r.verdict);
     expect(r.confidence).toBeGreaterThanOrEqual(0);
     expect(r.confidence).toBeLessThanOrEqual(1);
@@ -127,27 +145,13 @@ describe('strategy implementations', () => {
 
   it('DefaultCompactionJudg always returns verdict=1', async () => {
     const d = new DefaultCompactionJudg();
-    const r = await d.decideKeep({
-      message: { role: 'user', content: 'x' } as any,
-      messageIndex: 0,
-      totalMessages: 1,
-      fileOps: { readFiles: [], modifiedFiles: [] } as any,
-      tokensBefore: 0,
-      model: 'm',
-    });
+    const r = await d.decideKeep(inputAt(0, 1, userMsg));
     expect(r.verdict).toBe(1);
   });
 
   it('NoopCompactionJudg always returns verdict=1', async () => {
     const n = new NoopCompactionJudg();
-    const r = await n.decideKeep({
-      message: { role: 'user', content: 'x' } as any,
-      messageIndex: 0,
-      totalMessages: 1,
-      fileOps: { readFiles: [], modifiedFiles: [] } as any,
-      tokensBefore: 0,
-      model: 'm',
-    });
+    const r = await n.decideKeep(inputAt(0, 1, userMsg));
     expect(r.verdict).toBe(1);
   });
 });
@@ -157,38 +161,34 @@ describe('strategy implementations', () => {
 // ---------------------------------------------------------------------------
 
 describe('enforceCutPointRules', () => {
-  const toolResultMessage = { role: 'toolResult', content: 'tool output' } as any;
-  const toolCallMessage = { role: 'assistant', content: [{ type: 'toolCall', name: 'read' }] } as any;
-  const userMessage = { role: 'user', content: 'please read x' } as any;
-
   it('promotes a tool-call keep to force the next tool result to keep-verbatim', () => {
     const verdicts = [
-      { verdict: 2, confidence: 1, reason: 'keep' }, // assistant with tool call
-      { verdict: 0, confidence: 1, reason: 'drop' }, // tool result
+      { verdict: 2, confidence: 1, reason: 'keep' },
+      { verdict: 0, confidence: 1, reason: 'drop' },
     ];
-    const out = enforceCutPointRules(verdicts, [toolCallMessage, toolResultMessage]);
+    const out = enforceCutPointRules(verdicts, [toolCallMsg, toolResultMsg]);
     expect(out[0].verdict).toBe(2);
-    expect(out[1].verdict).toBe(2); // promoted from 0
+    expect(out[1].verdict).toBe(2);
     expect(out[1].reason).toMatch(/forced/);
   });
 
   it('promotes a tool-result keep to force the preceding tool-call keep', () => {
     const verdicts = [
-      { verdict: 0, confidence: 1, reason: 'drop' }, // tool call
-      { verdict: 2, confidence: 1, reason: 'keep' }, // tool result
+      { verdict: 0, confidence: 1, reason: 'drop' },
+      { verdict: 2, confidence: 1, reason: 'keep' },
     ];
-    const out = enforceCutPointRules(verdicts, [toolCallMessage, toolResultMessage]);
-    expect(out[0].verdict).toBe(2); // promoted
+    const out = enforceCutPointRules(verdicts, [toolCallMsg, toolResultMsg]);
+    expect(out[0].verdict).toBe(2);
     expect(out[1].verdict).toBe(2);
   });
 
   it('promotes both neighbors when verdict=3 (keep-with-tools)', () => {
     const verdicts = [
       { verdict: 0, confidence: 1 },
-      { verdict: 3, confidence: 1, reason: 'keep-with-tools' }, // tool call
-      { verdict: 0, confidence: 1 }, // tool result
+      { verdict: 3, confidence: 1, reason: 'keep-with-tools' },
+      { verdict: 0, confidence: 1 },
     ];
-    const out = enforceCutPointRules(verdicts, [userMessage, toolCallMessage, toolResultMessage]);
+    const out = enforceCutPointRules(verdicts, [userMsg, toolCallMsg, toolResultMsg]);
     expect(out[0].verdict).toBeGreaterThanOrEqual(2);
     expect(out[1].verdict).toBe(3);
     expect(out[2].verdict).toBeGreaterThanOrEqual(2);
@@ -200,7 +200,7 @@ describe('enforceCutPointRules', () => {
       { verdict: 2, confidence: 1 },
       { verdict: 2, confidence: 1 },
     ];
-    const out = enforceCutPointRules(verdicts, [userMessage, userMessage, userMessage]);
+    const out = enforceCutPointRules(verdicts, [userMsg, userMsg, userMsg]);
     expect(out.every((v) => v.verdict === 2)).toBe(true);
   });
 

@@ -211,15 +211,19 @@ export function enforceCutPointRules(
   const out = verdicts.slice();
 
   // Pass forward: tool-result keep forces preceding tool-call keep.
+  //              tool-call assistant keep forces next tool-result keep.
   for (let i = 1; i < out.length; i += 1) {
     const prev = messages[i - 1];
     const cur = messages[i];
-    if (isToolResultMessage(cur) && out[i].verdict >= 2) {
-      // tool result kept verbatim → previous (tool call assistant msg) must also be kept
-      if (out[i - 1].verdict < 2) out[i - 1] = { ...out[i - 1], verdict: 2, reason: 'forced by tool-result keep' };
+    const curIsToolResult = isToolResultMessage(cur);
+    const prevIsToolCallAssistant = isToolCallAssistant(prev);
+
+    // (a) tool-result keep → previous tool-call must be kept
+    if (curIsToolResult && out[i].verdict >= 2 && out[i - 1].verdict < 2) {
+      out[i - 1] = { ...out[i - 1], verdict: 2, reason: 'forced by tool-result keep' };
     }
-    if (isToolResultMessage(prev) && out[i - 1].verdict >= 2 && out[i].verdict === 0) {
-      // tool-call assistant kept → next tool result must also be kept
+    // (b) tool-call assistant kept → next tool-result must also be kept
+    if (curIsToolResult && prevIsToolCallAssistant && out[i - 1].verdict >= 2 && out[i].verdict === 0) {
       out[i] = { ...out[i], verdict: 2, reason: 'forced by tool-call keep' };
     }
   }
@@ -239,11 +243,23 @@ export function enforceCutPointRules(
   return out;
 }
 
-function isToolResultMessage(_m: AgentMessage): boolean {
-  // pi's AgentMessage has `role: 'toolResult'` on tool-result entries. Without
-  // pulling the full agent-core type surface, duck-type on the shape.
-  const r = (_m as any)?.role;
+function isToolResultMessage(m) {
+  if (!m) return false;
+  const r = m.role;
   return r === 'toolResult' || r === 'tool_result' || r === 'tool-result';
+}
+
+function isToolCallAssistant(m) {
+  if (!m) return false;
+  if (m.role !== 'assistant') return false;
+  // pi's assistant messages carry tool calls in `content` as an array of
+  // { type: 'toolCall', ... } blocks. Also handle the alternate shape where
+  // the message itself has a `toolCalls` field at the top level.
+  if (Array.isArray(m.toolCalls) && m.toolCalls.length > 0) return true;
+  if (Array.isArray(m.content)) {
+    return m.content.some((c) => c && (c.type === 'toolCall' || c.type === 'tool_use'));
+  }
+  return false;
 }
 
 function assembleSummary(input: {
