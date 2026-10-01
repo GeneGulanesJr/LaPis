@@ -1,10 +1,10 @@
 # Plan: Decision Engine (Laya) — Native Flywheel First
 
-**Date:** 2026-09-21 (v2.1 — round-5 amendments applied)
+**Date:** 2026-10-01 (v2.2 — laya track retargeted to the external LayaMCP service; v2.1 round-5 amendments applied 2026-09-21)
 **Status:** Proposed — plans only; no code in this PR
 **Deciders:** Gene Gulanes Jr.
-**Supersedes:** v1 plan draft (3 internal review rounds); v2 (round-4 corrections)
-**Related:** [`DREAM_CYCLE.md`](../DREAM_CYCLE.md), [`MODULE_MAP.md`](../MODULE_MAP.md), [`crosshash-strategy.md`](crosshash-strategy.md)
+**Supersedes:** v1 plan draft (3 internal review rounds); v2 (round-4 corrections); v2.1's in-repo `laya-service/` sidecar design (v2.2)
+**Related:** [`DREAM_CYCLE.md`](../DREAM_CYCLE.md), [`MODULE_MAP.md`](../MODULE_MAP.md), [`crosshash-strategy.md`](crosshash-strategy.md), [LayaMCP](https://github.com/GeneGulanesJr/LayaMCP) (external service — owns its own lifecycle, model registry, usage log)
 
 ## Summary
 
@@ -12,7 +12,7 @@ A three-tier decision engine for LaPis's passive memory behaviors:
 
 1. **Native JS engine** (`src/decision/`) — tiny linear models trained in-process on locally logged outcomes. **This is the critical path.**
 2. **Existing regex classifiers** — day-0 behavior, unchanged, and the training baseline.
-3. **Optional `laya-service/` Python sidecar** (pinned `laya` pkg, token-authed, `127.0.0.1:9110`) — a future third tier. Parallel and deferrable (PR9–PR11).
+3. **External LayaMCP service** (separate repo, Python MCP server, loopback-only `127.0.0.1:8765`, Pi-session lifecycle extension) — a future third tier. Parallel and deferrable (PR9–PR10; v2.2 retargets the former in-repo `laya-service/` sidecar to the already-built external service).
 
 Everything lands **dark**: behavior is byte-identical until a model is explicitly promoted via `decision-promote`. The flywheel is PR-sliced (PR-1 … PR12) so every merged PR leaves `main` green and behaviorally dark.
 
@@ -68,6 +68,8 @@ A second full subagent review (fidelity/consistency, ML red-team, implementabili
 | 4 (5 reviewers) | Architecture/Storage/Integration: ship with edits · ML: rework sequencing · Security: acceptable with supply-chain fix — **all applied in v2** |
 | 5 (5 reviewers) | 10/14 v2 fixes verified clean (conflict clause empirically proven); 2 new schema blockers, VACUUM-into-transaction hazard, stale PR4 premise, undecidable capture gates, circular capture gold, search-only ranking, unplumbed stdin transport, pid-reuse kill hazard — **all applied in v2.1** |
 
+**v2.2 (2026-10-01) — laya track retargeted.** The former in-repo `laya-service/` Python sidecar (PR9–PR11, `127.0.0.1:9110`) is replaced by the **external [LayaMCP](https://github.com/GeneGulanesJr/LayaMCP) repo**, which already ships what PR9–PR11 planned to build: an MCP server on loopback `127.0.0.1:8765` (SSE), a Pi session-lifecycle extension (refcounted start/stop with agent sessions; multi-instance safe), an optional launchd always-on mode with nightly corpus backup, a `models/` registry with sha256-verified checkpoints, and a usage log with per-row laya-version provenance. The ~808MB checkpoint supply chain, venv/uvicorn lifecycle, lockfile stop-ladder, and CI workflows are now the external repo's responsibility; LaPis keeps only the client/integration surface (PR9–PR10). All v2.1 security findings carry over as **binding requirements levied on the service**, verified at integration time rather than implemented here. Related decision: PR #337 (HTTP classify-on-save inside LaPis) was closed as superseded — classification is available to agents natively as the service's MCP tools and remains banned from synchronous hot paths.
+
 ---
 
 ## Revised sequencing
@@ -85,11 +87,11 @@ PR6   (M)   ranking surface — search-path-only
 PR7a  (M)   outcomes + purge_log
 PR7b  (M)   training flywheel                    ← fail-closed gates; ranking-only initially
 PR8   (S/M) promotion (explicit-only, human-audit path for capture)
-PR9-11 (L, deferrable) laya track
+PR9-10 (S/M, deferrable) laya integration track (external LayaMCP service — v2.2)
 PR12  (S)   docs + boundaries tail
 ```
 
-**Native critical path: 15–20 days** (v2.1 removes the backfill and auto-rollback watcher; adds the ephemeral state table and gate mechanics — net neutral). Lay track unchanged: deferrable. *(Open question OQ4 records a proposal to slim further to a ranking-only critical path.)*
+**Native critical path: 15–20 days** (v2.1 removes the backfill and auto-rollback watcher; adds the ephemeral state table and gate mechanics — net neutral). Laya track shrunk in v2.2 (lifecycle/install moved to the external service): still deferrable. *(Open question OQ4 records a proposal to slim further to a ranking-only critical path.)*
 
 ---
 
@@ -225,23 +227,21 @@ Tests: regex rows appear day 0 with `label_source`; no observation deltas; coold
 
 `decision-promote --model-key X` re-verifies gates against `decision_log` (SHADOW_MIN_DREAMS = 3 distinct `dream_run_id`s — atomically allocated per PR1), then the single-statement atomic state swap. **The immutable model version tuple: (weights, temperature, bias offsets, thresholds, tokenizer hash, feature_spec, ε rate, PRNG seed, analysis-script hash)** — printed by `decision-promote`. **Capture promotion follows the PR7b audit path** (human-reviewed veto sample) until the automated gate's min-n is met — "capture stays shadow" is understated in earlier revisions; the honest statement is in Honest limits. `decision-status` reports per-surface example counts and, for laya models, the db-row vs registry sha256 match state (see PR11).
 
-### PR9 (L, deferrable) — laya-service/ (Python)
+### PR9 (S/M, deferrable) — LayaMCP service contract (external)
 
-Pinned `laya==exact`; FastAPI: `/predict` (+`/v1/systemone` alias), `/health` (unauth, returns token **digest** for squatter detection only — document the token entropy requirement so the digest resists offline brute-force), `/models`, `/shutdown` (token'd). **Auth matches `src/http/auth.js`, the repo's gold standard** — `timingSafeEqual`, `assertServeHostPolicy`-style loopback bind refusal — not the laxer `server.js` `parseBody` pattern (though note `parseBody` does enforce a hard 1MB cap). `x-lapis-token` on **all** routes except `GET /health`; Host/Origin loopback middleware; 1MB cap; refuse non-127.0.0.1; `torch.load(weights_only=True)` only; knobs head_max_len/max_len/temperature/max_loaded; ~20-option cap documented.
-
-**Supply chain:** install performs `pip install --require-hashes` (transitive deps hash-pinned in requirements); checkpoints are **commit-SHA-pinned + sha256-verified** at download (HF revision pinning; the ~808MB artifact's hash is baked into the repo, not fetched from the same channel). The new workflows (`laya-ci.yml` permissions: contents: read, pip-audit; `codeql.yml` javascript+python) **SHA-pin their third-party actions** — same philosophy as require-hashes, one level up. pytest with mocked Router (incl. weights_only + pre-downloaded checkpoint smoke vs pinned version). `package.json` files += `laya-service/` (sources only — venv strictly under LAPIS_HOME; **`LAPIS_HOME` pinned in the spawn env** per the `src/hermes/install.js:113` precedent, or Node and Python split homes).
+The service already exists (external LayaMCP repo); this PR **freezes the contract LaPis codes against** instead of building a sidecar: loopback-only MCP server (SSE `127.0.0.1:8765/sse`), session-lifecycle ownership (starts/stops with Pi sessions; refcounted across concurrent agents; optional launchd always-on), `models/` registry with sha256-verified checkpoints, usage log with per-row laya-version provenance. The v2.1 security findings remain **binding requirements on the service**, verified during integration rather than implemented here: token/digest auth on all non-GET routes, CSPRNG token with O_EXCL-0600 lockfile and env-var (never argv) transport, squatter-resistant health (digest echo only), loopback Host/Origin policy, 1MB body cap, export `--redact` defaults, and no ungated batch-dispatch endpoint (training-data poisoning). Supply chain (pinned deps, commit-SHA-pinned + sha256-verified checkpoints) is owned and CI-audited by the external repo; LaPis consumes, never vendors. Contract tests live in this repo against a mocked service — the real server is never required for `main` to stay green.
 
 ### PR10 (M, deferrable) — backends/laya.js + resolve.js
 
-Client: injectable fetch, token auth, TTL NEGATIVE health cache verified against lockfile token digest (squatter rejection), warn-once via settings key, null-on-timeout. **Client-side sha256 verification of `weights_path` before load** (closes the TOCTOU between registry check and file read). **Laya is NEVER called synchronously on user-facing hot paths** — hot = native-only; laya shadow scoring happens inside train/dream with 5s batch budget. **Benchmark is an exit criterion** — v2's "193–464ms unbatched" is plausible but not repo-verifiable, and batch is unbenchmarked.
+Client to the external service: injectable transport, health-check with TTL NEGATIVE cache (null-on-timeout, warn-once via settings key), and agent-side classification via the service's **native MCP tools** (`laya_guard`, `laya_triage`, `laya_moderate`, `laya_secret_risk`, …) which Pi exposes directly — LaPis adds no MCP tools of its own for this. **Client-side sha256 verification of `weights_path` against the service registry before load** (closes the TOCTOU between registry check and file read). **Laya is NEVER called synchronously on user-facing hot paths** — hot = native-only; laya shadow scoring happens inside train/dream with a 5s batch budget; the closed #337 "classify inside memory-save" shape is explicitly rejected. **Benchmark is an exit criterion** — v2's "193–464ms unbatched" is plausible but not repo-verifiable, and batch is unbenchmarked (now measurable against the live service).
 
-### PR11 (L, deferrable) — `lapis laya` lifecycle
+### PR11 (S, deferrable) — registry alignment + export (lifecycle already owned by the service)
 
-Early-dispatch block in `cli.js` BEFORE `ensureDb` (precedent: serve/mcp/claude-code/hermes/run) — **and** special-cased in the HTTP `/dispatch` handler, whose gateway lazy-init otherwise inits the DB anyway + usage strings. Install: python discovery once (resolveOnPath pattern), record venv python abs path (never re-resolve), venv + HF_HOME under `LAPIS_HOME/.pi/memory/laya/`, free-space check, pre-download ~808MB (sha256-verified per PR9). Start/stop/status: spawn recorded `<venvPython> -m uvicorn` arg-array (never `cmd /c`); lockfile 0600 `{pid,port,token,python}` (no-op on Windows — USERPROFILE ACLs are the real control; documented, not claimed); EADDRINUSE-but-healthy = hard error, with the squatter-rejection interplay spelled out. **Stop ladder verifies before it signals (v2.1):** Windows pids are reused aggressively — query the process command line (`Get-CimInstance`/`tasklist /fi`) and require a match against the recorded python path; POSIX: `/proc/<pid>/exe` or `ps -p <pid> -o comm=` match. Mismatch → stale lockfile → delete it, report "not running" — never `taskkill /T` a reused pid (that kills an unrelated process tree). Log rotation 5MB×3 with **uvicorn access logs configured to not capture prompt payloads**. Doctor; export-dataset (typed-decisions rows; `--redact` default, **with semantics defined for any decision_log-derived export**, not just laya's). Register-model → `<LAPIS_HOME>/.pi/memory/laya/models.json` sha256 registry (file mode 0600 where supported; file, not DB — exists when DB unavailable). **Authority rule:** models.json is authoritative for the service; a `decision_models` row must reference a registered entry; `decision-promote` verifies both hashes; **`decision-status` and `laya doctor` surface db-row vs registry sha mismatch as a first-class state**, and re-registering under an existing key warns when live DB rows reference the superseded entry (the export→fine-tune→re-register loop is the documented workflow — unverified re-registration must not silently strand promoted refs). Service refuses unregistered/hash-mismatched paths; trust boundary documented.
+**v2.2: the original `lapis laya` lifecycle PR is obsoleted by the service's own lifecycle extension** (Pi-session refcounted start/stop, launchd always-on option, nightly corpus backup) — LaPis no longer installs venvs, spawns uvicorn, or manages lockfiles/stop-ladders; the v2.1 pid-reuse and lockfile findings transfer to the external repo as acceptance criteria. What remains in LaPis: (a) **registry alignment** — `decision_models` rows must reference the service's `models.json` registry entry; `decision-promote` verifies both sha256s; `decision-status` and a thin `lapis laya doctor` surface db-row vs registry sha mismatch as a first-class state, with a re-register-under-existing-key warning when live DB rows reference the superseded entry (the export → fine-tune → re-register loop is the documented workflow — unverified re-registration must not silently strand promoted refs); (b) **export-dataset** (typed-decisions rows; `--redact` default, **semantics defined for any decision_log-derived export**, not just laya's) feeding the service's training corpus. The service refuses unregistered/hash-mismatched paths; trust boundary documented in PR12.
 
 ### PR12 (S) — Docs + boundaries tail
 
-`docs/LAYA_SERVICE.md` (contract, auth, trust boundary, export→fine-tune→register loop), `DREAM_CYCLE.md` (purge_log, retrain, retention), `COMMANDS.md` rows, `MODULE_MAP.md` + `ARCHITECTURE.md` (new families, table ownership), README bullet; module-boundary failure-isolation case (per-surface top-level try/catch policy: a decision-engine throw must never break capture/recall/context); import-boundaries extended (decision purity + memory-domain injection-only). **Disclosure bullet (v2.1):** the README/CONFIGURATION docs state plainly that with `decision.log_prompt_text=true` (the default), LaPis persists ≤500-char state text per evaluated turn — 7 days in `decision_states`, labels/features for 90 days in `decision_log`, plaintext SQLite, no encryption at rest — and how to turn it off. *(90-day retention ships in PR1.)*
+`docs/LAYA_INTEGRATION.md` (external service contract, auth expectations, trust boundary, export→fine-tune→register loop), `DREAM_CYCLE.md` (purge_log, retrain, retention), `COMMANDS.md` rows, `MODULE_MAP.md` + `ARCHITECTURE.md` (new families, table ownership), README bullet; module-boundary failure-isolation case (per-surface top-level try/catch policy: a decision-engine throw must never break capture/recall/context); import-boundaries extended (decision purity + memory-domain injection-only). **Disclosure bullet (v2.1):** the README/CONFIGURATION docs state plainly that with `decision.log_prompt_text=true` (the default), LaPis persists ≤500-char state text per evaluated turn — 7 days in `decision_states`, labels/features for 90 days in `decision_log`, plaintext SQLite, no encryption at rest — and how to turn it off. *(90-day retention ships in PR1.)*
 
 ---
 
@@ -255,7 +255,7 @@ Day-0 behavior = regex (unchanged). **The sequencing verdict stands: instrument 
 - **Staleness** waits on purge_log + 3 dreams + the deferred features snapshot.
 - **Disclosure:** with defaults, LaPis persists ≤500-char state text per evaluated turn (7d, `decision_states`) and per-turn labels/features (90d, `decision_log`), plaintext, no encryption at rest. `decision.log_prompt_text=false` reduces state logging to hashes + regex hits.
 - Laya tier needs export → GPU fine-tune (adapting their notebook — no packaged API) → register → temperature refit → shadow-pass; base checkpoints are near-chance zero-shot AND overconfident as shipped (ECE 0.466). CPU latency is documented-plausible but unbenchmarked (PR10 exit criterion).
-- Total ≈ **24–34 days**; native critical path **15–20** (OQ4 records a ranking-only slimming proposal at ~10–13).
+- Total ≈ **19–27 days** (v2.2: laya track shrinks from 9–14 to ~4–7 days — lifecycle/install moved to the external service); native critical path **15–20** (OQ4 records a ranking-only slimming proposal at ~10–13).
 
 ## Out of scope
 
