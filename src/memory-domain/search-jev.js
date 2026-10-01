@@ -4,10 +4,12 @@
 // by a Jev grade judgment ('central' > 'related' > 'irrelevant'). Never throws;
 // any judgment failure returns the input order unchanged.
 
-const { createJudge } = require('../judgment');
-const { createJevAdapter } = require('../judgment/adapters/jev');
+// Judgment modules load lazily inside buildJudge()/jevRerank(): this file is
+// required on EVERY search dispatch (the enabled check lives here), and the
+// default config has jev disabled — eagerly requiring the judgment layer made
+// every fresh-process search dispatch pay ~10ms for an opt-in feature it
+// never used.
 const { getConfig } = require('../../config');
-const { chunk, capText } = require('../judgment/internal');
 
 const LEVELS = ['irrelevant', 'related', 'central'];
 const BATCH = 10;
@@ -19,6 +21,8 @@ function searchJevEnabled() {
 
 function buildJudge(args) {
   if (args && args._judge) return args._judge;
+  const { createJudge } = require('../judgment');
+  const { createJevAdapter } = require('../judgment/adapters/jev');
   const adapters =
     (getConfig().judgment || {}).provider === 'jev'
       ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) }
@@ -33,6 +37,7 @@ function buildJudge(args) {
  * reranked row carries `jev: {level, confidence}`.
  */
 async function jevRerank(rows, query, args = {}) {
+  const { chunk, capText } = require('../judgment/internal');
   const topN = Number(args.topN ?? 10);
   const head = (rows || []).slice(0, topN);
   const tail = (rows || []).slice(topN);

@@ -6,10 +6,12 @@
 // estimated size fits the budget. Failures degrade to today's selection exactly:
 // { selected: candidates, dropped: [], unavailable: true }.
 
-const { createJudge } = require('../judgment');
-const { createJevAdapter } = require('../judgment/adapters/jev');
+// Judgment modules load lazily inside buildJudge()/jevSelectContext(): this
+// file is required on EVERY context dispatch (the enabled check lives here),
+// and the default config has jev disabled — eagerly requiring the judgment
+// layer made every fresh-process context dispatch pay ~10ms for an opt-in
+// feature it never used.
 const { getConfig } = require('../../config');
-const { chunk, capText } = require('../judgment/internal');
 
 const BATCH = 10;
 // Default selection budget in chars — used when the caller passes neither
@@ -26,6 +28,8 @@ function contextJevEnabled() {
 
 function buildJudge(args) {
   if (args && args._judge) return args._judge;
+  const { createJudge } = require('../judgment');
+  const { createJevAdapter } = require('../judgment/adapters/jev');
   const adapters =
     (getConfig().judgment || {}).provider === 'jev'
       ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) }
@@ -58,6 +62,7 @@ function resolveBudget(args) {
  * judgment layer is unavailable/throws (today's selection, unchanged).
  */
 async function jevSelectContext(candidates, queryOrTask, args = {}) {
+  const { chunk, capText } = require('../judgment/internal');
   const rows = Array.isArray(candidates) ? candidates : [];
   if (rows.length === 0) return { selected: [], dropped: [] };
   const judge = buildJudge(args);
