@@ -3,6 +3,48 @@
 const { codeParser, _requireNativeDb, CALL_GRAPH, _SKIP_CALLEE_NAMES } = require('./shared-deps'),
   { extractImportBindings } = require('./import-graph-impl');
 
+// One-pass in-memory index of resolved scope bindings, keyed
+// File_id -> name -> candidates sorted by scope_depth DESC, confidence DESC.
+// Replaces the per-callee file_scope_bindings/scope_resolution JOIN+ORDER BY
+// Query (a ~50µs SQL round-trip per callee attempt; ~10K attempts per full
+// Index). Missing scope tables (pre-migration) yield an empty index, matching
+// The previous per-call try/catch fallback to heuristics.
+function buildScopeResolutionIndex(db, repoId) {
+  const index = new Map();
+  try {
+    const rows = db
+      .prepare(
+        `SELECT fsb.file_id, fsb.name, fsb.line_start, fsb.line_end, fsb.scope_depth,
+       sr.resolved_symbol_id, sr.confidence
+FROM file_scope_bindings fsb
+JOIN scope_resolution sr ON sr.binding_id = fsb.id
+WHERE fsb.repo_id = ? AND sr.status = 'resolved_internal'`,
+      )
+      .all(repoId);
+    for (const row of rows) {
+      let byName = index.get(row.file_id);
+      if (!byName) {
+        byName = new Map();
+        index.set(row.file_id, byName);
+      }
+      let candidates = byName.get(row.name);
+      if (!candidates) {
+        candidates = [];
+        byName.set(row.name, candidates);
+      }
+      candidates.push(row);
+    }
+    for (const byName of index.values()) {
+      for (const candidates of byName.values()) {
+        candidates.sort((a, b) => b.scope_depth - a.scope_depth || b.confidence - a.confidence);
+      }
+    }
+  } catch {
+    // Scope_resolution/file_scope_bindings may not exist yet (pre-migration)
+  }
+  return index;
+}
+
 function buildCallGraph(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db),
     { onProgress } = !guard ? opts : undefined;
@@ -103,16 +145,8 @@ function buildCallGraph(db, repoId, opts = {}) {
       // Allocation overhead is significant at hundreds of thousands of invocations.
       {
         const _rr = { calleeSymbolId: null, confidence: 0 },
-          // ── Scope-aware resolution statement (v10) ────────────────
-          scopeResolveStmt = db.prepare(`
-    SELECT sr.resolved_symbol_id, sr.confidence, sr.status, fsb.scope_depth
-    FROM file_scope_bindings fsb
-    JOIN scope_resolution sr ON sr.binding_id = fsb.id
-    WHERE fsb.file_id = ? AND fsb.name = ? AND fsb.line_start <= ? AND fsb.line_end >= ?
-      AND sr.status = 'resolved_internal'
-    ORDER BY fsb.scope_depth DESC, sr.confidence DESC
-    LIMIT 1
-  `),
+          // ── Scope-aware resolution index (v10) ────────────────────
+          scopeIndex = buildScopeResolutionIndex(db, repoId),
           pendingEdges = [],
           totalFiles = symbolsByFile.size;
 
@@ -246,21 +280,22 @@ function buildCallGraph(db, repoId, opts = {}) {
           _rr.calleeSymbolId = null;
           _rr.confidence = 0.5;
 
-          // Primary: scope-aware lookup
-          try {
-            const scopeResult = scopeResolveStmt.get(
-              callerSym.file_id,
-              calleeName,
-              callerSym.start_line,
-              callerSym.start_line,
-            );
-            if (scopeResult && scopeResult.resolved_symbol_id) {
-              _rr.calleeSymbolId = scopeResult.resolved_symbol_id;
-              _rr.confidence = scopeResult.confidence;
-              return;
+          // Primary: scope-aware lookup (in-memory index; same precedence as
+          // The former per-callee SQL: scope_depth DESC, then confidence DESC,
+          // First candidate whose [line_start, line_end] contains the caller line)
+          const byName = scopeIndex.get(callerSym.file_id);
+          if (byName) {
+            const candidates = byName.get(calleeName);
+            if (candidates) {
+              const line = callerSym.start_line;
+              for (const candidate of candidates) {
+                if (candidate.line_start <= line && candidate.line_end >= line) {
+                  _rr.calleeSymbolId = candidate.resolved_symbol_id;
+                  _rr.confidence = candidate.confidence;
+                  return;
+                }
+              }
             }
-          } catch {
-            // Scope_resolution table may not exist yet (pre-migration)
           }
 
           // Fallback: heuristic cascade
