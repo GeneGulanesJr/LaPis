@@ -9,62 +9,68 @@ const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../const
 function runCompactCheap(deps) {
   const { sqlRun } = deps,
     startedAt = new Date().toISOString(),
-    report = { startedAt, steps: {} };
+    report = { startedAt, steps: {} },
+    // One transaction for the whole cleanup: the ten statements each used to
+    // autocommit separately — 10 WAL commits (fsyncs) per session end, and a
+    // crash mid-way left compaction half-applied.
+    tx = deps.withTransaction || require('../../db').withTransaction;
 
   try {
-    sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
-    report.steps.expiredPurged = true;
+    tx(() => {
+      sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
+      report.steps.expiredPurged = true;
 
-    sqlRun(
-      'DELETE FROM symbol_links WHERE memory_id NOT IN (SELECT CAST(id AS TEXT) FROM observations WHERE deleted_at IS NULL)',
-    );
-    report.steps.deadLinksCleaned = true;
+      sqlRun(
+        'DELETE FROM symbol_links WHERE memory_id NOT IN (SELECT CAST(id AS TEXT) FROM observations WHERE deleted_at IS NULL)',
+      );
+      report.steps.deadLinksCleaned = true;
 
-    sqlRun(
-      `DELETE FROM observations WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-${TIME_WINDOWS.PURGE_SOFT_DELETED_DAYS} days')`,
-    );
-    report.steps.purgedSoftDeleted = true;
+      sqlRun(
+        `DELETE FROM observations WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-${TIME_WINDOWS.PURGE_SOFT_DELETED_DAYS} days')`,
+      );
+      report.steps.purgedSoftDeleted = true;
 
-    sqlRun(`DELETE FROM observations WHERE id IN (
-      SELECT id FROM (
-        SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
-        FROM observations WHERE type = 'session_summary' AND deleted_at IS NULL
-      ) WHERE rn > ${RESULT_LIMITS.SESSION_SUMMARY_FLOOR}
-    )`);
-    report.steps.oldSummariesPruned = true;
+      sqlRun(`DELETE FROM observations WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
+          FROM observations WHERE type = 'session_summary' AND deleted_at IS NULL
+        ) WHERE rn > ${RESULT_LIMITS.SESSION_SUMMARY_FLOOR}
+      )`);
+      report.steps.oldSummariesPruned = true;
 
-    sqlRun(`DELETE FROM user_prompts WHERE id IN (
-      SELECT id FROM (
-        SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
-        FROM user_prompts
-      ) WHERE rn > ${RESULT_LIMITS.PROMPTS_PER_PROJECT}
-    )`);
-    report.steps.oldPromptsPruned = true;
+      sqlRun(`DELETE FROM user_prompts WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
+          FROM user_prompts
+        ) WHERE rn > ${RESULT_LIMITS.PROMPTS_PER_PROJECT}
+      )`);
+      report.steps.oldPromptsPruned = true;
 
-    sqlRun(`DELETE FROM session_log WHERE id NOT IN (
-      SELECT id FROM (
-        SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY started_at DESC) AS rn
-        FROM session_log
-      ) WHERE rn <= ${RESULT_LIMITS.SESSIONS_PER_PROJECT}
-    )`);
-    report.steps.sessionLogPruned = true;
+      sqlRun(`DELETE FROM session_log WHERE id NOT IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY started_at DESC) AS rn
+          FROM session_log
+        ) WHERE rn <= ${RESULT_LIMITS.SESSIONS_PER_PROJECT}
+      )`);
+      report.steps.sessionLogPruned = true;
 
-    sqlRun(`DELETE FROM user_prompts WHERE session_id NOT IN (SELECT CAST(id AS TEXT) FROM session_log)`);
-    report.steps.orphanPromptsCleaned = true;
+      sqlRun(`DELETE FROM user_prompts WHERE session_id NOT IN (SELECT CAST(id AS TEXT) FROM session_log)`);
+      report.steps.orphanPromptsCleaned = true;
 
-    sqlRun(
-      `DELETE FROM trust_adjustments WHERE timestamp < datetime('now', '-${TIME_WINDOWS.TRUST_ADJUSTMENTS_RETENTION_DAYS} days')`,
-    );
-    report.steps.trustAdjustmentsPruned = true;
+      sqlRun(
+        `DELETE FROM trust_adjustments WHERE timestamp < datetime('now', '-${TIME_WINDOWS.TRUST_ADJUSTMENTS_RETENTION_DAYS} days')`,
+      );
+      report.steps.trustAdjustmentsPruned = true;
 
-    sqlRun('DELETE FROM session_recalls WHERE session_id NOT IN (SELECT id FROM session_log)');
-    report.steps.recallsPruned = true;
+      sqlRun('DELETE FROM session_recalls WHERE session_id NOT IN (SELECT id FROM session_log)');
+      report.steps.recallsPruned = true;
 
-    deps.sqlRun(`UPDATE symbol_links SET trust_score = MAX(${TRUST_DELTA.TRUST_FLOOR}, trust_score - ${Math.abs(TRUST_DELTA.STALE_TRUST_DECAY)})
-      WHERE memory_id IN (
-        SELECT CAST(id AS TEXT) FROM observations WHERE updated_at < datetime('now', '-${TIME_WINDOWS.ARCHIVE_INACTIVE_DAYS} days')
-      ) AND trust_score > ${TRUST_DELTA.TRUST_FLOOR}`);
-    report.steps.staleTrustDecayed = true;
+      deps.sqlRun(`UPDATE symbol_links SET trust_score = MAX(${TRUST_DELTA.TRUST_FLOOR}, trust_score - ${Math.abs(TRUST_DELTA.STALE_TRUST_DECAY)})
+        WHERE memory_id IN (
+          SELECT CAST(id AS TEXT) FROM observations WHERE updated_at < datetime('now', '-${TIME_WINDOWS.ARCHIVE_INACTIVE_DAYS} days')
+        ) AND trust_score > ${TRUST_DELTA.TRUST_FLOOR}`);
+      report.steps.staleTrustDecayed = true;
+    });
 
     report.completedAt = new Date().toISOString();
     report.ok = true;
