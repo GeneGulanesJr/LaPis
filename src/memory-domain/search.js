@@ -32,6 +32,9 @@ function rankObservations(rows, query = '') {
   // Detect navigation-style queries (where, module, hook, etc.)
   const isNavigationQuery = RANKING.NAVIGATION_QUERY_SIGNALS.some((signal) => query.toLowerCase().includes(signal));
   const pathPattern = RANKING.NAVIGATION_BOOST.path_pattern;
+  // Hoisted out of the row loop: getConfig() stats the config file on every
+  // call, which made ranking cost one filesystem stat per result row.
+  const ranking = getConfig().ranking;
 
   return rows
     .map((row) => {
@@ -72,7 +75,6 @@ function rankObservations(rows, query = '') {
         }
       }
 
-      const ranking = getConfig().ranking;
       const composite =
         (ftsScore * ranking.fts_relevance +
           recencyScore * ranking.recency +
