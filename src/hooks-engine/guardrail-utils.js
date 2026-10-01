@@ -71,8 +71,21 @@ const MIN_SYMBOL_LENGTH = 4,
     // (leadingCommandBinary) rather than regex: the quantified-prefix regex
     // Form is polynomial on uncontrolled input (CodeQL).
     SEARCH_BINARIES = new Set(['rg', 'grep', 'ag', 'ack', 'find']),
-    isRawCodeDiscoveryCommand = (cmd) =>
-      typeof cmd === 'string' && splitRawCommandSegments(cmd).some((segment) => leadingCommandBinary(segment) !== null),
+    // A search binary in COMMAND position of any command the shell would run.
+    // Here-document bodies (file contents written with `cat > f <<'EOF'`) and
+    // Quoted arguments (`node -e '…x.find(…)…'`, `echo "grep this"`) are data,
+    // Not commands, so they never count — the bare-word regex blocked those.
+    // Newlines separate commands; `bash -c "…"` / `sh -c` bodies are scanned;
+    // `$(…)` inside double quotes is a command and is scanned.
+    isRawCodeDiscoveryCommand = (cmd, depth = 0) =>
+      typeof cmd === 'string' &&
+      splitRawCommandSegments(stripHeredocBodies(cmd)).some((segment) => {
+        const inner = shellDashCBody(segment);
+        if (inner !== null && depth < 3) {
+          return isRawCodeDiscoveryCommand(inner, depth + 1);
+        }
+        return leadingCommandBinary(segment) !== null;
+      }),
     isSearchCommandStage = (stage) => typeof stage === 'string' && leadingCommandBinary(stage) !== null,
     isFindCommandStage = (stage) => leadingCommandBinary(stage) === 'find',
     CODE_PATH_HINT_RE =
@@ -226,16 +239,40 @@ const MIN_SYMBOL_LENGTH = 4,
     return token.length > 1 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(token);
   }
 
-  // Walk the leading tokens (sudo/git/env/VAR=value prefixes) and return the
-  // Command binary, or null. Purely iterative — no regex backtracking on
+  // Prefix commands that run the NEXT token as the command (`xargs grep`,
+  // `time rg`, `nohup find`). Option flags after them are skipped, plus the
+  // Value of the few flags that take one.
+  const RUNNER_PREFIXES = new Set([
+      'sudo',
+      'git',
+      'env',
+      'xargs',
+      'time',
+      'nohup',
+      'nice',
+      'command',
+      'exec',
+      'timeout',
+    ]),
+    PREFIX_FLAGS_WITH_VALUE = new Set(['-n', '-P', '-I', '-L', '-d', '-E', '-s', '-u', '-g', '-C']);
+
+  // Walk the leading tokens (runner prefixes, their flags, VAR=value) and return
+  // The command binary, or null. Purely iterative — no regex backtracking on
   // Uncontrolled input (CodeQL polynomial-regex alert).
   function leadingCommandBinary(segment) {
     const tokens = tokenizeCommandSegment(segment);
     let index = 0;
     while (index < tokens.length) {
       const token = tokens[index];
-      if (/^(?:sudo|git|env)$/.test(token) && index + 1 < tokens.length) {
+      if (RUNNER_PREFIXES.has(token) && index + 1 < tokens.length) {
         index++;
+        // `timeout 10 grep …` — skip the duration
+        if (token === 'timeout' && /^\d/.test(tokens[index] ?? '')) {
+          index++;
+        }
+        while (index < tokens.length && tokens[index].startsWith('-') && token !== 'git') {
+          index += PREFIX_FLAGS_WITH_VALUE.has(tokens[index]) ? 2 : 1;
+        }
         continue;
       }
       if (isEnvAssignmentToken(token)) {
@@ -247,11 +284,105 @@ const MIN_SYMBOL_LENGTH = 4,
     return SEARCH_BINARIES.has(tokens[index]) ? tokens[index] : null;
   }
 
-  // Split on pipeline/sequence separators and command-substitution openers so
-  // Each segment can be checked for a search binary in command position.
-  // Simple alternation of literals — linear, no backtracking.
+  // `bash -c "cmd"` / `sh -c 'cmd'` / `zsh -lc …` → the inner command string, else null.
+  function shellDashCBody(segment) {
+    const tokens = tokenizeCommandSegment(segment);
+    if (!/^(?:bash|sh|zsh|dash)$/.test(tokens[0] ?? '')) {
+      return null;
+    }
+    for (let i = 1; i < tokens.length - 1; i++) {
+      if (/^-[a-z]*c[a-z]*$/.test(tokens[i])) {
+        const body = tokens[i + 1];
+        return body.length >= 2 && (body[0] === '"' || body[0] === "'") ? body.slice(1, -1) : body;
+      }
+    }
+    return null;
+  }
+
+  // Drop here-document BODIES — `cat > f <<'EOF' … EOF` writes data, it does not
+  // Run it. A body fed to a shell (`bash <<EOF`) IS commands and is kept.
+  // Line scan with a queue of pending terminators: linear.
+  function stripHeredocBodies(cmd) {
+    if (!cmd.includes('<<')) {
+      return cmd;
+    }
+    const out = [],
+      pending = [];
+    for (const line of cmd.split('\n')) {
+      if (pending.length) {
+        const term = pending[0],
+          candidate = term.dash ? line.replace(/^\t+/, '') : line;
+        if (candidate.trim() === term.word) {
+          pending.shift();
+        } else if (term.keep) {
+          out.push(line);
+        }
+        continue;
+      }
+      out.push(line);
+      const feedsShell = /^\s*(?:bash|sh|zsh|dash)\b/.test(line);
+      for (const m of line.matchAll(/(?<!<)<<(?!<)(-?)[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2/g)) {
+        pending.push({ dash: m[1] === '-', word: m[3], keep: feedsShell });
+      }
+    }
+    return out.join('\n');
+  }
+
+  // Split into the separate commands the shell would run: on | ; & newline,
+  // Backticks, subshell/group parens and braces, and `$(` — but never inside
+  // Quotes. `$(…)` inside DOUBLE quotes is still a command and is returned as
+  // Its own segment. Single pass, linear.
   function splitRawCommandSegments(cmd) {
-    return cmd.split(/(?:\$\(|[|;&`])/);
+    const segments = [];
+    let current = '',
+      quote = null;
+    for (let i = 0; i < cmd.length; i++) {
+      const ch = cmd[i];
+      if (quote) {
+        if (quote === '"' && ch === '$' && cmd[i + 1] === '(') {
+          // command substitution inside double quotes: scan to the matching paren
+          let depth = 1,
+            j = i + 2;
+          for (; j < cmd.length && depth > 0; j++) {
+            if (cmd[j] === '(') depth++;
+            else if (cmd[j] === ')') depth--;
+          }
+          segments.push(...splitRawCommandSegments(cmd.slice(i + 2, j - 1)));
+          current += cmd.slice(i, j);
+          i = j - 1;
+          continue;
+        }
+        current += ch;
+        if (ch === quote && !(quote === '"' && cmd[i - 1] === '\\')) {
+          quote = null;
+        }
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        quote = ch;
+        current += ch;
+        continue;
+      }
+      if (ch === '\\' && cmd[i + 1] === '\n') {
+        current += ' ';
+        i++;
+        continue;
+      }
+      if (ch === '$' && cmd[i + 1] === '(') {
+        segments.push(current);
+        current = '';
+        i++;
+        continue;
+      }
+      if ('|;&\n`(){}'.includes(ch)) {
+        segments.push(current);
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    segments.push(current);
+    return segments.map((s) => s.trim()).filter(Boolean);
   }
 
   function splitPipeline(cmd) {
@@ -285,7 +416,9 @@ const MIN_SYMBOL_LENGTH = 4,
       return false;
     }
 
-    if (SEARCH_COMMAND_RE.test(sourceStage)) {
+    // The SOURCE must not itself be a search (`grep -rn x src | grep y`); the
+    // Word "find"/"grep" as an argument (`node run.mjs --find | grep x`) is fine.
+    if (isRawCodeDiscoveryCommand(sourceStage)) {
       return false;
     }
 
