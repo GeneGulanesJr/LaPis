@@ -93,6 +93,12 @@ export function isRepoStale(repo: RepoInfo): boolean {
 }
 
 export async function detectProject(cwd: string): Promise<string> {
+  // Aelvyril D7: per-conversation namespace override (same contract as the
+  // hooks-engine side). The Pi extension never calls projectFromCwd, so
+  // the override MUST live here too — see ADR 0002 in Aelvyril.
+  const envKey = process.env.LAPIS_PROJECT_KEY;
+  if (envKey && envKey.trim()) return envKey.trim().toLowerCase();
+
   const resolved = path.resolve(cwd);
 
   let knownProjects: string[] = [],
