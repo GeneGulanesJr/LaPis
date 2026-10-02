@@ -1,74 +1,132 @@
 const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../constants'),
   { createTrustSyncRepository } = require('../platform/storage/repositories/trust-sync'),
-  trustSync = require('../trust-sync');
+  trustSync = require('../trust-sync'),
+  fs = require('fs'),
+  { getConfig } = require('../../config');
 
 // Cheap, lock-light cleanup: all the DELETEs + trust decay. No VACUUM, no FTS optimize.
 // Safe to run on every session-end without blocking exit.
 function runCompactCheap(deps) {
   const { sqlRun } = deps,
     startedAt = new Date().toISOString(),
-    report = { startedAt, steps: {} };
+    report = { startedAt, steps: {} },
+    // One transaction for the whole cleanup: the ten statements each used to
+    // autocommit separately — 10 WAL commits (fsyncs) per session end, and a
+    // crash mid-way left compaction half-applied.
+    tx = deps.withTransaction || require('../../db').withTransaction;
 
   try {
-    sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
-    report.steps.expiredPurged = true;
+    tx(() => {
+      sqlRun("DELETE FROM observations WHERE expires_at IS NOT NULL AND expires_at < datetime('now')");
+      report.steps.expiredPurged = true;
 
-    sqlRun(
-      'DELETE FROM symbol_links WHERE memory_id NOT IN (SELECT CAST(id AS TEXT) FROM observations WHERE deleted_at IS NULL)',
-    );
-    report.steps.deadLinksCleaned = true;
+      sqlRun(
+        'DELETE FROM symbol_links WHERE memory_id NOT IN (SELECT CAST(id AS TEXT) FROM observations WHERE deleted_at IS NULL)',
+      );
+      report.steps.deadLinksCleaned = true;
 
-    sqlRun(
-      `DELETE FROM observations WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-${TIME_WINDOWS.PURGE_SOFT_DELETED_DAYS} days')`,
-    );
-    report.steps.purgedSoftDeleted = true;
+      sqlRun(
+        `DELETE FROM observations WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-${TIME_WINDOWS.PURGE_SOFT_DELETED_DAYS} days')`,
+      );
+      report.steps.purgedSoftDeleted = true;
 
-    sqlRun(`DELETE FROM observations WHERE id IN (
-      SELECT id FROM (
-        SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
-        FROM observations WHERE type = 'session_summary' AND deleted_at IS NULL
-      ) WHERE rn > ${RESULT_LIMITS.SESSION_SUMMARY_FLOOR}
-    )`);
-    report.steps.oldSummariesPruned = true;
+      sqlRun(`DELETE FROM observations WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
+          FROM observations WHERE type = 'session_summary' AND deleted_at IS NULL
+        ) WHERE rn > ${RESULT_LIMITS.SESSION_SUMMARY_FLOOR}
+      )`);
+      report.steps.oldSummariesPruned = true;
 
-    sqlRun(`DELETE FROM user_prompts WHERE id IN (
-      SELECT id FROM (
-        SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
-        FROM user_prompts
-      ) WHERE rn > ${RESULT_LIMITS.PROMPTS_PER_PROJECT}
-    )`);
-    report.steps.oldPromptsPruned = true;
+      sqlRun(`DELETE FROM user_prompts WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY created_at DESC) AS rn
+          FROM user_prompts
+        ) WHERE rn > ${RESULT_LIMITS.PROMPTS_PER_PROJECT}
+      )`);
+      report.steps.oldPromptsPruned = true;
 
-    sqlRun(`DELETE FROM session_log WHERE id NOT IN (
-      SELECT id FROM (
-        SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY started_at DESC) AS rn
-        FROM session_log
-      ) WHERE rn <= ${RESULT_LIMITS.SESSIONS_PER_PROJECT}
-    )`);
-    report.steps.sessionLogPruned = true;
+      sqlRun(`DELETE FROM session_log WHERE id NOT IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY started_at DESC) AS rn
+          FROM session_log
+        ) WHERE rn <= ${RESULT_LIMITS.SESSIONS_PER_PROJECT}
+      )`);
+      report.steps.sessionLogPruned = true;
 
-    sqlRun(`DELETE FROM user_prompts WHERE session_id NOT IN (SELECT CAST(id AS TEXT) FROM session_log)`);
-    report.steps.orphanPromptsCleaned = true;
+      sqlRun(`DELETE FROM user_prompts WHERE session_id NOT IN (SELECT CAST(id AS TEXT) FROM session_log)`);
+      report.steps.orphanPromptsCleaned = true;
 
-    sqlRun(
-      `DELETE FROM trust_adjustments WHERE timestamp < datetime('now', '-${TIME_WINDOWS.TRUST_ADJUSTMENTS_RETENTION_DAYS} days')`,
-    );
-    report.steps.trustAdjustmentsPruned = true;
+      sqlRun(
+        `DELETE FROM trust_adjustments WHERE timestamp < datetime('now', '-${TIME_WINDOWS.TRUST_ADJUSTMENTS_RETENTION_DAYS} days')`,
+      );
+      report.steps.trustAdjustmentsPruned = true;
 
-    sqlRun('DELETE FROM session_recalls WHERE session_id NOT IN (SELECT id FROM session_log)');
-    report.steps.recallsPruned = true;
+      sqlRun('DELETE FROM session_recalls WHERE session_id NOT IN (SELECT id FROM session_log)');
+      report.steps.recallsPruned = true;
 
-    deps.sqlRun(`UPDATE symbol_links SET trust_score = MAX(${TRUST_DELTA.TRUST_FLOOR}, trust_score - ${Math.abs(TRUST_DELTA.STALE_TRUST_DECAY)})
-      WHERE memory_id IN (
-        SELECT CAST(id AS TEXT) FROM observations WHERE updated_at < datetime('now', '-${TIME_WINDOWS.ARCHIVE_INACTIVE_DAYS} days')
-      ) AND trust_score > ${TRUST_DELTA.TRUST_FLOOR}`);
-    report.steps.staleTrustDecayed = true;
+      deps.sqlRun(`UPDATE symbol_links SET trust_score = MAX(${TRUST_DELTA.TRUST_FLOOR}, trust_score - ${Math.abs(TRUST_DELTA.STALE_TRUST_DECAY)})
+        WHERE memory_id IN (
+          SELECT CAST(id AS TEXT) FROM observations WHERE updated_at < datetime('now', '-${TIME_WINDOWS.ARCHIVE_INACTIVE_DAYS} days')
+        ) AND trust_score > ${TRUST_DELTA.TRUST_FLOOR}`);
+      report.steps.staleTrustDecayed = true;
+    });
 
     report.completedAt = new Date().toISOString();
     report.ok = true;
   } catch (e) {
     report.error = e.message;
     report.ok = false;
+  }
+  return report;
+}
+
+// WAL maintenance: the passive autocheckpoint (wal_autocheckpoint pages) only
+// resets the WAL when no other process holds a read snapshot; with long-lived
+// readers the WAL ratchets up unboundedly — doubled disk footprint, slower
+// recent-page reads, and a multi-second WAL replay after an unclean shutdown.
+// checkpointWal() runs a best-effort TRUNCATE checkpoint at quiescent points
+// (session end, after VACUUM): size-gated so healthy WALs cost one statSync,
+// bounded by a short busy timeout so exit never blocks long, and
+// failure-tolerant — the next session end tries again.
+const WAL_TRUNCATE_THRESHOLD_BYTES = 256 * 1024 * 1024;
+const WAL_CHECKPOINT_BUSY_TIMEOUT_MS = 1000;
+
+function checkpointWal(deps, opts = {}) {
+  const { sqlRaw } = deps,
+    report = { attempted: false, truncated: false };
+  try {
+    if (typeof sqlRaw !== 'function') {
+      report.skipped = 'no-sqlRaw';
+      return report;
+    }
+    const dbPath = opts.dbPath || getConfig().db_path;
+    try {
+      report.walBytes = fs.statSync(`${dbPath}-wal`).size;
+    } catch {
+      report.skipped = 'no-wal';
+      return report;
+    }
+    const threshold = opts.thresholdBytes ?? WAL_TRUNCATE_THRESHOLD_BYTES;
+    if (report.walBytes <= threshold) {
+      report.skipped = 'below-threshold';
+      return report;
+    }
+    report.attempted = true;
+    sqlRaw(`PRAGMA busy_timeout = ${opts.busyTimeoutMs ?? WAL_CHECKPOINT_BUSY_TIMEOUT_MS}`);
+    try {
+      sqlRaw('PRAGMA wal_checkpoint(TRUNCATE)');
+      report.truncated = true;
+    } finally {
+      sqlRaw(`PRAGMA busy_timeout = ${getConfig().busy_timeout_ms || 30000}`);
+    }
+    try {
+      report.walBytesAfter = fs.statSync(`${dbPath}-wal`).size;
+    } catch {
+      // WAL file removed entirely by the truncate — fine.
+    }
+  } catch (e) {
+    report.error = e.message;
   }
   return report;
 }
@@ -87,6 +145,9 @@ function runVacuum(deps) {
     sqlRaw("INSERT INTO observations_fts(observations_fts) VALUES('optimize')");
     sqlRaw("INSERT INTO prompts_fts(prompts_fts) VALUES('optimize')");
     report.steps.ftsOptimized = true;
+
+    // VACUUM just copied the whole database through the WAL — reclaim it now.
+    report.steps.wal = checkpointWal(deps);
 
     report.completedAt = new Date().toISOString();
     report.ok = true;
@@ -496,4 +557,4 @@ function trustRecovery(deps, args) {
   return trustSync.trustRecovery({ jsonErrNoExit: deps.jsonErrNoExit, trustSyncRepository }, args);
 }
 
-module.exports = { runCompact, runCompactCheap, runVacuum, compact, dream, trustRecovery };
+module.exports = { runCompact, runCompactCheap, runVacuum, checkpointWal, compact, dream, trustRecovery };

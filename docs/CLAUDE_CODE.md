@@ -63,6 +63,18 @@ lapis claude-code start [--port 9100] [--host 127.0.0.1] [--detached]
 lapis claude-code stop
 ```
 
+### Auto-starting the daemon from hooks (opt-in)
+
+Hooks normally fall back to direct dispatch (in-process gateway + cold SQLite
+open, ~100-170ms of per-process work) when no daemon is running. Setting
+`LAPIS_HOOK_AUTODAEMON=1` (or `true`) in the hook environment makes the first
+hook that finds no daemon start a detached `lapis serve` (default
+`127.0.0.1:9100`), wait up to 2.5s for it to become healthy, and dispatch over
+HTTP from then on. If the start attempt fails or times out, that hook falls
+back to direct dispatch — hooks never hang on daemon startup. Without the env
+variable nothing changes: hooks stay direct-mode unless you start the daemon
+yourself (`lapis claude-code start` or `install --daemon`).
+
 ## Two-config layout
 
 After install, your project typically has:
@@ -82,12 +94,13 @@ Re-install is idempotent: LaPis hook handlers are identified by a sentinel (`cla
 
 | Claude Code event | LaPis behavior |
 | --- | --- |
-| `SessionStart` (`startup` \| `resume` \| `clear`) | `session-start` dispatch + inject context |
+| `SessionStart` (`startup` \| `resume` \| `clear`) | `session-start` dispatch + inject context + [auto-index](#auto-indexing) an unindexed git repo |
 | `SessionStart` (`compact`) | Re-inject only (no new session-start) |
 | `UserPromptSubmit` | Prompt-matched context + preflight + cadence-gated memory reminder (30s budget) |
 | `PreToolUse` `Read` | Block whole-file reads of indexed code |
 | `PreToolUse` `Grep` / `Glob` | **Primary** code-search guardrail (agent is instructed to prefer these over bash grep/find) |
 | `PreToolUse` `Bash` (search cmds) | Secondary search guardrail classified inside the handler (single bare `Bash` matcher; no install-time `if` rules, so compound commands like `cd repo && git pull` are still covered) — `grep`, `rg`, `ag`, `ack`, `find` |
+| `PreToolUse` `Read` / `Grep` / `Glob` / `Bash` (allowed through in an unindexed git repo) | [Auto-index](#auto-indexing): start the background index once, tell the agent |
 | `PreToolUse` `mcp__lapis__memory-code` | Seed `exploredFiles` |
 | `PostToolUse` `Write` \| `Edit` \| `MultiEdit` | Edit-track (sync) |
 | `PostToolUse` `Bash` (git ops) | `sync-code-trust` (async) |
@@ -108,6 +121,26 @@ Hooks are wired as exec-form command handlers, e.g.:
 ```
 
 Heavy handlers (`Stop`, git-trust `PostToolUse`) run with `async: true`. `PostToolUse` is split with `--skip git-trust` / `--only git-trust` so tracking stays synchronous while trust sync runs in the background.
+
+## Auto-indexing
+
+Guardrails only apply inside an indexed repo, so an unindexed repo used to be skipped silently: the agent got no `memory-code` data and no hint why. Auto-indexing (**on by default**) closes that gap.
+
+When `SessionStart` or a `PreToolUse` guardrail sees a **git repo that is not indexed**, LaPis:
+
+1. Spawns `lapis index-repo --path <repo root> --name <dir name>` as a **detached** child and returns immediately — the hook never waits on indexing, so hook timeouts are unaffected. (Repos over `async_index_file_threshold` files switch to the async job path inside `index-repo` as usual.)
+2. Tells the agent, via `additionalContext`, that indexing is running and to keep using `Read`/`Grep`/`Glob` until it finishes.
+3. From then on the repo is in `code_repos`, so the read/search/glob/bash guardrails apply on their own — no restart needed.
+
+Safety rails:
+
+- **Only git work trees.** A directory with no `.git` (or a `.git` file for worktrees/submodules) up-tree is ignored. `$HOME`, the filesystem root and the system temp dir are never treated as a repo root.
+- **One indexer per repo.** A marker file in `~/.pi/memory/auto-index/` (claimed with `O_EXCL`) stops parallel hooks and concurrent sessions from double-spawning. A live indexer is reported as "in progress"; a failed or exited one is not retried for 10 minutes, and the agent is then told the manual command (`memory-code index-repo --path … --name …`).
+- **Name collisions count as indexed.** If an indexed repo already has the same name, LaPis treats the repo as indexed — the same rule the guardrails use — and never overwrites it.
+- **Fail open.** Any error in this path is logged to stderr and the hook carries on.
+- **Logs.** Indexer output goes to `~/.pi/memory/auto-index/<repo>.log`.
+
+Opt out with `"auto_index": { "enabled": false }` in `~/.pi/memory/config.jsonc` or `LAPIS_AUTO_INDEX=0` in the environment (env wins over the config file). See [`CONFIGURATION.md`](CONFIGURATION.md).
 
 ## State storage
 
@@ -137,7 +170,7 @@ lapis claude-code install --auto-allow
 
 | Area | Pi extension | Claude Code bridge |
 | --- | --- | --- |
-| Guardrail auto-indexing on miss | May trigger indexing | **Deferred** — would blow the hook timeout budget |
+| Guardrail auto-indexing on miss | May trigger indexing | **Detached background index** — a hook never indexes inline (that would blow the timeout); it spawns `index-repo` and returns. See [Auto-indexing](#auto-indexing) |
 | MCP tool search scope | Project-scoped | Project-scoped (same) |
 | Config / DB path | `~/.pi/memory/` | `~/.pi/memory/` (shared — not forked) |
 | Output compression | Replaces bash tool result in place | **Not wired** — `PostToolUse` cannot rewrite an already-executed tool result (see [deferred follow-up](#deferred-output-compression)) |

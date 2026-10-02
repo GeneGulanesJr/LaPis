@@ -59,7 +59,7 @@ const realStateStore = require('../../src/claude-code/state-store'),
       expect(isDeny(await runRead({ file_path: 'src/db.js' }, { stateStore }))).toBe(false);
     });
 
-    test('allows reads in an unindexed project (deferred auto-index)', async () => {
+    test('allows reads in an unindexed project (background auto-index handles it)', async () => {
       expect(isDeny(await runRead({ file_path: 'src/db.js' }, { repos: () => [] }))).toBe(false);
     });
 
@@ -144,6 +144,32 @@ const realStateStore = require('../../src/claude-code/state-store'),
     test('Bash blocks compound search commands (cd repo && find)', async () => {
       // #226: the full command string is classified, not a prefix-matched if-rule.
       expect(isDeny(await run('Bash', { command: 'cd /proj/app && find . -name "*.ts"' }))).toBe(true);
+    });
+
+    // The Claude Code Bash guard used the bare-word regex while Pi used the
+    // Command-position detector: file contents written through a heredoc,
+    // `x.find(…)` inside `node -e`, and prose were all blocked as "searches".
+    test('Bash allows heredoc file contents that mention find/grep', async () => {
+      const command =
+        "cat > /tmp/x.mjs <<'EOF'\nconst hit = MAP.find(([re]) => re.test(id));\ngrep is just a word here\nEOF\nnode /tmp/x.mjs";
+      expect(isDeny(await run('Bash', { command }))).toBe(false);
+    });
+
+    test('Bash allows find/grep inside a quoted node -e script', async () => {
+      expect(isDeny(await run('Bash', { command: `node -e 'const r = rows.find((x) => x.ok); console.log(r)'` }))).toBe(
+        false,
+      );
+    });
+
+    test('Bash allows a filter when the source command merely has a find/grep argument', async () => {
+      expect(isDeny(await run('Bash', { command: 'node run.mjs --find | grep -i error' }))).toBe(false);
+    });
+
+    test('Bash still blocks a real search on a later line, behind xargs, or in bash -c', async () => {
+      expect(isDeny(await run('Bash', { command: 'cd /proj/app\nfind . -name "*.ts"' }))).toBe(true);
+      expect(isDeny(await run('Bash', { command: 'ls src | xargs grep -n foo' }))).toBe(true);
+      expect(isDeny(await run('Bash', { command: `bash -c "find . -name '*.ts'"` }))).toBe(true);
+      expect(isDeny(await run('Bash', { command: 'cd x && find . | grep foo' }))).toBe(true);
     });
   });
 

@@ -16,23 +16,25 @@
  *   memory-code-seed      seed exploredFiles from a memory-code call
  *   memory-reminder-reset reset the memory-reminder cadence on any memory-* tool
  *
- * Auto-index is DEFERRED (documented divergence from the Pi extension): a miss
- * never triggers indexing (that blows the hook timeout). Guardrails only fire
- * inside an already-indexed repo; unindexed projects are allowed through with
- * (for search) guidance to index manually.
+ * Guardrails only fire inside an already-indexed repo. A call that lands in an
+ * UNINDEXED git repo is allowed through, but starts a detached background
+ * `index-repo` (see ../auto-index.js — it never indexes inline, so the hook
+ * timeout is untouched) and tells the agent so. Once the index exists the
+ * guardrails apply on their own. Opt out: config `auto_index.enabled=false` or
+ * LAPIS_AUTO_INDEX=0.
  */
 
 const path = require('node:path'),
-  { isCodeFile } = require('../../code-index/scanner'),
   { resolveIndexedRepo, normalizeRepoPath } = require('../../hooks-engine/project'),
   { resolveProjectForCwd } = require('../project-resolve'),
+  { maybeStartAutoIndex, describeAutoIndex } = require('../auto-index'),
   {
     isPipedOutputFilter,
     isTargetedSymbolLookup,
     isTargetedGrepLookup,
     isBroadGlob,
     CONFIG_FILENAMES,
-    RAW_CODE_DISCOVERY_RE,
+    isRawCodeDiscoveryCommand,
     CODE_PATH_HINT_RE,
   } = require('../../hooks-engine/guardrail-utils'),
   { preToolRole } = require('../tool-map'),
@@ -68,6 +70,11 @@ function resolveRepo(resolvedCwd, repos, currentProject) {
 // --- guardrails ---------------------------------------------------------
 
 function readGuardrail({ input, repos, cwd, state }) {
+  // Lazy require: PreToolUse fires before EVERY tool call, but only Read-tool
+  // inputs reach this guard. Loading code-index/scanner (~5.4ms, mostly
+  // tree-sitter-adjacent module init) cost that time on every non-Read tool
+  // call. The require cache keeps repeat guard calls cheap.
+  const { isCodeFile } = require('../../code-index/scanner');
   const filePath = typeof input.file_path === 'string' ? input.file_path : input.path;
   if (typeof filePath !== 'string' || !filePath) {
     return null;
@@ -102,8 +109,8 @@ function readGuardrail({ input, repos, cwd, state }) {
           const rp = normalizeRepoPath(r.path);
           return absNorm === rp || absNorm.startsWith(`${rp}/`);
         });
-        // Deferred auto-index: an unindexed project is allowed through (no outline to
-        // Point at, and indexing inline would blow the hook timeout).
+        // Unindexed project: allowed through (no outline to point at); the
+        // Background index is started by autoIndexOnMiss.
         if (!matchedRepo) {
           return null;
         }
@@ -135,7 +142,7 @@ function searchGuardrail({ input, repos, cwd, state }) {
     searchPath = input.path,
     repo = resolveRepo(cwd, repos, state.currentProject);
   if (!repo) {
-    return null; // Unindexed → deferred, allow
+    return null; // Unindexed → allow (autoIndexOnMiss starts the background index)
   }
   if (isTargetedGrepLookup({ pattern, path: searchPath })) {
     return null;
@@ -168,12 +175,15 @@ function globGuardrail({ input, repos, cwd, state }) {
 
 function bashGuardrail({ input, repos, cwd, state }) {
   const cmd = typeof input.command === 'string' ? input.command : '';
-  if (!cmd || !RAW_CODE_DISCOVERY_RE.test(cmd)) {
+  // Command position only (same detector as Pi's tool-guardrails.ts) — the
+  // Bare-word regex also blocked heredoc file contents, `x.find(…)` inside
+  // `node -e '…'`, and prose that merely mentioned grep/find.
+  if (!cmd || !isRawCodeDiscoveryCommand(cmd)) {
     return null;
   }
   const repo = resolveRepo(cwd, repos, state.currentProject);
   if (!repo) {
-    return null; // Deferred auto-index: allow in unindexed projects
+    return null; // Unindexed → allow (autoIndexOnMiss starts the background index)
   }
   // Allow grep/rg used purely to filter another command's stdout.
   if (isPipedOutputFilter(cmd)) {
@@ -195,7 +205,32 @@ function bashGuardrail({ input, repos, cwd, state }) {
   }
 }
 
-async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stateStore }) {
+/**
+ * A guardrail let the call through. If the cwd is an unindexed git repo, start
+ * the detached background index (once — the marker dedupes) and, on the call
+ * that actually started it, tell the agent why memory-code has no data yet.
+ */
+function autoIndexOnMiss({ args, autoIndex }) {
+  const { repos, cwd, state } = args;
+  if (resolveRepo(cwd, repos, state.currentProject)) {
+    return null;
+  }
+  try {
+    const result = autoIndex({ cwd, repos, currentProject: state.currentProject }),
+      note = result.status === 'started' ? describeAutoIndex(result) : null;
+    return note ? { hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: note } } : null;
+  } catch {
+    return null; // Auto-index must never affect the tool call.
+  }
+}
+
+async function handlePreToolUse({
+  payload,
+  getKnownRepos,
+  getKnownProjects,
+  stateStore,
+  autoIndex = maybeStartAutoIndex,
+}) {
   const toolName = payload.tool_name,
     role = preToolRole(toolName),
     input = (payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {}) || {},
@@ -235,18 +270,19 @@ async function handlePreToolUse({ payload, getKnownRepos, getKnownProjects, stat
 
       return { input, repos, cwd, state };
     })();
-  switch (role) {
-    case 'read-guardrail':
-      return readGuardrail(args);
-    case 'search-guardrail':
-      return searchGuardrail(args);
-    case 'glob-guardrail':
-      return globGuardrail(args);
-    case 'bash-guardrail':
-      return bashGuardrail(args);
-    default:
-      return null;
+  const guardrails = {
+      'read-guardrail': readGuardrail,
+      'search-guardrail': searchGuardrail,
+      'glob-guardrail': globGuardrail,
+      'bash-guardrail': bashGuardrail,
+    },
+    guardrail = guardrails[role];
+  if (!guardrail) {
+    return null;
   }
+  // A deny only happens inside an indexed repo, so auto-index runs only when the
+  // Call was allowed through.
+  return guardrail(args) || autoIndexOnMiss({ args, autoIndex });
 }
 
 module.exports = {

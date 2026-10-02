@@ -1245,6 +1245,9 @@ class MemoryError extends Error {
       MemoryError,
     };
     function getDb() {
+      if (!_db) {
+        ensureDb();
+      }
       return _db;
     }
     function getEngine() {
@@ -1317,6 +1320,11 @@ class MemoryError extends Error {
         d.pragma('temp_store = MEMORY');
         d.pragma(`busy_timeout = ${safeInt(cfg.busy_timeout_ms, 30000)}`);
         d.pragma(`wal_autocheckpoint = ${safeInt(cfg.wal_autocheckpoint, 1000)}`);
+        // Bound WAL disk usage: the passive autocheckpoint cannot reset the WAL
+        // while any reader holds a snapshot, so the file can ratchet to GBs
+        // (measured at 1.3GB alongside a 1.3GB database). journal_size_limit
+        // truncates it whenever SQLite resets or closes it.
+        d.pragma('journal_size_limit = 268435456');
         d.pragma('foreign_keys = ON');
         return d;
       } catch (e) {
@@ -1367,11 +1375,11 @@ class MemoryError extends Error {
       const msg = (e && e.message) || '';
       return /database is locked|SQLITE_BUSY/i.test(msg);
     }
+    // Blocks the calling thread for `ms` without spinning the CPU. better-sqlite3
+    // is fully synchronous, so an async setTimeout sleep isn't an option here —
+    // Atomics.wait on a private buffer gives a true OS-level blocking wait instead.
     function sleepMs(ms) {
-      const end = Date.now() + ms;
-      while (Date.now() < end) {
-        /* Spin */
-      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
     }
     function retryOnBusy(fn, label) {
       const maxRetries = safeInt(getConfig().busy_retry_max, 5);
@@ -1394,6 +1402,9 @@ class MemoryError extends Error {
       throw lastError;
     }
     function _sqlJson(query, params = []) {
+      if (!_db) {
+        ensureDb();
+      }
       return retryOnBusy(() => {
         try {
           const stmt = _db.prepare(query);
@@ -1404,6 +1415,9 @@ class MemoryError extends Error {
       }, 'sqlJson');
     }
     function _sqlRun(query, params = []) {
+      if (!_db) {
+        ensureDb();
+      }
       return retryOnBusy(() => {
         try {
           const stmt = _db.prepare(query);
@@ -1414,6 +1428,9 @@ class MemoryError extends Error {
       }, 'sqlRun');
     }
     function _sqlExec(sql) {
+      if (!_db) {
+        ensureDb();
+      }
       return retryOnBusy(() => {
         try {
           _db.exec(sql);
@@ -1424,7 +1441,7 @@ class MemoryError extends Error {
     }
     function withTransaction(fn, onRollbackError) {
       if (!_db) {
-        throw new MemoryError('Database not initialized. Call ensureDb() first.');
+        ensureDb();
       }
       if (typeof _db.transaction === 'function') {
         return _db.transaction(fn)();

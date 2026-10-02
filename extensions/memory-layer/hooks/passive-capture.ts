@@ -1,7 +1,7 @@
 import { AUTO_DECISION_COOLDOWN, CHECKPOINT_INTERVAL, state } from '../state';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { mem, memCmd } from '../host/memory-client';
-import { shouldAutoCapture } from './pattern-matcher';
+import { shouldAutoCapture, shouldAutoCaptureWithJudge } from './pattern-matcher';
 import path from 'node:path';
 
 // Engine delegation (pure transport-agnostic core).
@@ -12,6 +12,24 @@ import {
   shouldCheckpoint,
   shouldDream,
 } from '../../../src/hooks-engine/passive-capture.js';
+
+// Slice 2: judgment-backed auto-save (default provider = heuristic → inert
+// unless LAPIS_JUDGE_PROVIDER=jev). Failures degrade to regex-only behavior
+// inside shouldAutoCaptureWithJudge.
+import { getConfig } from '../../../config.js';
+import { createJevAdapter } from '../../../src/judgment/adapters/jev.js';
+import { createJudge } from '../../../src/judgment/index.js';
+
+let _judge: ReturnType<typeof createJudge> | null = null;
+function getJudge() {
+  if (_judge) {
+    return _judge;
+  }
+  const cfg = getConfig().judgment || ({} as any);
+  const adapters = cfg.provider === 'jev' ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) } : {};
+  _judge = createJudge({ config: getConfig(), adapters });
+  return _judge;
+}
 
 interface PassiveCaptureDeps {
   state: typeof state;
@@ -57,13 +75,13 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
     }
 
     {
-      const capture = shouldAutoCapture(text),
-        payload = buildAutoDecisionPayload({
-          text,
-          capture,
-          project: deps.state.currentProject,
-          sessionId: deps.state.sessionId,
-        });
+      const capture = await shouldAutoCaptureWithJudge(text, { judge: getJudge() });
+      const payload = buildAutoDecisionPayload({
+        text,
+        capture,
+        project: deps.state.currentProject,
+        sessionId: deps.state.sessionId,
+      });
       if (payload) {
         deps.state.lastAutoDecisionSave = Date.now();
         await deps.mem('save', payload);
@@ -119,16 +137,30 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
     try {
       const editedPaths = [...deps.state.editedFiles].slice(0, 20);
       if (editedPaths.length > 0 && editedPaths.length <= 20) {
-        const auditResult = await deps.mem('audit-diff', {
-          repo: deps.state.currentProject || '',
-          files: editedPaths.join(','),
-          task: `checkpoint turn ${deps.state.turnCount}`,
-        });
-        if (auditResult && !auditResult.error && auditResult.violations && auditResult.violations.length > 0) {
-          auditNote = `\n\n**Post-edit audit**: ${auditResult.risk} risk, ${auditResult.violations.length} violation(s): ${auditResult.violations
-            .slice(0, 3)
-            .map((v: any) => v.message)
-            .join('; ')}`;
+        // Resolve the edited files to the indexed code repo that actually
+        // Contains them. `currentProject` is the *memory project label*
+        // (a free-form scope string), which is NOT a code repo name;
+        // Substituting it directly causes `audit-diff` to fail with
+        // `{"error":"Repo \"<name>\" not found."}` every 10th turn when
+        // The two diverge (common on Windows when the cwd basename is
+        // `Desktop`, or when the user has multiple indexed repos).
+        // If no edited file lives inside any indexed repo we skip the
+        // Audit silently - that's the expected case for edits to memory,
+        // Pi config, or other extensions.
+        const codeRepos = await deps.getKnownRepos(),
+          repoInfo = deps.findRepoForAnyFile(editedPaths, codeRepos);
+        if (repoInfo) {
+          const auditResult = await deps.mem('audit-diff', {
+            repo: repoInfo.name,
+            files: editedPaths.join(','),
+            task: `checkpoint turn ${deps.state.turnCount}`,
+          });
+          if (auditResult && !auditResult.error && auditResult.violations && auditResult.violations.length > 0) {
+            auditNote = `\n\n**Post-edit audit**: ${auditResult.risk} risk, ${auditResult.violations.length} violation(s): ${auditResult.violations
+              .slice(0, 3)
+              .map((v: any) => v.message)
+              .join('; ')}`;
+          }
         }
       }
     } catch {

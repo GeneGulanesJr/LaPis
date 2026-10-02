@@ -1,7 +1,15 @@
 const { getConfig } = require('../../config');
 const { RESULT_LIMITS, RANKING, CONTEXT } = require('../../constants');
 const { estimateTokens } = require('../../utils');
-const { TRUST_RECALL_JOINS, TYPE_PRIORITY_CASE } = require('./search');
+const { TRUST_RECALL_SUBQ, TYPE_PRIORITY_CASE } = require('./search');
+
+// Trust/recall signals come from correlated scalar subqueries (TRUST_RECALL_SUBQ
+// in ./search): per-row index seeks instead of materializing full-table GROUP
+// BYs of recall_log/symbol_links on every context query. Same values, same
+// NULL/0 semantics as the previous LEFT JOIN form.
+const TRUST_RECALL_COLUMNS = `
+             COALESCE(${TRUST_RECALL_SUBQ.trustScore}, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
+             ${TRUST_RECALL_SUBQ.recallCount} as recall_count,`;
 
 const TOPIC_QUERY_STOP_WORDS = new Set([
   'the',
@@ -115,11 +123,9 @@ function context(deps, args) {
       : fetchCeiling;
     obsQuery = `
       SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.project, o.created_at,
-             COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
-             COALESCE(rl.recall_count, 0) as recall_count,
+${TRUST_RECALL_COLUMNS}
              ${TYPE_PRIORITY_CASE} as type_priority
       FROM observations o
-      ${TRUST_RECALL_JOINS}
       WHERE o.deleted_at IS NULL AND o.type != 'skill' AND o.scope = 'project'
         AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
       ORDER BY recall_count DESC, trust_score DESC, type_priority DESC, o.created_at DESC
@@ -143,20 +149,17 @@ function context(deps, args) {
           LIMIT ?
         )
         SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.created_at,
-               COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
-               COALESCE(rl.recall_count, 0) as recall_count,
+${TRUST_RECALL_COLUMNS}
                ${TYPE_PRIORITY_CASE} as type_priority
         FROM observations o
         JOIN topic_matches tm ON o.id = tm.id
-        ${TRUST_RECALL_JOINS}
         ORDER BY tm.match_score DESC, recall_count DESC, trust_score DESC, type_priority DESC, o.created_at DESC
       `;
       obsParams = [...match.scoreParams, project, ...match.whereParams, topicLimit];
     } else {
       obsQuery = `
         SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.created_at,
-               COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
-               COALESCE(rl.recall_count, 0) as recall_count,
+${TRUST_RECALL_COLUMNS}
                  CASE
                    WHEN o.topic_key = ? THEN ${CONTEXT.TOPIC_MATCH_BOOST}
                    WHEN o.type = 'decision' THEN ${RANKING.TYPE_PRIORITY.decision} WHEN o.type = 'architecture' THEN ${RANKING.TYPE_PRIORITY.architecture}
@@ -166,7 +169,6 @@ function context(deps, args) {
                    ELSE 0
                  END as type_priority
         FROM observations o
-        ${TRUST_RECALL_JOINS}
         WHERE o.project = ? AND o.deleted_at IS NULL AND o.type != 'skill'
           AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
         ORDER BY recall_count DESC, CASE WHEN o.topic_key = ? THEN ${CONTEXT.TOPIC_MATCH_BOOST} ELSE type_priority END DESC, trust_score DESC, o.created_at DESC
@@ -177,11 +179,9 @@ function context(deps, args) {
   } else {
     obsQuery = `
       SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.created_at,
-             COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
-             COALESCE(rl.recall_count, 0) as recall_count,
+${TRUST_RECALL_COLUMNS}
              ${TYPE_PRIORITY_CASE} as type_priority
       FROM observations o
-      ${TRUST_RECALL_JOINS}
       WHERE o.project = ? AND o.deleted_at IS NULL AND o.type != 'skill'
         AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
       ORDER BY recall_count DESC, type_priority DESC, trust_score DESC, o.created_at DESC

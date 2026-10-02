@@ -158,6 +158,21 @@ function prioritySort(root) {
 function scanRepository(repoPath, options = {}) {
   const results = [];
   const absRoot = path.resolve(repoPath);
+  // Used only for the containment check below (pathIsInside), never for building
+  // result paths. On macOS both /tmp and /var are themselves symlinks (to
+  // /private/tmp and /private/var), so a repo root under either resolves to a
+  // different string than the same root reached through realpathSync(fullPath)
+  // on each descendant. Comparing unresolved absRoot against a resolved
+  // descendant made every single entry look like it escaped the root, so the
+  // whole tree was silently dropped as "path traversal". Resolving absRoot the
+  // same way keeps the real security check (a symlink that actually escapes
+  // the scanned tree) intact while fixing this false positive.
+  let absRootReal = absRoot;
+  try {
+    absRootReal = fs.realpathSync(absRoot);
+  } catch {
+    // repoPath doesn't exist yet or isn't readable — fall back to unresolved.
+  }
   const extraIgnoreDirs = options.ignoreDirs || [];
   const gitignoreIg = loadGitignoreRules(absRoot);
   const nestedGitignoreRules = [];
@@ -273,7 +288,7 @@ function scanRepository(repoPath, options = {}) {
       try {
         resolved = fs.realpathSync(fullPath);
       } catch {}
-      if (!pathIsInside(absRoot, resolved)) {
+      if (!pathIsInside(absRootReal, resolved)) {
         mark('pathTraversal', entry.name, relativePath);
         // oxlint-disable-next-line no-continue
         continue;

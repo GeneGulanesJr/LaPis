@@ -22,7 +22,11 @@ const path = require('path');
     // PERF(issue #133): Ternary pattern hoisted alongside DECISION_PATTERNS for the
     // Same reason (was re-created per symbol). lastIndex is reset before its
     // .exec() loop below.
-    TERNARY_RE = /\?(?:\s*[^.:])/g;
+    // Excludes both `?.` (optional chaining) and `??` (nullish coalescing) from
+    // counting as a ternary — without the `?` exclusion, `??` was matched here
+    // (its second `?` isn't `.` or `:`) on top of the `\?\?` DECISION_PATTERNS
+    // entry, double-counting every nullish-coalescing operator.
+    TERNARY_RE = /\?(?:\s*[^.:?])/g;
 
   // Escape SQL LIKE wildcard characters.
   function _likeEscape(str) {
@@ -67,20 +71,38 @@ const path = require('path');
     const insertStmt = db.prepare(
         `INSERT OR REPLACE INTO symbol_complexity (symbol_id, cyclomatic, nesting_depth, param_count, lines_of_code, assessment) VALUES (?, ?, ?, ?, ?, ?)`,
       ),
+      // PERF: load file contents once per file and join in memory. The previous
+      // JOIN re-delivered cf.content for every function/method row (~15MB of
+      // Duplicated string material for ~1.2K symbols here) and forced a full
+      // UTF-8 re-encode of the whole file per symbol. Symbols whose file row is
+      // Missing are skipped exactly like the old INNER JOIN did.
+      fileContents = new Map(
+        db
+          .prepare('SELECT id, content FROM code_files WHERE repo_id = ?')
+          .all(repoId)
+          .map((row) => [row.id, row.content]),
+      ),
+      fileBuffers = new Map(),
       symbols = db
         .prepare(`
-    SELECT cs.id, cs.name, cs.start_byte, cs.end_byte, cs.start_line, cs.end_line, cs.signature, cf.content as file_content
-    FROM code_symbols cs JOIN code_files cf ON cf.id = cs.file_id WHERE cs.repo_id = ? AND cs.kind IN ('function', 'method')
+    SELECT cs.id, cs.name, cs.file_id, cs.start_byte, cs.end_byte, cs.start_line, cs.end_line, cs.signature
+    FROM code_symbols cs WHERE cs.repo_id = ? AND cs.kind IN ('function', 'method')
   `)
         .all(repoId);
 
     let count = 0;
     for (const sym of symbols) {
-      if (!sym.file_content || sym.end_byte <= sym.start_byte) {
+      const fileContent = fileContents.get(sym.file_id);
+      if (!fileContent || sym.end_byte <= sym.start_byte) {
         // oxlint-disable-next-line no-continue
         continue;
       }
-      const body = Buffer.from(sym.file_content, 'utf-8').toString('utf-8', sym.start_byte, sym.end_byte);
+      let fileBuf = fileBuffers.get(sym.file_id);
+      if (!fileBuf) {
+        fileBuf = Buffer.from(fileContent, 'utf-8');
+        fileBuffers.set(sym.file_id, fileBuf);
+      }
+      const body = fileBuf.toString('utf-8', sym.start_byte, sym.end_byte);
       if (!body) {
         // oxlint-disable-next-line no-continue
         continue;

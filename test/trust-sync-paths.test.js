@@ -22,12 +22,19 @@ describe('resolveIndexedFilePaths', () => {
     try {
       fs.symlinkSync(repo, link);
       const file = path.join(repo, 'lib.js'),
+        // resolveIndexedFilePaths fully resolves every symlink hop in the path
+        // (fs.realpathSync doesn't stop at the intentional `link -> repo` hop —
+        // it also resolves whatever the OS's own tmpdir plumbing does, e.g.
+        // macOS's /var -> /private/var). Comparing against realpath(repo) here
+        // instead of the raw `repo` string keeps this assertion correct
+        // regardless of whether the host's tmpdir happens to be symlinked.
+        expectedFile = path.join(fs.realpathSync(repo), 'lib.js'),
         resolved = (() => {
           fs.writeFileSync(file, 'module.exports = {};\n');
 
           return resolveIndexedFilePaths(link, ['lib.js']);
         })();
-      expect(resolved).toContain(file);
+      expect(resolved).toContain(expectedFile);
     } finally {
       try {
         fs.unlinkSync(link);

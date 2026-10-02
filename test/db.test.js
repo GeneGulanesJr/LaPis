@@ -135,11 +135,14 @@ describe('db.js (database layer)', () => {
   });
 
   describe('resetDb and createDb', () => {
-    it('resetDb should null out the db handle', () => {
+    it('resetDb should drop the handle; the next getDb re-opens lazily', () => {
       const db = dbModule.getDb();
       expect(db).toBeTruthy(); // Ensure db is initialized
       dbModule.resetDb();
-      expect(dbModule.getDb()).toBeNull();
+      // Lazy open: getDb() self-ensures, so the old handle is gone but a
+      // Fresh one is opened on demand — it must not be the stale instance.
+      expect(dbModule.getDb()).toBeTruthy();
+      expect(dbModule.getDb()).not.toBe(db);
       dbModule.ensureDb(); // Restore for subsequent tests
     });
 

@@ -298,36 +298,33 @@ function createCodeIndexRepository(deps) {
       );
     },
     insertSymbol(params) {
-      sqlRun(
-        `INSERT INTO code_symbols (repo_id, file_id, file_path, name, kind, signature, qualified_name,
-         start_line, end_line, start_byte, end_byte, docstring, body_preview, language, parent_name,
-         stable_symbol_id, content_hash, summary, decorators_json, keywords_json, call_references_json, ecosystem_context)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          params.repoId,
-          params.fileId,
-          params.filePath,
-          params.name,
-          params.kind,
-          params.signature,
-          params.qualifiedName,
-          params.startLine,
-          params.endLine,
-          params.startByte,
-          params.endByte,
-          params.docstring || '',
-          params.bodyPreview || '',
-          params.language,
-          params.parentName || '',
-          params.stableSymbolId || '',
-          params.contentHash || '',
-          params.summary || '',
-          params.decoratorsJson || '[]',
-          params.keywordsJson || '[]',
-          params.callReferencesJson || '[]',
-          params.ecosystemContext || '',
-        ],
-      );
+      // Reuses the same SQL as the batched/prepared-statement path
+      // (_insertSymbolsPrepared) so a schema change only needs updating in one
+      // place instead of two independently hand-written copies.
+      sqlRun(_symbolInsertSql, [
+        params.repoId,
+        params.fileId,
+        params.filePath,
+        params.name,
+        params.kind,
+        params.signature,
+        params.qualifiedName,
+        params.startLine,
+        params.endLine,
+        params.startByte,
+        params.endByte,
+        params.docstring || '',
+        params.bodyPreview || '',
+        params.language,
+        params.parentName || '',
+        params.stableSymbolId || '',
+        params.contentHash || '',
+        params.summary || '',
+        params.decoratorsJson || '[]',
+        params.keywordsJson || '[]',
+        params.callReferencesJson || '[]',
+        params.ecosystemContext || '',
+      ]);
     },
     // PERF: Prepared-statement reuse for bulk symbol inserts (issue #139).
     // Do NOT replace with per-symbol insertSymbol() calls — each call re-prepares

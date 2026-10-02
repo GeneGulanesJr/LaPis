@@ -40,6 +40,7 @@ That subset should report **18** test files and **279** passing tests. The full 
 | Module ownership and boundaries | [`docs/MODULE_MAP.md`](MODULE_MAP.md) |
 | Modularization rationale | [`docs/ARCHITECTURE_MODULARIZATION.md`](ARCHITECTURE_MODULARIZATION.md) |
 | GitHub issue breakdown (drafts) | [`docs/GITHUB_ISSUE_BREAKDOWN.md`](GITHUB_ISSUE_BREAKDOWN.md) |
+| Decision engine plan (Laya, v2) | [`docs/decisions/decision-engine-plan.md`](decisions/decision-engine-plan.md) |
 | Full CLI command reference | [`docs/COMMANDS.md`](COMMANDS.md) |
 | HTTP API and CLI usage | [`docs/API.md`](API.md) |
 | Configuration file and stored data | [`docs/CONFIGURATION.md`](CONFIGURATION.md) |

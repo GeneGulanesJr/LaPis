@@ -2864,15 +2864,16 @@ describe('search.js recallScore ArithmeticOperator killers', () => {
 // Search.js — search function SQL building (L253-282)
 // ═══════════════════════════════════════════════
 describe('search.js search() SQL building L253-282', () => {
-  it('FTS query includes TRUST_RECALL_JOINS', () => {
+  it('FTS query includes correlated trust/recall subqueries', () => {
     const sqlJson = vi.fn(() => [baseObs({ id: 1, snippet: 't', rank: -1 })]),
       ftsQuery = (() => {
         search(mockDeps({ sqlJson }), { query: 'test' });
 
         return sqlJson.mock.calls[0][0];
       })();
-    expect(ftsQuery).toContain('LEFT JOIN');
-    expect(ftsQuery).toContain('symbol_links');
+    expect(ftsQuery).toContain('(SELECT MAX(trust_score) FROM symbol_links');
+    expect(ftsQuery).toContain('(SELECT COUNT(*) FROM recall_log');
+    expect(ftsQuery).not.toContain('LEFT JOIN');
   });
 
   it('FTS query WHERE includes MATCH clause', () => {
@@ -2905,7 +2906,7 @@ describe('search.js search() SQL building L253-282', () => {
     expect(ftsQuery).toContain('expires_at');
   });
 
-  it('LIKE fallback includes TRUST_RECALL_JOINS', () => {
+  it('LIKE fallback includes correlated trust/recall subqueries', () => {
     let n = 0;
     const sqlJson = vi.fn(() => {
         n++;
@@ -2916,7 +2917,8 @@ describe('search.js search() SQL building L253-282', () => {
 
         return sqlJson.mock.calls[1][0];
       })();
-    expect(likeQuery).toContain('LEFT JOIN');
+    expect(likeQuery).toContain('(SELECT MAX(trust_score) FROM symbol_links');
+    expect(likeQuery).not.toContain('LEFT JOIN');
   });
 
   it('LIKE fallback ORDER BY created_at DESC', () => {

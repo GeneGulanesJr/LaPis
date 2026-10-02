@@ -31,17 +31,29 @@ const fs = require('fs'),
  * @param {number} fileId
  * @param {Array} bindings - array of binding objects from scope builder
  */
-function insertScopeBindings(db, repoId, fileId, bindings) {
-  // Clean stale bindings first
-  db.prepare('DELETE FROM file_scope_bindings WHERE file_id = ?').run(fileId);
+// Prepared-statement cache: insertScopeBindings runs once per file (hundreds
+// Of times per index); re-preparing the same DELETE/INSERT pair each call is
+// Pure overhead.
+const _scopeBindingStmts = new WeakMap();
 
-  const stmt = db.prepare(
-    `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, source_module, line_start, line_end, scope_depth, byte_start, byte_end, first_seen_pass)
+function insertScopeBindings(db, repoId, fileId, bindings) {
+  let stmts = _scopeBindingStmts.get(db);
+  if (!stmts) {
+    stmts = {
+      del: db.prepare('DELETE FROM file_scope_bindings WHERE file_id = ?'),
+      ins: db.prepare(
+        `INSERT INTO file_scope_bindings (repo_id, file_id, name, kind, origin, source_file_id, source_name, source_module, line_start, line_end, scope_depth, byte_start, byte_end, first_seen_pass)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-  );
+      ),
+    };
+    _scopeBindingStmts.set(db, stmts);
+  }
+
+  // Clean stale bindings first
+  stmts.del.run(fileId);
 
   for (const b of bindings) {
-    stmt.run(
+    stmts.ins.run(
       repoId,
       fileId,
       b.name,
@@ -154,6 +166,24 @@ function getCurrentBranch(repoPath) {
     }).trim();
   } catch {
     return null;
+  }
+}
+
+// PERF: single spawn for both repo stats. Each execFileSync costs ~100ms of
+// Process-creation overhead on Windows; the two rev-parse modes can ride in
+// One invocation (two output lines: sha, then abbreviated branch).
+function getHeadCommitAndBranch(repoPath) {
+  try {
+    const out = execFileSync('git', ['rev-parse', 'HEAD', '--abbrev-ref', 'HEAD'], {
+      cwd: repoPath,
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const lines = out.trim().split(/\r?\n/);
+    return { headCommit: lines[0] || null, currentBranch: lines[1] || null };
+  } catch {
+    return { headCommit: null, currentBranch: null };
   }
 }
 
@@ -1355,7 +1385,7 @@ async function indexRepository(deps, repoPath, repoName) {
       message: 'Step 5/5: building derived indexes (imports, calls, complexity)...',
     });
     const derivedT0 = Date.now(),
-      headCommit = getHeadCommit(absPath);
+      { headCommit, currentBranch } = getHeadCommitAndBranch(absPath);
 
     try {
       derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
@@ -1376,7 +1406,7 @@ async function indexRepository(deps, repoPath, repoName) {
     repository.updateRepoStats({
       repoId,
       headCommit,
-      currentBranch: getCurrentBranch(absPath),
+      currentBranch,
       baseHead: headCommit,
     });
     const derivedMs = Date.now() - derivedT0,

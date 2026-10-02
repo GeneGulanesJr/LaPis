@@ -10,17 +10,18 @@ const TYPE_PRIORITY_CASE = `CASE o.type
   ELSE 0
 END`;
 
-const TRUST_RECALL_JOINS = `
-LEFT JOIN (
-  SELECT memory_id, MAX(trust_score) as trust_score
-  FROM symbol_links GROUP BY memory_id
-) sl ON sl.memory_id = CAST(o.id AS TEXT)
-LEFT JOIN (
-  SELECT memory_id,
-         COUNT(*) as recall_count,
-         SUM(CASE WHEN was_useful = 1 THEN 1 ELSE 0 END) as useful_count
-  FROM recall_log GROUP BY memory_id
-) rl ON rl.memory_id = o.id`;
+// Trust/recall signals as correlated scalar subqueries. The previous form
+// (LEFT JOIN (SELECT ... GROUP BY memory_id)) made SQLite materialize a
+// full-table aggregate of recall_log — which grows unboundedly with usage —
+// and symbol_links before filtering a single candidate, on every search and
+// every context injection. These per-row forms seek idx_symbol_links_memory /
+// idx_recall_memory for candidate rows only and return identical values
+// (NULL trust when unlinked; 0 counts when never recalled).
+const TRUST_RECALL_SUBQ = {
+  trustScore: `(SELECT MAX(trust_score) FROM symbol_links WHERE memory_id = CAST(o.id AS TEXT))`,
+  recallCount: `(SELECT COUNT(*) FROM recall_log WHERE memory_id = o.id)`,
+  usefulCount: `(SELECT COUNT(*) FROM recall_log WHERE memory_id = o.id AND was_useful = 1)`,
+};
 
 function rankObservations(rows, query = '') {
   const now = Date.now();
@@ -32,6 +33,9 @@ function rankObservations(rows, query = '') {
   // Detect navigation-style queries (where, module, hook, etc.)
   const isNavigationQuery = RANKING.NAVIGATION_QUERY_SIGNALS.some((signal) => query.toLowerCase().includes(signal));
   const pathPattern = RANKING.NAVIGATION_BOOST.path_pattern;
+  // Hoisted out of the row loop: getConfig() stats the config file on every
+  // call, which made ranking cost one filesystem stat per result row.
+  const ranking = getConfig().ranking;
 
   return rows
     .map((row) => {
@@ -72,7 +76,6 @@ function rankObservations(rows, query = '') {
         }
       }
 
-      const ranking = getConfig().ranking;
       const composite =
         (ftsScore * ranking.fts_relevance +
           recencyScore * ranking.recency +
@@ -233,12 +236,11 @@ function search(deps, args) {
         SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
                snippet(observations_fts, 0, '»', '«', '…', 32) as snippet,
                rank,
-               sl.trust_score,
-               COALESCE(rl.recall_count, 0) as recall_count,
-               COALESCE(rl.useful_count, 0) as useful_count
+               ${TRUST_RECALL_SUBQ.trustScore} as trust_score,
+               ${TRUST_RECALL_SUBQ.recallCount} as recall_count,
+               ${TRUST_RECALL_SUBQ.usefulCount} as useful_count
         FROM observations o
         JOIN observations_fts fts ON o.id = fts.rowid
-        ${TRUST_RECALL_JOINS}
         WHERE observations_fts MATCH ?
           AND o.deleted_at IS NULL
           AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
@@ -268,11 +270,10 @@ function search(deps, args) {
     let q = `
       SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
              '' as snippet, 0 as rank,
-             sl.trust_score,
-             COALESCE(rl.recall_count, 0) as recall_count,
-             COALESCE(rl.useful_count, 0) as useful_count
+             ${TRUST_RECALL_SUBQ.trustScore} as trust_score,
+             ${TRUST_RECALL_SUBQ.recallCount} as recall_count,
+             ${TRUST_RECALL_SUBQ.usefulCount} as useful_count
       FROM observations o
-      ${TRUST_RECALL_JOINS}
       WHERE (o.title LIKE ? ESCAPE '\\' OR o.content LIKE ? ESCAPE '\\')
         AND o.deleted_at IS NULL
         AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
@@ -426,6 +427,6 @@ module.exports = {
   symbolCluster,
   related,
   _extractFtsTerms,
-  TRUST_RECALL_JOINS,
+  TRUST_RECALL_SUBQ,
   TYPE_PRIORITY_CASE,
 };
