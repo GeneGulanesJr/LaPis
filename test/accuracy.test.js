@@ -1,8 +1,9 @@
 const path = require('path'),
+  os = require('os'),
   fs = require('fs'),
   codeParser = require('../parse-code'),
   { extractImportBindings } = require('../src/code-analysis'),
-  TMP_DIR = path.join('/tmp', 'accuracy-tests');
+  TMP_DIR = path.join(os.tmpdir(), 'accuracy-tests');
 
 function writeTmp(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });

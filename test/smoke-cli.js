@@ -4,14 +4,28 @@
 // These are NOT vitest tests — they run as a standalone Node script
 // So they can be executed in CI without the vitest runner.
 
-const { execSync } = require('child_process'),
+const { execFileSync } = require('child_process'),
   path = require('path'),
   fs = require('fs'),
   os = require('os'),
   ROOT = path.resolve(__dirname, '..'),
-  CLI = `node "${path.join(ROOT, 'memory-store.js')}"`,
+  CLI = `"${path.join(ROOT, 'memory-store.js')}"`,
   TMP_DIR = path.join(os.tmpdir(), `lapis-smoke-${Date.now()}`),
   failures = [];
+
+// Split a CLI command string into argv honoring quotes — the child is spawned
+// directly (no shell), so argument quoting must not depend on the platform.
+function tokenize(s) {
+  const out = [];
+  // Double-quoted tokens honor backslash-escaped quotes, matching the
+  // shell-quoting convention callers use when embedding quotes in values.
+  for (const m of s.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g)) {
+    if (m[1] !== undefined) out.push(m[1].replace(/\\"/g, '"'));
+    else if (m[2] !== undefined) out.push(m[2]);
+    else out.push(m[3]);
+  }
+  return out;
+}
 
 let passed = 0,
   failed = 0;
@@ -33,7 +47,7 @@ smokeTest('save -h prints save usage', `${CLI} save -h`, {
 // Verify key subcommands are listed
 const helpOutput = (() => {
     try {
-      return execSync(`${CLI} --help`, {
+      return execFileSync(process.execPath, tokenize(`${CLI} --help`), {
         cwd: ROOT,
         encoding: 'utf8',
         timeout: 10000,
@@ -539,7 +553,7 @@ function ensureDir(dir) {
 }
 function smokeTest(name, cmd, { expectExit0 = true, expectContains = null, env = {} } = {}) {
   try {
-    const result = execSync(cmd, {
+    const result = execFileSync(process.execPath, tokenize(cmd), {
       cwd: ROOT,
       encoding: 'utf8',
       timeout: 60000,
@@ -594,7 +608,7 @@ function smokeTestWithDb(name, dbPath, cmdFn) {
 }
 function run(cmd, opts = {}) {
   try {
-    return execSync(cmd, {
+    return execFileSync(process.execPath, tokenize(cmd), {
       cwd: ROOT,
       encoding: 'utf8',
       timeout: 60000,

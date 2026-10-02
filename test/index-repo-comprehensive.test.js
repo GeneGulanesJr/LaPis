@@ -1,11 +1,26 @@
 const path = require('path'),
+  os = require('os'),
   fs = require('fs'),
-  { execSync } = require('child_process'),
+  { execFileSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js'),
   REPO_PREFIX = 'test-idx';
 
+// Split a CLI command string into argv honoring quotes — the child is spawned
+// directly (no shell), so argument quoting must not depend on the platform.
+function tokenize(s) {
+  const out = [];
+  // Double-quoted tokens honor backslash-escaped quotes, matching the
+  // shell-quoting convention callers use when embedding quotes in values.
+  for (const m of s.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g)) {
+    if (m[1] !== undefined) out.push(m[1].replace(/\\"/g, '"'));
+    else if (m[2] !== undefined) out.push(m[2]);
+    else out.push(m[3]);
+  }
+  return out;
+}
+
 function run(cmd) {
-  const out = execSync(`node "${STORE}" ${cmd}`, {
+  const out = execFileSync(process.execPath, [STORE, ...tokenize(cmd)], {
     encoding: 'utf8',
     timeout: 30000,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -15,7 +30,7 @@ function run(cmd) {
 
 function runFail(cmd) {
   try {
-    execSync(`node "${STORE}" ${cmd}`, {
+    execFileSync(process.execPath, [STORE, ...tokenize(cmd)], {
       encoding: 'utf8',
       timeout: 30000,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -45,7 +60,7 @@ function repoName(suffix) {
 
 function cleanupRepo(name) {
   try {
-    execSync(`node "${STORE}" remove-code-repo --repo ${name}`, {
+    execFileSync(process.execPath, [STORE, 'remove-code-repo', '--repo', name], {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -59,7 +74,7 @@ describe('index-repo (comprehensive)', () => {
     let tmpRepo;
 
     beforeAll(() => {
-      tmpRepo = path.join('/tmp', `test-idx-basic-${Date.now()}`);
+      tmpRepo = path.join(os.tmpdir(), `test-idx-basic-${Date.now()}`);
       writeTmpRepo(tmpRepo, {
         'app.js': `function main() {\n  console.log("hello");\n}\n\nclass Server {\n  start() {\n    return 42;\n  }\n  stop() {\n    return 0;\n  }\n}`,
       });
@@ -103,7 +118,7 @@ describe('index-repo (comprehensive)', () => {
     let tmpRepo;
 
     beforeAll(() => {
-      tmpRepo = path.join('/tmp', `test-idx-multi-${Date.now()}`);
+      tmpRepo = path.join(os.tmpdir(), `test-idx-multi-${Date.now()}`);
       writeTmpRepo(tmpRepo, {
         'utils.js': 'function helper(x) {\n  return x * 2;\n}',
         'types.ts':
@@ -136,7 +151,7 @@ describe('index-repo (comprehensive)', () => {
     let tmpRepo;
 
     beforeAll(() => {
-      tmpRepo = path.join('/tmp', `test-idx-exclude-${Date.now()}`);
+      tmpRepo = path.join(os.tmpdir(), `test-idx-exclude-${Date.now()}`);
       writeTmpRepo(tmpRepo, {
         'app.js': 'function main() {}',
         'node_modules/lodash.js': 'function get() {}',
@@ -167,7 +182,7 @@ describe('index-repo (comprehensive)', () => {
   describe('empty and edge cases', () => {
     it('should handle a repo with zero source files', () => {
       const name = repoName('empty'),
-        tmpRepo = path.join('/tmp', `test-idx-empty-${Date.now()}`),
+        tmpRepo = path.join(os.tmpdir(), `test-idx-empty-${Date.now()}`),
         result = (() => {
           writeTmpRepo(tmpRepo, { 'README.txt': 'Hello world' });
 
@@ -190,7 +205,7 @@ describe('index-repo (comprehensive)', () => {
 
     it('should handle files with syntax errors gracefully', () => {
       const name = repoName('syntax'),
-        tmpRepo = path.join('/tmp', `test-idx-syntax-${Date.now()}`),
+        tmpRepo = path.join(os.tmpdir(), `test-idx-syntax-${Date.now()}`),
         result = (() => {
           writeTmpRepo(tmpRepo, {
             'bad.js': 'function {{{ broken syntax',
@@ -210,7 +225,7 @@ describe('index-repo (comprehensive)', () => {
 
     it('should handle binary files mixed with source', () => {
       const name = repoName('binary'),
-        tmpRepo = path.join('/tmp', `test-idx-binary-${Date.now()}`),
+        tmpRepo = path.join(os.tmpdir(), `test-idx-binary-${Date.now()}`),
         result = (() => {
           writeTmpRepo(tmpRepo, {
             'app.js': 'function main() {}',
@@ -238,7 +253,7 @@ describe('index-repo (comprehensive)', () => {
     let tmpRepo;
 
     beforeAll(() => {
-      tmpRepo = path.join('/tmp', `test-idx-reindex-${Date.now()}`);
+      tmpRepo = path.join(os.tmpdir(), `test-idx-reindex-${Date.now()}`);
       writeTmpRepo(tmpRepo, {
         'a.js': 'function alpha() { return 1; }',
         'b.js': 'function beta() { return 2; }',
@@ -311,7 +326,7 @@ describe('index-repo (comprehensive)', () => {
 
     it('should remove a repo', () => {
       const name = repoName('remove'),
-        tmpRepo = path.join('/tmp', `test-idx-remove-${Date.now()}`),
+        tmpRepo = path.join(os.tmpdir(), `test-idx-remove-${Date.now()}`),
         result = (() => {
           writeTmpRepo(tmpRepo, { 'x.js': 'function x() {}' });
           run(`index-repo --path "${tmpRepo}" --name ${name}`);
@@ -336,7 +351,7 @@ describe('index-repo (comprehensive)', () => {
     let tmpRepo;
 
     beforeAll(() => {
-      tmpRepo = path.join('/tmp', `test-idx-graph-${Date.now()}`);
+      tmpRepo = path.join(os.tmpdir(), `test-idx-graph-${Date.now()}`);
       writeTmpRepo(tmpRepo, {
         'a.js': 'const { b } = require("./b");\nfunction main() {\n  b();\n}',
         'b.js': 'function b() {\n  return 42;\n}\nmodule.exports = { b };',
@@ -379,7 +394,7 @@ describe('index-repo (comprehensive)', () => {
     let tmpRepo;
 
     beforeAll(() => {
-      tmpRepo = path.join('/tmp', `test-idx-large-${Date.now()}`);
+      tmpRepo = path.join(os.tmpdir(), `test-idx-large-${Date.now()}`);
       const files = {};
       for (let i = 0; i < FILE_COUNT; i++) {
         const lines = [];

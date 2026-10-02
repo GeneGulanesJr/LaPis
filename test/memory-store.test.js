@@ -1,9 +1,23 @@
 const path = require('path'),
-  { execSync } = require('child_process'),
+  { execFileSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js');
 
+// Split a CLI command string into argv honoring quotes — the child is spawned
+// directly (no shell), so argument quoting must not depend on the platform.
+function tokenize(s) {
+  const out = [];
+  // Double-quoted tokens honor backslash-escaped quotes, matching the
+  // shell-quoting convention callers use when embedding quotes in values.
+  for (const m of s.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g)) {
+    if (m[1] !== undefined) out.push(m[1].replace(/\\"/g, '"'));
+    else if (m[2] !== undefined) out.push(m[2]);
+    else out.push(m[3]);
+  }
+  return out;
+}
+
 function run(cmd, extraArgs = '') {
-  const out = execSync(`node "${STORE}" ${cmd} ${extraArgs}`, {
+  const out = execFileSync(process.execPath, [STORE, ...tokenize(`${cmd} ${extraArgs}`)], {
     encoding: 'utf8',
     timeout: 15000,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -13,7 +27,7 @@ function run(cmd, extraArgs = '') {
 
 function runFail(cmd, extraArgs = '') {
   try {
-    execSync(`node "${STORE}" ${cmd} ${extraArgs}`, {
+    execFileSync(process.execPath, [STORE, ...tokenize(`${cmd} ${extraArgs}`)], {
       encoding: 'utf8',
       timeout: 15000,
       stdio: ['pipe', 'pipe', 'pipe'],

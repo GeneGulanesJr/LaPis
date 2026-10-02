@@ -1,10 +1,25 @@
 const path = require('path'),
+  os = require('os'),
   fs = require('fs'),
-  { execSync } = require('child_process'),
+  { execFileSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js');
 
+// Split a CLI command string into argv honoring quotes — the child is spawned
+// directly (no shell), so argument quoting must not depend on the platform.
+function tokenize(s) {
+  const out = [];
+  // Double-quoted tokens honor backslash-escaped quotes, matching the
+  // shell-quoting convention callers use when embedding quotes in values.
+  for (const m of s.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g)) {
+    if (m[1] !== undefined) out.push(m[1].replace(/\\"/g, '"'));
+    else if (m[2] !== undefined) out.push(m[2]);
+    else out.push(m[3]);
+  }
+  return out;
+}
+
 function run(cmd, timeout = 30000) {
-  const out = execSync(`node "${STORE}" ${cmd}`, {
+  const out = execFileSync(process.execPath, [STORE, ...tokenize(cmd)], {
     encoding: 'utf8',
     timeout,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -23,7 +38,7 @@ function writeTmpRepo(repoPath, files) {
 
 describe('agent intelligence preflight', () => {
   const repoName = `test-agent-preflight-${Date.now()}`,
-    tmpRepo = path.join('/tmp', repoName);
+    tmpRepo = path.join(os.tmpdir(), repoName);
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {

@@ -231,11 +231,15 @@ function findFile(db, repoId, fileQuery) {
     return exact;
   }
 
+  // Stored paths are platform-native; match separator-insensitively so a
+  // POSIX-spelled query (src/users.js) also finds Windows-stored rows.
+  const normalized = fileQuery.replace(/\\/g, '/');
+
   return db
     .prepare(
-      "SELECT id, path FROM code_files WHERE repo_id = ? AND path LIKE ? ESCAPE '!' ORDER BY length(path) LIMIT 1",
+      "SELECT id, path FROM code_files WHERE repo_id = ? AND REPLACE(path, '\\', '/') LIKE ? ESCAPE '!' ORDER BY length(path) LIMIT 1",
     )
-    .get(repoId, `%${likeEscape(fileQuery)}`);
+    .get(repoId, `%${likeEscape(normalized)}`);
 }
 
 function findLikelyTests(db, repoId, target, top) {
@@ -568,7 +572,10 @@ function normalizedAffectedFileEntries(result) {
 }
 
 function testPathSql(column) {
-  return `(${column} LIKE '%/test/%' OR ${column} LIKE '%/__tests__/%' OR ${column} LIKE 'test/%' OR ${column} LIKE '%test.%' OR ${column} LIKE '%spec.%')`;
+  // Indexed paths are platform-native; compare on a forward-slash projection
+  // so POSIX-spelled test-path patterns match Windows-stored rows too.
+  const p = `REPLACE(${column}, '\\', '/')`;
+  return `(${p} LIKE '%/test/%' OR ${p} LIKE '%/__tests__/%' OR ${p} LIKE 'test/%' OR ${column} LIKE '%test.%' OR ${column} LIKE '%spec.%')`;
 }
 
 function normalizeText(value) {

@@ -1,10 +1,25 @@
 const path = require('path'),
+  os = require('os'),
   fs = require('fs'),
-  { execSync } = require('child_process'),
+  { execFileSync } = require('child_process'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js');
 
+// Split a CLI command string into argv honoring quotes — the child is spawned
+// directly (no shell), so argument quoting must not depend on the platform.
+function tokenize(s) {
+  const out = [];
+  // Double-quoted tokens honor backslash-escaped quotes, matching the
+  // shell-quoting convention callers use when embedding quotes in values.
+  for (const m of s.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g)) {
+    if (m[1] !== undefined) out.push(m[1].replace(/\\"/g, '"'));
+    else if (m[2] !== undefined) out.push(m[2]);
+    else out.push(m[3]);
+  }
+  return out;
+}
+
 function run(cmd, timeout = 45000) {
-  const out = execSync(`node "${STORE}" ${cmd}`, {
+  const out = execFileSync(process.execPath, [STORE, ...tokenize(cmd)], {
     encoding: 'utf8',
     timeout,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -15,6 +30,10 @@ function run(cmd, timeout = 45000) {
 function unwrap(result) {
   return result && result.data ? result.data : result;
 }
+
+// Stored/indexed paths render with the platform separator; assertions target
+// the POSIX spelling.
+const toPosix = (p) => String(p).replace(/\\/g, '/');
 
 function writeTmpRepo(repoPath, files) {
   fs.mkdirSync(repoPath, { recursive: true });
@@ -27,7 +46,7 @@ function writeTmpRepo(repoPath, files) {
 
 describe('coding-context command', () => {
   const repoName = `test-coding-context-${Date.now()}`,
-    tmpRepo = path.join('/tmp', repoName);
+    tmpRepo = path.join(os.tmpdir(), repoName);
 
   beforeAll(() => {
     writeTmpRepo(tmpRepo, {
@@ -74,12 +93,12 @@ test('saves a user', () => {
     expect(result.error).toBeUndefined();
     expect(result.repo).toBe(repoName);
     expect(result.target.symbol).toBe('saveUser');
-    expect(result.target.file).toContain('src/users.js');
+    expect(result.target.file && toPosix(result.target.file)).toContain('src/users.js');
     expect(result.summary).toBeTruthy();
     expect(['low', 'medium', 'high']).toContain(result.summary.risk);
     expect(Array.isArray(result.related_files)).toBe(true);
-    expect(result.related_files.some((file) => file.includes('src/users.js'))).toBe(true);
-    expect(result.likely_tests.some((testFile) => testFile.file.includes('test/users.test.js'))).toBe(true);
+    expect(result.related_files.some((file) => toPosix(file).includes('src/users.js'))).toBe(true);
+    expect(result.likely_tests.some((testFile) => toPosix(testFile.file).includes('test/users.test.js'))).toBe(true);
     expect(result.outline).toBeTruthy();
     expect(result.callers).toBeTruthy();
     expect(result.callees).toBeTruthy();
@@ -89,11 +108,11 @@ test('saves a user', () => {
     const result = unwrap(run(`coding-context --repo ${repoName} --file src/users.js --top 5`));
 
     expect(result.error).toBeUndefined();
-    expect(result.target.file).toContain('src/users.js');
+    expect(result.target.file && toPosix(result.target.file)).toContain('src/users.js');
     expect(Array.isArray(result.target.symbols)).toBe(true);
     expect(result.target.symbols.some((sym) => sym.symbol === 'saveUser')).toBe(true);
     expect(result.outline).toBeTruthy();
     expect(result.deps).toBeTruthy();
-    expect(result.likely_tests.some((testFile) => testFile.file.includes('test/users.test.js'))).toBe(true);
+    expect(result.likely_tests.some((testFile) => toPosix(testFile.file).includes('test/users.test.js'))).toBe(true);
   });
 });
