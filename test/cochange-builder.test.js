@@ -1,8 +1,9 @@
 // Tests for cochange-builder
 const path = require('path'),
+  os = require('os'),
   fs = require('fs'),
   Database = require('better-sqlite3'),
-  TMP_DB = path.join('/tmp', 'cochange-test.db');
+  TMP_DB = path.join(os.tmpdir(), 'cochange-test.db');
 
 let db, repoId;
 

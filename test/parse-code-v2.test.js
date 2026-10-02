@@ -1,4 +1,5 @@
 const path = require('path'),
+  os = require('os'),
   fs = require('fs'),
   codeParser = require('../parse-code');
 
@@ -26,7 +27,7 @@ describe('parse-code v2 fixes', () => {
 
   describe('fix 1: JS/TS depth gating removed', () => {
     it('extracts nested arrow functions inside functions', () => {
-      const f = path.join('/tmp', 'v2-nested-arrow.js'),
+      const f = path.join(os.tmpdir(), 'v2-nested-arrow.js'),
         syms = writeTmp(
           f,
           `
@@ -51,7 +52,7 @@ function outer() {
     });
 
     it('extracts nested function expressions in callbacks', () => {
-      const f = path.join('/tmp', 'v2-nested-expr.js'),
+      const f = path.join(os.tmpdir(), 'v2-nested-expr.js'),
         syms = writeTmp(
           f,
           `
@@ -69,7 +70,7 @@ const filtered = items.filter((x) => x > 1);
     });
 
     it('extracts variable declarators at nested depth', () => {
-      const f = path.join('/tmp', 'v2-nested-var.js'),
+      const f = path.join(os.tmpdir(), 'v2-nested-var.js'),
         syms = writeTmp(
           f,
           `
@@ -91,7 +92,7 @@ function main() {
 
   describe('fix 2: Rust depth gating removed', () => {
     it('extracts nested functions inside impl blocks', () => {
-      const f = path.join('/tmp', 'v2-rust-impl.rs'),
+      const f = path.join(os.tmpdir(), 'v2-rust-impl.rs'),
         syms = writeTmp(
           f,
           `
@@ -126,7 +127,7 @@ impl Foo {
     });
 
     it('extracts Rust mod items', () => {
-      const f = path.join('/tmp', 'v2-rust-mod.rs'),
+      const f = path.join(os.tmpdir(), 'v2-rust-mod.rs'),
         syms = writeTmp(
           f,
           `
@@ -150,7 +151,7 @@ mod handlers {
     });
 
     it('extracts Rust use declarations', () => {
-      const f = path.join('/tmp', 'v2-rust-use.rs'),
+      const f = path.join(os.tmpdir(), 'v2-rust-use.rs'),
         syms = writeTmp(
           f,
           `
@@ -169,7 +170,7 @@ fn main() {}
     });
 
     it('extracts Rust macro definitions', () => {
-      const f = path.join('/tmp', 'v2-rust-macro.rs'),
+      const f = path.join(os.tmpdir(), 'v2-rust-macro.rs'),
         syms = writeTmp(
           f,
           `
@@ -198,7 +199,7 @@ macro_rules! vec {
 
   describe('fix 3: Multi-language callee extraction', () => {
     it('extracts Python callees from call nodes', () => {
-      const py = path.join('/tmp', 'v2-py-callees.py'),
+      const py = path.join(os.tmpdir(), 'v2-py-callees.py'),
         content = 'result = process(data)\nobj.transform(x)\nprint("hello")\n',
         cal = calleesFor(py, content),
         names = cal.map((c) => c.callee),
@@ -214,7 +215,7 @@ macro_rules! vec {
     });
 
     it('extracts Go callees from selector expressions', () => {
-      const go = path.join('/tmp', 'v2-go-callees.go'),
+      const go = path.join(os.tmpdir(), 'v2-go-callees.go'),
         content = 'package main\n\nfunc main() {\n\tfmt.Println("hi")\n\tos.Exit(1)\n}\n',
         cal = calleesFor(go, content),
         names = cal.map((c) => c.callee),
@@ -228,7 +229,7 @@ macro_rules! vec {
     });
 
     it('extracts Rust callees from field expressions', () => {
-      const rs = path.join('/tmp', 'v2-rust-callees.rs'),
+      const rs = path.join(os.tmpdir(), 'v2-rust-callees.rs'),
         content = 'fn main() {\n    let v = Vec::new();\n    v.push(1);\n    println!("hi");\n}\n',
         cal = calleesFor(rs, content),
         names = cal.map((c) => c.callee),
@@ -243,7 +244,7 @@ macro_rules! vec {
 
   describe('fix 4: Docstring extraction for Python/Go/Rust', () => {
     it('extracts Python docstrings from triple-quoted strings', () => {
-      const f = path.join('/tmp', 'v2-py-doc.py'),
+      const f = path.join(os.tmpdir(), 'v2-py-doc.py'),
         syms = writeTmp(
           f,
           `
@@ -279,7 +280,7 @@ class Animal:
     });
 
     it('extracts Go doc comments', () => {
-      const f = path.join('/tmp', 'v2-go-doc.go'),
+      const f = path.join(os.tmpdir(), 'v2-go-doc.go'),
         syms = writeTmp(
           f,
           `package main
@@ -300,7 +301,7 @@ func Greet(name string) string {
     });
 
     it('extracts Rust /// doc comments', () => {
-      const f = path.join('/tmp', 'v2-rust-doc.rs'),
+      const f = path.join(os.tmpdir(), 'v2-rust-doc.rs'),
         syms = writeTmp(
           f,
           `/// Adds two numbers together.
@@ -323,7 +324,7 @@ fn add(a: i32, b: i32) -> i32 {
 
   describe('enrichment: Python module-level variables', () => {
     it('extracts module-level assignments', () => {
-      const f = path.join('/tmp', 'v2-py-vars.py'),
+      const f = path.join(os.tmpdir(), 'v2-py-vars.py'),
         syms = writeTmp(
           f,
           `CONFIG = {"debug": True}
@@ -352,7 +353,7 @@ UserId = int
 
   describe('enrichment: Go var/const and imports', () => {
     it('extracts Go var and const declarations', () => {
-      const f = path.join('/tmp', 'v2-go-vars.go'),
+      const f = path.join(os.tmpdir(), 'v2-go-vars.go'),
         syms = writeTmp(
           f,
           `package main
@@ -376,7 +377,7 @@ var DefaultName = "world"
     });
 
     it('extracts Go import declarations', () => {
-      const f = path.join('/tmp', 'v2-go-import.go'),
+      const f = path.join(os.tmpdir(), 'v2-go-import.go'),
         syms = writeTmp(
           f,
           `package main
@@ -406,7 +407,7 @@ import (
 
   describe('enrichment: Rust enum variants and macro', () => {
     it('extracts Rust enum variants', () => {
-      const f = path.join('/tmp', 'v2-rust-enum.rs'),
+      const f = path.join(os.tmpdir(), 'v2-rust-enum.rs'),
         syms = writeTmp(
           f,
           `enum Color {
@@ -435,7 +436,7 @@ import (
 
   describe('enrichment: Python import tracking', () => {
     it('extracts Python import statements', () => {
-      const f = path.join('/tmp', 'v2-py-imports.py'),
+      const f = path.join(os.tmpdir(), 'v2-py-imports.py'),
         syms = writeTmp(
           f,
           `import os
@@ -455,7 +456,7 @@ from typing import List, Dict
 
   describe('diagnostics: parse failure detection', () => {
     it('returns diagnostic symbol for unsupported extensions', () => {
-      const f = path.join('/tmp', 'v2-diag.rb');
+      const f = path.join(os.tmpdir(), 'v2-diag.rb');
       fs.writeFileSync(f, 'def hello; end');
       try {
         const syms = codeParser.parseFile(f),

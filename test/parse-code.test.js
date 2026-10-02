@@ -1,5 +1,6 @@
 // Unit tests for parse-code (WASM tree-sitter)
 const path = require('path'),
+  os = require('os'),
   fs = require('fs'),
   codeParser = require('../parse-code');
 
@@ -27,7 +28,7 @@ describe('parse-code (WASM tree-sitter)', () => {
 
   describe('parse-code: JavaScript', () => {
     it('should extract JS function declarations', () => {
-      const tmpFile = path.join('/tmp', 'test-parse-fn.js'),
+      const tmpFile = path.join(os.tmpdir(), 'test-parse-fn.js'),
         symbols = writeTmpTest(tmpFile, 'function hello(name) {\n  return name;\n}'),
         fn = (() => {
           fs.unlinkSync(tmpFile);
@@ -41,7 +42,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should extract JS class declarations and methods', () => {
-      const tmpFile = path.join('/tmp', 'test-class.js'),
+      const tmpFile = path.join(os.tmpdir(), 'test-class.js'),
         symbols = (() => {
           fs.writeFileSync(tmpFile, 'class MyClass {\n  greet() {\n    return "hi";\n  }\n}');
 
@@ -63,7 +64,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should extract arrow function variables', () => {
-      const tmpFile = path.join('/tmp', 'test-arrow.js'),
+      const tmpFile = path.join(os.tmpdir(), 'test-arrow.js'),
         symbols = (() => {
           fs.writeFileSync(tmpFile, 'const add = (a, b) => a + b;');
 
@@ -78,7 +79,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should extract docstrings from JSDoc comments', () => {
-      const tmpFile = path.join('/tmp', 'test-docstring.js'),
+      const tmpFile = path.join(os.tmpdir(), 'test-docstring.js'),
         symbols = (() => {
           fs.writeFileSync(tmpFile, '/** A greeter function */\nfunction greet(who) {\n  return "Hello " + who;\n}');
 
@@ -94,7 +95,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should extract JSX components from .jsx files', () => {
-      const tmpFile = path.join('/tmp', 'test-comp.jsx'),
+      const tmpFile = path.join(os.tmpdir(), 'test-comp.jsx'),
         symbols = (() => {
           fs.writeFileSync(tmpFile, 'export function Card({ title }) {\n  return <section>{title}</section>;\n}');
 
@@ -110,7 +111,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should return output with all required fields', () => {
-      const tmpFile = path.join('/tmp', 'test-schema.js'),
+      const tmpFile = path.join(os.tmpdir(), 'test-schema.js'),
         symbols = (() => {
           fs.writeFileSync(tmpFile, 'function myFunc(x) { return x; }');
 
@@ -146,7 +147,7 @@ describe('parse-code (WASM tree-sitter)', () => {
 
   describe('parse-code: TypeScript', () => {
     it('should extract TS interface and type alias', () => {
-      const tmpFile = path.join('/tmp', 'test-types.ts'),
+      const tmpFile = path.join(os.tmpdir(), 'test-types.ts'),
         symbols = (() => {
           fs.writeFileSync(tmpFile, 'interface User {\n  name: string;\n  age: number;\n}\n\ntype ID = string;');
 
@@ -167,7 +168,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should extract TSX component', () => {
-      const tmpFile = path.join('/tmp', 'test-comp.tsx'),
+      const tmpFile = path.join(os.tmpdir(), 'test-comp.tsx'),
         symbols = (() => {
           fs.writeFileSync(
             tmpFile,
@@ -206,7 +207,7 @@ describe('parse-code (WASM tree-sitter)', () => {
 
   describe('parse-code: multi-language support', () => {
     it('should parse Python files (.py) and extract functions', () => {
-      const tmpFile = path.join('/tmp', 'test_py.py'),
+      const tmpFile = path.join(os.tmpdir(), 'test_py.py'),
         symbols = writeTmpTest(
           tmpFile,
           'def greet(name):\n    """Say hello."""\n    return f"Hello {name}"\n\nclass Animal:\n    def speak(self):\n        return "roar"',
@@ -227,7 +228,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should parse Go files (.go) and extract functions', () => {
-      const tmpFile = path.join('/tmp', 'test_go.go');
+      const tmpFile = path.join(os.tmpdir(), 'test_go.go');
       fs.writeFileSync(
         tmpFile,
         'package main\n\n// Greet says hello\nfunc Greet(name string) string {\n\treturn "Hello " + name\n}\n\nfunc add(a, b int) int {\n\treturn a + b\n}',
@@ -247,7 +248,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should parse Rust files (.rs) and extract functions', () => {
-      const tmpFile = path.join('/tmp', 'test_rs.rs');
+      const tmpFile = path.join(os.tmpdir(), 'test_rs.rs');
       fs.writeFileSync(
         tmpFile,
         '/// Adds two numbers\nfn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n\npub fn greet(name: &str) -> String {\n    format!("Hello, {}", name)\n}',
@@ -269,7 +270,7 @@ describe('parse-code (WASM tree-sitter)', () => {
 
   describe('parse-code: AST callee extraction', () => {
     it('should extract callees from call expressions via AST', () => {
-      const tmpFile = path.join('/tmp', 'test-callees.js');
+      const tmpFile = path.join(os.tmpdir(), 'test-callees.js');
       fs.writeFileSync(tmpFile, 'function foo() {\n  bar();\n  baz(x, y);\n  obj.method();\n  new ClassName();\n}');
       try {
         const callees = codeParser.extractCallees(tmpFile),
@@ -284,7 +285,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should not extract keyword-like callees', () => {
-      const tmpFile = path.join('/tmp', 'test-kw-callees.js');
+      const tmpFile = path.join(os.tmpdir(), 'test-kw-callees.js');
       fs.writeFileSync(
         tmpFile,
         'function foo() {\n  if (x) return;\n  for (let i = 0; i < 10; i++) {}\n  while (true) {}\n  switch (v) { case 1: break; }\n  try {} catch (e) {}\n}',
@@ -302,7 +303,7 @@ describe('parse-code (WASM tree-sitter)', () => {
     });
 
     it('should deduplicate callee names by line', () => {
-      const tmpFile = path.join('/tmp', 'test-dup-callees.js');
+      const tmpFile = path.join(os.tmpdir(), 'test-dup-callees.js');
       fs.writeFileSync(tmpFile, 'function foo() {\n  bar();\n}');
       try {
         const callees = codeParser.extractCallees(tmpFile),

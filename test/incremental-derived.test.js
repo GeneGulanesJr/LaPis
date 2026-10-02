@@ -1,7 +1,7 @@
 const fs = require('fs'),
-  _os = require('os'),
+  os = require('os'),
   path = require('path'),
-  { execSync } = require('child_process'),
+  { execFileSync } = require('child_process'),
   {
     buildImportGraphForFiles,
     buildCallGraphForFiles: _buildCallGraphForFiles,
@@ -11,9 +11,23 @@ const fs = require('fs'),
   STORE = path.resolve(__dirname, '..', 'memory-store.js'),
   REPO_PREFIX = 'test-incr-derived';
 
+// Split a CLI command string into argv honoring quotes — the child is spawned
+// directly (no shell), so argument quoting must not depend on the platform.
+function tokenize(s) {
+  const out = [];
+  // Double-quoted tokens honor backslash-escaped quotes, matching the
+  // shell-quoting convention callers use when embedding quotes in values.
+  for (const m of s.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g)) {
+    if (m[1] !== undefined) out.push(m[1].replace(/\\"/g, '"'));
+    else if (m[2] !== undefined) out.push(m[2]);
+    else out.push(m[3]);
+  }
+  return out;
+}
+
 let cliAvailable = false;
 try {
-  const result = execSync(`node "${STORE}" list-code-repos`, {
+  const result = execFileSync(process.execPath, [STORE, 'list-code-repos'], {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -255,7 +269,7 @@ try {
       let tmpRepo;
 
       beforeAll(() => {
-        tmpRepo = path.join('/tmp', `test-incr-changed-${Date.now()}`);
+        tmpRepo = path.join(os.tmpdir(), `test-incr-changed-${Date.now()}`);
         writeTmpRepo(tmpRepo, {
           'a.js': 'function alpha() { return 1; }',
           'b.js': 'function beta() { return 2; }',
@@ -291,7 +305,7 @@ try {
       let tmpRepo;
 
       beforeAll(() => {
-        tmpRepo = path.join('/tmp', `test-incr-renamed-${Date.now()}`);
+        tmpRepo = path.join(os.tmpdir(), `test-incr-renamed-${Date.now()}`);
         writeTmpRepo(tmpRepo, {
           'src/util.js': 'function util() { return 1; }\nmodule.exports = { util };',
           'src/main.js': 'const { util } = require("./util");\nfunction main() { return util(); }',
@@ -319,7 +333,7 @@ try {
       let tmpRepo;
 
       beforeAll(() => {
-        tmpRepo = path.join('/tmp', `test-incr-deleted-${Date.now()}`);
+        tmpRepo = path.join(os.tmpdir(), `test-incr-deleted-${Date.now()}`);
         writeTmpRepo(tmpRepo, {
           'x.js': 'function x() { return 1; }',
           'y.js': 'function y() { return 2; }',
@@ -362,7 +376,7 @@ try {
       let tmpRepo;
 
       beforeAll(() => {
-        tmpRepo = path.join('/tmp', `test-incr-full-${Date.now()}`);
+        tmpRepo = path.join(os.tmpdir(), `test-incr-full-${Date.now()}`);
         writeTmpRepo(tmpRepo, {
           'a.js': 'function a() { return 1; }',
           'b.js': 'function b() { return 2; }',
@@ -392,7 +406,7 @@ try {
     let tmpRepo;
 
     beforeAll(() => {
-      tmpRepo = path.join('/tmp', `test-incr-health-${Date.now()}`);
+      tmpRepo = path.join(os.tmpdir(), `test-incr-health-${Date.now()}`);
       writeTmpRepo(tmpRepo, { 'h.js': 'function h() {}' });
       run(`index-repo --path "${tmpRepo}" --name ${name}`);
     });
@@ -415,7 +429,7 @@ try {
     });
   });
   function run(cmd) {
-    const out = execSync(`node "${STORE}" ${cmd}`, {
+    const out = execFileSync(process.execPath, [STORE, ...tokenize(cmd)], {
       encoding: 'utf8',
       timeout: 30000,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -424,7 +438,7 @@ try {
   }
   function _runFail(cmd) {
     try {
-      execSync(`node "${STORE}" ${cmd}`, {
+      execFileSync(process.execPath, [STORE, ...tokenize(cmd)], {
         encoding: 'utf8',
         timeout: 30000,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -451,7 +465,7 @@ try {
   }
   function cleanupRepo(name) {
     try {
-      execSync(`node "${STORE}" remove-code-repo --repo ${name}`, {
+      execFileSync(process.execPath, [STORE, 'remove-code-repo', '--repo', name], {
         encoding: 'utf8',
         timeout: 5000,
         stdio: ['pipe', 'pipe', 'pipe'],

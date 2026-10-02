@@ -372,17 +372,22 @@ function createCodeIndexRepository(deps) {
       return true;
     },
     findSymbolSource({ repoName, filePath, symbolName }) {
-      return (
+      // Stored file paths are platform-native. Try the indexed fast path
+      // first, then fall back to separator-insensitive matching so a
+      // POSIX-spelled absolute path (/repo/src/x.js) still finds a
+      // Windows-stored row (\repo\src\x.js) and vice versa.
+      const lookup = (pathMatch) =>
         sqlJson(
           `SELECT s.*, f.content
          FROM code_symbols s
          JOIN code_files f ON f.id = s.file_id
          JOIN code_repos r ON r.id = s.repo_id
-         WHERE r.name = ? AND s.file_path = ? AND s.name = ?
+         WHERE r.name = ? AND ${pathMatch} AND s.name = ?
          LIMIT 1`,
           [repoName, filePath, symbolName],
-        )[0] || null
-      );
+        )[0] || null;
+
+      return lookup('s.file_path = ?') || lookup("REPLACE(s.file_path, '\\', '/') = REPLACE(?, '\\', '/')");
     },
   });
 }

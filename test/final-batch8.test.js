@@ -182,7 +182,7 @@ describe('#304 minors', () => {
     // for --keep-last to be seen.
     let threw = false;
     try {
-      execFileSync('node', ['scripts/cleanup-sessions.js', 'run', '--keep-last', 'abc', '--json'], {
+      execFileSync(process.execPath, ['scripts/cleanup-sessions.js', 'run', '--keep-last', 'abc', '--json'], {
         encoding: 'utf8',
       });
     } catch (e) {
@@ -197,7 +197,7 @@ describe('#304 minors', () => {
     const { execFileSync } = require('node:child_process');
     let threw = false;
     try {
-      execFileSync('node', ['cli.js', 'serve', '--port', 'not-a-port'], { encoding: 'utf8', timeout: 15000 });
+      execFileSync(process.execPath, ['cli.js', 'serve', '--port', 'not-a-port'], { encoding: 'utf8', timeout: 15000 });
     } catch (e) {
       threw = true;
       expect(String(e.stderr) + String(e.stdout)).toContain('between 1 and 65535');

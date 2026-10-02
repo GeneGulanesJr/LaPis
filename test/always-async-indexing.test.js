@@ -16,7 +16,7 @@ describe('indexing via child-process path', () => {
       fs.writeFileSync(path.join(tmpDir, 'src', 'b.ts'), 'export const y = 2;\n');
       const result = await new Promise((resolve, reject) => {
         execFile(
-          'node',
+          process.execPath,
           [MEMORY_SCRIPT, 'index-repo', '--path', tmpDir, '--name', 'cp-result-test'],
           { encoding: 'utf8', timeout: 30000, maxBuffer: 10 * 1024 * 1024 },
           (err, stdout) => {
@@ -51,7 +51,7 @@ describe('indexing via child-process path', () => {
       let progressSeen = false;
       const result = await new Promise((resolve, reject) => {
         const child = spawn(
-          'node',
+          process.execPath,
           [MEMORY_SCRIPT, 'index-repo', '--progress', '--path', tmpDir, '--name', 'cp-prog-test'],
           { stdio: ['pipe', 'pipe', 'pipe'] },
         );
