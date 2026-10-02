@@ -135,6 +135,46 @@ function resolveDaemonUrl(opts = {}) {
   return daemonUrlFromLock(info);
 }
 
+const AUTODAEMON_ENV = 'LAPIS_HOOK_AUTODAEMON',
+  // Hook processes must not hang on a cold start: bounded health wait, then
+  // fall back to direct dispatch for this invocation. Later hooks find the
+  // warm lockfile and dispatch over HTTP (~ms instead of ~100ms+ of in-process
+  // module loading and SQLite open per fresh hook process).
+  AUTODAEMON_HEALTH_TIMEOUT_MS = 2500;
+
+function autoDaemonEnabled() {
+  const v = process.env[AUTODAEMON_ENV];
+  return v === '1' || v === 'true';
+}
+
+/**
+ * Hook-path auto-start, opt-in via LAPIS_HOOK_AUTODAEMON=1/true. Resolves the
+ * daemon URL as usual (env / live-pid lockfile) and, when none is running,
+ * starts a detached `lapis serve` and waits (bounded) for health. Never writes
+ * to stdout (hook protocol) and never throws: null means "dispatch direct".
+ */
+async function ensureDaemonRunning(opts = {}) {
+  if (opts.forceDirect || !autoDaemonEnabled()) {
+    return null;
+  }
+  const existing = resolveDaemonUrl(opts);
+  if (existing) {
+    return existing;
+  }
+  const startFn = opts.startFn || runStart;
+  try {
+    await startFn(['--detached'], {
+      lockfilePath: opts.lockfilePath,
+      log: () => {},
+      waitForHealth: (host, port, waitOpts) =>
+        waitForHealth(host, port, { ...waitOpts, timeoutMs: opts.timeoutMs ?? AUTODAEMON_HEALTH_TIMEOUT_MS }),
+    });
+  } catch {
+    return null;
+  }
+  return resolveDaemonUrl(opts);
+}
+
 function httpGet(urlPath, { host, port }) {
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -237,6 +277,24 @@ async function runStart(argv, io = {}) {
       }
       throw e;
     }
+    // Race guard: a concurrent start (two hooks firing at once on cold start)
+    // may have bound the port first and written its lockfile. Our child then
+    // died on EADDRINUSE and the health check answered by the winner — keep
+    // the winner's live-pid record rather than overwriting it with our dead
+    // child's pid (which would force every later hook to re-attempt a start).
+    {
+      const current = readLockfile(lockfilePath);
+      if (
+        current?.pid &&
+        current.pid !== child.pid &&
+        isProcessAlive(current.pid) &&
+        current.port === flags.port &&
+        (!current.host || current.host === flags.host)
+      ) {
+        log(`LaPis daemon already started by a concurrent process (pid ${current.pid}).`);
+        return { alreadyRunning: true, ...current };
+      }
+    }
     const info = {
       pid: child.pid,
       port: flags.port,
@@ -326,6 +384,8 @@ module.exports = {
   isProcessAlive,
   daemonUrlFromLock,
   resolveDaemonUrl,
+  autoDaemonEnabled,
+  ensureDaemonRunning,
   waitForHealth,
   runStart,
   runStop,

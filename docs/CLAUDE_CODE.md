@@ -63,6 +63,18 @@ lapis claude-code start [--port 9100] [--host 127.0.0.1] [--detached]
 lapis claude-code stop
 ```
 
+### Auto-starting the daemon from hooks (opt-in)
+
+Hooks normally fall back to direct dispatch (in-process gateway + cold SQLite
+open, ~100-170ms of per-process work) when no daemon is running. Setting
+`LAPIS_HOOK_AUTODAEMON=1` (or `true`) in the hook environment makes the first
+hook that finds no daemon start a detached `lapis serve` (default
+`127.0.0.1:9100`), wait up to 2.5s for it to become healthy, and dispatch over
+HTTP from then on. If the start attempt fails or times out, that hook falls
+back to direct dispatch — hooks never hang on daemon startup. Without the env
+variable nothing changes: hooks stay direct-mode unless you start the daemon
+yourself (`lapis claude-code start` or `install --daemon`).
+
 ## Two-config layout
 
 After install, your project typically has:
