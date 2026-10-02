@@ -16,7 +16,7 @@ const {
   { getConfig } = require('./config'),
   obsDA = require('./data-access/observations'),
   fs = require('fs'),
-  { buildCommandMap, getAllUsage, ANALYSIS_TOOLS, _wrapAnalysis } = require('./src/cli/gateway'),
+  { buildCommandMap, getAllUsage } = require('./src/cli/gateway'),
   { createRepositories } = require('./src/platform/storage/repositories'),
   TOOL_TIERS = {
     core: new Set([
@@ -297,6 +297,9 @@ const {
         process.exit(1);
       }
 
+      // These two fire gateway's lazy getters, which load the code-analysis
+      // graph — keep them at the use site so server modes never load it.
+      const { ANALYSIS_TOOLS, _wrapAnalysis } = require('./src/cli/gateway');
       if (ANALYSIS_TOOLS.has(cmd) && !result.error) {
         const repoName = args.repo;
         if (repoName) {
