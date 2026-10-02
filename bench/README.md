@@ -196,3 +196,35 @@ The report shows a comparison table with both basic and trajectory metrics:
 ```
 
 This complements the paired benchmark. The paired benchmark tests knowledge retrieval; this benchmark tests code editing, multi-step problem-solving, and architectural awareness over extended tool-use sessions.
+
+## MCP transport benchmarks
+
+Two stdio benchmarks cover the MCP transport's two cost centers. Both spawn the real server (`node memory-store.js mcp`) and speak newline-delimited JSON-RPC, so they measure what an MCP host actually experiences. Numbers are machine-dependent; treat them as local before/after signals, not absolute claims.
+
+### Cold start
+
+`bench/mcp-cold-start.js` spawns fresh servers and measures time-to-initialize-response and time-to-tools-list. Use it when touching module loading, lazy requires, or anything on the startup path.
+
+```bash
+npm run bench:mcp-cold -- memory-store.js
+```
+
+```bash
+node bench/mcp-cold-start.js memory-store.js 9
+```
+
+Most of the cold-start floor is outside LaPis' control: node spawn, the MCP SDK + zod module graph, and `ensureDb()`. App-side module deferral has already harvested the large wins (lazy command map, lazy dispatch); see PRs #352/#354 for methodology.
+
+### Warm dispatch
+
+`bench/mcp-warm-dispatch.js` spawns one server, completes the handshake, then times sequential `tools/call` round-trips per tool case (read, code, doc, and write paths) and prints min/p50/p90/mean. Use it when touching dispatch, SQL, ranking, or the handler chain — it catches per-call regressions that cold-start cannot see.
+
+```bash
+npm run bench:mcp-warm -- memory-store.js
+```
+
+```bash
+node bench/mcp-warm-dispatch.js memory-store.js 60
+```
+
+`memory-save` cases write rows with unique titles; run against a disposable database (`LAPIS_HOME` pointing at a copy) if you do not want bench rows in your real memory store.

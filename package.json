@@ -80,6 +80,8 @@
     "test:mutation:diff": "stryker run --mutate \"src/**/*.js\" --incremental",
     "bench:pi-paired": "node bench/bench-pi-paired.js",
     "bench:pi-realworld": "node bench/realworld/bench-pi-realworld.js",
+    "bench:mcp-cold": "node bench/mcp-cold-start.js memory-store.js",
+    "bench:mcp-warm": "node bench/mcp-warm-dispatch.js memory-store.js",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
