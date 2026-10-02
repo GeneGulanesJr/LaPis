@@ -29,7 +29,9 @@ class MemoryError extends Error {
   /* ── module state ─────────────────────────────────────────── */
   let _db = null,
     _engine = null, // 'better-sqlite3'
-    _lastBackendError = null; // Last error from openBetterSqlite3(), surfaced by openDb()
+    _lastBackendError = null, // Last error from openBetterSqlite3(), surfaced by openDb()
+    _stmtCache = new Map(),
+    _stmtCacheDb = null;
 
   // ResetDb/createDb are public API needed for test isolation (Issue #36).
   // Do NOT remove — PR22 deferred this change incorrectly.
@@ -1401,14 +1403,35 @@ class MemoryError extends Error {
       }
       throw lastError;
     }
+    // Prepared-statement cache. Better-sqlite3 re-parses SQL on every
+    // .prepare(), and the hot paths (gateway dispatch handlers, hook
+    // handlers) run the same small set of statements repeatedly per process.
+    // The cache is keyed by SQL text and bound to the current _db handle:
+    // ResetDb()/createDb() swap _db, so the handle-identity check drops stale
+    // statements without explicit invalidation. Bounded in case a caller
+    // builds SQL dynamically.
+    function _prepareCached(query) {
+      if (_stmtCacheDb !== _db) {
+        _stmtCache = new Map();
+        _stmtCacheDb = _db;
+      }
+      let stmt = _stmtCache.get(query);
+      if (stmt === undefined) {
+        stmt = _db.prepare(query);
+        if (_stmtCache.size >= 512) {
+          _stmtCache.clear();
+        }
+        _stmtCache.set(query, stmt);
+      }
+      return stmt;
+    }
     function _sqlJson(query, params = []) {
       if (!_db) {
         ensureDb();
       }
       return retryOnBusy(() => {
         try {
-          const stmt = _db.prepare(query);
-          return stmt.all(...params);
+          return _prepareCached(query).all(...params);
         } catch (e) {
           throw new Error(`SQL error: ${e.message}\nQuery: ${query}`, { cause: e });
         }
@@ -1420,8 +1443,7 @@ class MemoryError extends Error {
       }
       return retryOnBusy(() => {
         try {
-          const stmt = _db.prepare(query);
-          return stmt.run(...params);
+          return _prepareCached(query).run(...params);
         } catch (e) {
           throw new Error(`SQL error: ${e.message}\nQuery: ${query}`, { cause: e });
         }

@@ -56,27 +56,38 @@ const {
   };
 
 {
-  const softDeleteObservation = (id) => obsDA.softDeleteObservation({ sqlJson, sqlRun, sqlRaw }, id),
-    baseStorageDeps = { sqlJson, sqlRun, sqlRaw, jsonErrNoExit },
-    repositories = createRepositories(baseStorageDeps),
-    commands = buildCommandMap({
-      ...baseStorageDeps,
-      getDb,
-      repositories,
-      softDeleteObservation,
-      _readTierConfig,
-      TOOL_TIERS,
-      ensureDb,
-      DB_PATH,
-      getEngine,
-      withTransaction,
-    }),
-    args = parseArgs(process.argv),
+  // The command map eagerly requires all nine feature routers (~166ms of
+  // module load on this machine). Only the help text and the default
+  // dispatch path need it — `serve`, `mcp`, `claude-code`, `hermes` and
+  // `run` own their entry points and never consult it — so build it
+  // lazily and let long-lived server modes skip the cost entirely.
+  const baseStorageDeps = { sqlJson, sqlRun, sqlRaw, jsonErrNoExit },
+    softDeleteObservation = (id) => obsDA.softDeleteObservation(baseStorageDeps, id);
+  let commands = null;
+  function getCommands() {
+    if (!commands) {
+      commands = buildCommandMap({
+        ...baseStorageDeps,
+        getDb,
+        repositories: createRepositories(baseStorageDeps),
+        softDeleteObservation,
+        _readTierConfig,
+        TOOL_TIERS,
+        ensureDb,
+        DB_PATH,
+        getEngine,
+        withTransaction,
+      });
+    }
+    return commands;
+  }
+
+  const args = parseArgs(process.argv),
     cmd = process.argv[2],
     isHelpRequest = cmd === 'help' || cmd === '--help' || cmd === '-h' || args.help === true || args._.includes('-h');
 
   if (isHelpRequest) {
-    printHelp(commands[cmd] ? cmd : null);
+    printHelp(getCommands()[cmd] ? cmd : null);
     process.exit(0);
   }
 
@@ -268,11 +279,11 @@ const {
     ensureDb();
     const format = args.format || 'json';
 
-    if (cmd && commands[cmd]) {
+    if (cmd && getCommands()[cmd]) {
       const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       let result;
       try {
-        result = await commands[cmd](args);
+        result = await getCommands()[cmd](args);
       } catch (e) {
         if (e instanceof MemoryError) {
           process.stderr.write(`${JSON.stringify({ error: e.message })}\n`);
@@ -300,7 +311,7 @@ const {
       jsonOut(result);
     } else {
       console.error(
-        `Usage: lapis <subcommand> [--option value ...]\n       lapis run [--raw] [--text] [--remember] <command...>\nSubcommands: ${[...Object.keys(commands), 'run'].sort().join(', ')}`,
+        `Usage: lapis <subcommand> [--option value ...]\n       lapis run [--raw] [--text] [--remember] <command...>\nSubcommands: ${[...Object.keys(getCommands()), 'run'].sort().join(', ')}`,
       );
       process.exit(1);
     }
@@ -327,7 +338,7 @@ const {
       return;
     }
     {
-      const subcommands = [...Object.keys(commands), 'run'].sort();
+      const subcommands = [...Object.keys(getCommands()), 'run'].sort();
       process.stdout.write(
         `Usage: lapis <subcommand> [--option value ...]\n` +
           `       lapis run [--raw] [--text] [--remember] <command...>\n` +
