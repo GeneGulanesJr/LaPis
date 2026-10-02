@@ -138,6 +138,88 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
       },
     },
 
+    // ============ memory-save-classified ============
+    {
+      name: 'memory-save-classified',
+      description:
+        'Atomic LaPis memory-save + LayaMCP classification. Refuses prompt injections by default. ' +
+        'classification: guard|moderate|triage|email|auto (default auto). ' +
+        'on_injection: refuse (default) | save_as_security_block.',
+      inputSchema: obj({
+        title: { schema: str('Short searchable title') },
+        content: { schema: str('What/Why/Where/Learned content') },
+        type: {
+          schema: opt(
+            strEnum('Memory type', [
+              'decision',
+              'bugfix',
+              'architecture',
+              'pattern',
+              'discovery',
+              'config',
+              'preference',
+              'learning',
+              'manual',
+            ]),
+          ),
+          optional: true,
+        },
+        classification: {
+          schema: opt(strEnum('LayaMCP classifier to run first', ['guard', 'moderate', 'triage', 'email', 'auto'])),
+          optional: true,
+        },
+        on_injection: {
+          schema: opt(
+            strEnum('Behavior when LayaMCP guard flags a prompt injection', ['refuse', 'save_as_security_block']),
+          ),
+          optional: true,
+        },
+        scope: { schema: opt(strEnum('project|personal', ['project', 'personal'])), optional: true },
+        topic_key: { schema: opt(str('Optional topic key')), optional: true },
+        force: { schema: opt(bool('Bypass duplicate warning')), optional: true },
+        expires_in: {
+          schema: opt(
+            str('Optional TTL duration (e.g., "7d", "2w", "1m", "12h"). Memory auto-expires after this period.'),
+          ),
+          optional: true,
+        },
+        trust_score: {
+          schema: opt(
+            num('Override trust score (0-1). Combined with LayaMCP confidence when classification succeeds.'),
+          ),
+          optional: true,
+        },
+      }),
+      toCommand(p, ctx) {
+        const args = {
+          title: p.title,
+          content: p.content,
+          type: p.type || 'manual',
+          project: ctx.project || 'unknown',
+          scope: p.scope || 'project',
+        };
+        if (p.classification) {
+          args[kebab('classification')] = p.classification;
+        }
+        if (p.on_injection) {
+          args[kebab('on_injection')] = p.on_injection;
+        }
+        if (p.topic_key) {
+          args[kebab('topic_key')] = p.topic_key;
+        }
+        if (p.force) {
+          args.force = 'true';
+        }
+        if (p.expires_in) {
+          args[kebab('expires_in')] = p.expires_in;
+        }
+        if (p.trust_score !== undefined && p.trust_score !== null) {
+          args[kebab('trust_score')] = String(p.trust_score);
+        }
+        return { cmd: 'save-classified', args };
+      },
+    },
+
     // ============ memory-search ============
     {
       name: 'memory-search',

@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `memory-save-classified` tool — atomic LaPis memory-save + LayaMCP
+  classification. Refuses prompt injections by default. New module
+  `src/memory-domain/laya-mcp.js` provides the LayaMCP HTTP client.
+  Configurable via `LAPIS_LAYAMCP_URL`, `LAPIS_LAYAMCP_ENABLED`,
+  `LAPIS_LAYAMCP_TIMEOUT_MS`.
 - **Claude Code auto-indexing** — an unindexed git repo used to be skipped
   silently (guardrails only fire in indexed repos). `SessionStart` and the
   `PreToolUse` guardrails now start a detached background `index-repo` for it

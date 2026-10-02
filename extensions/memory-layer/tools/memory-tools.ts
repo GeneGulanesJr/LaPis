@@ -114,6 +114,149 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
   });
 
   pi.registerTool({
+    name: 'memory-save-classified',
+    label: 'Save Memory (Classified)',
+    description:
+      'Atomic LaPis memory-save + LayaMCP classification. Refuses prompt injections by default. ' +
+      'classification: guard|moderate|triage|email|auto (default auto). ' +
+      'on_injection: refuse (default) | save_as_security_block.',
+    parameters: Type.Object({
+      title: Type.String({ description: 'Short searchable title' }),
+      content: Type.String({ description: 'What/Why/Where/Learned content' }),
+      type: Type.Optional(
+        Type.String({
+          description: 'decision|bugfix|architecture|pattern|discovery|config|preference|learning',
+          default: 'manual',
+        }),
+      ),
+      classification: Type.Optional(
+        Type.String({
+          description: 'LayaMCP classifier to run first (guard|moderate|triage|email|auto)',
+          default: 'auto',
+        }),
+      ),
+      on_injection: Type.Optional(
+        Type.String({
+          description: 'Behavior when LayaMCP guard flags a prompt injection (refuse|save_as_security_block)',
+          default: 'refuse',
+        }),
+      ),
+      scope: Type.Optional(
+        Type.String({
+          description: 'project|personal',
+          default: 'project',
+        }),
+      ),
+      topic_key: Type.Optional(
+        Type.String({
+          description: 'Optional topic key',
+        }),
+      ),
+      force: Type.Optional(Type.Boolean({ description: 'Bypass duplicate warning', default: false })),
+      expires_in: Type.Optional(
+        Type.String({
+          description: 'Optional TTL duration (e.g., "7d", "2w", "1m", "12h"). Memory auto-expires after this period.',
+        }),
+      ),
+      trust_score: Type.Optional(
+        Type.Number({
+          description: 'Override trust score (0-1). Multiplied with LayaMCP confidence when classification succeeds.',
+        }),
+      ),
+    }),
+    renderResult: renderCompactToolResult,
+    async execute(_id, params, _signal, _onUpdate, _ctx) {
+      try {
+        deps.state.memoriesSavedThisSession++;
+        const args: Record<string, string> = {
+          title: params.title,
+          content: params.content,
+          type: params.type || 'manual',
+          project: deps.state.currentProject || 'unknown',
+          scope: params.scope || 'project',
+          classification: params.classification || 'auto',
+          'on-injection': params.on_injection || 'refuse',
+        };
+        if (params.topic_key) {
+          args['topic-key'] = params.topic_key;
+        }
+        if (params.force) {
+          args.force = 'true';
+        }
+        if (params.expires_in) {
+          args['expires-in'] = params.expires_in;
+        }
+        if (params.trust_score != null) {
+          args['trust-score'] = String(params.trust_score);
+        }
+
+        const result = await deps.mem('save-classified', args);
+
+        if (!result) {
+          return { content: [{ type: 'text', text: 'Failed to save memory.' }], details: {}, isError: true };
+        }
+
+        if (result.error) {
+          return {
+            content: [{ type: 'text', text: `❌ ${result.error}` }],
+            details: result ?? {},
+            isError: true,
+          };
+        }
+
+        if (result.refused === true) {
+          // The save-classified router short-circuited (e.g. prompt injection
+          // refused).  Surface the reason without pretending the memory was saved.
+          return {
+            content: [{ type: 'text', text: `🚫 ${result.message || 'Save refused by LayaMCP classification.'}` }],
+            details: result ?? {},
+            isError: true,
+          };
+        }
+
+        if (result.status === 'potential_duplicate') {
+          const matches = (result.matches as any[]) || [];
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `⚠️ Potential duplicate detected:\n${matches.map((m: any) => `  - [#${m.id}] ${m.title} (${m.similarity}% similar)`).join('\n')}\n\nUse force=true to save anyway.`,
+              },
+            ],
+            details: result ?? {},
+            isError: false,
+          };
+        }
+
+        const classification = (result.classification as any) || {},
+          layaNote = classification.tool
+            ? `\n🛡️ LayaMCP [${classification.classification}] via ${classification.tool} (confidence: ${(classification.confidence * 100).toFixed(0)}%)`
+            : '',
+          warningNote = result.laya_warning ? `\n⚠️ ${result.laya_warning}` : '';
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `✅ Memory saved [#${result.id}] ${result.title}` +
+                `${result.expires_at ? `\n⏰ Expires: ${result.expires_at}` : ''}` +
+                `${layaNote}${warningNote}`,
+            },
+          ],
+          details: result ?? {},
+        };
+      } catch (err) {
+        return {
+          content: [{ type: 'text', text: `Unexpected error: ${err instanceof Error ? err.message : String(err)}` }],
+          details: {},
+          isError: true,
+        };
+      }
+    },
+  });
+
+  pi.registerTool({
     name: 'memory-search',
     label: 'Search Memory',
     description: 'Search persistent memory for decisions, bugfixes, patterns, and discoveries.',
