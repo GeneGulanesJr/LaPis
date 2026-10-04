@@ -1,6 +1,48 @@
-const { spawn } = require('child_process'),
+const { spawn, spawnSync } = require('child_process'),
+  fs = require('fs'),
+  path = require('path'),
   DEFAULT_TIMEOUT_MS = 120000,
   DEFAULT_MAX_BUFFER_CHARS = 2_000_000;
+
+// cmd.exe is only needed to launch .cmd/.bat shims (npm, npx, ...): for a
+// real executable, spawning it directly keeps every argument verbatim.
+// Routing through cmd otherwise lets its parser reinterpret metacharacters
+// inside arguments — a `>` in a `node -e` one-liner becomes a file
+// redirection in the caller's cwd (e.g. junk files named `{`).
+const shimResolutionCache = new Map();
+
+function windowsNeedsCmd(file, cwd, env) {
+  const ext = path.extname(file).toLowerCase();
+  if (ext === '.cmd' || ext === '.bat') return true;
+  if (ext || /[\\/]/.test(file)) return false; // explicit path: CreateProcess resolves it (appending .exe when extensionless)
+  const cacheKey = `${cwd}\u0000${file.toLowerCase()}`;
+  const cached = shimResolutionCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+  const pathExts = ((process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';') || []).map((e) => e.toLowerCase());
+  const dirs = [
+    cwd,
+    ...(env.PATH || process.env.PATH || '')
+      .split(';')
+      .filter(Boolean)
+      .map((d) => d.replace(/^"|"$/g, '')),
+  ];
+  let needs = true; // unresolved bare names: let cmd try (it also consults the App Paths registry)
+  for (const dir of dirs) {
+    let hit = null;
+    for (const e of pathExts) {
+      if (fs.existsSync(path.join(dir, file + e))) {
+        hit = e;
+        break;
+      }
+    }
+    if (hit) {
+      needs = hit === '.cmd' || hit === '.bat';
+      break;
+    }
+  }
+  shimResolutionCache.set(cacheKey, needs);
+  return needs;
+}
 
 function shellEscape(arg) {
   if (/[^A-Za-z0-9_\/:.\-]/.test(arg)) {
@@ -45,12 +87,21 @@ function runCommand(commandArgs, options = {}) {
       timer = null;
 
     if (isWindows) {
-      child = spawn('cmd', ['/c', ...commandArgs], {
-        cwd,
-        env,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      });
+      if (windowsNeedsCmd(commandArgs[0], cwd, env)) {
+        child = spawn('cmd', ['/c', ...commandArgs], {
+          cwd,
+          env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
+        });
+      } else {
+        child = spawn(commandArgs[0], commandArgs.slice(1), {
+          cwd,
+          env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
+        });
+      }
     } else {
       // A lone single-token pipeline is passed through unescaped so the shell
       // interprets it; every other shape keeps the per-token escaping so
@@ -100,7 +151,15 @@ function runCommand(commandArgs, options = {}) {
     timer = setTimeout(() => {
       killed = true;
       if (isWindows) {
-        child.kill('SIGKILL');
+        // Killing cmd.exe alone leaves its grandchildren alive holding the
+        // stdio pipe write ends, so 'close' never fires and this promise
+        // hangs; /T takes the whole tree down (and is a no-op safety net for
+        // the direct-spawn path, whose child may have children of its own).
+        try {
+          spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+        } catch {
+          child.kill('SIGKILL');
+        }
         return;
       }
       // Kill the entire process group; fall back to the direct kill if the
