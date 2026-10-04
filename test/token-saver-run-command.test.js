@@ -41,6 +41,18 @@ describe('runCommand buffer cap + drain (#280)', () => {
     expect(result.exitCode).toBeNull();
   }, 15000);
 
+  it('passes arguments containing cmd metacharacters verbatim', async () => {
+    // Regression: on Windows, routing through `cmd /c` re-parsed arguments —
+    // the `>` in a `node -e` arrow function became a file redirection in the
+    // caller's cwd (creating junk files) and the payload never reached node.
+    const result = await runCommand(
+      [process.execPath, '-e', 'process.stdout.write(process.argv[1] + "|" + process.argv[2])', 'a b', 'c>d'],
+      { timeoutMs: 10000 },
+    );
+    expect(result.stdout).toBe('a b|c>d');
+    expect(result.timedOut).toBe(false);
+  }, 15000);
+
   it('preserves multi-byte characters split across chunk boundaries', async () => {
     // 你 = E4 BD A0. Write the first two bytes, flush, then the rest after a
     // Pause — the decoder must carry the partial sequence across chunks.
