@@ -1,0 +1,13 @@
+# CodeQL analysis config (advanced setup).
+#
+# Excludes dev-only trees from analysis: tests and benchmarks are not
+# shipped, and their spawn-heavy harness code otherwise produces alerts
+# whose untrusted sources are the test harness itself (e.g. process.execPath
+# flowing from test invocations into runCommand) rather than product
+# behavior. Product source under src/, root files, extensions/, and
+# crosshash/ stays fully analyzed.
+name: 'LaPis CodeQL config'
+
+paths-ignore:
+  - 'test/**'
+  - 'bench/**'
