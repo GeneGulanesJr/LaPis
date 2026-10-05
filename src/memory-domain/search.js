@@ -213,6 +213,21 @@ function _extractFtsTerms(query) {
   return unique.slice(0, 5).join(' ');
 }
 
+// FTS5 external-content indexes can corrupt under concurrent write churn
+// (SQLITE_CORRUPT_VTAB / 'database disk image is malformed'). Left alone, the
+// swallowed error degraded EVERY search to LIKE fallback permanently. Heal
+// Once per process: rebuild the index from the content table, retry the query.
+function isFtsCorruption(e) {
+  return !!e && /malformed|corrupt/i.test(String(e.message || e));
+}
+
+let ftsRebuildTried = false;
+
+/** Reset the once-per-process heal guard (test seam). */
+function __resetFtsHealForTests() {
+  ftsRebuildTried = false;
+}
+
 function search(deps, args) {
   const { sqlJson, sqlRun, jsonErrNoExit } = deps;
   const query = args.query;
@@ -232,9 +247,9 @@ function search(deps, args) {
   let degraded = null;
 
   let rows;
+  let ftsRepaired = false;
   if (!needsFallback) {
-    try {
-      let q = `
+    let q = `
         SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
                snippet(observations_fts, 0, '»', '«', '…', 32) as snippet,
                rank,
@@ -262,10 +277,23 @@ function search(deps, args) {
       }
       q += ' ORDER BY rank LIMIT ?';
       params.push(Math.min(limit * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
-      rows = sqlJson(q, params);
-    } catch {
-      rows = null;
-    }
+      // String building above cannot throw — only the executions below can.
+      try {
+        rows = sqlJson(q, params);
+      } catch (e) {
+        if (!ftsRebuildTried && isFtsCorruption(e) && typeof sqlRun === 'function') {
+          ftsRebuildTried = true;
+          try {
+            sqlRun("INSERT INTO observations_fts(observations_fts) VALUES('rebuild')");
+            rows = sqlJson(q, params);
+            ftsRepaired = true;
+          } catch {
+            rows = null;
+          }
+        } else {
+          rows = null;
+        }
+      }
   }
 
   if (!rows || rows.length === 0) {
@@ -319,7 +347,7 @@ function search(deps, args) {
     }
 
     // LIKE tier (phrase substring) only when the FTS tiers came up empty —
-    // it must not overwrite OR-tier hits.
+    // It must not overwrite OR-tier hits.
     if (!rows || rows.length === 0) {
     let q = `
       SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
@@ -398,7 +426,7 @@ function search(deps, args) {
     codeResults = deps.searchCode(query, null, null, limit);
   }
 
-  return { results: ranked, code_results: codeResults, degraded };
+  return { results: ranked, code_results: codeResults, degraded, ftsRepaired };
 }
 
 function symbolCluster(deps, args) {
@@ -482,6 +510,7 @@ module.exports = {
   symbolCluster,
   related,
   _extractFtsTerms,
+  __resetFtsHealForTests,
   TRUST_RECALL_SUBQ,
   TYPE_PRIORITY_CASE,
 };
