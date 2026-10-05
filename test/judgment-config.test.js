@@ -1,5 +1,5 @@
 // vitest globals enabled — no import
-const { getConfig, resetConfigCache } = require('../config');
+const { getConfig, resetConfigCache, DEFAULTS } = require('../config');
 
 describe('judgment config section', () => {
   afterEach(() => {
@@ -11,7 +11,10 @@ describe('judgment config section', () => {
   });
 
   it('defaults to heuristic (OFF) per zero-cloud ethos (spec §4)', () => {
-    const j = getConfig().judgment;
+    // Pin the exported DEFAULTS, not getConfig() — the machine's config.jsonc
+    // legitimately overrides provider once Jev is activated; defaults must stay
+    // heuristic forever regardless of machine state.
+    const j = DEFAULTS.judgment;
     expect(j.provider).toBe('heuristic');
     expect(j.local_only).toBe(false);
     expect(j.timeout_ms).toBe(5000);

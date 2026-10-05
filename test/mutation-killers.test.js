@@ -2226,12 +2226,14 @@ describe('search.js FTS try/catch NoCoverage killers', () => {
     let n = 0;
     const sqlJson = vi.fn(() => {
         n++;
-        return n === 1 ? [] : [baseObs({ id: 1 })];
+        // Calls 1+2 are the FTS tiers (AND, then OR) — both must come up empty
+        // for the LIKE tier (call 3) to run.
+        return n < 3 ? [] : [baseObs({ id: 1 })];
       }),
       likeCall = (() => {
         search(mockDeps({ sqlJson }), { query: '100%_test' });
 
-        return sqlJson.mock.calls[1];
+        return sqlJson.mock.calls[2];
       })();
     expect(likeCall[1][0]).toBe('%100\\%\\_test%');
   });
