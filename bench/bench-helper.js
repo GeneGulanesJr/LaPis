@@ -56,7 +56,14 @@ const path = require('path'),
 
   function runCli(repo, subcommand, extraFlags = '') {
     const msPath = path.join(LAPIS_ROOT, 'memory-store.js'),
-      extraArgs = extraFlags ? extraFlags.split(/\s+/).filter(Boolean) : [],
+      // execFileSync takes argv directly (no shell), so surrounding quotes in
+      // extraFlags would be passed through verbatim — strip them.
+      extraArgs = extraFlags
+        ? extraFlags
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((a) => a.replace(/^"(.*)"$/, '$1'))
+        : [],
       args = [msPath, subcommand, '--repo', repo, ...extraArgs];
     try {
       const stdout = execFileSync('node', args, {

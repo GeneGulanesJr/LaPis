@@ -271,8 +271,19 @@ function classifyCommit(message) {
 }
 
 /**
- * Build change provenance for a symbol by shelling out to git (log --follow + blame).
- * Side effects: spawns git subprocesses (each with a 15s timeout).
+ * Build change provenance for a symbol by shelling out to git.
+ * Side effects: spawns a git subprocess (15s timeout).
+ *
+ * Fast path: one `git blame --porcelain -L start,end -- file` spawn attributes
+ * the symbol's lines and carries each contributing commit's author, date, and
+ * summary — everything provenance reports about the symbol. The legacy path
+ * paid two spawns (full `log --follow` + blame) per call (~290ms vs ~140ms;
+ * paid on every coding-context call incl. each UserPromptSubmit hook) and,
+ * for files with a short history, filled `commits` with the whole FILE's
+ * commits rather than the symbol's — the fast path always reports the
+ * symbol-touching set. Any fast-path failure (stale line range, unborn HEAD,
+ * non-git repo) falls back to the legacy path unchanged.
+ *
  * @param {object} db native better-sqlite3 handle
  * @param {number} repoId code_repos.id
  * @param {string} symbolName exact symbol name to look up
@@ -301,58 +312,81 @@ function getProvenance(db, repoId, symbolName) {
   let logEntries = [],
     creationDate = null,
     lastModifiedDate = null,
+    // Set when the single-spawn porcelain-blame fast path succeeded — every
+    // entry touches the symbol by construction, so the log+blame pair is
+    // unnecessary.
+    usedBlameFastPath = false,
     summary = `${symbol.kind} "${symbolName}" in ${symbol.file_path}:${symbol.start_line}-${symbol.end_line}. `;
-  try {
-    const logOutput = execFileSync(
-      'git',
-      ['-C', repo.path, 'log', '--follow', '--format=%H|%an|%aI|%s', '--', symbol.file_path],
-      { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] },
-    ).trim();
-
-    if (!logOutput) {
-      return { symbol: symbolName, commits: [], total_commits: 0, summary: 'No git history found.' };
-    }
-
-    logEntries = logOutput.split('\n').map((line) => {
-      const [hash, author, date, ...msgParts] = line.split('|');
-      return {
-        hash,
-        author,
-        date,
-        message: msgParts.join('|'),
-        classification: classifyCommit(msgParts.join('|')),
-        touches_symbol: false,
-      };
-    });
-  } catch (e) {
-    return { error: `git log failed: ${e.message}` };
-  }
-
-  try {
-    const blameOutput = execFileSync(
+  if (symbol.file_path && Number.isFinite(symbol.start_line) && Number.isFinite(symbol.end_line)) {
+    try {
+      const blameOutput = execFileSync(
         'git',
-        ['-C', repo.path, 'blame', `-L${symbol.start_line},${symbol.end_line}`, '--', symbol.file_path],
+        ['-C', repo.path, 'blame', '--porcelain', `-L${symbol.start_line},${symbol.end_line}`, '--', symbol.file_path],
         { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] },
-      ).trim(),
-      blameHashes = new Set(),
-      blameRe = /^([a-f0-9]{8,})/gm;
-    let match;
-    while ((match = blameRe.exec(blameOutput)) !== null) {
-      blameHashes.add(match[1]);
-    }
-    for (const entry of logEntries) {
-      if (blameHashes.has(entry.hash.substring(0, 8)) || blameHashes.has(entry.hash)) {
-        entry.touches_symbol = true;
+      ).trim();
+      if (blameOutput) {
+        logEntries = parseBlamePorcelain(blameOutput);
+        usedBlameFastPath = logEntries.length > 0;
       }
+    } catch {
+      /* Fall through to the legacy log+blame path. */
     }
-  } catch {
-    /* Blame failed, keep all */
   }
 
-  const relevantCommits =
-      logEntries.length > 50 && logEntries.some((e) => e.touches_symbol)
-        ? logEntries.filter((e) => e.touches_symbol).slice(0, 50)
-        : logEntries.slice(0, 50),
+  if (!usedBlameFastPath) {
+    try {
+      const logOutput = execFileSync(
+        'git',
+        ['-C', repo.path, 'log', '--follow', '--format=%H|%an|%aI|%s', '--', symbol.file_path],
+        { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] },
+      ).trim();
+
+      if (!logOutput) {
+        return { symbol: symbolName, commits: [], total_commits: 0, summary: 'No git history found.' };
+      }
+
+      logEntries = logOutput.split('\n').map((line) => {
+        const [hash, author, date, ...msgParts] = line.split('|');
+        return {
+          hash,
+          author,
+          date,
+          message: msgParts.join('|'),
+          classification: classifyCommit(msgParts.join('|')),
+          touches_symbol: false,
+        };
+      });
+    } catch (e) {
+      return { error: `git log failed: ${e.message}` };
+    }
+
+    try {
+      const blameOutput = execFileSync(
+          'git',
+          ['-C', repo.path, 'blame', `-L${symbol.start_line},${symbol.end_line}`, '--', symbol.file_path],
+          { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] },
+        ).trim(),
+        blameHashes = new Set(),
+        blameRe = /^([a-f0-9]{8,})/gm;
+      let match;
+      while ((match = blameRe.exec(blameOutput)) !== null) {
+        blameHashes.add(match[1]);
+      }
+      for (const entry of logEntries) {
+        if (blameHashes.has(entry.hash.substring(0, 8)) || blameHashes.has(entry.hash)) {
+          entry.touches_symbol = true;
+        }
+      }
+    } catch {
+      /* Blame failed, keep all */
+    }
+  }
+
+  // Fast-path entries arrive in blame's line order; sort to log's
+  // newest-first so the top-50 slice prioritizes recent commits the same way.
+  const relevantCommits = (
+      usedBlameFastPath ? [...logEntries].sort((a, b) => b.date.localeCompare(a.date)) : logEntries
+    ).slice(0, 50),
     classifications = {},
     authors = new Set();
 
@@ -397,4 +431,55 @@ function getProvenance(db, repoId, symbolName) {
   }
 }
 
-module.exports = { getChurn, isGitAvailable, getProvenance, classifyCommit };
+/**
+ * Parse `git blame --porcelain -L start,end` output into provenance entries.
+ * Each commit block starts with a `<40-hex> <orig-line> <final-line>` header
+ * (repeated as a short line for subsequent blocks of the same commit) followed
+ * by author/author-time/summary metadata; content lines are TAB-prefixed and
+ * skipped. Every returned commit touched the traced line range by
+ * construction, so `touches_symbol` is true throughout.
+ * @param {string} output raw git stdout
+ * @returns {Array<{hash, author, date, message, classification, touches_symbol}>}
+ */
+function parseBlamePorcelain(output) {
+  const byHash = new Map();
+  let current = null;
+  for (const line of output.split('\n')) {
+    const header = line.match(/^([0-9a-f]{40}) \d+ \d+/);
+    if (header) {
+      const hash = header[1];
+      if (!byHash.has(hash)) {
+        current = {
+          hash,
+          author: '',
+          date: '',
+          message: '',
+          classification: 'unknown',
+          touches_symbol: true,
+        };
+        byHash.set(hash, current);
+      } else {
+        // Short repeat header for an already-captured commit — its metadata
+        // was recorded at the block where the hash first appeared.
+        current = null;
+      }
+      continue;
+    }
+    if (!current) {
+      continue;
+    }
+    if (line.startsWith('author ')) {
+      current.author = line.slice(7);
+    } else if (line.startsWith('author-time ')) {
+      current.date = new Date(Number(line.slice(12)) * 1000).toISOString();
+    } else if (line.startsWith('summary ')) {
+      current.message = line.slice(8);
+      current.classification = classifyCommit(current.message);
+    } else if (line.startsWith('filename ')) {
+      current = null; // End of this block's metadata.
+    }
+  }
+  return [...byHash.values()];
+}
+
+module.exports = { getChurn, isGitAvailable, getProvenance, parseBlamePorcelain, classifyCommit };

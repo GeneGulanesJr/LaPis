@@ -228,3 +228,35 @@ node bench/mcp-warm-dispatch.js memory-store.js 60
 ```
 
 `memory-save` cases write rows with unique titles; run against a disposable database (`LAPIS_HOME` pointing at a copy) if you do not want bench rows in your real memory store.
+
+### Hook latency
+
+`bench/hooks-bench.js` spawns `node <entry> claude-code hook <event>` with realistic stdin payloads and measures full process wall time (spawn → exit) — the per-event cost a Claude Code host actually pays. This is the highest-frequency LaPis surface: PreToolUse fires on every tool call, UserPromptSubmit on every prompt (and returns the injected context; its stdout byte size is reported).
+
+```bash
+node bench/hooks-bench.js memory-store.js 20
+```
+
+Run with `LAPIS_HOME` pointing at a disposable copy — the bench writes session state and UserPromptSubmit performs memory reads.
+
+### CLI one-shots
+
+`bench/cli-one-shot.js` spawns `node <entry> <subcommand>` end-to-end (boot + lazy command map + command + exit) — the cost of every terminal `lapis <cmd>` invocation. Covers the CLI command path; MCP boot is `bench/mcp-cold-start.js`'s job.
+
+```bash
+node bench/cli-one-shot.js memory-store.js 15
+```
+
+### Memory soak
+
+`bench/memory-soak.js` spawns one MCP server, drives N sequential `memory-search` calls through it, and samples the server process working set (via `tasklist`, Windows) every K calls. Detects leaks in the long-lived server a host keeps alive — the latency benches cannot see this.
+
+```bash
+node bench/memory-soak.js memory-store.js 3000 500
+```
+
+Run with `LAPIS_HOME` pointing at a disposable copy. A healthy run shows RSS rising then flattening (V8 plateau); unbounded linear growth across the whole run is the leak signal.
+
+### Baselines
+
+Committed machine-readable baselines live in `bench/baselines/` (`baseline-<date>.json`: all measurements + environment metadata + commit hash). `bench/results/` is gitignored by convention — it holds ad-hoc local output (paired/realworld reports). Diff future runs against the newest committed baseline mechanically; treat deltas smaller than the identical-code noise floor recorded inside the artifact as noise.
