@@ -262,38 +262,38 @@ function search(deps, args) {
           AND o.deleted_at IS NULL
           AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
       `;
-      const params = [ftsTerms];
-      if (project) {
-        q += ' AND o.project = ? COLLATE NOCASE';
-        params.push(project);
-      }
-      if (type) {
-        q += ' AND o.type = ?';
-        params.push(type);
-      }
-      if (scope) {
-        q += ' AND o.scope = ?';
-        params.push(scope);
-      }
-      q += ' ORDER BY rank LIMIT ?';
-      params.push(Math.min(limit * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
-      // String building above cannot throw — only the executions below can.
-      try {
-        rows = sqlJson(q, params);
-      } catch (e) {
-        if (!ftsRebuildTried && isFtsCorruption(e) && typeof sqlRun === 'function') {
-          ftsRebuildTried = true;
-          try {
-            sqlRun("INSERT INTO observations_fts(observations_fts) VALUES('rebuild')");
-            rows = sqlJson(q, params);
-            ftsRepaired = true;
-          } catch {
-            rows = null;
-          }
-        } else {
+    const params = [ftsTerms];
+    if (project) {
+      q += ' AND o.project = ? COLLATE NOCASE';
+      params.push(project);
+    }
+    if (type) {
+      q += ' AND o.type = ?';
+      params.push(type);
+    }
+    if (scope) {
+      q += ' AND o.scope = ?';
+      params.push(scope);
+    }
+    q += ' ORDER BY rank LIMIT ?';
+    params.push(Math.min(limit * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
+    // String building above cannot throw — only the executions below can.
+    try {
+      rows = sqlJson(q, params);
+    } catch (e) {
+      if (!ftsRebuildTried && isFtsCorruption(e) && typeof sqlRun === 'function') {
+        ftsRebuildTried = true;
+        try {
+          sqlRun("INSERT INTO observations_fts(observations_fts) VALUES('rebuild')");
+          rows = sqlJson(q, params);
+          ftsRepaired = true;
+        } catch {
           rows = null;
         }
+      } else {
+        rows = null;
       }
+    }
   }
 
   if (!rows || rows.length === 0) {
@@ -349,7 +349,7 @@ function search(deps, args) {
     // LIKE tier (phrase substring) only when the FTS tiers came up empty —
     // It must not overwrite OR-tier hits.
     if (!rows || rows.length === 0) {
-    let q = `
+      let q = `
       SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
              '' as snippet, 0 as rank,
              ${TRUST_RECALL_SUBQ.trustScore} as trust_score,
@@ -360,25 +360,25 @@ function search(deps, args) {
         AND o.deleted_at IS NULL
         AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
     `;
-    // Escape the ESCAPE character itself first, then the LIKE wildcards,
-    // So a trailing "\" in the query can't escape the wildcard markers.
-    const like = `%${query.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
-    const params = [like, like];
-    if (project) {
-      q += ' AND o.project = ? COLLATE NOCASE';
-      params.push(project);
-    }
-    if (type) {
-      q += ' AND o.type = ?';
-      params.push(type);
-    }
-    if (scope) {
-      q += ' AND o.scope = ?';
-      params.push(scope);
-    }
-    q += ' ORDER BY o.created_at DESC LIMIT ?';
-    params.push(Math.min(limit * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
-    rows = sqlJson(q, params);
+      // Escape the ESCAPE character itself first, then the LIKE wildcards,
+      // So a trailing "\" in the query can't escape the wildcard markers.
+      const like = `%${query.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
+      const params = [like, like];
+      if (project) {
+        q += ' AND o.project = ? COLLATE NOCASE';
+        params.push(project);
+      }
+      if (type) {
+        q += ' AND o.type = ?';
+        params.push(type);
+      }
+      if (scope) {
+        q += ' AND o.scope = ?';
+        params.push(scope);
+      }
+      q += ' ORDER BY o.created_at DESC LIMIT ?';
+      params.push(Math.min(limit * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
+      rows = sqlJson(q, params);
     }
   }
 
