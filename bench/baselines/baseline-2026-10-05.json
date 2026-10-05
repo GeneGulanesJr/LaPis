@@ -1,0 +1,159 @@
+{
+  "meta": {
+    "date": "2026-10-05",
+    "commit": "610ae7d95f032b24b6d9522a0ae933022901689e",
+    "branch": "main",
+    "tree_state": "clean at HEAD; only bench/ additions (hooks-bench.js, cli-one-shot.js, memory-soak.js, bench-helper.js quoting fix, README) uncommitted; production code untouched",
+    "host": "Intel Core i5-10400 (6C/12T), 15.9 GB RAM",
+    "os": "Windows 10.0.26200 (win32)",
+    "node": "v24.16.0 (pinned via PATH prefix to C:\\Users\\ggulanes\\Desktop\\New folder\\New folder\\node-v24.16.0-win-x64; system PATH node is v14.17.0 and must NOT be used — documented box hazard)",
+    "deps": {
+      "better-sqlite3": "12.11.1",
+      "@modelcontextprotocol/sdk": "1.30.0",
+      "web-tree-sitter": "0.26.13",
+      "vitest": "4.1.11",
+      "ignore": "7.0.8"
+    },
+    "dataset": {
+      "lapis_home": "C:\\Users\\ggulanes\\lapis-perf-bench\\baseline-20261005",
+      "source": "fresh copy of real ~/.pi/memory (memory.db 67.7MB + memory.db-wal 173.7MB + repos-snapshot.json + empty claude-sessions/)",
+      "db_size_after_checkpoint_mb": 64.6,
+      "row_counts": { "observations": 960, "recall_log": 177, "observation_relations": 154, "symbol_links": 0 },
+      "note": "warm-dispatch run A checkpointed the copied 173MB WAL down to 4.2MB; runs B/C ran on settled WAL state"
+    },
+    "concurrency": 1,
+    "background_load": "ZCode session with live LaPis MCP server + memory-layer hooks (constant across all runs); no other intentional load"
+  },
+  "methods": {
+    "cold_start": "bench/mcp-cold-start.js memory-store.js 9 — hrtime around spawn->initialize-response and spawn->tools/list over stdio, sequential fresh servers",
+    "warm_dispatch": "bench/mcp-warm-dispatch.js memory-store.js 60 — one server, handshake, then hrtime per sequential tools/call round-trip; 5 unmeasured warm-up calls per case; single connection",
+    "hooks": "bench/hooks-bench.js memory-store.js 20 — hrtime around spawn->exit of `node memory-store.js claude-code hook <Event>` with realistic stdin payloads (cwd=repo, fixed session_id per run), 3 unmeasured warm-ups per case",
+    "cli_one_shot": "bench/cli-one-shot.js memory-store.js 15 — hrtime around spawn->exit of `node memory-store.js <cmd>`, 3 unmeasured warm-ups",
+    "memory_soak": "bench/memory-soak.js — one MCP server, N sequential memory-search calls, child RSS sampled via tasklist WorkingSet every K calls",
+    "tokens": "bench/bench-tokens.js — byte counts via JSON.stringify of raw vs compactResponse() output per analysis tool",
+    "db_plans": "EXPLAIN QUERY PLAN via better-sqlite3 (readonly) on the bench copy, real SQL strings from src/memory-domain/search.js and data-access/observations.js",
+    "cpu_profiles": "node --cpu-prof, self-time aggregated from samples[]/timeDeltas[] by cpuprof-summarize.js",
+    "test_suite": "node node_modules/vitest/vitest.mjs run, wall clock via bash time"
+  },
+  "noise_floor": {
+    "cold_start_median_ms": { "run_a": 545, "run_b": 689, "spread": 144, "pct": 26 },
+    "warm_dispatch_p50_examples": { "memory-search": [0.87, 0.91], "memory-code_search": [2.98, 4.1], "memory-save": [0.65, 0.63] },
+    "hooks_p50": { "PreToolUse_Read": [147.4, 143.3], "PreToolUse_Bash": [178.2, 161.8], "UserPromptSubmit": [704, 823.8] },
+    "cli_p50": { "stats": [409.5, 391.7], "search": [577.6, 367.4] },
+    "test_suite_wall_s": { "run1": 486, "run2": 470, "spread_s": 16, "spread_pct": 3.4 },
+    "verdict": "cold-start and process-spawn metrics have ~25% identical-code spread on this box; sub-ms warm tools vary ~±0.05-1ms; treat deltas smaller than these spreads as noise"
+  },
+  "results": {
+    "cold_start": {
+      "run_a": { "init": { "min": 492, "median": 545 }, "tools_list": { "min": 496, "median": 549 } },
+      "run_b": { "init": { "min": 569, "median": 689 }, "tools_list": { "min": 573, "median": 692 } }
+    },
+    "warm_dispatch_p50_p90_ms": {
+      "run_a_checkpoint_polluted": {
+        "memory-search": [1.65, 2.34],
+        "memory-get": [0.43, 0.74],
+        "memory-code_search": [5.32, 6.95],
+        "memory-code_outline": [0.37, 0.56],
+        "memory-doc_search": [0.63, 2.12],
+        "memory-related": [0.72, 1.6],
+        "memory-code_preflight": [76.07, 94.41],
+        "memory-code_agent-pack": [68.01, 83.96],
+        "memory-save": [1.7, 1.98]
+      },
+      "run_b": {
+        "memory-search": [0.87, 1.07],
+        "memory-get": [0.37, 0.48],
+        "memory-code_search": [2.98, 3.33],
+        "memory-code_outline": [0.28, 0.37],
+        "memory-doc_search": [0.28, 0.51],
+        "memory-related": [0.35, 0.5],
+        "memory-code_preflight": [69.52, 74.76],
+        "memory-code_agent-pack": [61.29, 64.78],
+        "memory-save": [0.65, 0.78]
+      },
+      "run_c": {
+        "memory-search": [0.91, 1.57],
+        "memory-get": [0.42, 0.58],
+        "memory-code_search": [4.1, 5.21],
+        "memory-code_outline": [0.36, 0.6],
+        "memory-doc_search": [0.23, 0.29],
+        "memory-related": [0.33, 0.43],
+        "memory-code_preflight": [78.58, 90.37],
+        "memory-code_agent-pack": [72.09, 108.37],
+        "memory-save": [0.63, 0.85]
+      }
+    },
+    "hooks_wall_ms": {
+      "run_a": { "PreToolUse_Read": { "min": 138.6, "p50": 147.4, "p90": 163.6 }, "PreToolUse_Bash": { "min": 146.6, "p50": 178.2, "p90": 237.2 }, "UserPromptSubmit": { "min": 666.5, "p50": 704, "p90": 859.8 } },
+      "run_b": { "PreToolUse_Read": { "min": 134.3, "p50": 143.3, "p90": 157.8 }, "PreToolUse_Bash": { "min": 144.3, "p50": 161.8, "p90": 283.3 }, "UserPromptSubmit": { "min": 721.9, "p50": 823.8, "p90": 879.5 } },
+      "ups_injected_context_bytes": 1971,
+      "error_rate": "0 non-zero exits in 120 measured hook runs"
+    },
+    "cli_one_shot_wall_ms": {
+      "run_a": { "stats": { "min": 366.2, "p50": 409.5, "p90": 520.2 }, "search": { "min": 433.6, "p50": 577.6, "p90": 1010.8 } },
+      "run_b": { "stats": { "min": 329.5, "p50": 391.7, "p90": 627.9 }, "search": { "min": 337.3, "p50": 367.4, "p90": 429.2 } }
+    },
+    "memory_soak": {
+      "soak_3000_a": { "rss_mb_series": [69.2, 82.2, 91.7, 94.7, 99.2, 113.7, 129.3], "errors": 0 },
+      "soak_3000_b": { "rss_mb_series": [68.8, 81.5, 91.7, 94.2, 99.0, 113.2, 129.6], "errors": 0 },
+      "soak_10000": { "rss_mb_series": [75.3, 98.0, 104.9, 134.9, 140.9, 141.1, 150.0, 171.3, 188.8, 189.1, 190.0], "errors": 0, "verdict": "plateau ~190MB by call 8000 (last 3 samples within 1.2MB) — no unbounded growth" }
+    },
+    "token_efficiency": {
+      "rows_total": 5837,
+      "raw_bytes": 1227182,
+      "compact_bytes": 648002,
+      "savings_pct": -47,
+      "tokens_saved_approx": 165480,
+      "per_tool": [
+        { "tool": "importance", "rows": 20, "raw": 2917, "compact": 1896, "savings": "-35%" },
+        { "tool": "hotspots", "rows": 20, "raw": 4525, "compact": 1775, "savings": "-61%" },
+        { "tool": "dead-code", "rows": 4735, "raw": 931410, "compact": 450185, "savings": "-52%" },
+        { "tool": "coupling", "rows": 542, "raw": 83287, "compact": 45374, "savings": "-46%" },
+        { "tool": "extraction", "rows": 20, "raw": 10534, "compact": 10534, "savings": "-0%" },
+        { "tool": "call-hierarchy", "rows": 0, "raw": 16407, "compact": 9612, "savings": "-41%" },
+        { "tool": "import-graph", "rows": 500, "raw": 85464, "compact": 63798, "savings": "-25%" },
+        { "tool": "cycles", "rows": 0, "raw": 38, "compact": 38, "savings": "-0%" },
+        { "tool": "blast-radius", "rows": 0, "raw": 92600, "compact": 64790, "savings": "-30%" }
+      ],
+      "note": "bench-helper.js quoting bug fixed this session (quotes were passed verbatim through execFileSync argv, breaking call-hierarchy/blast-radius)"
+    },
+    "db": {
+      "row_counts": { "observations": 960, "recall_log": 177, "observation_relations": 154, "symbol_links": 0 },
+      "plans": {
+        "search_fts_with_trust_recall_subqueries": "SCAN fts VIRTUAL TABLE INDEX 32:M5 + SEARCH o USING INTEGER PRIMARY KEY + correlated scalar subqueries hitting idx_symbol_links_memory and COVERING INDEX idx_recall_memory — optimal",
+        "relations_or_query": "MULTI-INDEX OR via idx_obs_rel_source (source_id=?) + idx_obs_rel_target (target_id=?) — optimal"
+      },
+      "search_sql_inprocess_avg_ms": 0.15,
+      "search_sql_inprocess_method": "prepared statement, 200 runs, query 'prepared statement cache'"
+    },
+    "ups_hook_attribution": {
+      "method": "node --cpu-prof on one UPS hook invocation + one `context` CLI one-shot; payload bisect (repo cwd vs non-repo cwd, 5 runs each)",
+      "ups_hook_cpu_total_ms": 176.1,
+      "ups_hook_top": "readFileUtf8 28.3%, module bootstrap/compile ~25% (wrapSafe/compileForInternalLoader/internalModuleStat), better-sqlite3 dlopen+pragma ~10ms",
+      "context_one_shot_cpu_total_ms": 513.2,
+      "context_one_shot_top": "readFileUtf8 51.4%, wrapSafe 9.6%, internalModuleStat 3.7% — module file reads dominate",
+      "bisect": "UPS with non-repo cwd equally slow (p50 836 vs 769ms) -> preflight/coding-context not the cost; the dispatch('context') module graph is",
+      "wall_vs_cpu": "UPS wall ~750ms vs 176ms on-CPU in the hook process; context one-shot wall 610-1937ms with readFileUtf8 self-time varying 50->264ms across profiles (Windows file-read/Defender variability)",
+      "conclusion": "UPS cost = ~145ms hook boot floor (proven by PreToolUse total) + ~350-500ms module-loading CPU in the dispatch('context') chain + variable file-read overhead; SQL work is sub-ms"
+    },
+    "test_suite": {
+      "run1": { "wall_s": 486, "vitest_duration_s": 484.56, "tests_s": 384.76, "import_s": 23.57, "transform_s": 2.92, "failures": 17, "passed": 2378, "skipped": 2 },
+      "run2": { "wall_s": 470, "vitest_duration_s": 468.44, "tests_s": 367.3, "import_s": 19.04, "transform_s": 2.95, "failures": 17, "passed": 2378, "skipped": 2 },
+      "identical_code_spread_s": 16,
+      "failure_set": "matches documented post-#356 Windows baseline exactly (17F/2378P, 2 JEV-gated skips)"
+    }
+  },
+  "drift_vs_round5": {
+    "reference": "round-5 campaign baselines (2026-10-02/04, main a375d33/63122c9 era) — prose memory, not committed artifact; comparison is approximate",
+    "cold_start_median": { "prior": "566ms", "current": "545 / 689ms", "verdict": "within noise (144ms identical-code spread)" },
+    "warm_memory_tools_p50": { "prior": "0.24-1.14ms", "current": "0.23-0.91ms", "verdict": "no drift" },
+    "memory_save_p50": { "prior": "0.62-1.6ms", "current": "0.63-0.65ms", "verdict": "no drift" },
+    "memory_code_search_p50": { "prior": "1.74ms", "current": "2.98-4.1ms", "verdict": "elevated 1.7-2.4x, but identical-code spread for this metric is itself 1.4-1.8x — weak signal, flag for re-check after index stabilizes" },
+    "preflight_agent_pack_p50": { "prior": "0.33-0.36ms", "current": "61-79ms", "verdict": "REAL drift (consistent across 3 runs); round-5 numbers likely measured a no-op/short-circuit path — committed bench is authoritative going forward" },
+    "hooks_pretooluse": { "prior": "~168ms", "current": "~143-178ms", "verdict": "no drift" },
+    "hooks_user_prompt_submit": { "prior": "~181ms", "current": "~704-824ms", "verdict": "4x the round-5 note; round-5 method uncommitted — likely measured a lighter payload (no query-bearing prompt). Attribution: dispatch('context') module graph. Highest-value optimization target." },
+    "memory_leak": { "prior": "plateau 152MB @3000 calls", "current": "plateau ~190MB @8000-10000 calls", "verdict": "no leak either way; different sample horizons" },
+    "db_plans": { "prior": "optimal", "current": "optimal (same three plans)", "verdict": "no drift; data grew observations 859->960, relations 87->154" },
+    "test_suite": { "prior": "335s wall, 17F/2375P", "current": "470-486s wall (identical-code spread 16s/3.4%), 17F/2378P", "verdict": "failure set unchanged; wall +40-45% is OUTSIDE the measured noise floor -> real drift; cause unattributed (candidates: box/Defender conditions differ from Oct 2, or #355/#356 spawn-path changes; correctness unaffected)" }
+  }
+}
