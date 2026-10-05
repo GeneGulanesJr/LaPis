@@ -260,4 +260,3 @@ Run with `LAPIS_HOME` pointing at a disposable copy. A healthy run shows RSS ris
 ### Baselines
 
 Committed machine-readable baselines live in `bench/baselines/` (`baseline-<date>.json`: all measurements + environment metadata + commit hash). `bench/results/` is gitignored by convention — it holds ad-hoc local output (paired/realworld reports). Diff future runs against the newest committed baseline mechanically; treat deltas smaller than the identical-code noise floor recorded inside the artifact as noise.
-

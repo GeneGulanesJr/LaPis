@@ -37,8 +37,16 @@
   },
   "noise_floor": {
     "cold_start_median_ms": { "run_a": 545, "run_b": 689, "spread": 144, "pct": 26 },
-    "warm_dispatch_p50_examples": { "memory-search": [0.87, 0.91], "memory-code_search": [2.98, 4.1], "memory-save": [0.65, 0.63] },
-    "hooks_p50": { "PreToolUse_Read": [147.4, 143.3], "PreToolUse_Bash": [178.2, 161.8], "UserPromptSubmit": [704, 823.8] },
+    "warm_dispatch_p50_examples": {
+      "memory-search": [0.87, 0.91],
+      "memory-code_search": [2.98, 4.1],
+      "memory-save": [0.65, 0.63]
+    },
+    "hooks_p50": {
+      "PreToolUse_Read": [147.4, 143.3],
+      "PreToolUse_Bash": [178.2, 161.8],
+      "UserPromptSubmit": [704, 823.8]
+    },
     "cli_p50": { "stats": [409.5, 391.7], "search": [577.6, 367.4] },
     "test_suite_wall_s": { "run1": 486, "run2": 470, "spread_s": 16, "spread_pct": 3.4 },
     "verdict": "cold-start and process-spawn metrics have ~25% identical-code spread on this box; sub-ms warm tools vary ~±0.05-1ms; treat deltas smaller than these spreads as noise"
@@ -84,19 +92,37 @@
       }
     },
     "hooks_wall_ms": {
-      "run_a": { "PreToolUse_Read": { "min": 138.6, "p50": 147.4, "p90": 163.6 }, "PreToolUse_Bash": { "min": 146.6, "p50": 178.2, "p90": 237.2 }, "UserPromptSubmit": { "min": 666.5, "p50": 704, "p90": 859.8 } },
-      "run_b": { "PreToolUse_Read": { "min": 134.3, "p50": 143.3, "p90": 157.8 }, "PreToolUse_Bash": { "min": 144.3, "p50": 161.8, "p90": 283.3 }, "UserPromptSubmit": { "min": 721.9, "p50": 823.8, "p90": 879.5 } },
+      "run_a": {
+        "PreToolUse_Read": { "min": 138.6, "p50": 147.4, "p90": 163.6 },
+        "PreToolUse_Bash": { "min": 146.6, "p50": 178.2, "p90": 237.2 },
+        "UserPromptSubmit": { "min": 666.5, "p50": 704, "p90": 859.8 }
+      },
+      "run_b": {
+        "PreToolUse_Read": { "min": 134.3, "p50": 143.3, "p90": 157.8 },
+        "PreToolUse_Bash": { "min": 144.3, "p50": 161.8, "p90": 283.3 },
+        "UserPromptSubmit": { "min": 721.9, "p50": 823.8, "p90": 879.5 }
+      },
       "ups_injected_context_bytes": 1971,
       "error_rate": "0 non-zero exits in 120 measured hook runs"
     },
     "cli_one_shot_wall_ms": {
-      "run_a": { "stats": { "min": 366.2, "p50": 409.5, "p90": 520.2 }, "search": { "min": 433.6, "p50": 577.6, "p90": 1010.8 } },
-      "run_b": { "stats": { "min": 329.5, "p50": 391.7, "p90": 627.9 }, "search": { "min": 337.3, "p50": 367.4, "p90": 429.2 } }
+      "run_a": {
+        "stats": { "min": 366.2, "p50": 409.5, "p90": 520.2 },
+        "search": { "min": 433.6, "p50": 577.6, "p90": 1010.8 }
+      },
+      "run_b": {
+        "stats": { "min": 329.5, "p50": 391.7, "p90": 627.9 },
+        "search": { "min": 337.3, "p50": 367.4, "p90": 429.2 }
+      }
     },
     "memory_soak": {
       "soak_3000_a": { "rss_mb_series": [69.2, 82.2, 91.7, 94.7, 99.2, 113.7, 129.3], "errors": 0 },
       "soak_3000_b": { "rss_mb_series": [68.8, 81.5, 91.7, 94.2, 99.0, 113.2, 129.6], "errors": 0 },
-      "soak_10000": { "rss_mb_series": [75.3, 98.0, 104.9, 134.9, 140.9, 141.1, 150.0, 171.3, 188.8, 189.1, 190.0], "errors": 0, "verdict": "plateau ~190MB by call 8000 (last 3 samples within 1.2MB) — no unbounded growth" }
+      "soak_10000": {
+        "rss_mb_series": [75.3, 98.0, 104.9, 134.9, 140.9, 141.1, 150.0, 171.3, 188.8, 189.1, 190.0],
+        "errors": 0,
+        "verdict": "plateau ~190MB by call 8000 (last 3 samples within 1.2MB) — no unbounded growth"
+      }
     },
     "token_efficiency": {
       "rows_total": 5837,
@@ -137,23 +163,69 @@
       "conclusion": "UPS cost = ~145ms hook boot floor (proven by PreToolUse total) + ~350-500ms module-loading CPU in the dispatch('context') chain + variable file-read overhead; SQL work is sub-ms"
     },
     "test_suite": {
-      "run1": { "wall_s": 486, "vitest_duration_s": 484.56, "tests_s": 384.76, "import_s": 23.57, "transform_s": 2.92, "failures": 17, "passed": 2378, "skipped": 2 },
-      "run2": { "wall_s": 470, "vitest_duration_s": 468.44, "tests_s": 367.3, "import_s": 19.04, "transform_s": 2.95, "failures": 17, "passed": 2378, "skipped": 2 },
+      "run1": {
+        "wall_s": 486,
+        "vitest_duration_s": 484.56,
+        "tests_s": 384.76,
+        "import_s": 23.57,
+        "transform_s": 2.92,
+        "failures": 17,
+        "passed": 2378,
+        "skipped": 2
+      },
+      "run2": {
+        "wall_s": 470,
+        "vitest_duration_s": 468.44,
+        "tests_s": 367.3,
+        "import_s": 19.04,
+        "transform_s": 2.95,
+        "failures": 17,
+        "passed": 2378,
+        "skipped": 2
+      },
       "identical_code_spread_s": 16,
       "failure_set": "matches documented post-#356 Windows baseline exactly (17F/2378P, 2 JEV-gated skips)"
     }
   },
   "drift_vs_round5": {
     "reference": "round-5 campaign baselines (2026-10-02/04, main a375d33/63122c9 era) — prose memory, not committed artifact; comparison is approximate",
-    "cold_start_median": { "prior": "566ms", "current": "545 / 689ms", "verdict": "within noise (144ms identical-code spread)" },
+    "cold_start_median": {
+      "prior": "566ms",
+      "current": "545 / 689ms",
+      "verdict": "within noise (144ms identical-code spread)"
+    },
     "warm_memory_tools_p50": { "prior": "0.24-1.14ms", "current": "0.23-0.91ms", "verdict": "no drift" },
     "memory_save_p50": { "prior": "0.62-1.6ms", "current": "0.63-0.65ms", "verdict": "no drift" },
-    "memory_code_search_p50": { "prior": "1.74ms", "current": "2.98-4.1ms", "verdict": "elevated 1.7-2.4x, but identical-code spread for this metric is itself 1.4-1.8x — weak signal, flag for re-check after index stabilizes" },
-    "preflight_agent_pack_p50": { "prior": "0.33-0.36ms", "current": "61-79ms", "verdict": "REAL drift (consistent across 3 runs); round-5 numbers likely measured a no-op/short-circuit path — committed bench is authoritative going forward" },
+    "memory_code_search_p50": {
+      "prior": "1.74ms",
+      "current": "2.98-4.1ms",
+      "verdict": "elevated 1.7-2.4x, but identical-code spread for this metric is itself 1.4-1.8x — weak signal, flag for re-check after index stabilizes"
+    },
+    "preflight_agent_pack_p50": {
+      "prior": "0.33-0.36ms",
+      "current": "61-79ms",
+      "verdict": "REAL drift (consistent across 3 runs); round-5 numbers likely measured a no-op/short-circuit path — committed bench is authoritative going forward"
+    },
     "hooks_pretooluse": { "prior": "~168ms", "current": "~143-178ms", "verdict": "no drift" },
-    "hooks_user_prompt_submit": { "prior": "~181ms", "current": "~704-824ms", "verdict": "4x the round-5 note; round-5 method uncommitted — likely measured a lighter payload (no query-bearing prompt). Attribution: dispatch('context') module graph. Highest-value optimization target." },
-    "memory_leak": { "prior": "plateau 152MB @3000 calls", "current": "plateau ~190MB @8000-10000 calls", "verdict": "no leak either way; different sample horizons" },
-    "db_plans": { "prior": "optimal", "current": "optimal (same three plans)", "verdict": "no drift; data grew observations 859->960, relations 87->154" },
-    "test_suite": { "prior": "335s wall, 17F/2375P", "current": "470-486s wall (identical-code spread 16s/3.4%), 17F/2378P", "verdict": "failure set unchanged; wall +40-45% is OUTSIDE the measured noise floor -> real drift; cause unattributed (candidates: box/Defender conditions differ from Oct 2, or #355/#356 spawn-path changes; correctness unaffected)" }
+    "hooks_user_prompt_submit": {
+      "prior": "~181ms",
+      "current": "~704-824ms",
+      "verdict": "4x the round-5 note; round-5 method uncommitted — likely measured a lighter payload (no query-bearing prompt). Attribution: dispatch('context') module graph. Highest-value optimization target."
+    },
+    "memory_leak": {
+      "prior": "plateau 152MB @3000 calls",
+      "current": "plateau ~190MB @8000-10000 calls",
+      "verdict": "no leak either way; different sample horizons"
+    },
+    "db_plans": {
+      "prior": "optimal",
+      "current": "optimal (same three plans)",
+      "verdict": "no drift; data grew observations 859->960, relations 87->154"
+    },
+    "test_suite": {
+      "prior": "335s wall, 17F/2375P",
+      "current": "470-486s wall (identical-code spread 16s/3.4%), 17F/2378P",
+      "verdict": "failure set unchanged; wall +40-45% is OUTSIDE the measured noise floor -> real drift; cause unattributed (candidates: box/Defender conditions differ from Oct 2, or #355/#356 spawn-path changes; correctness unaffected)"
+    }
   }
 }
