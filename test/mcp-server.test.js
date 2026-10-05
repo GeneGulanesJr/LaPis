@@ -279,9 +279,9 @@ describe('MCP server end-to-end (InMemoryTransport)', () => {
     }
   });
 
-  it('projectFromCwd derives project from a directory basename', () => {
+  it('projectFromCwd derives project from a directory basename (case-preserved)', () => {
     const { projectFromCwd } = require('../src/mcp/server');
-    expect(projectFromCwd('/home/user/MyProject')).toBe('myproject');
+    expect(projectFromCwd('/home/user/MyProject')).toBe('MyProject');
     expect(projectFromCwd('/tmp/lapis-test')).toBe('lapis-test');
   });
 

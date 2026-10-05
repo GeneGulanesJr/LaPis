@@ -28,12 +28,14 @@ function resolveCwd(hint) {
 }
 
 /**
- * Derive a project name from a directory (basename, lowercased).
- * Verbatim port of src/mcp/server.js projectFromCwd.
+ * Derive a project name from a directory (basename, case-preserved).
+ * Matches the write path's basename fallback so read scoping finds what
+ * saves stored (case-sensitive `project = ?` SQL filters).
+ * Port of src/mcp/server.js projectFromCwd.
  */
 function projectFromCwd(cwd) {
   const base = path.basename(path.resolve(cwd || process.cwd()));
-  return base ? base.toLowerCase() : 'unknown';
+  return base || 'unknown';
 }
 
 /**
@@ -134,19 +136,26 @@ function resolveIndexedRepo(resolvedCwd, repos, currentProject) {
  */
 function resolveProjectKey(resolvedCwd, repos, knownProjects) {
   // Aelvyril D7: per-conversation namespace override. When the gateway
-  // spawns a pi child for a Clerk user, it injects LAPIS_PROJECT_KEY=user:<id>
-  // so multi-user access to the same repo doesn't collide on basename(cwd).
+  // Spawns a pi child for a Clerk user, it injects LAPIS_PROJECT_KEY=user:<id>
+  // So multi-user access to the same repo doesn't collide on basename(cwd).
   // Backward compatible — unset env falls through to existing resolution.
   const envKey = process.env.LAPIS_PROJECT_KEY;
   if (envKey && envKey.trim()) return envKey.trim().toLowerCase();
+  // Canonical case PRESERVED for repo/known-project/basename matches: the DB
+  // Write path (extensions/memory-layer/host/project-detector.ts detectProject)
+  // Stores project keys case-intact ('LaPis', 'aelvyril'), so reads scoped
+  // Through this resolver must return the same byte-for-byte key or the
+  // Case-sensitive `project = ?` SQL filter finds nothing. Only the explicit
+  // LAPIS_PROJECT_KEY namespace override is lowercased (documented contract,
+  // Mirrored by detectProject).
   const repo = findMatchingRepo(resolvedCwd, repos);
   if (repo?.name) {
-    return repo.name.toLowerCase();
+    return repo.name;
   }
   if (Array.isArray(knownProjects) && knownProjects.length > 0) {
     const fromTree = findMatchingProject(resolvedCwd, knownProjects);
     if (fromTree) {
-      return fromTree.toLowerCase();
+      return fromTree;
     }
   }
   return projectFromCwd(resolvedCwd);

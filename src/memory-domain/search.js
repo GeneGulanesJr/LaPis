@@ -64,9 +64,9 @@ function rankObservations(rows, query = '') {
       const typeBoost = RANKING.TYPE_BOOST[row.type] || 1.0;
 
       // Boost memories containing file paths for navigation queries.
-      // path_pattern has ambiguous quantifiers, so test bounded tokens instead
-      // of the raw text: path syntax never spans whitespace, and each token is
-      // capped, which rules out polynomial-time backtracking (ReDoS).
+      // Path_pattern has ambiguous quantifiers, so test bounded tokens instead
+      // Of the raw text: path syntax never spans whitespace, and each token is
+      // Capped, which rules out polynomial-time backtracking (ReDoS).
       let navBoost = 1.0;
       if (isNavigationQuery) {
         const text = `${row.title || ''} ${row.snippet || ''}`;
@@ -228,6 +228,8 @@ function search(deps, args) {
 
   const isFtsSpecial = /[*"\-]|\b(AND|OR|NOT)\b/i.test(query);
   const needsFallback = query === '*' || query === '' || isFtsSpecial;
+  const ftsTerms = _extractFtsTerms(query);
+  let degraded = null;
 
   let rows;
   if (!needsFallback) {
@@ -245,9 +247,9 @@ function search(deps, args) {
           AND o.deleted_at IS NULL
           AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
       `;
-      const params = [_extractFtsTerms(query)];
+      const params = [ftsTerms];
       if (project) {
-        q += ' AND o.project = ?';
+        q += ' AND o.project = ? COLLATE NOCASE';
         params.push(project);
       }
       if (type) {
@@ -267,6 +269,58 @@ function search(deps, args) {
   }
 
   if (!rows || rows.length === 0) {
+    // Degradation tier 2: same extracted terms joined with OR (bm25-ranked).
+    // Multi-word natural-language queries that no single memory satisfies as a
+    // Full AND conjunction still recall the best partial matches — FTS5's
+    // Implicit AND made e.g. "lapis mcp architecture design decisions" a
+    // Guaranteed zero-hit. Only multi-term clean queries degrade here: a
+    // Single term's OR is identical to its AND, and FTS-special queries never
+    // Reach this path (needsFallback routes them straight to LIKE below).
+    // (rows here is null/undefined on FTS error/skip, or [] on a successful
+    // Zero-hit query — both should attempt the OR tier, so don't test !rows.)
+    const terms = String(ftsTerms).split(' ').filter(Boolean);
+    if (!needsFallback && terms.length > 1) {
+      try {
+        let q = `
+          SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
+                 snippet(observations_fts, 0, '»', '«', '…', 32) as snippet,
+                 rank,
+                 ${TRUST_RECALL_SUBQ.trustScore} as trust_score,
+                 ${TRUST_RECALL_SUBQ.recallCount} as recall_count,
+                 ${TRUST_RECALL_SUBQ.usefulCount} as useful_count
+          FROM observations o
+          JOIN observations_fts fts ON o.id = fts.rowid
+          WHERE observations_fts MATCH ?
+            AND o.deleted_at IS NULL
+            AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
+        `;
+        const orParams = [terms.join(' OR ')];
+        if (project) {
+          q += ' AND o.project = ? COLLATE NOCASE';
+          orParams.push(project);
+        }
+        if (type) {
+          q += ' AND o.type = ?';
+          orParams.push(type);
+        }
+        if (scope) {
+          q += ' AND o.scope = ?';
+          orParams.push(scope);
+        }
+        q += ' ORDER BY rank LIMIT ?';
+        orParams.push(Math.min(limit * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
+        rows = sqlJson(q, orParams);
+        if (rows && rows.length > 0) {
+          degraded = 'or';
+        }
+      } catch {
+        rows = null;
+      }
+    }
+
+    // LIKE tier (phrase substring) only when the FTS tiers came up empty —
+    // it must not overwrite OR-tier hits.
+    if (!rows || rows.length === 0) {
     let q = `
       SELECT o.id, o.title, o.type, o.project, o.scope, o.topic_key, o.created_at,
              '' as snippet, 0 as rank,
@@ -279,11 +333,11 @@ function search(deps, args) {
         AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
     `;
     // Escape the ESCAPE character itself first, then the LIKE wildcards,
-    // so a trailing "\" in the query can't escape the wildcard markers.
+    // So a trailing "\" in the query can't escape the wildcard markers.
     const like = `%${query.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
     const params = [like, like];
     if (project) {
-      q += ' AND o.project = ?';
+      q += ' AND o.project = ? COLLATE NOCASE';
       params.push(project);
     }
     if (type) {
@@ -297,6 +351,7 @@ function search(deps, args) {
     q += ' ORDER BY o.created_at DESC LIMIT ?';
     params.push(Math.min(limit * RESULT_LIMITS.SEARCH_MULTIPLIER, RESULT_LIMITS.SEARCH_MAX_ROWS));
     rows = sqlJson(q, params);
+    }
   }
 
   const ranked = rankObservations(rows, query).slice(0, limit);
@@ -343,7 +398,7 @@ function search(deps, args) {
     codeResults = deps.searchCode(query, null, null, limit);
   }
 
-  return { results: ranked, code_results: codeResults };
+  return { results: ranked, code_results: codeResults, degraded };
 }
 
 function symbolCluster(deps, args) {

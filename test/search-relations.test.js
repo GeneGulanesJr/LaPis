@@ -91,4 +91,59 @@ describe('search with relations', () => {
     expect(mem._relations.length).toBeGreaterThanOrEqual(1);
     expect(mem._relations.some((r) => r.relation === 'related')).toBe(true);
   });
+
+  it('degrades to OR-tier when no memory satisfies the full AND conjunction', () => {
+    insertObservation(deps, {
+      sessionId: '1',
+      type: 'decision',
+      title: 'Kubernetes clustering choice',
+      content: 'Chose kubernetes for orchestration',
+      project: 'test',
+      scope: 'project',
+      topicKey: null,
+    });
+    insertObservation(deps, {
+      sessionId: '1',
+      type: 'architecture',
+      title: 'Postgres indexing plan',
+      content: 'Partial indexes on hot paths',
+      project: 'test',
+      scope: 'project',
+      topicKey: null,
+    });
+    // No single memory contains all three terms — the AND tier must find
+    // nothing, and the OR tier must still recall both, flagged as degraded.
+    const result = search(deps, { query: 'kubernetes postgres unicycle', project: 'test' });
+    expect(result.degraded).toBe('or');
+    expect(result.results.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('AND tier stays precise when a memory satisfies the full conjunction', () => {
+    insertObservation(deps, {
+      sessionId: '1',
+      type: 'decision',
+      title: 'Redis cache eviction policy',
+      content: 'LFU eviction for the Redis cache layer',
+      project: 'test',
+      scope: 'project',
+      topicKey: null,
+    });
+    const result = search(deps, { query: 'redis cache eviction', project: 'test' });
+    expect(result.degraded).toBeNull();
+    expect(result.results.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('project scoping matches case-insensitively (historical case-variant buckets)', () => {
+    insertObservation(deps, {
+      sessionId: '1',
+      type: 'decision',
+      title: 'Mixed-case project memory',
+      content: 'Stored under MixedCase project',
+      project: 'MixedCase',
+      scope: 'project',
+      topicKey: null,
+    });
+    const result = search(deps, { query: 'MixedCase project memory', project: 'mixedcase' });
+    expect(result.results.length).toBeGreaterThanOrEqual(1);
+  });
 });
