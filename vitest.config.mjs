@@ -23,6 +23,10 @@ export default {
       'test/context-injection-prompt.test.js',
     ],
     globals: true,
+    // Per-file LAPlS_HOME isolation (test/setup-lapis-home.js): every test
+    // file gets a throwaway temp DB instead of writing to the PRODUCTION
+    // ~/.pi/memory/memory.db — root-cause fix for ~10k test-* junk rows.
+    setupFiles: ['test/setup-lapis-home.js'],
     // Hook-handler tests run against this very checkout; without this a
     // SessionStart/PreToolUse test could spawn a real background indexer.
     // Auto-index tests inject their own config, so they are unaffected.
@@ -31,10 +35,9 @@ export default {
     hookTimeout: 30000,
     retry: 2,
     reporters: ['verbose'],
-    // Test files share the same SQLite DB (~/.pi/memory/memory.db).
-    // Parallel file execution causes race conditions when tests in
-    // Test/ and .worktrees/*/test/ try to create/remove the same repos
-    // Or reindex the same doc repos simultaneously.
-    fileParallelism: false,
+    // Per-file LAPlS_HOME isolation (test/setup-lapis-home.js) gives every
+    // test file its own SQLite DB + config home, so cross-file races on the
+    // shared production DB are structurally gone. Parallelism ON.
+    fileParallelism: true,
   },
 };
