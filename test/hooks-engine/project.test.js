@@ -34,12 +34,12 @@ describe('hooks-engine project: resolveCwd', () => {
 });
 
 describe('hooks-engine project: projectFromCwd', () => {
-  test('basename lowercased', () => {
-    expect(projectFromCwd('/foo/MyRepo')).toBe('myrepo');
+  test('basename case-preserved (matches write path — reads must find what saves stored)', () => {
+    expect(projectFromCwd('/foo/MyRepo')).toBe('MyRepo');
   });
 
   test('default to cwd', () => {
-    expect(projectFromCwd()).toBe(require('node:path').basename(process.cwd()).toLowerCase());
+    expect(projectFromCwd()).toBe(require('node:path').basename(process.cwd()));
   });
 });
 
