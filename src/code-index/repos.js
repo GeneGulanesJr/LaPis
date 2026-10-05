@@ -1,3 +1,5 @@
+const { assertIndexableRepoPath } = require('./repo-guard');
+
 function first(rows) {
   return rows && rows.length > 0 ? rows[0] : null;
 }
@@ -62,6 +64,10 @@ function createCodeIndexRepository(deps) {
       return first(sqlJson('SELECT * FROM code_repos WHERE path = ? LIMIT 1', [repoPath]));
     },
     createRepo({ name, path }) {
+      // Guard rail: refuse non-codebase paths (home dir, user content dirs,
+      // non-git dirs without explicit opt-out) at the single registration
+      // funnel — see src/code-index/repo-guard.js for the incident history.
+      assertIndexableRepoPath(path);
       sqlRun('INSERT INTO code_repos (name, path) VALUES (?, ?)', [name, path]);
       return this.findRepoByName(name).id;
     },

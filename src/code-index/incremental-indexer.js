@@ -1265,7 +1265,15 @@ async function derivedPhase(db, repoId, args, totalFiles, fileCount, symbolCount
   return rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCount, changedFileIds, deletedFileIds);
 }
 
+const { isIndexableRepoPath } = require('./repo-guard');
+
 async function indexRepository(deps, repoPath, repoName) {
+  // Guard rail: refuse non-codebase paths before any scan/registration work
+  // (home-dir index incident — see src/code-index/repo-guard.js).
+  const indexGuard = isIndexableRepoPath(repoPath);
+  if (!indexGuard.ok) {
+    return { error: `repo guard: ${indexGuard.reason}` };
+  }
   return withRepoIndexLock(repoName, async () => {
     const { db } = deps,
       args = deps.args || {},
@@ -1455,6 +1463,16 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
       existing = repository.findRepoByName(repo);
     if (!existing) {
       return { error: `Repo not found: ${repo}` };
+    }
+    // Guard rail: legacy junk rows (e.g. a home-dir repo from the broken
+    // project-attribution era) must not re-enter the stale-check → reindex
+    // loop — a home-dir index can never go fresh. Skip instead of walking.
+    const reindexGuard = isIndexableRepoPath(existing.path);
+    if (!reindexGuard.ok) {
+      return {
+        error: `repo guard: refusing to reindex '${repo}': ${reindexGuard.reason}`,
+        repoGuard: true,
+      };
     }
 
     if (mode === 'full') {

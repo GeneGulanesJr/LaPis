@@ -30,7 +30,7 @@ export default {
     // Hook-handler tests run against this very checkout; without this a
     // SessionStart/PreToolUse test could spawn a real background indexer.
     // Auto-index tests inject their own config, so they are unaffected.
-    env: { LAPIS_AUTO_INDEX: '0' },
+    env: { LAPIS_AUTO_INDEX: '0', LAPIS_INDEX_ALLOW_NON_GIT: '1' },
     testTimeout: 30000,
     hookTimeout: 30000,
     retry: 2,
