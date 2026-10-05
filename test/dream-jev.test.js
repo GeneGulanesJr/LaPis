@@ -75,11 +75,26 @@ describe('dreamJevReview — advisory only', () => {
     expect(r.superseded.verified).toEqual([]);
     expect(r.corrections.verified).toEqual([]);
   });
-  it('no _judge and default provider heuristic → unavailable report, zero adapter construction', async () => {
-    const r = await dreamJevReview(fakeDeps, {});
-    expect(r.ok).toBe(true);
-    expect(r.unavailable).toBe(true);
-    expect(r.provider).toBe('heuristic');
+  it('no _judge and provider heuristic → unavailable report, zero adapter construction', async () => {
+    // Env stubs (house pattern) pin the provider hermetically — machine
+    // config may legitimately set provider=jev with a real key in env.
+    const prevProvider = process.env.LAPIS_JUDGE_PROVIDER;
+    const prevKey = process.env.TYPESAFE_API_KEY;
+    process.env.LAPIS_JUDGE_PROVIDER = 'heuristic';
+    delete process.env.TYPESAFE_API_KEY;
+    require('../config').resetConfigCache();
+    try {
+      const r = await dreamJevReview(fakeDeps, {});
+      expect(r.ok).toBe(true);
+      expect(r.unavailable).toBe(true);
+      expect(r.provider).toBe('heuristic');
+    } finally {
+      if (prevProvider === undefined) delete process.env.LAPIS_JUDGE_PROVIDER;
+      else process.env.LAPIS_JUDGE_PROVIDER = prevProvider;
+      if (prevKey === undefined) delete process.env.TYPESAFE_API_KEY;
+      else process.env.TYPESAFE_API_KEY = prevKey;
+      require('../config').resetConfigCache();
+    }
   });
   it('judge that throws is contained → ok/unavailable', async () => {
     const judge = vi.fn(async () => {
@@ -120,9 +135,22 @@ describe('maybeDreamJevReview — single guard for all dream callers', () => {
   const { maybeDreamJevReview } = require('../src/memory-domain/dream-jev');
   const deps = { sqlJson: () => [] };
 
-  it('default config (heuristic) → null, dream pipeline untouched', async () => {
-    const r = await maybeDreamJevReview(deps, { _judge: makeJudge([]) });
-    expect(r).toBeNull();
+  it('heuristic provider (env-stubbed) → null, dream pipeline untouched', async () => {
+    const prevProvider = process.env.LAPIS_JUDGE_PROVIDER;
+    const prevKey = process.env.TYPESAFE_API_KEY;
+    process.env.LAPIS_JUDGE_PROVIDER = 'heuristic';
+    delete process.env.TYPESAFE_API_KEY;
+    require('../config').resetConfigCache();
+    try {
+      const r = await maybeDreamJevReview(deps, { _judge: makeJudge([]) });
+      expect(r).toBeNull();
+    } finally {
+      if (prevProvider === undefined) delete process.env.LAPIS_JUDGE_PROVIDER;
+      else process.env.LAPIS_JUDGE_PROVIDER = prevProvider;
+      if (prevKey === undefined) delete process.env.TYPESAFE_API_KEY;
+      else process.env.TYPESAFE_API_KEY = prevKey;
+      require('../config').resetConfigCache();
+    }
   });
 
   it('disabled surface → null even with jev provider + key', async () => {

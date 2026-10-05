@@ -34,7 +34,10 @@ function buildJudge(args) {
   if (args && args._judge) return args._judge;
   const cfg = getConfig().judgment || {};
   const adapters = cfg.provider === 'jev' ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) } : {};
-  return createJudge({ config: getConfig(), adapters });
+  // verifyBatch calls judge(batch, ...) as a plain function — return the seam's
+  // judge MEMBER, not the { provider, probe, judge } object (which would throw
+  // 'judge is not a function' in production; injected-test mocks hid this).
+  return createJudge({ config: getConfig(), adapters }).judge;
 }
 
 function verdictOf(answer) {
@@ -90,7 +93,7 @@ async function dreamJevReview(deps, args = {}) {
   const report = { ok: true, provider: 'heuristic' };
   try {
     const judge = buildJudge(args);
-    report.provider = judge.provider;
+    report.provider = judge.provider || (getConfig().judgment || {}).provider || 'heuristic';
     const supRows = deps.sqlJson(SUPERSEDED_SQL);
     const corRows = deps.sqlJson(CORRECTIONS_SQL);
     const sup = await verifyBatch(judge, 'sup', supRows || []);
