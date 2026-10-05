@@ -585,6 +585,10 @@ function smokeTestWithDb(name, dbPath, cmdFn) {
     docsDir = (() => {
       ensureDir(projectDir);
       fs.writeFileSync(path.join(projectDir, 'index.js'), '// hello\nfunction foo() { return 1; }\n');
+      // The repo guard refuses non-git paths — make the fixture a real repo.
+      if (!fs.existsSync(path.join(projectDir, '.git'))) {
+        execFileSync('git', ['init', '-q', projectDir]);
+      }
 
       return path.join(TMP_DIR, 'docs');
     })(),
