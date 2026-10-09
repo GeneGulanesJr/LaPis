@@ -21,7 +21,6 @@ import { serializeConversation, type CompactionDetails } from '@earendil-works/p
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import {
-  registerCompactionJudg,
   resolveCompactionJudg,
   type CompactionJudg,
   type DecideKeepInput,
@@ -29,9 +28,7 @@ import {
   VERDICT_LABELS,
   type KeepVerdict,
 } from '../host/compaction-judg';
-import { JevCompactionJudg } from '../host/strategies/jev-compaction-judg';
-import { DefaultCompactionJudg } from '../host/strategies/default-compaction-judg';
-import { NoopCompactionJudg } from '../host/strategies/noop-compaction-judg';
+import { ensureBuiltinJudgStrategies } from '../host/strategies/builtin-judg-strategies';
 
 // ----- settings + env resolution ---------------------------------------------
 
@@ -78,27 +75,12 @@ export type PlannerHooks = {
   register(pi: ExtensionAPI): void;
 };
 
-let defaultStrategiesRegistered = false;
-
-/**
- * Eagerly register the three default strategies so they're discoverable
- * without needing to load index.ts. Idempotent — safe to call multiple times.
- */
-export function ensureDefaultStrategies(): void {
-  if (defaultStrategiesRegistered) return;
-  try {
-    registerCompactionJudg('default', new DefaultCompactionJudg());
-    registerCompactionJudg('noop', new NoopCompactionJudg());
-    registerCompactionJudg('jev', new JevCompactionJudg());
-    defaultStrategiesRegistered = true;
-  } catch {
-    // Some/all already registered (e.g. when index.ts ran first). That's fine.
-    defaultStrategiesRegistered = true;
-  }
-}
-
 export function createJevCompactionPlanner(): PlannerHooks {
-  ensureDefaultStrategies();
+  // Eagerly register the built-in strategies so they're discoverable without
+  // needing to load index.ts. Idempotent — see builtin-judg-strategies.ts.
+  // A genuinely conflicting custom impl under a builtin name propagates here
+  // and is surfaced by the composition root.
+  ensureBuiltinJudgStrategies();
   return {
     register(pi) {
       pi.on('session_before_compact', async (event, _ctx) => {

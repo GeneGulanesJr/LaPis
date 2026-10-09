@@ -29,28 +29,28 @@ import { registerCodeTools } from './tools/code-tools';
 import { registerDocTools } from './tools/doc-tools';
 import { registerDashboardCommand } from './commands/dashboard';
 import { createJevCompactionPlanner } from './hooks/jev-compaction-planner';
-import { registerCompactionJudg } from './host/compaction-judg';
-import { JevCompactionJudg } from './host/strategies/jev-compaction-judg';
-import { DefaultCompactionJudg } from './host/strategies/default-compaction-judg';
-import { NoopCompactionJudg } from './host/strategies/noop-compaction-judg';
+import { ensureBuiltinJudgStrategies } from './host/strategies/builtin-judg-strategies';
 import { formatCodeResult } from './tools/format-code-result';
 import { formatDocResult } from './tools/format-doc-result';
 import { registerMemoryTools } from './tools/memory-tools';
 
 type RegFn = (pi: ExtensionAPI, deps: any) => void;
 
-const registrationFailures: string[] = [];
-
-function safeRegister(pi: ExtensionAPI, deps: any, name: string, fn: RegFn) {
-  try {
-    fn(pi, deps);
-  } catch (e) {
-    console.error(`[memory-layer] Failed to register ${name}:`, e instanceof Error ? e.message : String(e));
-    registrationFailures.push(name);
-  }
-}
-
 export default function memoryLayer(pi: ExtensionAPI) {
+  // Per-invocation, not module scope: pi re-invokes this factory on
+  // resume/fork with cached modules, and failure state must not leak across
+  // runtimes (issue #363).
+  const registrationFailures: string[] = [];
+
+  function safeRegister(name: string, fn: RegFn) {
+    try {
+      fn(pi, deps);
+    } catch (e) {
+      console.error(`[memory-layer] Failed to register ${name}:`, e instanceof Error ? e.message : String(e));
+      registrationFailures.push(name);
+    }
+  }
+
   const deps = {
     state,
     ensureNativeModules,
@@ -70,39 +70,43 @@ export default function memoryLayer(pi: ExtensionAPI) {
     getConfig,
   };
 
-  safeRegister(pi, deps, 'session-lifecycle hooks', registerSessionStart);
+  safeRegister('session-lifecycle hooks', registerSessionStart);
   // Jev-driven compaction (OFF by default — see docs/JEV_DRIVEN_COMPACTION.md).
   // Strategies are registered eagerly so they're discoverable, but the planner
   // is a no-op unless `compaction.judg` / `PI_COMPACTION_JUDG` opts in.
   try {
-    registerCompactionJudg('default', new DefaultCompactionJudg());
-    registerCompactionJudg('noop', new NoopCompactionJudg());
-    registerCompactionJudg('jev', new JevCompactionJudg());
+    ensureBuiltinJudgStrategies();
   } catch (e) {
-    console.error('[memory-layer] failed to register compaction strategies:', e);
+    console.error(
+      '[memory-layer] failed to register compaction strategies:',
+      e instanceof Error ? e.message : String(e),
+    );
     registrationFailures.push('compaction strategies');
   }
   try {
     createJevCompactionPlanner().register(pi);
   } catch (e) {
-    console.error('[memory-layer] failed to register compaction planner:', e);
+    console.error(
+      '[memory-layer] failed to register compaction planner:',
+      e instanceof Error ? e.message : String(e),
+    );
     registrationFailures.push('compaction planner');
   }
 
-  safeRegister(pi, deps, 'session-compact hook', registerSessionCompact);
-  safeRegister(pi, deps, 'before-agent-start hook', registerBeforeAgentStart);
-  safeRegister(pi, deps, 'context-reminder hook', registerContextReminder);
-  safeRegister(pi, deps, 'tool-guardrails hook', registerToolGuardrails);
-  safeRegister(pi, deps, 'output-compression hook', (api, ctx) => {
+  safeRegister('session-compact hook', registerSessionCompact);
+  safeRegister('before-agent-start hook', registerBeforeAgentStart);
+  safeRegister('context-reminder hook', registerContextReminder);
+  safeRegister('tool-guardrails hook', registerToolGuardrails);
+  safeRegister('output-compression hook', (api, ctx) => {
     registerOutputCompression(api, { state: ctx.state, getConfig });
   });
-  safeRegister(pi, deps, 'trust-sync hook', registerTrustSync);
-  safeRegister(pi, deps, 'passive-capture hooks', registerPassiveCapture);
-  safeRegister(pi, deps, 'session-shutdown hook', registerSessionShutdown);
-  safeRegister(pi, deps, 'memory tools', registerMemoryTools);
-  safeRegister(pi, deps, 'code tools', registerCodeTools);
-  safeRegister(pi, deps, 'doc tools', registerDocTools);
-  safeRegister(pi, deps, 'dashboard command', registerDashboardCommand);
+  safeRegister('trust-sync hook', registerTrustSync);
+  safeRegister('passive-capture hooks', registerPassiveCapture);
+  safeRegister('session-shutdown hook', registerSessionShutdown);
+  safeRegister('memory tools', registerMemoryTools);
+  safeRegister('code tools', registerCodeTools);
+  safeRegister('doc tools', registerDocTools);
+  safeRegister('dashboard command', registerDashboardCommand);
 
   // Surface partial load failures via UI notification
   if (registrationFailures.length > 0) {
