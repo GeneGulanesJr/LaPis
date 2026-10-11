@@ -86,10 +86,7 @@ export default function memoryLayer(pi: ExtensionAPI) {
   try {
     createJevCompactionPlanner().register(pi);
   } catch (e) {
-    console.error(
-      '[memory-layer] failed to register compaction planner:',
-      e instanceof Error ? e.message : String(e),
-    );
+    console.error('[memory-layer] failed to register compaction planner:', e instanceof Error ? e.message : String(e));
     registrationFailures.push('compaction planner');
   }
 
