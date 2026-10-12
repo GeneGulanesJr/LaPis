@@ -36,7 +36,7 @@ LaPis includes an optional HTTP server for programmatic access to the Aurex doma
 ### Starting the Server
 
 ```bash
-node memory-store.js serve [--host 127.0.0.1] [--port 9100]
+node memory-store.js serve [--host 127.0.0.1] [--port 9100] [--api-key KEY]
 ```
 
 Defaults to `127.0.0.1:9100`. **Without an API key the server is loopback-only**: binding to any non-loopback address (including `0.0.0.0`, `::`, or a LAN IP) is refused at startup, and requests whose `Host` header is not loopback — or whose `Origin` is present but not loopback — are rejected with 403 (this keeps web pages and DNS-rebinding attacks from driving the API). With an API key set (`--api-key` or `LAPIS_HTTP_API_KEY`) any bind is allowed, authenticated via `x-api-key` or `Authorization: Bearer`, and non-loopback binds print a network-exposure warning.
@@ -77,6 +77,7 @@ See [`CLAUDE_CODE.md`](CLAUDE_CODE.md) for daemon configuration and lockfile lay
 | Method | Endpoint                              | Purpose                      |
 | ------ | ------------------------------------- | ---------------------------- |
 | POST   | `/missions/:missionId/milestones`     | Create a milestone.          |
+| GET    | `/missions/:missionId/milestones`     | List milestones for a mission. |
 | PATCH  | `/milestones/:id/status`              | Update milestone status.     |
 
 ### Working Units
@@ -89,9 +90,12 @@ See [`CLAUDE_CODE.md`](CLAUDE_CODE.md) for daemon configuration and lockfile lay
 
 ### Handoffs
 
-| Method | Endpoint                  | Purpose                      |
-| ------ | ------------------------- | ---------------------------- |
-| POST   | `/units/:unitId/handoff`  | Write a unit handoff note.   |
+| Method | Endpoint                              | Purpose                      |
+| ------ | ------------------------------------- | ---------------------------- |
+| POST   | `/units/:unitId/handoff`              | Write a unit handoff note.   |
+| GET    | `/units/:unitId/handoff`              | Get the handoff for a unit.  |
+| GET    | `/milestones/:milestoneId/handoffs`   | Get handoffs for a milestone. |
+| GET    | `/missions/:missionId/handoffs`       | Get handoffs for a mission.  |
 
 ### Contracts
 

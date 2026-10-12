@@ -53,6 +53,8 @@ Results are returned as JSON to stdout.
 
 Supported languages: JavaScript, TypeScript, TSX, Go, Python, Rust, and SQL.
 
+`index-repo` and `reindex-repo` refuse non-codebase directories: the home directory, standard user content dirs (`Documents`, `Downloads`, …), and the filesystem root are never indexable, and any directory without a `.git` entry requires an explicit `LAPIS_INDEX_ALLOW_NON_GIT=1` opt-out.
+
 See [`docs/code-indexing.md`](code-indexing.md) for the async indexing pipeline and progress tool output.
 
 ## Agent Intelligence
@@ -125,14 +127,14 @@ See [`docs/code-indexing.md`](code-indexing.md) for the async indexing pipeline 
 
 | Command                          | Purpose                                              |
 | -------------------------------- | ---------------------------------------------------- |
-| `link-symbol --memory --symbol [--file PATH]` | Link a memory to a code symbol. `--file` records the symbol's file path so trust sync matches changes on (path, name). |
+| `link-symbol --memory-id ID --symbol-id ID --repo X [--file PATH] [--trust N]` | Link a memory to a code symbol. `--file` records the symbol's file path so trust sync matches changes on (path, name). |
 | `auto-link --project`            | Automatically link memories to relevant code symbols. |
-| `adjust-trust --id`              | Manually adjust trust score for a memory.            |
-| `record-recall --id`             | Record that a memory was recalled in a session.      |
-| `stale-links`                    | Find memory-to-symbol links that may be stale.       |
+| `adjust-trust --memory-id ID [--delta N] [--reason R]` | Manually adjust trust score for a memory.            |
+| `record-recall --session-id ID --memory-id ID` | Record that a memory was recalled in a session.      |
+| `stale-links --repo X`           | Find memory-to-symbol links that may be stale.       |
 | `sync-code-trust --repo`         | Sync trust scores after git changes.                 |
-| `symbol-cluster --symbol`        | Find all memories linked to a code symbol.           |
-| `related --id`                   | Find memories linked to the same symbols.            |
+| `symbol-cluster --repo X [--query Q]` | Find all memories linked to a code symbol.           |
+| `related --memory-id ID [--repo X]` | Find memories linked to the same symbols.            |
 
 ## Sessions and Workspaces
 
@@ -172,7 +174,7 @@ See [`docs/code-indexing.md`](code-indexing.md) for the async indexing pipeline 
 LaPis includes an optional HTTP server for programmatic access. Start it with:
 
 ```bash
-node memory-store.js serve [--host HOST] [--port PORT]
+node memory-store.js serve [--host HOST] [--port PORT] [--api-key KEY]
 ```
 
 Defaults to `127.0.0.1:9100`. The server exposes REST endpoints for missions, milestones, working units, handoffs, contracts, verdicts, broadcasts, findings, sessions, memory search, costs, retry/rescope, compression, checkpoints, settings, code indexing/analysis, the todo/ledger domain, and `POST /dispatch` (gateway dispatch for Claude Code daemon mode). See [`API.md`](API.md) for the full endpoint reference.
@@ -210,3 +212,19 @@ node memory-store.js claude-code <subcommand> [flags]
 | `hook <event>` | Internal hook router (invoked by Claude Code, not manually). Events: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `SessionEnd`. Optional `--only <role>` / `--skip <role>` for split handlers. |
 
 **Note:** Bash hooks use a single bare `Bash` matcher; compound commands like `cd repo && git pull` are classified inside the handler (not via install-time `if` prefix rules). See [`CLAUDE_CODE.md`](CLAUDE_CODE.md#hook--feature-mapping).
+
+## Hermes Bridge
+
+Commands for the [Hermes Agent](https://hermes-agent.nousresearch.com/) integration. Full setup guide: [`HERMES.md`](HERMES.md).
+
+```bash
+node memory-store.js hermes <subcommand> [flags]
+# or: lapis hermes …
+```
+
+| Subcommand | Purpose |
+| --- | --- |
+| `install` | Write Hermes config: MCP server entry, hook entries, first-use consent, and the memory skill in `$HERMES_HOME/config.yaml` (+ skills dir). Flags: `--mcp-name <name>`, `--home <dir>`, `--no-hooks`, `--no-skill`. |
+| `uninstall` | Reverse `hermes install`: remove LaPis-owned MCP sub-block, hook list items, allowlist approvals, and skill directory (other config untouched). |
+| `doctor` | Install self-check: config file, MCP entry, hook command, native module, bundled skill. Exits 0 only when all checks pass. |
+| `hook <event>` | Internal shell-hook bridge (invoked by Hermes, not manually). |

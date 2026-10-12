@@ -25,7 +25,8 @@ Call sites ask `judge(questions, {surface})`. The result is ALWAYS one of:
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `LAPIS_JUDGE_PROVIDER` | `heuristic` | `heuristic` \| `jev` \| `off` |
-| `LAPIS_JUDGE_TIMEOUT_MS` | `5000` | contract-level timeout per judge call |
+| `LAPIS_JUDGE_TIMEOUT_MS` | `5000` | contract-level timeout per judge call (also read by the jev adapter as its wire timeout, which falls back to 8000 when unset) |
+| `LAPIS_JUDGE_MAX_RETRIES` | `2` | jev adapter wire retries per call |
 | `LAPIS_JUDGE_LOCAL_ONLY` | `0` | kill switch — force heuristic path everywhere |
 | `LAPIS_JUDGE_DISABLE_<SURFACE>` | unset | per-surface opt-out (e.g. `LAPIS_JUDGE_DISABLE_DREAM=1`) |
 | `LAPIS_JUDGE_ENDPOINT` | `https://api.typesafe.ai/v1/systemone` | jev adapter endpoint (tests inject, never module-level) |
@@ -36,9 +37,13 @@ Call sites ask `judge(questions, {surface})`. The result is ALWAYS one of:
 
 | Surface | Status | State sent |
 | --- | --- | --- |
-| `dream` — Dream Cycle supersession/corrections | wired in Slice 1 | memory titles + first ~500 chars of content, candidate pairs |
-| `autosave` — decision auto-detection | wired in Slice 2 | the assistant message text |
-| `dedupe` / `guard` / `recall` / `trust` / `context` | not wired (later slices) | — |
+| `dream` — Dream Cycle supersession/corrections | wired (Slice 1) | memory titles + first ~400 chars of content, candidate pairs |
+| `autosave` — decision auto-detection | wired (Slice 2) | the assistant message text (first 4000 chars) |
+| `recall` — semantic search rerank | wired (Slice A) | the query + top-N (default 10) ranked rows: id, title, first ~400 chars of snippet/content |
+| `dedupe` — duplicate verification | wired (Slice D) | existing memory id/title + first ~400 chars of content, incoming title + first ~400 chars |
+| `trust` — invalidation review | implemented (Slice E), caller wiring pending | memory id + title (~120 chars), changed symbol names (up to 20) |
+| `guard` — command classify cascade | implemented (Slice F), caller wiring pending | the bash command text (first 500 chars) |
+| `context` — context selection | wired | the task (first ~400 chars) + per-candidate id/title/type and first ~300 chars of content |
 
 `LAPIS_JUDGE_LOCAL_ONLY=1` guarantees zero egress regardless of provider config.
 
@@ -46,7 +51,7 @@ Call sites ask `judge(questions, {surface})`. The result is ALWAYS one of:
 
 `test/judgment-goldens/*.json` are provider-neutral. A new adapter must replay
 them: `npx vitest run test/judgment-goldens.test.js` plus the adapter's own wire
-tests, then a live acceptance run (`LAPIS_JUDGE_LIVE=1`). Goldens measure the new
+tests, then a live acceptance run against the real endpoint. Goldens measure the new
 provider — they are the switch acceptance test, not a formality.
 
 ## Live wire shapes (verified 2026-09-26, jev-1.13.0)
@@ -64,8 +69,10 @@ keep-verbatim / keep-with-tools) and assembles a custom summary from those
 per-message decisions. The post-compact C+A integration in
 `extensions/memory-layer/hooks/jev-post-compact.ts` then validates the
 re-injected slice against pinned policies and lost topics — closing a
-Jev-decides-in / Jev-validates-out loop. Both features share `JEV_ENABLED` /
-`JEV_DRY_RUN` / `TYPESAFE_API_KEY` gating and the never-throw guarantee. **Off
+Jev-decides-in / Jev-validates-out loop. Both extension features share
+`JEV_ENABLED` / `JEV_DRY_RUN` / `JEV_API_KEY` gating (the `src/judgment` surfaces
+above gate on `LAPIS_JUDGE_PROVIDER=jev` + `TYPESAFE_API_KEY` instead) and the
+never-throw guarantee. **Off
 by default.** See [`JEV_DRIVEN_COMPACTION.md`](./JEV_DRIVEN_COMPACTION.md).
 
 ## Module map

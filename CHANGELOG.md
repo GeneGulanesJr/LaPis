@@ -20,6 +20,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   index lands. On by default; disable with `auto_index.enabled: false` or
   `LAPIS_AUTO_INDEX=0`. Never indexes inline (no hook-timeout risk), only
   git work trees, never `$HOME`/tmp, one indexer per repo with a cooldown.
+- **MCP transport benchmarks** — `npm run bench:mcp-cold` (cold start) and
+  `npm run bench:mcp-warm` (warm dispatch), plus hooks/cli/soak bench
+  harnesses. A baseline artifact is committed at
+  `bench/baselines/baseline-2026-10-05.json` (#356, #358).
+
+### Changed
+
+- **`index-repo` refuses non-codebase directories** — plain directories with
+  no git history and no code are rejected by a repo guard instead of indexing
+  nothing useful (test fixtures now need `git init`) (#362).
+- `lapis serve` / `lapis mcp` start faster: the code-analysis graph is built
+  lazily, out of server-mode startup (#356).
+- Symbol provenance uses a single git spawn, roughly halving `coding-context`
+  cost (#358).
+
+### Fixed
+
+- **Search** — a corrupted FTS index self-heals (rebuild once and retry)
+  instead of failing searches; multi-word natural-language queries that
+  FTS-AND and the LIKE fallback would zero out are retried once with OR
+  (bm25-ranked, flagged `degraded: 'or'`); project filters are
+  case-insensitive and resolve to the canonical stored case (#361).
+- **Windows** — token-saver `runCommand` spawns real executables directly
+  (no shell) and tree-kills on timeout (#356); repo/path matching in
+  `code-index` and `coding-context` is separator-insensitive (#355).
+- **Judgment (JEV) activation** — production `buildJudge` could return a
+  non-callable, silently disabling judgment; `CompactionJudg` registration in
+  the Pi extension is idempotent across factory re-invocation (#359, #364).
 
 ## [1.2.0] - 2026-09-07
 

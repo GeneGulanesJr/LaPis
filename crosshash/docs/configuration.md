@@ -11,4 +11,4 @@ Key sections:
 - `[impact]`: traversal confidence threshold and risk thresholds.
 - `[output]`: default output format.
 
-Per-repo overrides live in `.crosshash.toml` at a registered repository root.
+Per-repo overrides live in `.crosshash/config.toml` at a registered repository root.

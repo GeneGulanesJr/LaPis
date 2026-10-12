@@ -107,7 +107,7 @@ Three opt-in surfaces (settings win over env unless the env explicitly sets a fl
     "judg": "jev",                    // ← NEW, default unset = feature OFF
     "judgThresholdTokens": 100000,    // ← NEW, default 100_000
     "judgPath": "./my-judg.mjs",      // ← NEW, optional, overrides `judg`
-    "judgDryRun": false               // ← NEW, mirrors JEV_DRY_RUN for the strategy
+    "judgDryRun": false               // ← NEW, dry-run flag; the strategy's live-call bypass is JEV_DRY_RUN=1 (see Troubleshooting)
   }
 }
 ```
@@ -119,7 +119,7 @@ PI_COMPACTION_JUDG=jev                  # strategy name OR
 PI_COMPACTION_JUDG_PATH=./my-judg.mjs   # file path
 PI_COMPACTION_JUDG_ENABLED=1            # convenience gate
 PI_COMPACTION_JUDG_THRESHOLD=100000     # threshold
-PI_COMPACTION_JUDG_DRY_RUN=1            # dry-run (no live calls)
+PI_COMPACTION_JUDG_DRY_RUN=1            # dry-run flag (parsed by the planner; the strategy's live-call bypass is JEV_DRY_RUN=1)
 JEV_COMPACTION_ENABLED=1                # alias for PI_COMPACTION_JUDG_ENABLED
 ```
 
@@ -136,7 +136,7 @@ Two ways to swap the Jev strategy for something else.
 ### 1. In-code: `registerCompactionJudg()` from another extension
 
 ```ts
-import { registerCompactionJudg, type CompactionJudg } from '@gulaneskorp/lapis-memory-layer/host/compaction-judg';
+import { registerCompactionJudg, type CompactionJudg } from '../host/compaction-judg';
 
 class LocalLlmJudg implements CompactionJudg {
   readonly name = 'local-llm';
@@ -152,6 +152,8 @@ registerCompactionJudg('local-llm', new LocalLlmJudg());
 ```
 
 Then set `"compaction.judg": "local-llm"` in settings.
+
+Registration is idempotent for the same instance: pi re-invokes the `memoryLayer()` factory per runtime (resume/fork), so re-registering the same object is a no-op. Only a *different* impl under an already-registered name throws.
 
 ### 2. Settings-only: file path
 
@@ -187,7 +189,7 @@ The planner enforces these rules in two passes after the verdicts come back:
 | Tool-call assistant `verdict >= 2` | Promote next tool result to `keep-verbatim` |
 | `keep-with-tools` (3) on any message | Promote both neighbors to `keep-verbatim` |
 
-If you set `judgment: "default"` or `"noop"`, the planner never runs and pi's built-in cut-point logic applies normally.
+If you set `compaction.judg` to `"default"` or `"noop"`, the planner never runs and pi's built-in cut-point logic applies normally.
 
 ---
 
@@ -204,13 +206,13 @@ If you set `judgment: "default"` or `"noop"`, the planner never runs and pi's bu
 
 ### "I set `compaction.judg: "jev"` but nothing happens"
 
-- Check that **both** `JEV_ENABLED=1` and `JEV_API_KEY` (or `TYPESAFE_API_KEY`) are set. The Jev strategy reuses the existing Jev client; if those gates fail, every judgment falls through to `summarize`.
-- Check `compaction.judgDryRun: true` and re-run. You should get `<keep>` blocks in the wrap for **every** message — if not, your config isn't being merged into the settings object.
+- Check that `JEV_API_KEY` is set. The Jev strategy reuses the existing Jev client, which reads only `JEV_API_KEY` — `JEV_ENABLED` gates the post-compact hook, not this strategy. With no key every `jevAsk` call throws and the planner treats the failure as `summarize`.
+- Set `JEV_DRY_RUN=1` and re-run. You should get `<keep>` blocks in the wrap for **every** message — if not, your config isn't reaching the planner (settings merge or gates).
 - Verify the settings.json file is being parsed. A syntax error silently drops the entire settings block; the planner then reads `undefined` and stays off.
 
 ### "Verdicts look wrong"
 
-- Set `PI_COMPACTION_JUDG_DRY_RUN=1` (or `JEV_DRY_RUN=1`) to bypass the LLM and use canned answers. The strategy should always return `verdict=1` in that mode.
+- Set `JEV_DRY_RUN=1` to bypass the LLM and use canned answers (`PI_COMPACTION_JUDG_DRY_RUN` and `compaction.judgDryRun` are parsed into the planner settings but not consulted by the strategy). The canned answer is the middle level of the 4-level scale, so the strategy returns `verdict=2` (`keep-verbatim`) for every message in that mode.
 - Inspect `details.verdicts` in the `CompactionEntry` for confidence scores. Low-confidence verdicts are likely uncertain judgments.
 
 ### "Compaction is slower"

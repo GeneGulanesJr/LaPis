@@ -56,9 +56,9 @@ The MCP server derives the active project key from the client's working director
 
 1. **Indexed repo path prefix** — if `cwd` is inside an indexed repo (including monorepo subdirs like `packages/foo`), that repo's name is used.
 2. **Known memory projects** — basename walk over parent directories against `list-projects` names.
-3. **Basename fallback** — lowercased directory basename (same heuristic as early MCP builds).
+3. **Basename fallback** — the directory basename itself, canonical case preserved (matches at every step are case-insensitive; only the `LAPIS_PROJECT_KEY` override is lowercased).
 
-This uses the shared [`src/hooks-engine/project.js`](../src/hooks-engine/project.js) helpers and [`src/platform/project-db.js`](../src/platform/project-db.js) cache — the same resolution path as the Claude Code bridge.
+This uses the shared [`src/hooks-engine/project.js`](../src/hooks-engine/project.js) helpers and [`src/platform/project-db.js`](../src/platform/project-db.js) cache — the same resolution path as the Claude Code bridge. Repo and project-name matches are case-insensitive but resolve to the stored project key's canonical case (the `project = ?` SQL filter is case-sensitive), and path matching ignores `/` vs `\` separator differences.
 
 Set `CLAUDE_PROJECT_DIR` when the MCP host runs LaPis from a different cwd than the project root (Claude Code sets this automatically).
 
@@ -66,10 +66,10 @@ Set `CLAUDE_PROJECT_DIR` when the MCP host runs LaPis from a different cwd than 
 
 Tools are defined in `src/mcp/tools.js` and map to `gateway.dispatch()` commands. Names exposed to MCP hosts:
 
-- **Memory**: `memory-save`, `memory-update`, `memory-delete`, `memory-get`, `memory-search`, `memory-related`, `memory-load-context`, `memory-sync-code-trust`
+- **Memory**: `memory-save`, `memory-save-classified`, `memory-update`, `memory-delete`, `memory-get`, `memory-search`, `memory-related`, `memory-load-context`, `memory-sync-code-trust`
 - **Code**: `memory-code` (modes: search, outline, callers, callees, …)
 - **Docs**: `memory-doc` (modes: search, outline, backlinks, …)
-- **Indexing**: `index-status` (poll async `index-repo` jobs)
+- **Indexing**: `index-status` (poll async `index-repo` jobs), `cancel-index` (cancel a running job)
 
 Full tool schemas are returned by the MCP `list_tools` request at runtime.
 
