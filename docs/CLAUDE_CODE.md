@@ -128,7 +128,7 @@ Guardrails only apply inside an indexed repo, so an unindexed repo used to be sk
 
 When `SessionStart` or a `PreToolUse` guardrail sees a **git repo that is not indexed**, LaPis:
 
-1. Spawns `lapis index-repo --path <repo root> --name <dir name>` as a **detached** child and returns immediately — the hook never waits on indexing, so hook timeouts are unaffected. (Repos over `async_index_file_threshold` files switch to the async job path inside `index-repo` as usual.)
+1. Spawns `index-repo --path <repo root> --name <dir name>` as a **detached**, shell-less child (via `process.execPath` on the LaPis `cli.js` entrypoint — no PATH lookup) and returns immediately — the hook never waits on indexing, so hook timeouts are unaffected. (Repos over `async_index_file_threshold` files switch to the async job path inside `index-repo` as usual.)
 2. Tells the agent, via `additionalContext`, that indexing is running and to keep using `Read`/`Grep`/`Glob` until it finishes.
 3. From then on the repo is in `code_repos`, so the read/search/glob/bash guardrails apply on their own — no restart needed.
 

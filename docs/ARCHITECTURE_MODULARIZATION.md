@@ -287,7 +287,7 @@ It should depend on code-index, memory-domain, and doc-index through read-only i
 **Current entry points**
 
 - `src/token-saver/index.js` for command output compression and token savings tracking.
-- `src/token-saver/` modules: `classify-command.js`, `compress-output.js`, `estimate-tokens.js`, `savings-store.js`.
+- `src/token-saver/` modules: `classify-command.js`, `classify-jev.js`, `run-command.js`, `compress-output.js`, `estimate-tokens.js`, `savings-store.js`.
 
 **Sub-features**
 
@@ -298,7 +298,7 @@ It should depend on code-index, memory-domain, and doc-index through read-only i
 
 **Boundary to establish**
 
-Token-saver is fully standalone. It has no dependency on feature service internals:
+Token-saver is standalone apart from an opt-in, lazily-loaded judgment adapter for the classify cascade (`classify-jev.js`). It has no dependency on other feature service internals:
 
 ```text
 src/token-saver/
@@ -389,7 +389,7 @@ A feature module should receive a storage/repository dependency instead of impor
 - `src/http/server.js` for HTTP server creation, route registration, and startup.
 - `src/http/routes.js` for route pattern matching with path parameters.
 - `src/http/errors.js` for JSON error response helpers.
-- `src/http/handlers/` with 18 handler modules covering the Aurex domain and code endpoints.
+- `src/http/handlers/` with 19 handler modules covering the Aurex domain, code endpoints, and gateway dispatch.
 
 **Sub-features**
 

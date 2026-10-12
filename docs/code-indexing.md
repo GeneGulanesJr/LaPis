@@ -40,6 +40,10 @@ Languages: js=80, ts=10
 
 - `async_index_file_threshold` in `~/.pi/memory/config.jsonc` — file count that triggers auto-switch. Default: 500.
 
+## Repo guard
+
+Indexing refuses non-codebase directories with a `repo guard: …` error (`EREPOGUARD`): the home directory, standard user content dirs (`Desktop`, `Documents`, `Downloads`, …), the filesystem root, and — by default — any path without a `.git` entry (directory, or file for worktrees/submodules). Git repos pass automatically; to index a non-git directory explicitly, set `LAPIS_INDEX_ALLOW_NON_GIT=1`. The guard is enforced at repo registration (`createRepo`/`upsertRepo`) and at the top of `indexRepository`/`reindexRepository` — see `src/code-index/repo-guard.js`.
+
 ## How it works
 
 - A V18 schema migration creates an `index_jobs` table that backs the job ledger.

@@ -7,7 +7,7 @@ LaPis is the canonical Pi memory stack. For any code/doc lookup, prefer LaPis to
 The `memory-layer` extension **enforces** structured retrieval over raw file reads:
 
 - **Code** → `memory-code` tool
-  - Modes: callers, callees, blast-radius, dead-code, complexity, deps, outline, churn, hotspots, cycles, importance, coupling, extractable, hierarchy, signal-chains, layer-violations, index-repo, reindex-repo
+  - Modes: search, callers, callees, blast-radius, dead-code, complexity, deps, outline, churn, hotspots, cycles, importance, coupling, extractable, hierarchy, signal-chains, layer-violations, coding-context, preflight, agent-pack, health, dupes, audit-diff, enrich-symbols, index-repo, reindex-repo
 - **Docs** → `memory-doc` tool
   - Modes: search, outline, backlinks, broken-links, glossary, tutorial-path, code-examples, orphans, coverage, stale-pages, duplicates, index-docs, reindex-docs
 
@@ -85,10 +85,10 @@ Pi's footer shows `cache` usage — but this is **NOT** the persistent memory la
 - Stored in: `~/.pi/memory/memory.db` (SQLite)
 - Purpose: **Permanent knowledge** — stores decisions, code index, docs across all your projects forever
 - Scope: **All sessions, all time** (only cleaned by Dream Cycle if stale/superseded)
-- Accessed via: `/memory-search`, auto-saved decisions, symbol links
+- Accessed via: the `memory-search` tool, auto-saved decisions, symbol links
 - **This is the "real" cache** — your persistent assistant memory
 
-**Why the confusion?** The `PI_CACHE_RENTENTION` name suggests it controls Pi's memory retention, but it only controls the LLM API's prompt cache (a cost-saving feature). The memory layer has no retention setting — it's permanent by design.
+**Why the confusion?** The `PI_CACHE_RETENTION` name suggests it controls Pi's memory retention, but it only controls the LLM API's prompt cache (a cost-saving feature). The memory layer has no retention setting — it's permanent by design.
 
 > **Bottom line:** The `cache` stat in the footer is transient API optimization. The memory layer (`memory-*` tools) is your permanent knowledge base that grows across sessions.
 

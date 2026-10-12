@@ -44,7 +44,7 @@ Index code for semantic lookup and analysis:
 node memory-store.js index-repo --path /path/to/my-project --name my-project
 ```
 
-This uses web-tree-sitter (WASM) to parse JavaScript, TypeScript, TSX, Go, Python, Rust, and SQL files.
+This uses web-tree-sitter (WASM) to parse JavaScript, TypeScript, TSX, Go, Python, Rust, and SQL files. The path must be a codebase: home directories, standard user content dirs (`Documents`, `Downloads`, …), the filesystem root, and non-git directories are refused (override with `LAPIS_INDEX_ALLOW_NON_GIT=1`).
 
 ## Step 4: Analyze Code
 
@@ -94,7 +94,7 @@ curl http://127.0.0.1:9100/health
 # Create a mission
 curl -X POST http://127.0.0.1:9100/missions \
   -H "Content-Type: application/json" \
-  -d '{"title": "Refactor auth module"}'
+  -d '{"description": "Refactor auth module"}'
 
 # Search memories
 curl -X POST http://127.0.0.1:9100/memory/search \
