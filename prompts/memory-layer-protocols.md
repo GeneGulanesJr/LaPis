@@ -7,7 +7,7 @@ LaPis is the canonical Pi memory stack. For any code/doc lookup, prefer LaPis to
 The `memory-layer` extension **enforces** structured retrieval over raw file reads:
 
 - **Code** → `memory-code` tool
-  - Modes: callers, callees, blast-radius, dead-code, complexity, deps, outline, churn, hotspots, cycles, importance, coupling, extractable, hierarchy, signal-chains, layer-violations, index-repo, reindex-repo
+  - Modes: search, callers, callees, blast-radius, dead-code, complexity, deps, outline, churn, hotspots, cycles, importance, coupling, extractable, hierarchy, signal-chains, layer-violations, coding-context, preflight, agent-pack, health, index-repo, reindex-repo, dupes, audit-diff, enrich-symbols
 - **Docs** → `memory-doc` tool
   - Modes: search, outline, backlinks, broken-links, glossary, tutorial-path, code-examples, orphans, coverage, stale-pages, duplicates, index-docs, reindex-docs
 
@@ -38,7 +38,7 @@ Memory is handled automatically by the `memory-layer` extension. It:
 - **Auto-recovers** incomplete sessions
 - **Detects stale indexes** and warns when code indexes are out of date
 - **Hard-blocks reads of code files** in indexed repos — must use `memory-code outline` first; partial reads (offset/limit) allowed for editing
-- **Auto-dreams at turn 50** — runs the Dream Cycle at turn 50 of each active session (and once more at `session-end` if it did not run) to clean stale memories (not just old). Targets superseded, zero-recall auto-saved, stale corrections, and replaced configs. Consolidates accumulated `session_summary` observations into one per project. Age alone is NOT a signal. A `cleanup-sessions` CLI command is available for one-shot retroactive cleanup of databases created before this trigger moved.
+- **Auto-dreams at turn 50** — runs the Dream Cycle once per session, at turn 50 of each active session, to clean stale memories (not just old). Targets superseded, zero-recall auto-saved, stale corrections, and replaced configs. Consolidates accumulated `session_summary` observations into one per project. Age alone is NOT a signal. A `cleanup-sessions` CLI command is available for one-shot retroactive cleanup of databases created before this trigger moved.
 
 ### When to use the tools
 

@@ -144,18 +144,17 @@ PRs labeled `architecture` or `refactor`, or PRs that touch modularization code,
 
 GitHub Actions runs on pushes and PRs to `main`:
 
-- `test.yml` installs dependencies, runs lint and format check, runs the full test suite, runs smoke CLI tests, and runs post-smoke index-repo/index-docs verification.
+- `test.yml` installs dependencies, audits production dependencies at high severity, runs lint and format check, runs the full test suite, pack-smoke-checks the tarball, runs smoke CLI tests, and runs post-smoke index-repo/index-docs verification.
 - `crosshash-ci.yml` runs Rust lint/test coverage for the `crosshash/` workspace.
 
 ## Releasing
 
-LaPis is published to npm manually from a machine with npm 2FA enabled. There is no working automated publish path today.
+Releases are automated by `.github/workflows/auto-release.yml`: pushing a `package.json` version bump to `main` gates on lint + tests, tags `v{version}` (e.g. `v1.3.1`), creates a GitHub Release with generated notes, and publishes to npm via `publish.yml`.
 
 1. Bump the version in `package.json`.
-2. Cut the `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` section above it.
-3. Commit, then tag **without a `v` prefix** (repo convention: tags are `1.1.4`, not `v1.1.4`). Push the tag.
-4. Publish manually: `npm publish --access public`.
+2. Cut the `CHANGELOG.md` in the same push if you want the release recorded there: rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` section above it. (Optional — the workflow generates release notes from commits either way; 1.3.0 and 1.3.1 shipped without changelog cuts.)
+3. Push to `main`. The workflow does the rest — no manual `npm publish`.
 
-### Why manual publish?
+### Why OIDC trusted publishing?
 
-The CI publish workflow currently sends `GITHUB_TOKEN` to npmjs, which fails with `E404` (npm Trusted Publishing / OIDC is not enabled on the npm side). The workflow strips a leading `v` via `${GITHUB_REF_NAME#v}`, so the tag-side convention is already correct, but the npm-side authentication is not. Manual `npm publish --access public` from a 2FA-enabled account is the working path until npm Trusted Publishing is configured.
+`publish.yml` authenticates to npmjs via OIDC trusted publishing (`id-token: write`, `npm publish --provenance --access public`) — no npm token is stored. The npmjs.com package settings must list this workflow as a Trusted Publisher, and npm >= 11.5.1 is required (the publish job runs Node 24). Tags are `v`-prefixed (`auto-release.yml` creates `v1.3.1`); the workflow strips the `v` via `${TAG_NAME#v}` when verifying the tag matches `package.json`.

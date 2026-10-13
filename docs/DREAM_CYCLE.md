@@ -21,12 +21,14 @@ This consolidates accumulated `session_summary` observations into one per projec
 | Stale auto-detected | Auto-detected decisions with zero recall and low trust.          | Pattern-matched junk never acted on. |
 | Stale corrections   | Titles starting with `CORRECTION:`.                              | Should have used `update` instead.   |
 | Replaced configs    | Superseded setup/config memories.                                | Setup information was replaced.      |
+| Noise titles        | Auto-saved decisions matching known low-value title patterns.    | Session progress, not a real decision. |
+| Topic consolidation | 3+ memories sharing a `topic_key` merged into one entry.         | Better represented as a single consolidated memory. |
 
 ## What It Does Not Do
 
 - It does not delete memory because of age alone.
 - It does not replace explicit user decisions with inferred memories.
-- It does not run only at session end. As of Issue #194, the cycle triggers at turn 50 of each active session, then once more at `session-end` if it did not already run.
+- It does not run only at session end. As of Issue #194, the cycle triggers once per session, at turn 50 of each active session.
 
 ## Related Maintenance
 

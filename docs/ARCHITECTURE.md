@@ -6,7 +6,7 @@ For the detailed extraction assessment and rationale, see [`ARCHITECTURE_MODULAR
 
 ## Integration transports
 
-LaPis exposes one backend through three client integrations. All transports share `gateway.dispatch()`, the same SQLite store (`~/.pi/memory/`), and the same feature modules.
+LaPis exposes one backend through four client integrations. All transports share `gateway.dispatch()`, the same SQLite store (`~/.pi/memory/`), and the same feature modules.
 
 ```text
                     ┌─────────────────────────────────────┐
@@ -29,15 +29,16 @@ LaPis exposes one backend through three client integrations. All transports shar
 | Pi extension | `extensions/memory-layer/` | In-process hooks, tools, TUI formatting, session `state` |
 | MCP server | `src/mcp/server.js` | MCP stdio framing, tool catalog, result translation |
 | Claude Code bridge | `src/claude-code/` | Per-hook process router, disk-backed session state, install/doctor/daemon |
+| Hermes Agent bridge | `src/hermes/` | Shell-hook dispatcher (stdin JSON), `$HERMES_HOME/config.yaml` + hook install/doctor |
 | Shared hook logic | `src/hooks-engine/` | Transport-agnostic pattern matching, context build, guardrails, passive capture |
 
-Pi remains the primary integration (full in-process lifecycle). MCP exposes tools only. Claude Code combines MCP tools with hook-driven parity via the bridge. See [`CLAUDE_CODE.md`](CLAUDE_CODE.md) and [`MCP.md`](MCP.md).
+Pi remains the primary integration (full in-process lifecycle). MCP exposes tools only. Claude Code combines MCP tools with hook-driven parity via the bridge. Hermes combines the MCP server with shell hooks (fail open). See [`CLAUDE_CODE.md`](CLAUDE_CODE.md), [`MCP.md`](MCP.md), and [`HERMES.md`](HERMES.md).
 
 ## Runtime layers
 
 ```text
 Pi Agent / MCP host / Claude Code
-  -> extensions/memory-layer/  OR  src/mcp/  OR  src/claude-code/
+  -> extensions/memory-layer/  OR  src/mcp/  OR  src/claude-code/  OR  src/hermes/
   -> src/hooks-engine/           # shared pure-JS hook primitives (Pi + Claude Code)
   -> memory-store.js / cli.js    # CLI entry points and command dispatch setup
   -> src/cli/                    # command gateway and feature routers
@@ -77,6 +78,7 @@ Feature services live under `src/` and own one feature family each:
 - `src/trust-sync/` — explicit integration between memory observations and code symbols.
 - `src/agent-intel/` — agent-facing coding intelligence orchestration: preflight checks, agent-pack planning, audit-diff, and symbol enrichment.
 - `src/token-saver/` — output compression, command classification, token estimation, and savings tracking.
+- `src/judgment/` — provider-agnostic semantic judgment calls (`judge()`): heuristic (default) and Jev providers, off by default, always falling back to the caller's heuristic on any non-ok result.
 
 > Note: `src/workflow-memory/` (procedural workflow memory) was removed in commit `a2b151b` (Issue #167). The CLI commands `save-workflow`, `record-step`, `step-outcome`, and `get-workflow` no longer exist; the corresponding module, router, repository, and test files were deleted. Use `memory-save` observations and the trust/session subsystems for the use case this module was originally intended to address.
 
@@ -87,6 +89,10 @@ Feature services live under `src/` and own one feature family each:
 ### Claude Code hooks bridge
 
 `src/claude-code/` adapts Claude Code lifecycle events (SessionStart, PreToolUse, PostToolUse, Stop, …) to the same dispatch core Pi uses. Because Claude Code spawns a fresh process per hook, session state is persisted under `~/.pi/memory/claude-sessions/` and PostToolUse handlers mirror in-process Pi tool mutations. Install via `lapis claude-code install`. See [`CLAUDE_CODE.md`](CLAUDE_CODE.md).
+
+### Hermes Agent hooks bridge
+
+`src/hermes/` adapts the Hermes Agent's shell-hook system to the same dispatch core: a single `hermes hook` dispatcher reads the JSON payload from stdin and routes `pre_tool_call` read guardrails (reusing hooks-engine), `post_tool_call` trust sync, and session lifecycle events. Hooks fail open. Install via `lapis hermes install`, which wires `mcp_servers.lapis` and the `hooks:` entries in `$HERMES_HOME/config.yaml`. See [`HERMES.md`](HERMES.md).
 
 ### Shared hooks engine
 
@@ -112,7 +118,7 @@ Feature services live under `src/` and own one feature family each:
 8. `src/http/` may depend on platform repositories and feature services, but should not contain business logic or raw SQL.
 9. Crosshash remains behind a command/API boundary until it fully replaces the JavaScript code-intelligence path.
 10. `agent-intel` may depend on code-index read model, memory-domain search, and doc-index, but must not mutate memory or code indexes.
-11. `token-saver` is standalone; it may not depend on feature service internals or Pi extension state.
+11. `token-saver` is standalone apart from an opt-in, lazily-loaded `judgment` adapter for ambiguous command classification; it may not depend on other feature service internals or Pi extension state.
 12. `hooks-engine` is pure JS with no transport, SQL, or Pi API dependencies; Pi extension and Claude Code bridge may depend on it, not vice versa.
 13. `src/mcp/` and `src/claude-code/` are transport adapters; they delegate to `gateway.dispatch` and `hooks-engine`, and must not embed feature business logic.
 

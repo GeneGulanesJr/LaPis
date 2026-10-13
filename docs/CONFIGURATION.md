@@ -79,6 +79,7 @@ Supported settings include:
 | `async_index_file_threshold` | `500`                                | File count at which `index-repo` auto-switches to async.                |
 | `auto_index.enabled`        | `true`                               | Claude Code bridge: start a detached background `index-repo` when a hook sees an unindexed git repo. Override with `LAPIS_AUTO_INDEX=0\|1` (env wins). See [Auto-indexing](CLAUDE_CODE.md#auto-indexing). |
 | `output_compression.*`      | `{ enabled: true, min_chars: 2000, min_savings_percent: 30 }` | Output compression defaults for the `run` subcommand and extension tool guardrails. |
+| `tool_guardrails.enabled`   | `true`                               | Master toggle for the read/search guardrails (raw `grep`/`find` redirect, unread-file read block). Set `false` to disable. |
 
 ## Tool Tier Configuration
 
@@ -97,6 +98,41 @@ LaPis supports tool access tiers to control which commands are available to the 
 | `core`    | `search`, `save`, `context`, `search-code`, `get-code-source`, `preflight`, `agent-pack`, `importance`, `outline`, `winnow`, `dream` |
 | `standard`| All core commands + `complexity`, `dead-code`, `hotspots`, `blast-radius`, `call-hierarchy`, `cycles`, `coupling` |
 | `full`    | All commands unrestricted                                                                               |
+
+## Semantic Judgments (optional)
+
+Provider-agnostic semantic judgments (Dream Cycle, dedupe, and trust-sync surfaces) are **off by default** — every call site keeps its heuristic fallback. The `judgment` config block:
+
+```jsonc
+{
+  "judgment": {
+    "provider": "heuristic",   // "heuristic" | "jev" | "off"
+    "timeout_ms": 5000,
+    "max_retries": 2,
+    "local_only": false,       // kill switch: force the heuristic path everywhere
+    "confident_threshold": 0.6,
+    "breaker_threshold": 3,    // consecutive failures before the circuit breaker opens
+    "breaker_cooldown_ms": 60000,
+    "disables": {}             // per-surface opt-outs, e.g. { "dream": true }
+  }
+}
+```
+
+Opting in to the remote provider requires `LAPIS_JUDGE_PROVIDER=jev` and a machine-scoped `TYPESAFE_API_KEY`. Full env-var and surface reference: [`JUDGMENT.md`](JUDGMENT.md).
+
+## Environment Variables
+
+Environment overrides use precedence: env var > `config.jsonc` value > built-in default.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `LAPIS_HOME` | `HOME` / `USERPROFILE` / `os.homedir()` | Base directory for the `.pi/memory` config and data path (`$LAPIS_HOME/.pi/memory/`). |
+| `LAPIS_ASYNC_INDEX_THRESHOLD` | (config default `500`) | Positive integer overriding `async_index_file_threshold`. |
+| `LAPIS_INDEX_ALLOW_NON_GIT` | (unset) | Set to `1` to let `index-repo` / `reindex-repo` index a directory without a `.git` entry. Home directories, standard user content dirs, and the filesystem root are always refused. |
+| `LAPIS_JUDGE_PROVIDER`, `LAPIS_JUDGE_TIMEOUT_MS`, `LAPIS_JUDGE_LOCAL_ONLY`, `LAPIS_JUDGE_DISABLE_<SURFACE>` | (unset) | Environment overrides for the `judgment` config block. See [`JUDGMENT.md`](JUDGMENT.md). |
+| `LAPIS_LAYAMCP_URL`, `LAPIS_LAYAMCP_ENABLED`, `LAPIS_LAYAMCP_TIMEOUT_MS` | `http://127.0.0.1:8765`, `true`, `5000` | LayaMCP classification sidecar used by the classified save path. |
+
+Claude Code bridge and HTTP server variables are covered in their sections below.
 
 ## HTTP Server Configuration
 

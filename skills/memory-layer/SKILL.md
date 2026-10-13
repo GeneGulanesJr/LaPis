@@ -151,7 +151,7 @@ Dead code confidence: 0.33 per signal (no callers, unreachable file), 1.0 = prov
   5. **Replaced configs** — superseded configs (e.g. "using frpc" → "switched to CF Tunnel")
 
   Age alone is NOT a signal. A 6-month-old valid decision stays. A 1-day-old superseded one goes.
-  Auto-runs every 10th session. Run manually: `memory-store.js dream` or `/memory-dream`.
+  Auto-runs once per session at turn 50. Run manually: `memory-store.js dream` or `/memory-dream`.
 
 - `stats`
 - `list-projects`
