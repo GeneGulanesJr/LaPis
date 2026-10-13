@@ -1,21 +1,24 @@
-// memory-save-classified — MCP catalog + decision-service HTTP client tests.
+// memory-save-classified — MCP catalog + DecisionMCP client tests.
 //
 // vitest globals are enabled (vitest.config.mjs: globals: true), so no imports.
 // We deliberately exercise:
 //   1. MCP catalog presence + toCommand shape (parity with extensions/)
-//   2. The HTTP client (decision.js) with a mocked fetch — the module owns
-//      transport, timeouts, and JSON-RPC error envelopes.
-//   3. autoClassify heuristics — pure logic, no fetch needed.
+//   2. The DecisionMCP client (decision.js) with an injected fake MCP SDK —
+//      the module owns connect → tools/call → close, the overall deadline,
+//      and result parsing (isError blocks, non-JSON content, confidence
+//      default).  Injection via ctx.sdk, per the repo's injectable-seam
+//      testing convention.
+//   3. autoClassify heuristics — pure logic, no MCP needed.
 
 const decision = require('../src/memory-domain/decision'),
-  { tools, toolByName } = require('../src/mcp/tools');
+  { toolByName } = require('../src/mcp/tools');
 
 describe('memory-save-classified MCP catalog', () => {
   it('exposes memory-save-classified in the catalog', () => {
     const t = toolByName['memory-save-classified'];
     expect(t).toBeDefined();
     expect(t.name).toBe('memory-save-classified');
-    expect(t.description).toMatch(/decision-service classification/);
+    expect(t.description).toMatch(/DecisionMCP classification/);
     expect(t.inputSchema.type).toBe('object');
   });
 
@@ -74,28 +77,38 @@ describe('memory-save-classified MCP catalog', () => {
   });
 });
 
-describe('Decision service HTTP client', () => {
-  let origFetch, origUrl, origEnabled, origTimeout, origPrefix;
+describe('DecisionMCP client', () => {
+  let connectMock, callToolMock, closeMock, sdk, clientCount, transportHrefs, origUrl, origEnabled, origTimeout;
 
   beforeEach(() => {
-    origFetch = global.fetch;
-    origUrl = process.env.LAPIS_DECISION_URL;
-    origEnabled = process.env.LAPIS_DECISION_ENABLED;
-    origTimeout = process.env.LAPIS_DECISION_TIMEOUT_MS;
-    origPrefix = process.env.LAPIS_DECISION_TOOL_PREFIX;
-    delete process.env.LAPIS_DECISION_URL;
-    delete process.env.LAPIS_DECISION_ENABLED;
-    delete process.env.LAPIS_DECISION_TIMEOUT_MS;
-    delete process.env.LAPIS_DECISION_TOOL_PREFIX;
+    connectMock = vi.fn().mockResolvedValue(undefined);
+    callToolMock = vi.fn();
+    closeMock = vi.fn().mockResolvedValue(undefined);
+    clientCount = 0;
+    transportHrefs = [];
+    // Plain constructor functions — vi.fn() arrow impls are not constructable.
+    function FakeClient() {
+      clientCount += 1;
+      return { connect: connectMock, callTool: callToolMock, close: closeMock };
+    }
+    function FakeTransport(url) {
+      transportHrefs.push(String(url.href));
+      return {};
+    }
+    sdk = { Client: FakeClient, SSEClientTransport: FakeTransport };
+    origUrl = process.env.LAPIS_DECISIONMCP_URL;
+    origEnabled = process.env.LAPIS_DECISIONMCP_ENABLED;
+    origTimeout = process.env.LAPIS_DECISIONMCP_TIMEOUT_MS;
+    delete process.env.LAPIS_DECISIONMCP_URL;
+    delete process.env.LAPIS_DECISIONMCP_ENABLED;
+    delete process.env.LAPIS_DECISIONMCP_TIMEOUT_MS;
   });
 
   afterEach(() => {
-    global.fetch = origFetch;
     const env = {
-      LAPIS_DECISION_URL: origUrl,
-      LAPIS_DECISION_ENABLED: origEnabled,
-      LAPIS_DECISION_TIMEOUT_MS: origTimeout,
-      LAPIS_DECISION_TOOL_PREFIX: origPrefix,
+      LAPIS_DECISIONMCP_URL: origUrl,
+      LAPIS_DECISIONMCP_ENABLED: origEnabled,
+      LAPIS_DECISIONMCP_TIMEOUT_MS: origTimeout,
     };
     for (const [name, value] of Object.entries(env)) {
       if (value === undefined) {
@@ -106,120 +119,104 @@ describe('Decision service HTTP client', () => {
     }
   });
 
-  it('callDecision returns parsed result on success', async () => {
-    global.fetch = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      text: async () => JSON.stringify({ is_injection: false, confidence: 0.9 }),
-    }));
-    const out = await decision.callDecision('laya_guard', { prompt: 'hi' });
-    expect(out.is_injection).toBe(false);
+  it('classify connects to /sse, calls the decision_* tool, and parses the JSON content', async () => {
+    callToolMock.mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({ is_injection: false, confidence: 0.9 }) }],
+    });
+    const out = await decision.classify('hello', 'guard', { sdk });
+    expect(out.tool).toBe('decision_guard');
+    expect(out.classification).toBe('guard');
     expect(out.confidence).toBe(0.9);
+    expect(out.result).toEqual({ is_injection: false, confidence: 0.9 });
     expect(typeof out.classified_at).toBe('string');
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    const [url, init] = global.fetch.mock.calls[0];
-    expect(url).toBe('http://127.0.0.1:8765');
-    expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body)).toEqual({ tool: 'laya_guard', state: { prompt: 'hi' } });
-    expect(init.signal).toBeDefined();
+    expect(transportHrefs[0]).toBe('http://127.0.0.1:8765/sse');
+    expect(connectMock).toHaveBeenCalledTimes(1);
+    expect(callToolMock).toHaveBeenCalledWith({ name: 'decision_guard', arguments: { prompt: 'hello' } }, undefined, {
+      timeout: expect.any(Number),
+    });
+    expect(closeMock).toHaveBeenCalledTimes(1);
   });
 
-  it('callDecision throws DecisionError on HTTP 500', async () => {
-    global.fetch = vi.fn(async () => ({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-      text: async () => JSON.stringify({ error: 'kaboom' }),
-    }));
-    await expect(decision.callDecision('laya_guard', { prompt: 'hi' })).rejects.toMatchObject({
-      name: 'DecisionError',
-      status: 500,
-      code: 'http_error',
+  it('maps each classification to its DecisionMCP tool and argument key', async () => {
+    callToolMock.mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({ confidence: 0.5 }) }],
+    });
+    await decision.classify('body text', 'email', { sdk });
+    expect(callToolMock.mock.calls[0][0]).toEqual({
+      name: 'decision_email',
+      arguments: { body: 'body text' },
     });
   });
 
-  it('callDecision throws DecisionError on JSON-RPC error response', async () => {
-    global.fetch = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      text: async () => JSON.stringify({ error: { message: 'rate limited' } }),
-    }));
-    await expect(decision.callDecision('laya_guard', { prompt: 'hi' })).rejects.toMatchObject({
+  it('defaults confidence to 0.5 when the engine omits it', async () => {
+    callToolMock.mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({ is_injection: false }) }],
+    });
+    const out = await decision.classify('hello', 'guard', { sdk });
+    expect(out.confidence).toBe(0.5);
+  });
+
+  it('throws DecisionError with tool_error when the tool replies isError', async () => {
+    callToolMock.mockResolvedValue({ content: [{ type: 'text', text: 'model exploded' }], isError: true });
+    await expect(decision.classify('hello', 'guard', { sdk })).rejects.toMatchObject({
       name: 'DecisionError',
-      code: 'rpc_error',
+      code: 'tool_error',
+      classification: 'guard',
+    });
+    expect(closeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws DecisionError with bad_response on non-JSON tool content', async () => {
+    callToolMock.mockResolvedValue({ content: [{ type: 'text', text: 'not json at all' }] });
+    await expect(decision.classify('hello', 'guard', { sdk })).rejects.toMatchObject({
+      name: 'DecisionError',
+      code: 'bad_response',
     });
   });
 
-  it('callDecision throws DecisionError when fetch aborts via AbortController timeout', async () => {
-    // Simulate fetch rejecting with AbortError after a tick.
-    global.fetch = vi.fn(
-      (_url, init) =>
-        new Promise((_resolve, reject) => {
-          init.signal.addEventListener('abort', () => {
-            const e = new Error('aborted');
-            e.name = 'AbortError';
-            reject(e);
-          });
-        }),
-    );
-    await expect(decision.callDecision('laya_guard', { prompt: 'hi' }, { timeoutMs: 5 })).rejects.toMatchObject({
+  it('throws DecisionError with network_error when the SSE connect fails', async () => {
+    connectMock.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:8765'));
+    await expect(decision.classify('hello', 'guard', { sdk })).rejects.toMatchObject({
+      name: 'DecisionError',
+      code: 'network_error',
+    });
+    expect(closeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws DecisionError with timeout when the tool call exceeds the deadline', async () => {
+    process.env.LAPIS_DECISIONMCP_TIMEOUT_MS = '5';
+    callToolMock.mockImplementation(() => new Promise(() => {}));
+    await expect(decision.classify('hello', 'guard', { sdk })).rejects.toMatchObject({
       name: 'DecisionError',
       code: 'timeout',
     });
+    expect(closeMock).toHaveBeenCalledTimes(1);
   });
 
-  it('classify maps classification → tool + arg, returning { tool, classification, confidence }', async () => {
-    global.fetch = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      text: async () => JSON.stringify({ is_injection: false, confidence: 0.75 }),
-    }));
-    const out = await decision.classify('hello', 'guard');
-    expect(out.tool).toBe('laya_guard');
-    expect(out.classification).toBe('guard');
-    expect(out.confidence).toBe(0.75);
-    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
-    expect(body).toEqual({ tool: 'laya_guard', state: { prompt: 'hello' } });
+  it('throws DecisionError with disabled before constructing a client when disabled via env', async () => {
+    process.env.LAPIS_DECISIONMCP_ENABLED = 'false';
+    await expect(decision.classify('hello', 'guard', { sdk })).rejects.toMatchObject({
+      name: 'DecisionError',
+      code: 'disabled',
+    });
+    expect(clientCount).toBe(0);
   });
 
-  it('tool names default to the reference service prefix but stay configurable', async () => {
-    global.fetch = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      text: async () => JSON.stringify({ confidence: 0.5 }),
-    }));
-
-    // Default: the reference deployment's laya_* wire names.
-    expect(decision.toolFor('guard')).toBe('laya_guard');
-
-    // Any other backend: flip the prefix, no code change.
-    process.env.LAPIS_DECISION_TOOL_PREFIX = 'zeus_';
-    const out = await decision.classify('hello', 'triage');
-    expect(out.tool).toBe('zeus_triage');
-    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
-    expect(body).toEqual({ tool: 'zeus_triage', state: { text: 'hello' } });
-  });
-
-  it('classify rejects unknown classification with bad_input code', async () => {
-    await expect(decision.classify('x', 'banana')).rejects.toMatchObject({
+  it('rejects unknown classification with bad_input before constructing a client', async () => {
+    await expect(decision.classify('x', 'banana', { sdk })).rejects.toMatchObject({
       name: 'DecisionError',
       code: 'bad_input',
       classification: 'banana',
     });
+    expect(clientCount).toBe(0);
   });
 
-  it('callDecision throws when disabled via env var', async () => {
-    process.env.LAPIS_DECISION_ENABLED = 'false';
-    global.fetch = vi.fn();
-    await expect(decision.callDecision('laya_guard', { prompt: 'hi' })).rejects.toMatchObject({
+  it('rejects empty content with bad_input', async () => {
+    await expect(decision.classify('', 'guard', { sdk })).rejects.toMatchObject({
       name: 'DecisionError',
-      code: 'disabled',
+      code: 'bad_input',
     });
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(clientCount).toBe(0);
   });
 });
 

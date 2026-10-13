@@ -1,12 +1,12 @@
-// Decision-service client for atomic memory classification.
+// DecisionMCP client for atomic memory classification.
 //
-// Wires LaPis's memory-save path through a decision service (an external
-// HTTP service) so every persisted memory can be gated by a classifier.
-// The client is provider-agnostic: any backend implementing the
-// `{ tool, state }` JSON contract works.  The reference deployment is the
-// LayaMCP sidecar (github.com/GeneGulanesJr/LayaMCP) — laya is one decision
-// model behind that service, not the interface — so the upstream tool names
-// default to its `laya_*` tools but stay configurable via env.
+// Wires LaPis's memory-save path through DecisionMCP
+// (github.com/GeneGulanesJr/DecisionMCP) — an engine-agnostic MCP decision
+// service — so every persisted memory can be gated by a classifier.  Laya
+// is the default engine behind the service, not the interface: the client
+// speaks MCP (JSON-RPC tools/call over the service's SSE endpoint) and
+// targets the service's fixed `decision_*` tools.  Mirrors the contract in
+// DecisionMCP's integrations/lapis-memory-save-classified.ts.
 //
 // Classifications:
 //
@@ -20,39 +20,37 @@
 // (commands['save-classified']).  This module is transport only.
 //
 // Env vars (defaults in parens):
-//   LAPIS_DECISION_URL         (http://127.0.0.1:8765)
-//   LAPIS_DECISION_ENABLED     (true)
-//   LAPIS_DECISION_TIMEOUT_MS  (5000)
-//   LAPIS_DECISION_TOOL_PREFIX ('laya_' — wire names, e.g. laya_guard)
+//   LAPIS_DECISIONMCP_URL         (http://127.0.0.1:8765 — base URL, /sse is appended)
+//   LAPIS_DECISIONMCP_ENABLED     (true)
+//   LAPIS_DECISIONMCP_TIMEOUT_MS  (5000)
 
 const DEFAULT_URL = 'http://127.0.0.1:8765',
   DEFAULT_TIMEOUT_MS = 5000,
-  DEFAULT_TOOL_PREFIX = 'laya_',
-  // classification → argument key the upstream tool reads the content from
-  CLASSIFICATION_ARG = {
-    guard: 'prompt',
-    moderate: 'text',
-    triage: 'text',
-    email: 'body',
+  // classification → DecisionMCP tool name + the argument key that tool
+  // reads the content from (the service's fixed tool surface)
+  CLASSIFICATION_TOOL = {
+    guard: { tool: 'decision_guard', arg: 'prompt' },
+    moderate: { tool: 'decision_moderate', arg: 'text' },
+    triage: { tool: 'decision_triage', arg: 'text' },
+    email: { tool: 'decision_email', arg: 'body' },
   },
-  CLASSIFICATIONS = Object.keys(CLASSIFICATION_ARG);
+  CLASSIFICATIONS = Object.keys(CLASSIFICATION_TOOL);
 
 class DecisionError extends Error {
   constructor(message, opts = {}) {
     super(message);
     this.name = 'DecisionError';
-    this.status = opts.status;
-    this.body = opts.body;
     this.code = opts.code;
     this.classification = opts.classification;
+    this.body = opts.body;
   }
 }
 
 function getConfig() {
-  const enabledRaw = process.env.LAPIS_DECISION_ENABLED,
+  const enabledRaw = process.env.LAPIS_DECISIONMCP_ENABLED,
     enabled = enabledRaw === undefined || enabledRaw === '' ? true : !/^(0|false|no|off)$/i.test(enabledRaw),
-    url = process.env.LAPIS_DECISION_URL || DEFAULT_URL,
-    timeoutRaw = process.env.LAPIS_DECISION_TIMEOUT_MS,
+    url = process.env.LAPIS_DECISIONMCP_URL || DEFAULT_URL,
+    timeoutRaw = process.env.LAPIS_DECISIONMCP_TIMEOUT_MS,
     timeoutMs = (() => {
       if (timeoutRaw === undefined || timeoutRaw === '') {
         return DEFAULT_TIMEOUT_MS;
@@ -61,117 +59,6 @@ function getConfig() {
       return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_MS;
     })();
   return { enabled, url, timeoutMs };
-}
-
-// Upstream wire name for a classification — `${prefix}${classification}`.
-// The prefix defaults to the reference service's `laya_` naming so the
-// existing deployment keeps working; point LAPIS_DECISION_TOOL_PREFIX at
-// another backend's naming without touching this module.
-function toolPrefix() {
-  const raw = process.env.LAPIS_DECISION_TOOL_PREFIX;
-  return raw === undefined || raw === '' ? DEFAULT_TOOL_PREFIX : raw;
-}
-
-function toolFor(classification) {
-  return `${toolPrefix()}${classification}`;
-}
-
-// Generic JSON-RPC-ish POST.  The service accepts { tool, state } where
-// `state` is an opaque blob the tool's input field maps onto.
-// Returns the parsed JSON body.  Throws DecisionError on any failure
-// mode so the caller can route on it.
-async function callDecision(tool, state, opts = {}) {
-  const { url, timeoutMs, enabled } = getConfig();
-  if (!enabled) {
-    throw new DecisionError('Decision service is disabled (LAPIS_DECISION_ENABLED=false)', { code: 'disabled' });
-  }
-  if (!state || typeof state !== 'object') {
-    throw new DecisionError(`Decision tool ${tool} requires a state object`, { code: 'bad_input' });
-  }
-
-  const controller = new AbortController(),
-    timer = setTimeout(() => controller.abort(), opts.timeoutMs || timeoutMs),
-    startedAt = Date.now();
-  let res;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tool, state }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    clearTimeout(timer);
-    const isAbort = err.name === 'AbortError' || controller.signal.aborted;
-    throw new DecisionError(
-      isAbort
-        ? `Decision service request to ${tool} timed out after ${opts.timeoutMs || timeoutMs}ms`
-        : `Decision service request to ${tool} failed: ${err.message}`,
-      { code: isAbort ? 'timeout' : 'network_error' },
-    );
-  }
-  clearTimeout(timer);
-
-  const text = await res.text();
-  let body;
-  try {
-    body = text ? JSON.parse(text) : {};
-  } catch (err) {
-    throw new DecisionError(`Decision service returned non-JSON from ${tool} (HTTP ${res.status}): ${err.message}`, {
-      status: res.status,
-      body: text.slice(0, 500),
-      code: 'bad_response',
-    });
-  }
-
-  if (!res.ok) {
-    throw new DecisionError(
-      `Decision service tool ${tool} returned HTTP ${res.status}: ${body.error || res.statusText}`,
-      {
-        status: res.status,
-        body,
-        code: 'http_error',
-      },
-    );
-  }
-
-  if (body && body.error) {
-    // JSON-RPC / API-style error envelope from the upstream server.
-    throw new DecisionError(`Decision service tool ${tool} errored: ${body.error.message || body.error}`, {
-      status: res.status,
-      body,
-      code: 'rpc_error',
-    });
-  }
-
-  return { ...body, classified_at: body.classified_at || new Date(startedAt).toISOString() };
-}
-
-// Run a specific classifier.  Returns { tool, classification, confidence,
-// classified_at, result } or throws DecisionError.  `result` is the parsed
-// upstream payload, `confidence` is whatever the upstream reported
-// (defaults to 1.0 when absent).
-async function classify(content, classification, _ctx) {
-  const arg = CLASSIFICATION_ARG[classification];
-  if (!arg) {
-    throw new DecisionError(`Unknown classification: ${classification}`, { code: 'bad_input', classification });
-  }
-  if (typeof content !== 'string' || content.length === 0) {
-    throw new DecisionError(`classify(${classification}) requires non-empty content`, {
-      code: 'bad_input',
-      classification,
-    });
-  }
-
-  const tool = toolFor(classification),
-    result = await callDecision(tool, { [arg]: content });
-  return {
-    tool,
-    classification,
-    confidence: typeof result.confidence === 'number' ? result.confidence : 1.0,
-    result,
-    classified_at: result.classified_at,
-  };
 }
 
 // Heuristic classifier dispatch.  Returns one of
@@ -203,16 +90,124 @@ function autoClassify(content) {
   return null;
 }
 
+// Run a classification through DecisionMCP.  One MCP session per call
+// (connect → tools/call → close): save-classified is an explicit,
+// low-frequency agent action, so connection churn is fine and the client
+// stays stateless across processes.
+//
+// `ctx.sdk` injects a { Client, SSEClientTransport } pair for tests; the
+// real MCP SDK is loaded lazily otherwise so the CLI dispatch path never
+// pays for it (memory.js eager-requires this module only for the
+// instanceof DecisionError check).
+//
+// Returns { tool, classification, confidence, classified_at, result } or
+// throws DecisionError.  `result` is the parsed upstream payload
+// (the service serialises its Pydantic result as JSON text content),
+// `confidence` defaults to 0.5 when the engine omits it.
+async function classify(content, classification, ctx = {}) {
+  const mapping = CLASSIFICATION_TOOL[classification];
+  if (!mapping) {
+    throw new DecisionError(`Unknown classification: ${classification}`, { code: 'bad_input', classification });
+  }
+  if (typeof content !== 'string' || content.length === 0) {
+    throw new DecisionError(`classify(${classification}) requires non-empty content`, {
+      code: 'bad_input',
+      classification,
+    });
+  }
+  const { enabled, url, timeoutMs } = getConfig();
+  if (!enabled) {
+    throw new DecisionError('DecisionMCP is disabled (LAPIS_DECISIONMCP_ENABLED=false)', {
+      code: 'disabled',
+      classification,
+    });
+  }
+
+  const sdk = ctx.sdk || {
+    Client: require('@modelcontextprotocol/sdk/client/index.js').Client,
+    SSEClientTransport: require('@modelcontextprotocol/sdk/client/sse.js').SSEClientTransport,
+  };
+  const startedAt = Date.now(),
+    client = new sdk.Client({
+      name: 'lapis-save-classified',
+      version: require('../../package.json').version || '0.0.0',
+    });
+
+  // Overall deadline covering both the SSE handshake and the tool call.
+  let deadlineTimer;
+  const deadline = new Promise((_, reject) => {
+    deadlineTimer = setTimeout(
+      () => reject(new Error(`DecisionMCP request to ${mapping.tool} timed out after ${timeoutMs}ms`)),
+      timeoutMs,
+    );
+  });
+
+  async function run() {
+    await client.connect(new sdk.SSEClientTransport(new URL('/sse', url)));
+    const res = await client.callTool({ name: mapping.tool, arguments: { [mapping.arg]: content } }, undefined, {
+      timeout: Math.max(0, timeoutMs - (Date.now() - startedAt)),
+    });
+    if (res.isError) {
+      const errText = res.content && res.content[0] ? res.content[0].text : 'unknown error';
+      throw new DecisionError(`DecisionMCP tool ${mapping.tool} errored: ${errText}`, {
+        code: 'tool_error',
+        classification,
+      });
+    }
+    const text = res.content && res.content[0] ? res.content[0].text : '';
+    if (!text) {
+      throw new DecisionError(`DecisionMCP tool ${mapping.tool} returned an empty response`, {
+        code: 'bad_response',
+        classification,
+      });
+    }
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (err) {
+      throw new DecisionError(`DecisionMCP tool ${mapping.tool} returned non-JSON content: ${err.message}`, {
+        code: 'bad_response',
+        classification,
+        body: text.slice(0, 500),
+      });
+    }
+    return {
+      tool: mapping.tool,
+      classification,
+      confidence: typeof result.confidence === 'number' ? result.confidence : 0.5,
+      result,
+      classified_at: new Date(startedAt).toISOString(),
+    };
+  }
+
+  try {
+    return await Promise.race([run(), deadline]);
+  } catch (err) {
+    if (err instanceof DecisionError) {
+      throw err;
+    }
+    throw new DecisionError(
+      /timed?\s*out/i.test(String(err.message))
+        ? err.message
+        : `DecisionMCP request to ${mapping.tool} failed: ${err.message}`,
+      { code: /timed?\s*out/i.test(String(err.message)) ? 'timeout' : 'network_error', classification },
+    );
+  } finally {
+    clearTimeout(deadlineTimer);
+    try {
+      await client.close();
+    } catch {
+      // Connection may never have been established.
+    }
+  }
+}
+
 module.exports = {
-  callDecision,
   classify,
   autoClassify,
   DecisionError,
-  toolFor,
-  toolPrefix,
-  CLASSIFICATION_ARG,
+  CLASSIFICATION_TOOL,
   CLASSIFICATIONS,
   DEFAULT_URL,
   DEFAULT_TIMEOUT_MS,
-  DEFAULT_TOOL_PREFIX,
 };

@@ -142,7 +142,7 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
     {
       name: 'memory-save-classified',
       description:
-        'Atomic LaPis memory-save + decision-service classification. Refuses prompt injections by default. ' +
+        'Atomic LaPis memory-save + DecisionMCP classification. Refuses prompt injections by default. ' +
         'classification: guard|moderate|triage|email|auto (default auto). ' +
         'on_injection: refuse (default) | save_as_security_block.',
       inputSchema: obj({

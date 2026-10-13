@@ -3,7 +3,7 @@
 // memory-router command pay for the observation-CRUD and code-search subtrees
 // (~16ms measured marginal) even when its own handler never touches them.
 // commands/search stays eager — search and context both need it.
-// decision.js stays eager — a small HTTP-client module needed by
+// decision.js stays eager — a small MCP-client module needed by
 // buildSaveClassified for instanceof DecisionError checks.
 const searchCmd = require('../../../commands/search'),
   { classify: classifyContent, autoClassify, DecisionError } = require('../../memory-domain/decision'),
