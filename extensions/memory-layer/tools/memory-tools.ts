@@ -208,7 +208,7 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           // The save-classified router short-circuited (e.g. prompt injection
           // refused).  Surface the reason without pretending the memory was saved.
           return {
-            content: [{ type: 'text', text: `🚫 ${result.message || 'Save refused by LayaMCP classification.'}` }],
+            content: [{ type: 'text', text: `🚫 ${result.message || 'Save refused by decision classification.'}` }],
             details: result ?? {},
             isError: true,
           };
@@ -229,10 +229,10 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
         }
 
         const classification = (result.classification as any) || {},
-          layaNote = classification.tool
-            ? `\n🛡️ LayaMCP [${classification.classification}] via ${classification.tool} (confidence: ${(classification.confidence * 100).toFixed(0)}%)`
+          decisionNote = classification.tool
+            ? `\n🛡️ Decision [${classification.classification}] via ${classification.tool} (confidence: ${(classification.confidence * 100).toFixed(0)}%)`
             : '',
-          warningNote = result.laya_warning ? `\n⚠️ ${result.laya_warning}` : '';
+          warningNote = result.decision_warning ? `\n⚠️ ${result.decision_warning}` : '';
 
         return {
           content: [
@@ -241,7 +241,7 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
               text:
                 `✅ Memory saved [#${result.id}] ${result.title}` +
                 `${result.expires_at ? `\n⏰ Expires: ${result.expires_at}` : ''}` +
-                `${layaNote}${warningNote}`,
+                `${decisionNote}${warningNote}`,
             },
           ],
           details: result ?? {},

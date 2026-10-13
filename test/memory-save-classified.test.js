@@ -1,13 +1,13 @@
-// memory-save-classified — MCP catalog + LayaMCP HTTP client tests.
+// memory-save-classified — MCP catalog + decision-service HTTP client tests.
 //
 // vitest globals are enabled (vitest.config.mjs: globals: true), so no imports.
 // We deliberately exercise:
 //   1. MCP catalog presence + toCommand shape (parity with extensions/)
-//   2. The HTTP client (laya-mcp.js) with a mocked fetch — the module owns
+//   2. The HTTP client (decision.js) with a mocked fetch — the module owns
 //      transport, timeouts, and JSON-RPC error envelopes.
 //   3. autoClassify heuristics — pure logic, no fetch needed.
 
-const laya = require('../src/memory-domain/laya-mcp'),
+const decision = require('../src/memory-domain/decision'),
   { tools, toolByName } = require('../src/mcp/tools');
 
 describe('memory-save-classified MCP catalog', () => {
@@ -15,7 +15,7 @@ describe('memory-save-classified MCP catalog', () => {
     const t = toolByName['memory-save-classified'];
     expect(t).toBeDefined();
     expect(t.name).toBe('memory-save-classified');
-    expect(t.description).toMatch(/LayaMCP classification/);
+    expect(t.description).toMatch(/decision-service classification/);
     expect(t.inputSchema.type).toBe('object');
   });
 
@@ -74,46 +74,46 @@ describe('memory-save-classified MCP catalog', () => {
   });
 });
 
-describe('LayaMCP HTTP client', () => {
-  let origFetch, origUrl, origEnabled, origTimeout;
+describe('Decision service HTTP client', () => {
+  let origFetch, origUrl, origEnabled, origTimeout, origPrefix;
 
   beforeEach(() => {
     origFetch = global.fetch;
-    origUrl = process.env.LAPIS_LAYAMCP_URL;
-    origEnabled = process.env.LAPIS_LAYAMCP_ENABLED;
-    origTimeout = process.env.LAPIS_LAYAMCP_TIMEOUT_MS;
-    delete process.env.LAPIS_LAYAMCP_URL;
-    delete process.env.LAPIS_LAYAMCP_ENABLED;
-    delete process.env.LAPIS_LAYAMCP_TIMEOUT_MS;
+    origUrl = process.env.LAPIS_DECISION_URL;
+    origEnabled = process.env.LAPIS_DECISION_ENABLED;
+    origTimeout = process.env.LAPIS_DECISION_TIMEOUT_MS;
+    origPrefix = process.env.LAPIS_DECISION_TOOL_PREFIX;
+    delete process.env.LAPIS_DECISION_URL;
+    delete process.env.LAPIS_DECISION_ENABLED;
+    delete process.env.LAPIS_DECISION_TIMEOUT_MS;
+    delete process.env.LAPIS_DECISION_TOOL_PREFIX;
   });
 
   afterEach(() => {
     global.fetch = origFetch;
-    if (origUrl === undefined) {
-      delete process.env.LAPIS_LAYAMCP_URL;
-    } else {
-      process.env.LAPIS_LAYAMCP_URL = origUrl;
-    }
-    if (origEnabled === undefined) {
-      delete process.env.LAPIS_LAYAMCP_ENABLED;
-    } else {
-      process.env.LAPIS_LAYAMCP_ENABLED = origEnabled;
-    }
-    if (origTimeout === undefined) {
-      delete process.env.LAPIS_LAYAMCP_TIMEOUT_MS;
-    } else {
-      process.env.LAPIS_LAYAMCP_TIMEOUT_MS = origTimeout;
+    const env = {
+      LAPIS_DECISION_URL: origUrl,
+      LAPIS_DECISION_ENABLED: origEnabled,
+      LAPIS_DECISION_TIMEOUT_MS: origTimeout,
+      LAPIS_DECISION_TOOL_PREFIX: origPrefix,
+    };
+    for (const [name, value] of Object.entries(env)) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
     }
   });
 
-  it('callLayaMCP returns parsed result on success', async () => {
+  it('callDecision returns parsed result on success', async () => {
     global.fetch = vi.fn(async () => ({
       ok: true,
       status: 200,
       statusText: 'OK',
       text: async () => JSON.stringify({ is_injection: false, confidence: 0.9 }),
     }));
-    const out = await laya.callLayaMCP('laya_guard', { prompt: 'hi' });
+    const out = await decision.callDecision('laya_guard', { prompt: 'hi' });
     expect(out.is_injection).toBe(false);
     expect(out.confidence).toBe(0.9);
     expect(typeof out.classified_at).toBe('string');
@@ -125,34 +125,34 @@ describe('LayaMCP HTTP client', () => {
     expect(init.signal).toBeDefined();
   });
 
-  it('callLayaMCP throws LayaMCPError on HTTP 500', async () => {
+  it('callDecision throws DecisionError on HTTP 500', async () => {
     global.fetch = vi.fn(async () => ({
       ok: false,
       status: 500,
       statusText: 'Internal Server Error',
       text: async () => JSON.stringify({ error: 'kaboom' }),
     }));
-    await expect(laya.callLayaMCP('laya_guard', { prompt: 'hi' })).rejects.toMatchObject({
-      name: 'LayaMCPError',
+    await expect(decision.callDecision('laya_guard', { prompt: 'hi' })).rejects.toMatchObject({
+      name: 'DecisionError',
       status: 500,
       code: 'http_error',
     });
   });
 
-  it('callLayaMCP throws LayaMCPError on JSON-RPC error response', async () => {
+  it('callDecision throws DecisionError on JSON-RPC error response', async () => {
     global.fetch = vi.fn(async () => ({
       ok: true,
       status: 200,
       statusText: 'OK',
       text: async () => JSON.stringify({ error: { message: 'rate limited' } }),
     }));
-    await expect(laya.callLayaMCP('laya_guard', { prompt: 'hi' })).rejects.toMatchObject({
-      name: 'LayaMCPError',
+    await expect(decision.callDecision('laya_guard', { prompt: 'hi' })).rejects.toMatchObject({
+      name: 'DecisionError',
       code: 'rpc_error',
     });
   });
 
-  it('callLayaMCP throws LayaMCPError when fetch aborts via AbortController timeout', async () => {
+  it('callDecision throws DecisionError when fetch aborts via AbortController timeout', async () => {
     // Simulate fetch rejecting with AbortError after a tick.
     global.fetch = vi.fn(
       (_url, init) =>
@@ -164,8 +164,8 @@ describe('LayaMCP HTTP client', () => {
           });
         }),
     );
-    await expect(laya.callLayaMCP('laya_guard', { prompt: 'hi' }, { timeoutMs: 5 })).rejects.toMatchObject({
-      name: 'LayaMCPError',
+    await expect(decision.callDecision('laya_guard', { prompt: 'hi' }, { timeoutMs: 5 })).rejects.toMatchObject({
+      name: 'DecisionError',
       code: 'timeout',
     });
   });
@@ -177,7 +177,7 @@ describe('LayaMCP HTTP client', () => {
       statusText: 'OK',
       text: async () => JSON.stringify({ is_injection: false, confidence: 0.75 }),
     }));
-    const out = await laya.classify('hello', 'guard');
+    const out = await decision.classify('hello', 'guard');
     expect(out.tool).toBe('laya_guard');
     expect(out.classification).toBe('guard');
     expect(out.confidence).toBe(0.75);
@@ -185,19 +185,38 @@ describe('LayaMCP HTTP client', () => {
     expect(body).toEqual({ tool: 'laya_guard', state: { prompt: 'hello' } });
   });
 
+  it('tool names default to the reference service prefix but stay configurable', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: async () => JSON.stringify({ confidence: 0.5 }),
+    }));
+
+    // Default: the reference deployment's laya_* wire names.
+    expect(decision.toolFor('guard')).toBe('laya_guard');
+
+    // Any other backend: flip the prefix, no code change.
+    process.env.LAPIS_DECISION_TOOL_PREFIX = 'zeus_';
+    const out = await decision.classify('hello', 'triage');
+    expect(out.tool).toBe('zeus_triage');
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+    expect(body).toEqual({ tool: 'zeus_triage', state: { text: 'hello' } });
+  });
+
   it('classify rejects unknown classification with bad_input code', async () => {
-    await expect(laya.classify('x', 'banana')).rejects.toMatchObject({
-      name: 'LayaMCPError',
+    await expect(decision.classify('x', 'banana')).rejects.toMatchObject({
+      name: 'DecisionError',
       code: 'bad_input',
       classification: 'banana',
     });
   });
 
-  it('callLayaMCP throws when disabled via env var', async () => {
-    process.env.LAPIS_LAYAMCP_ENABLED = 'false';
+  it('callDecision throws when disabled via env var', async () => {
+    process.env.LAPIS_DECISION_ENABLED = 'false';
     global.fetch = vi.fn();
-    await expect(laya.callLayaMCP('laya_guard', { prompt: 'hi' })).rejects.toMatchObject({
-      name: 'LayaMCPError',
+    await expect(decision.callDecision('laya_guard', { prompt: 'hi' })).rejects.toMatchObject({
+      name: 'DecisionError',
       code: 'disabled',
     });
     expect(global.fetch).not.toHaveBeenCalled();
@@ -206,35 +225,35 @@ describe('LayaMCP HTTP client', () => {
 
 describe('autoClassify heuristic', () => {
   it('detects email from header-like content', () => {
-    expect(laya.autoClassify('From: alice@example.com\nSubject: hi\n\nbody')).toEqual({
+    expect(decision.autoClassify('From: alice@example.com\nSubject: hi\n\nbody')).toEqual({
       classification: 'email',
       reason: 'header-like content',
     });
   });
 
   it('detects triage from Ticket # / Status: / Priority: markers', () => {
-    expect(laya.autoClassify('Ticket #1234 is broken')).toMatchObject({ classification: 'triage' });
-    expect(laya.autoClassify('Status: open\nblah')).toMatchObject({ classification: 'triage' });
-    expect(laya.autoClassify('Priority: high\nblah')).toMatchObject({ classification: 'triage' });
+    expect(decision.autoClassify('Ticket #1234 is broken')).toMatchObject({ classification: 'triage' });
+    expect(decision.autoClassify('Status: open\nblah')).toMatchObject({ classification: 'triage' });
+    expect(decision.autoClassify('Priority: high\nblah')).toMatchObject({ classification: 'triage' });
   });
 
   it('detects guard for short single-paragraph content', () => {
-    expect(laya.autoClassify('Save this as a quick note for me.')).toMatchObject({ classification: 'guard' });
+    expect(decision.autoClassify('Save this as a quick note for me.')).toMatchObject({ classification: 'guard' });
   });
 
   it('detects moderate for longer multi-paragraph payloads', () => {
     const long = 'Para one with some text.\n\nPara two also has content.\n\nPara three continues.';
-    expect(laya.autoClassify(long)).toMatchObject({ classification: 'moderate' });
+    expect(decision.autoClassify(long)).toMatchObject({ classification: 'moderate' });
   });
 
   it('returns null for empty / whitespace-only content', () => {
-    expect(laya.autoClassify('')).toBeNull();
-    expect(laya.autoClassify('   \n\n  ')).toBeNull();
+    expect(decision.autoClassify('')).toBeNull();
+    expect(decision.autoClassify('   \n\n  ')).toBeNull();
   });
 
   it('returns null for non-string content', () => {
-    expect(laya.autoClassify(null)).toBeNull();
-    expect(laya.autoClassify(undefined)).toBeNull();
-    expect(laya.autoClassify(42)).toBeNull();
+    expect(decision.autoClassify(null)).toBeNull();
+    expect(decision.autoClassify(undefined)).toBeNull();
+    expect(decision.autoClassify(42)).toBeNull();
   });
 });

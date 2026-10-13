@@ -1,10 +1,15 @@
-# Plan: Decision Engine (Laya) — Native Flywheel First
+# Plan: Decision Engine — Native Flywheel First
 
-**Date:** 2026-10-01 (v2.2 — laya track retargeted to the external LayaMCP service; v2.1 round-5 amendments applied 2026-09-21)
+**Date:** 2026-10-01 (v2.2 — laya track retargeted to the external LayaMCP service; v2.1 round-5 amendments applied 2026-09-21; title de-branded 2026-10-13 — laya is one decision-model backend, not the engine)
 **Status:** Proposed — plans only; no code in this PR
 **Deciders:** Gene Gulanes Jr.
 **Supersedes:** v1 plan draft (3 internal review rounds); v2 (round-4 corrections); v2.1's in-repo `laya-service/` sidecar design (v2.2)
 **Related:** [`DREAM_CYCLE.md`](../DREAM_CYCLE.md), [`MODULE_MAP.md`](../MODULE_MAP.md), [`crosshash-strategy.md`](crosshash-strategy.md), [LayaMCP](https://github.com/GeneGulanesJr/LayaMCP) (external service — owns its own lifecycle, model registry, usage log)
+
+> **Naming:** "laya" below names the external LayaMCP service and its checkpoints — one
+> decision-model backend, not the engine itself. LaPis-side code is provider-agnostic:
+> the classification client is `src/memory-domain/decision.js` (env `LAPIS_DECISION_*`;
+> upstream tool names default to the service's `laya_*` via `LAPIS_DECISION_TOOL_PREFIX`).
 
 ## Summary
 

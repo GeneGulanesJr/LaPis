@@ -1,7 +1,14 @@
-// LayaMCP HTTP client for atomic memory classification.
+// Decision-service client for atomic memory classification.
 //
-// Wires LaPis's memory-save path through LayaMCP (an external HTTP service)
-// So every persisted memory is gated by a classifier.  The classifier can:
+// Wires LaPis's memory-save path through a decision service (an external
+// HTTP service) so every persisted memory can be gated by a classifier.
+// The client is provider-agnostic: any backend implementing the
+// `{ tool, state }` JSON contract works.  The reference deployment is the
+// LayaMCP sidecar (github.com/GeneGulanesJr/LayaMCP) — laya is one decision
+// model behind that service, not the interface — so the upstream tool names
+// default to its `laya_*` tools but stay configurable via env.
+//
+// Classifications:
 //
 //   * Guard       — detect prompt injection in user-supplied content
 //   * Moderate    — detect harmful / blocked content
@@ -13,24 +20,27 @@
 // (commands['save-classified']).  This module is transport only.
 //
 // Env vars (defaults in parens):
-//   LAPIS_LAYAMCP_URL        (http://127.0.0.1:8765)
-//   LAPIS_LAYAMCP_ENABLED    (true)
-//   LAPIS_LAYAMCP_TIMEOUT_MS (5000)
+//   LAPIS_DECISION_URL         (http://127.0.0.1:8765)
+//   LAPIS_DECISION_ENABLED     (true)
+//   LAPIS_DECISION_TIMEOUT_MS  (5000)
+//   LAPIS_DECISION_TOOL_PREFIX ('laya_' — wire names, e.g. laya_guard)
 
 const DEFAULT_URL = 'http://127.0.0.1:8765',
   DEFAULT_TIMEOUT_MS = 5000,
-  // Classification → (LayaMCP tool name, argument key, content field on result)
-  CLASSIFICATION_TOOL = {
-    guard: { tool: 'laya_guard', arg: 'prompt', resultField: 'guard' },
-    moderate: { tool: 'laya_moderate', arg: 'text', resultField: 'moderate' },
-    triage: { tool: 'laya_triage', arg: 'text', resultField: 'triage' },
-    email: { tool: 'laya_email', arg: 'body', resultField: 'email' },
-  };
+  DEFAULT_TOOL_PREFIX = 'laya_',
+  // classification → argument key the upstream tool reads the content from
+  CLASSIFICATION_ARG = {
+    guard: 'prompt',
+    moderate: 'text',
+    triage: 'text',
+    email: 'body',
+  },
+  CLASSIFICATIONS = Object.keys(CLASSIFICATION_ARG);
 
-class LayaMCPError extends Error {
+class DecisionError extends Error {
   constructor(message, opts = {}) {
     super(message);
-    this.name = 'LayaMCPError';
+    this.name = 'DecisionError';
     this.status = opts.status;
     this.body = opts.body;
     this.code = opts.code;
@@ -39,10 +49,10 @@ class LayaMCPError extends Error {
 }
 
 function getConfig() {
-  const enabledRaw = process.env.LAPIS_LAYAMCP_ENABLED,
+  const enabledRaw = process.env.LAPIS_DECISION_ENABLED,
     enabled = enabledRaw === undefined || enabledRaw === '' ? true : !/^(0|false|no|off)$/i.test(enabledRaw),
-    url = process.env.LAPIS_LAYAMCP_URL || DEFAULT_URL,
-    timeoutRaw = process.env.LAPIS_LAYAMCP_TIMEOUT_MS,
+    url = process.env.LAPIS_DECISION_URL || DEFAULT_URL,
+    timeoutRaw = process.env.LAPIS_DECISION_TIMEOUT_MS,
     timeoutMs = (() => {
       if (timeoutRaw === undefined || timeoutRaw === '') {
         return DEFAULT_TIMEOUT_MS;
@@ -53,17 +63,30 @@ function getConfig() {
   return { enabled, url, timeoutMs };
 }
 
-// Generic JSON-RPC-ish POST.  LayaMCP accepts { tool, state } where
+// Upstream wire name for a classification — `${prefix}${classification}`.
+// The prefix defaults to the reference service's `laya_` naming so the
+// existing deployment keeps working; point LAPIS_DECISION_TOOL_PREFIX at
+// another backend's naming without touching this module.
+function toolPrefix() {
+  const raw = process.env.LAPIS_DECISION_TOOL_PREFIX;
+  return raw === undefined || raw === '' ? DEFAULT_TOOL_PREFIX : raw;
+}
+
+function toolFor(classification) {
+  return `${toolPrefix()}${classification}`;
+}
+
+// Generic JSON-RPC-ish POST.  The service accepts { tool, state } where
 // `state` is an opaque blob the tool's input field maps onto.
-// Returns the parsed JSON body.  Throws LayaMCPError on any failure
-// Mode so the caller can route on it.
-async function callLayaMCP(tool, state, opts = {}) {
+// Returns the parsed JSON body.  Throws DecisionError on any failure
+// mode so the caller can route on it.
+async function callDecision(tool, state, opts = {}) {
   const { url, timeoutMs, enabled } = getConfig();
   if (!enabled) {
-    throw new LayaMCPError('LayaMCP is disabled (LAPIS_LAYAMCP_ENABLED=false)', { code: 'disabled' });
+    throw new DecisionError('Decision service is disabled (LAPIS_DECISION_ENABLED=false)', { code: 'disabled' });
   }
   if (!state || typeof state !== 'object') {
-    throw new LayaMCPError(`LayaMCP tool ${tool} requires a state object`, { code: 'bad_input' });
+    throw new DecisionError(`Decision tool ${tool} requires a state object`, { code: 'bad_input' });
   }
 
   const controller = new AbortController(),
@@ -80,10 +103,10 @@ async function callLayaMCP(tool, state, opts = {}) {
   } catch (err) {
     clearTimeout(timer);
     const isAbort = err.name === 'AbortError' || controller.signal.aborted;
-    throw new LayaMCPError(
+    throw new DecisionError(
       isAbort
-        ? `LayaMCP request to ${tool} timed out after ${opts.timeoutMs || timeoutMs}ms`
-        : `LayaMCP request to ${tool} failed: ${err.message}`,
+        ? `Decision service request to ${tool} timed out after ${opts.timeoutMs || timeoutMs}ms`
+        : `Decision service request to ${tool} failed: ${err.message}`,
       { code: isAbort ? 'timeout' : 'network_error' },
     );
   }
@@ -94,7 +117,7 @@ async function callLayaMCP(tool, state, opts = {}) {
   try {
     body = text ? JSON.parse(text) : {};
   } catch (err) {
-    throw new LayaMCPError(`LayaMCP returned non-JSON from ${tool} (HTTP ${res.status}): ${err.message}`, {
+    throw new DecisionError(`Decision service returned non-JSON from ${tool} (HTTP ${res.status}): ${err.message}`, {
       status: res.status,
       body: text.slice(0, 500),
       code: 'bad_response',
@@ -102,16 +125,19 @@ async function callLayaMCP(tool, state, opts = {}) {
   }
 
   if (!res.ok) {
-    throw new LayaMCPError(`LayaMCP tool ${tool} returned HTTP ${res.status}: ${body.error || res.statusText}`, {
-      status: res.status,
-      body,
-      code: 'http_error',
-    });
+    throw new DecisionError(
+      `Decision service tool ${tool} returned HTTP ${res.status}: ${body.error || res.statusText}`,
+      {
+        status: res.status,
+        body,
+        code: 'http_error',
+      },
+    );
   }
 
   if (body && body.error) {
     // JSON-RPC / API-style error envelope from the upstream server.
-    throw new LayaMCPError(`LayaMCP tool ${tool} errored: ${body.error.message || body.error}`, {
+    throw new DecisionError(`Decision service tool ${tool} errored: ${body.error.message || body.error}`, {
       status: res.status,
       body,
       code: 'rpc_error',
@@ -121,25 +147,26 @@ async function callLayaMCP(tool, state, opts = {}) {
   return { ...body, classified_at: body.classified_at || new Date(startedAt).toISOString() };
 }
 
-// Run a specific classifier.  Returns { tool, result, confidence,
-// Classified_at, raw } or throws LayaMCPError.  `result` is the
-// Parsed upstream payload, `confidence` is whatever the upstream
-// Reported (defaults to 1.0 when absent).
+// Run a specific classifier.  Returns { tool, classification, confidence,
+// classified_at, result } or throws DecisionError.  `result` is the parsed
+// upstream payload, `confidence` is whatever the upstream reported
+// (defaults to 1.0 when absent).
 async function classify(content, classification, _ctx) {
-  const mapping = CLASSIFICATION_TOOL[classification];
-  if (!mapping) {
-    throw new LayaMCPError(`Unknown classification: ${classification}`, { code: 'bad_input', classification });
+  const arg = CLASSIFICATION_ARG[classification];
+  if (!arg) {
+    throw new DecisionError(`Unknown classification: ${classification}`, { code: 'bad_input', classification });
   }
   if (typeof content !== 'string' || content.length === 0) {
-    throw new LayaMCPError(`classify(${classification}) requires non-empty content`, {
+    throw new DecisionError(`classify(${classification}) requires non-empty content`, {
       code: 'bad_input',
       classification,
     });
   }
 
-  const result = await callLayaMCP(mapping.tool, { [mapping.arg]: content });
+  const tool = toolFor(classification),
+    result = await callDecision(tool, { [arg]: content });
   return {
-    tool: mapping.tool,
+    tool,
     classification,
     confidence: typeof result.confidence === 'number' ? result.confidence : 1.0,
     result,
@@ -177,11 +204,15 @@ function autoClassify(content) {
 }
 
 module.exports = {
-  callLayaMCP,
+  callDecision,
   classify,
   autoClassify,
-  LayaMCPError,
-  CLASSIFICATION_TOOL,
+  DecisionError,
+  toolFor,
+  toolPrefix,
+  CLASSIFICATION_ARG,
+  CLASSIFICATIONS,
   DEFAULT_URL,
   DEFAULT_TIMEOUT_MS,
+  DEFAULT_TOOL_PREFIX,
 };

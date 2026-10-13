@@ -142,7 +142,7 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
     {
       name: 'memory-save-classified',
       description:
-        'Atomic LaPis memory-save + LayaMCP classification. Refuses prompt injections by default. ' +
+        'Atomic LaPis memory-save + decision-service classification. Refuses prompt injections by default. ' +
         'classification: guard|moderate|triage|email|auto (default auto). ' +
         'on_injection: refuse (default) | save_as_security_block.',
       inputSchema: obj({
@@ -165,12 +165,12 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
           optional: true,
         },
         classification: {
-          schema: opt(strEnum('LayaMCP classifier to run first', ['guard', 'moderate', 'triage', 'email', 'auto'])),
+          schema: opt(strEnum('Decision classifier to run first', ['guard', 'moderate', 'triage', 'email', 'auto'])),
           optional: true,
         },
         on_injection: {
           schema: opt(
-            strEnum('Behavior when LayaMCP guard flags a prompt injection', ['refuse', 'save_as_security_block']),
+            strEnum('Behavior when the decision guard flags a prompt injection', ['refuse', 'save_as_security_block']),
           ),
           optional: true,
         },
@@ -185,7 +185,7 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
         },
         trust_score: {
           schema: opt(
-            num('Override trust score (0-1). Combined with LayaMCP confidence when classification succeeds.'),
+            num('Override trust score (0-1). Combined with the classifier confidence when classification succeeds.'),
           ),
           optional: true,
         },

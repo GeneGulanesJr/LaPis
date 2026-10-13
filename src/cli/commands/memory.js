@@ -3,10 +3,10 @@
 // memory-router command pay for the observation-CRUD and code-search subtrees
 // (~16ms measured marginal) even when its own handler never touches them.
 // commands/search stays eager — search and context both need it.
-// laya-mcp stays eager — a small HTTP-client module needed by
-// buildSaveClassified for instanceof LayaMCPError checks.
+// decision.js stays eager — a small HTTP-client module needed by
+// buildSaveClassified for instanceof DecisionError checks.
 const searchCmd = require('../../../commands/search'),
-  { classify: layaClassify, autoClassify: layaAutoClassify, LayaMCPError } = require('../../memory-domain/laya-mcp'),
+  { classify: classifyContent, autoClassify, DecisionError } = require('../../memory-domain/decision'),
   USAGE = {
     save: '--title <title> --content <content> [--type TYPE] [--project NAME] [--scope SCOPE] [--topic-key KEY] [--force] [--expires-in DUR] [--session-id ID]',
     'save-classified':
@@ -80,17 +80,17 @@ function buildSaveClassified(deps, commands) {
       enriched.confidence = confidence;
     }
     if (warning) {
-      enriched.laya_warning = warning;
+      enriched.decision_warning = warning;
     }
     return enriched;
   }
 
-  function handleLayaFailure({ err, args, title, content, classification, onInjection }) {
-    const message = err instanceof LayaMCPError ? err.message : `LayaMCP error: ${err.message}`;
+  function handleDecisionFailure({ err, args, title, content, classification, onInjection }) {
+    const message = err instanceof DecisionError ? err.message : `Decision service error: ${err.message}`;
 
-    // Disabled LayaMCP — fall through to the legacy save with a warning so
-    // The user isn't silently locked out when their classifier daemon is
-    // Down or intentionally turned off.
+    // Disabled decision service — fall through to the legacy save with a
+    // Warning so the user isn't silently locked out when their classifier
+    // Daemon is down or intentionally turned off.
     if (err && err.code === 'disabled') {
       return runSave({
         args,
@@ -161,7 +161,7 @@ function buildSaveClassified(deps, commands) {
     let chosen = classificationRequested,
       autoReason = null;
     if (chosen === 'auto') {
-      const auto = layaAutoClassify(content);
+      const auto = autoClassify(content);
       if (!auto) {
         // No heuristic match — fall through to the legacy save with no
         // Classification metadata; downstream tooling can re-classify
@@ -180,11 +180,11 @@ function buildSaveClassified(deps, commands) {
     }
 
     // Step 2: call the chosen classifier.
-    let layaResult;
+    let classified;
     try {
-      layaResult = await layaClassify(content, chosen);
+      classified = await classifyContent(content, chosen);
     } catch (err) {
-      return handleLayaFailure({
+      return handleDecisionFailure({
         err,
         args,
         title,
@@ -197,22 +197,22 @@ function buildSaveClassified(deps, commands) {
     // Step 3: act on the classification.
     const guardFlagged =
       chosen === 'guard' &&
-      layaResult.result &&
-      (layaResult.result.is_injection === true || layaResult.result.injection === true);
+      classified.result &&
+      (classified.result.is_injection === true || classified.result.injection === true);
     if (guardFlagged) {
       if (onInjection === 'save_as_security_block') {
         return runSave({
           args,
           title,
           content,
-          classification: layaResult,
-          confidence: layaResult.confidence,
+          classification: classified,
+          confidence: classified.confidence,
           override: { type: 'bugfix', 'topic-key': 'security-blocks' },
         });
       }
       return jsonErrNoExit(
-        `Refusing to save: prompt injection detected by ${layaResult.tool} ` +
-          `(confidence: ${(layaResult.confidence * 100).toFixed(0)}%). ` +
+        `Refusing to save: prompt injection detected by ${classified.tool} ` +
+          `(confidence: ${(classified.confidence * 100).toFixed(0)}%). ` +
           `Pass --on-injection save_as_security_block to capture the attempt as a bugfix.`,
       );
     }
@@ -220,15 +220,15 @@ function buildSaveClassified(deps, commands) {
     // Step 4: success — compute adjusted args + trust score, then save.
     const baseTrust = baseTrustRaw !== undefined ? Number(baseTrustRaw) : 1.0,
       adjustedTrust = Number.isFinite(baseTrust)
-        ? Math.max(0, Math.min(1, baseTrust * layaResult.confidence))
-        : layaResult.confidence,
+        ? Math.max(0, Math.min(1, baseTrust * classified.confidence))
+        : classified.confidence,
       override = { 'trust-score': String(adjustedTrust) };
     return runSave({
       args,
       title,
       content,
-      classification: { ...layaResult, auto_reason: autoReason },
-      confidence: layaResult.confidence,
+      classification: { ...classified, auto_reason: autoReason },
+      confidence: classified.confidence,
       override,
     });
   };
