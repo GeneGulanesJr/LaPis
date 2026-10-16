@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { runDecisionPostCompact } from '../extensions/memory-layer/hooks/decision-post-compact.ts';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { runDecisionPostCompact, verdictLabel } from '../extensions/memory-layer/hooks/decision-post-compact.ts';
 
 describe('runDecisionPostCompact', () => {
   beforeEach(() => {
@@ -75,5 +75,49 @@ describe('runDecisionPostCompact', () => {
     });
     // No key → liveAsk throws → we swallow and return []
     expect(out.messages).toEqual([]);
+  });
+
+  it('labels a float verdict score by rounding to the nearest level, clamped', () => {
+    expect(verdictLabel(0)).toBe('incomplete');
+    expect(verdictLabel(1.72)).toBe('mostly-complete');
+    expect(verdictLabel(1.49)).toBe('partial');
+    expect(verdictLabel(3.6)).toBe('complete');
+    expect(verdictLabel(-0.4)).toBe('incomplete');
+    expect(verdictLabel(Number.NaN)).toBe('unknown');
+  });
+
+  it('labels the live float score of the A question (was always "unknown")', async () => {
+    const savedFetch = globalThis.fetch;
+    const savedKey = process.env.LIQUID_API_KEY;
+    delete process.env.DECISION_DRY_RUN;
+    process.env.DECISION_ENABLED = '1';
+    process.env.LIQUID_API_KEY = 'test-key';
+    globalThis.fetch = vi.fn(async (_url, init) => {
+      const q = JSON.parse(init.body).questions.q;
+      const answer =
+        q.type === 'choice'
+          ? { type: 'choice', choice: 'yes', confidence: 0.9 }
+          : { type: 'score', score: 1.72, confidence: 0.5 };
+      return { ok: true, status: 200, json: async () => ({ answers: { q: answer } }) };
+    });
+    try {
+      const out = await runDecisionPostCompact({
+        currentProject: 'Documents',
+        sessionId: 1,
+        pinnedPolicies: ['x'],
+        reInjectedTitles: ['y'],
+        lostTopics: ['z'],
+      });
+      const verdict = out.messages.find((m) => m.kind === 'verdict');
+      expect(verdict).toEqual({ kind: 'verdict', score: 1.72, label: 'mostly-complete' });
+    } finally {
+      globalThis.fetch = savedFetch;
+      if (savedKey === undefined) {
+        delete process.env.LIQUID_API_KEY;
+      } else {
+        process.env.LIQUID_API_KEY = savedKey;
+      }
+      delete process.env.DECISION_ENABLED;
+    }
   });
 });

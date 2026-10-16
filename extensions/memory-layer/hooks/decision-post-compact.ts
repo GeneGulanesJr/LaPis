@@ -33,6 +33,13 @@ function isDecisionEnabled(): boolean {
 
 const VERDICT_LABELS = ['incomplete', 'partial', 'mostly-complete', 'complete'];
 
+/** The API returns a float score (e.g. 1.72): round to the nearest level, clamped. */
+export function verdictLabel(score: number): string {
+  if (!Number.isFinite(score)) return 'unknown';
+  const idx = Math.min(VERDICT_LABELS.length - 1, Math.max(0, Math.round(score)));
+  return VERDICT_LABELS[idx];
+}
+
 export async function runDecisionPostCompact(input: PostCompactInput): Promise<PostCompactOutput> {
   if (!input.currentProject) return { messages: [] };
   if (!isDecisionEnabled() && !isDecisionDryRun()) return { messages: [] };
@@ -55,7 +62,7 @@ export async function runDecisionPostCompact(input: PostCompactInput): Promise<P
       messages.push({
         kind: 'verdict',
         score: aAnswer.score,
-        label: VERDICT_LABELS[aAnswer.score] ?? 'unknown',
+        label: verdictLabel(aAnswer.score),
       });
     }
 
