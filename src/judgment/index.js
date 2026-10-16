@@ -15,7 +15,7 @@ function pickAdapter(provider, adapters) {
 /**
  * createJudge({ config, adapters })
  *   config:    getConfig() (uses .judgment section)
- *   adapters:  { jev?: JudgeAdapter } — registered provider adapters
+ *   adapters:  { decision?: JudgeAdapter } — registered provider adapters
  * Returns { provider, probe(), judge(questions, {surface}?) }.
  */
 function createJudge({ config, adapters } = {}) {

@@ -1,5 +1,5 @@
 // vitest globals enabled — no import
-const { dreamJevReview } = require('../src/memory-domain/dream-jev');
+const { dreamDecisionReview } = require('../src/memory-domain/dream-decision');
 
 function makeJudge(answers, meta = {}) {
   return vi.fn(async () => ({ status: meta.status || 'ok', answers, reason: meta.reason }));
@@ -41,14 +41,14 @@ const fakeDeps = {
   softDeleteObservation: vi.fn(),
 };
 
-describe('dreamJevReview — advisory only', () => {
+describe('dreamDecisionReview — advisory only', () => {
   it('never deletes anything, even when every verdict says superseded', async () => {
     const judge = makeJudge([
       { id: 'sup-0', p: 0.95, confidence: 0.9 },
       { id: 'sup-1', p: 0.95, confidence: 0.9 },
       { id: 'cor-0', p: 0.9, confidence: 0.9 },
     ]);
-    const r = await dreamJevReview(fakeDeps, { _judge: judge });
+    const r = await dreamDecisionReview(fakeDeps, { _judge: judge });
     expect(fakeDeps.softDeleteObservation).not.toHaveBeenCalled();
     expect(fakeDeps.sqlRun).not.toHaveBeenCalled();
     expect(r.ok).toBe(true);
@@ -61,7 +61,7 @@ describe('dreamJevReview — advisory only', () => {
       { id: 'sup-1', p: 0.9, confidence: 0.9 },
       { id: 'cor-0', p: 0.1, confidence: 0.8 },
     ]);
-    const r = await dreamJevReview(fakeDeps, { _judge: judge });
+    const r = await dreamDecisionReview(fakeDeps, { _judge: judge });
     expect(r.superseded.verified[0].verdict).toBe('keep');
     expect(r.superseded.verified[0].p).toBe(0.2);
     expect(r.superseded.verified[1].verdict).toBe('superseded');
@@ -69,7 +69,7 @@ describe('dreamJevReview — advisory only', () => {
   });
   it('judgment unavailable → ok report with unavailable:true and empty verdicts', async () => {
     const judge = makeJudge([], { status: 'unavailable', reason: 'off' });
-    const r = await dreamJevReview(fakeDeps, { _judge: judge });
+    const r = await dreamDecisionReview(fakeDeps, { _judge: judge });
     expect(r.ok).toBe(true);
     expect(r.unavailable).toBe(true);
     expect(r.superseded.verified).toEqual([]);
@@ -77,22 +77,22 @@ describe('dreamJevReview — advisory only', () => {
   });
   it('no _judge and provider heuristic → unavailable report, zero adapter construction', async () => {
     // Env stubs (house pattern) pin the provider hermetically — machine
-    // config may legitimately set provider=jev with a real key in env.
+    // config may legitimately set provider=decision with a real key in env.
     const prevProvider = process.env.LAPIS_JUDGE_PROVIDER;
-    const prevKey = process.env.TYPESAFE_API_KEY;
+    const prevKey = process.env.LIQUID_API_KEY;
     process.env.LAPIS_JUDGE_PROVIDER = 'heuristic';
-    delete process.env.TYPESAFE_API_KEY;
+    delete process.env.LIQUID_API_KEY;
     require('../config').resetConfigCache();
     try {
-      const r = await dreamJevReview(fakeDeps, {});
+      const r = await dreamDecisionReview(fakeDeps, {});
       expect(r.ok).toBe(true);
       expect(r.unavailable).toBe(true);
       expect(r.provider).toBe('heuristic');
     } finally {
       if (prevProvider === undefined) delete process.env.LAPIS_JUDGE_PROVIDER;
       else process.env.LAPIS_JUDGE_PROVIDER = prevProvider;
-      if (prevKey === undefined) delete process.env.TYPESAFE_API_KEY;
-      else process.env.TYPESAFE_API_KEY = prevKey;
+      if (prevKey === undefined) delete process.env.LIQUID_API_KEY;
+      else process.env.LIQUID_API_KEY = prevKey;
       require('../config').resetConfigCache();
     }
   });
@@ -100,7 +100,7 @@ describe('dreamJevReview — advisory only', () => {
     const judge = vi.fn(async () => {
       throw new Error('boom');
     });
-    const r = await dreamJevReview(fakeDeps, { _judge: judge });
+    const r = await dreamDecisionReview(fakeDeps, { _judge: judge });
     expect(r.ok).toBe(true);
     expect(r.unavailable).toBe(true);
   });
@@ -126,63 +126,63 @@ describe('dreamJevReview — advisory only', () => {
       }),
     };
     const judge = makeJudge([]);
-    await dreamJevReview(bigDeps, { _judge: judge });
+    await dreamDecisionReview(bigDeps, { _judge: judge });
     expect(judge).toHaveBeenCalledTimes(3); // 25 sup + 0 cor → chunks 10,10,5
   });
 });
 
-describe('maybeDreamJevReview — single guard for all dream callers', () => {
-  const { maybeDreamJevReview } = require('../src/memory-domain/dream-jev');
+describe('maybeDreamDecisionReview — single guard for all dream callers', () => {
+  const { maybeDreamDecisionReview } = require('../src/memory-domain/dream-decision');
   const deps = { sqlJson: () => [] };
 
   it('heuristic provider (env-stubbed) → null, dream pipeline untouched', async () => {
     const prevProvider = process.env.LAPIS_JUDGE_PROVIDER;
-    const prevKey = process.env.TYPESAFE_API_KEY;
+    const prevKey = process.env.LIQUID_API_KEY;
     process.env.LAPIS_JUDGE_PROVIDER = 'heuristic';
-    delete process.env.TYPESAFE_API_KEY;
+    delete process.env.LIQUID_API_KEY;
     require('../config').resetConfigCache();
     try {
-      const r = await maybeDreamJevReview(deps, { _judge: makeJudge([]) });
+      const r = await maybeDreamDecisionReview(deps, { _judge: makeJudge([]) });
       expect(r).toBeNull();
     } finally {
       if (prevProvider === undefined) delete process.env.LAPIS_JUDGE_PROVIDER;
       else process.env.LAPIS_JUDGE_PROVIDER = prevProvider;
-      if (prevKey === undefined) delete process.env.TYPESAFE_API_KEY;
-      else process.env.TYPESAFE_API_KEY = prevKey;
+      if (prevKey === undefined) delete process.env.LIQUID_API_KEY;
+      else process.env.LIQUID_API_KEY = prevKey;
       require('../config').resetConfigCache();
     }
   });
 
-  it('disabled surface → null even with jev provider + key', async () => {
-    process.env.LAPIS_JUDGE_PROVIDER = 'jev';
+  it('disabled surface → null even with decision provider + key', async () => {
+    process.env.LAPIS_JUDGE_PROVIDER = 'decision';
     process.env.LAPIS_JUDGE_DISABLE_DREAM = '1';
-    process.env.TYPESAFE_API_KEY = 'k-test';
+    process.env.LIQUID_API_KEY = 'k-test';
     try {
       const { resetConfigCache } = require('../config');
       resetConfigCache();
-      const r = await maybeDreamJevReview(deps, {});
+      const r = await maybeDreamDecisionReview(deps, {});
       expect(r).toBeNull();
     } finally {
       delete process.env.LAPIS_JUDGE_PROVIDER;
       delete process.env.LAPIS_JUDGE_DISABLE_DREAM;
-      delete process.env.TYPESAFE_API_KEY;
+      delete process.env.LIQUID_API_KEY;
       require('../config').resetConfigCache();
     }
   });
 
-  it('jev + key + args._judge → passes through to dreamJevReview (test injection)', async () => {
-    process.env.LAPIS_JUDGE_PROVIDER = 'jev';
-    process.env.TYPESAFE_API_KEY = 'k-test';
+  it('decision + key + args._judge → passes through to dreamDecisionReview (test injection)', async () => {
+    process.env.LAPIS_JUDGE_PROVIDER = 'decision';
+    process.env.LIQUID_API_KEY = 'k-test';
     try {
       const { resetConfigCache } = require('../config');
       resetConfigCache();
       const judge = makeJudge([]);
-      const r = await maybeDreamJevReview(deps, { _judge: judge });
+      const r = await maybeDreamDecisionReview(deps, { _judge: judge });
       expect(r.ok).toBe(true);
       expect(r.unavailable).toBeUndefined(); // passthrough reached the review, not the null guard
     } finally {
       delete process.env.LAPIS_JUDGE_PROVIDER;
-      delete process.env.TYPESAFE_API_KEY;
+      delete process.env.LIQUID_API_KEY;
       require('../config').resetConfigCache();
     }
   });

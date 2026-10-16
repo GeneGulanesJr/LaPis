@@ -1,11 +1,11 @@
-// src/trust-sync/trust-jev.js
+// src/trust-sync/trust-decision.js
 // Slice E: trust invalidation review — opt-in, ADVISORY (never writes).
 // For symbol-linked memories whose trust would DECAY, judge-verify whether the
 // code changes actually invalidate the memory's content. High-p = the decay is
 // justified; low-p = the memory survived semantically (candidate for recovery).
 
 const { createJudge } = require('../judgment');
-const { createJevAdapter } = require('../judgment/adapters/jev');
+const { createDecisionAdapter } = require('../judgment/adapters/decision');
 const { getConfig } = require('../../config');
 const { chunk, capText } = require('../judgment/internal');
 
@@ -16,20 +16,20 @@ const MAX_CHANGED_SYMBOLS = 20;
 const MAX_TITLE_LEN = 120;
 
 /**
- * Guard: should the current process annotate trust sync with Jev? Default-off —
- * requires provider=jev + machine-scoped key + the trust surface not disabled
- * (LAPIS_JUDGE_DISABLE_TRUST=1). Mirrors dreamJevEnabled()/dedupeJevEnabled().
+ * Guard: should the current process annotate trust sync with Decision? Default-off —
+ * requires provider=decision + machine-scoped key + the trust surface not disabled
+ * (LAPIS_JUDGE_DISABLE_TRUST=1). Mirrors dreamDecisionEnabled()/dedupeDecisionEnabled().
  */
-function trustJevEnabled() {
+function trustDecisionEnabled() {
   const cfg = getConfig().judgment || {};
-  return cfg.provider === 'jev' && !!process.env.TYPESAFE_API_KEY && !(cfg.disables && cfg.disables.trust);
+  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.trust);
 }
 
 function buildJudge(args) {
   if (args && args._judge) return args._judge;
   const adapters =
-    (getConfig().judgment || {}).provider === 'jev'
-      ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) }
+    (getConfig().judgment || {}).provider === 'decision'
+      ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) }
       : {};
   return createJudge({ config: getConfig(), adapters });
 }
@@ -49,7 +49,7 @@ function lookupTitles(deps, memoryIds) {
 }
 
 /**
- * jevInvalidationReview(links, changedSymbols, args) — async, READ-ONLY.
+ * decisionInvalidationReview(links, changedSymbols, args) — async, READ-ONLY.
  * links: DECAY candidates from evaluateTrustSync — the `adjusted` entries
  * ({memory_id, symbol_id, old_trust, new_trust}); raw symbol links carrying
  * trust_score are accepted too (shape tolerated, trust values unused by the
@@ -58,7 +58,7 @@ function lookupTitles(deps, memoryIds) {
  * Returns {verified: [{memory_id, symbol_id, p, confidence, invalidated}]};
  * ANY failure → {verified: [], unavailable: true}. Never throws. Never writes.
  */
-async function jevInvalidationReview(links, changedSymbols, args = {}) {
+async function decisionInvalidationReview(links, changedSymbols, args = {}) {
   try {
     const rows = Array.isArray(links) ? links : [];
     if (rows.length === 0) return { verified: [] };
@@ -109,15 +109,15 @@ async function jevInvalidationReview(links, changedSymbols, args = {}) {
 }
 
 /**
- * maybeTrustJevReview(links, changedSymbols, deps, args) — the ONE guarded
+ * maybeTrustDecisionReview(links, changedSymbols, deps, args) — the ONE guarded
  * entry point for callers. Returns null when disabled (callers annotate
  * nothing — identical to pre-slice behavior), otherwise the review report
  * (all failures already contained). args._judge passes through for tests;
  * deps (e.g. {sqlJson}) enables best-effort memory-title enrichment.
  */
-async function maybeTrustJevReview(links, changedSymbols, deps, args = {}) {
-  if (!trustJevEnabled()) return null;
-  return jevInvalidationReview(links, changedSymbols, deps ? { ...args, deps } : args);
+async function maybeTrustDecisionReview(links, changedSymbols, deps, args = {}) {
+  if (!trustDecisionEnabled()) return null;
+  return decisionInvalidationReview(links, changedSymbols, deps ? { ...args, deps } : args);
 }
 
-module.exports = { trustJevEnabled, jevInvalidationReview, maybeTrustJevReview };
+module.exports = { trustDecisionEnabled, decisionInvalidationReview, maybeTrustDecisionReview };

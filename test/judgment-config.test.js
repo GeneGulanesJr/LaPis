@@ -12,7 +12,7 @@ describe('judgment config section', () => {
 
   it('defaults to heuristic (OFF) per zero-cloud ethos (spec §4)', () => {
     // Pin the exported DEFAULTS, not getConfig() — the machine's config.jsonc
-    // legitimately overrides provider once Jev is activated; defaults must stay
+    // legitimately overrides provider once Decision is activated; defaults must stay
     // heuristic forever regardless of machine state.
     const j = DEFAULTS.judgment;
     expect(j.provider).toBe('heuristic');
@@ -24,10 +24,15 @@ describe('judgment config section', () => {
     expect(j.breaker_cooldown_ms).toBe(60000);
     expect(j.disables).toEqual({});
   });
-  it('LAPIS_JUDGE_PROVIDER=jev opts in', () => {
+  it('LAPIS_JUDGE_PROVIDER=decision opts in', () => {
+    process.env.LAPIS_JUDGE_PROVIDER = 'decision';
+    resetConfigCache();
+    expect(getConfig().judgment.provider).toBe('decision');
+  });
+  it("deprecated alias: provider 'jev' (pre-rename) is read as 'decision'", () => {
     process.env.LAPIS_JUDGE_PROVIDER = 'jev';
     resetConfigCache();
-    expect(getConfig().judgment.provider).toBe('jev');
+    expect(getConfig().judgment.provider).toBe('decision');
   });
   it('LAPIS_JUDGE_LOCAL_ONLY=1 forces the kill switch', () => {
     process.env.LAPIS_JUDGE_LOCAL_ONLY = '1';

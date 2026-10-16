@@ -1,8 +1,8 @@
-// test/jev-compaction-integration.test.js
+// test/decision-compaction-integration.test.js
 // Integration smoke: drives memory-layer's default export end-to-end.
 //
 // This is the closest we can get to a real pi session without spawning pi:
-//   1. Set env vars as if a real pi run started with PI_COMPACTION_JUDG=jev
+//   1. Set env vars as if a real pi run started with PI_COMPACTION_JUDG=decision
 //   2. Build a fake pi ExtensionAPI that records every `pi.on(event, handler)`
 //      registration
 //   3. Call memoryLayer(fakePi) — exactly what pi does at boot
@@ -16,10 +16,10 @@
 // This proves that the index.ts wiring actually wires the planner into a host
 // pi session, not just that the planner module is internally correct.
 
-process.env.JEV_DRY_RUN = '1';
-process.env.JEV_ENABLED = '1';
+process.env.DECISION_DRY_RUN = '1';
+process.env.DECISION_ENABLED = '1';
 process.env.PI_COMPACTION_JUDG_ENABLED = '1';
-process.env.PI_COMPACTION_JUDG = 'jev';
+process.env.PI_COMPACTION_JUDG = 'decision';
 
 // The dashboard-tui command imports @earendil-works/pi-tui, a package only
 // pulled by `pi` at the TUI editor surface. Stub it before memory-layer loads
@@ -67,7 +67,7 @@ afterAll(() => {
   notifications.length = 0;
 });
 
-describe('memory-layer wires Jev-driven compaction end-to-end', () => {
+describe('memory-layer wires Decision-driven compaction end-to-end', () => {
   it('registers a session_before_compact handler', () => {
     expect(handlers.has('session_before_compact')).toBe(true);
   });
@@ -76,7 +76,7 @@ describe('memory-layer wires Jev-driven compaction end-to-end', () => {
     expect(handlers.has('session_compact')).toBe(true);
   });
 
-  it('handler is the Jev-driven planner when PI_COMPACTION_JUDG=jev', async () => {
+  it('handler is the Decision-driven planner when PI_COMPACTION_JUDG=decision', async () => {
     const handler = handlers.get('session_before_compact');
     expect(typeof handler).toBe('function');
 
@@ -111,7 +111,7 @@ describe('memory-layer wires Jev-driven compaction end-to-end', () => {
 
     expect(result.compaction).toBeDefined();
     expect(result.compaction.firstKeptEntryId).toBe(firstKeptEntryId);
-    expect(result.compaction.details.strategy).toBe('jev');
+    expect(result.compaction.details.strategy).toBe('decision');
     expect(result.compaction.details.verdicts.length).toBe(messages.length);
     expect(/<keep idx="\d+"/.test(result.compaction.summary)).toBe(true);
     expect(result.compaction.summary).toContain('Earlier: chose SQLite');

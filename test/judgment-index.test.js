@@ -6,7 +6,7 @@ const q = { id: 'a', judgment: { kind: 'probability', claim: 'c' }, instructions
 function fakeConfig(over = {}) {
   return {
     judgment: {
-      provider: 'jev',
+      provider: 'decision',
       timeout_ms: 50,
       breaker_threshold: 2,
       breaker_cooldown_ms: 100,
@@ -27,9 +27,9 @@ describe('createJudge — total-function guarantee (spec §7)', () => {
     const r = await j.judge([q]);
     expect(r.status).toBe('unavailable');
   });
-  it('local_only kill switch forces unavailable even with jev selected', async () => {
+  it('local_only kill switch forces unavailable even with decision selected', async () => {
     const spy = { judge: vi.fn(async () => ({ status: 'ok', answers: [{ id: 'a', p: 0.1, confidence: 0.9 }] })) };
-    const j = createJudge({ config: fakeConfig({ local_only: true }), adapters: { jev: spy } });
+    const j = createJudge({ config: fakeConfig({ local_only: true }), adapters: { decision: spy } });
     const r = await j.judge([q]);
     expect(r.status).toBe('unavailable');
     expect(spy.judge).not.toHaveBeenCalled();
@@ -41,18 +41,18 @@ describe('createJudge — total-function guarantee (spec §7)', () => {
     expect(r.reason).toMatch(/dream/);
   });
   it('hanging adapter → unavailable at timeout (never throws)', async () => {
-    const hanging = { name: 'jev', judge: () => new Promise(() => {}) };
-    const j = createJudge({ config: fakeConfig(), adapters: { jev: hanging } });
+    const hanging = { name: 'decision', judge: () => new Promise(() => {}) };
+    const j = createJudge({ config: fakeConfig(), adapters: { decision: hanging } });
     const r = await j.judge([q]);
     expect(r.status).toBe('unavailable');
     expect(r.reason).toMatch(/timeout/i);
   });
   it('happy path passes adapter answers through', async () => {
     const ok = {
-      name: 'jev',
+      name: 'decision',
       judge: vi.fn(async () => ({ status: 'ok', answers: [{ id: 'a', p: 0.25, confidence: 0.8 }] })),
     };
-    const j = createJudge({ config: fakeConfig(), adapters: { jev: ok } });
+    const j = createJudge({ config: fakeConfig(), adapters: { decision: ok } });
     const r = await j.judge([q]);
     expect(r.status).toBe('ok');
     expect(r.answers[0].p).toBe(0.25);
@@ -62,10 +62,10 @@ describe('createJudge — total-function guarantee (spec §7)', () => {
 describe('circuit breaker', () => {
   it('opens after threshold consecutive failures; calls skip the adapter; recovers after cooldown', async () => {
     vi.useFakeTimers();
-    const failing = { name: 'jev', judge: vi.fn(async () => ({ status: 'unavailable', reason: 'HTTP 503' })) };
+    const failing = { name: 'decision', judge: vi.fn(async () => ({ status: 'unavailable', reason: 'HTTP 503' })) };
     const j = createJudge({
       config: fakeConfig({ breaker_threshold: 2, breaker_cooldown_ms: 100 }),
-      adapters: { jev: failing },
+      adapters: { decision: failing },
     });
     await j.judge([q]);
     await j.judge([q]);

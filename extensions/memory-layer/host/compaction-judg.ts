@@ -1,5 +1,5 @@
 // extensions/memory-layer/host/compaction-judg.ts
-// Strategy interface for Jev-driven compaction.
+// Strategy interface for Decision-driven compaction.
 //
 // Compaction is per-message decided by a CompactionJudg implementation. The
 // default strategy is `noop` (no per-message decision, falls through to pi's
@@ -9,9 +9,9 @@
 //   2) Settings JSON: `compaction.judgPath: "./my-judg.mjs"` (default export
 //      that satisfies CompactionJudg)
 //
-// This module is intentionally strategy-agnostic. It does not depend on Jev,
+// This module is intentionally strategy-agnostic. It does not depend on Decision,
 // LLM, or pi's compaction internals beyond the cut-point boundaries documented in
-// `docs/JEV_DRIVEN_COMPACTION.md`.
+// `docs/DECISION_DRIVEN_COMPACTION.md`.
 
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { FileOperations } from '@earendil-works/pi-coding-agent';
@@ -57,7 +57,7 @@ export interface DecideKeepResult {
  * Strategy contract. Implementations must be:
  *   - Deterministic-enough that re-runs on the same input produce the same verdict.
  *   - Graceful: throw or return error sentinel; never corrupt pi's compaction flow.
- *   - Bounded: per-call latency < JEV_TIMEOUT_MS (default 8s); under that,
+ *   - Bounded: per-call latency < DECISION_TIMEOUT_MS (default 8s); under that,
  *           unpredictable judgments across long sessions fail loudly rather than
  *           blocking compaction silently.
  */
@@ -101,6 +101,10 @@ export function registerCompactionJudg(name: string, impl: CompactionJudg): void
  * strategy (which mirrors pi's default compaction behavior).
  */
 export async function resolveCompactionJudg(name: string): Promise<CompactionJudg | undefined> {
+  // Deprecated alias (kept for one release): the strategy registered as 'jev'
+  // was renamed 'decision'. `compaction.judg: "jev"` in settings or
+  // PI_COMPACTION_JUDG=jev keeps resolving; remove next release.
+  if (name === 'jev') name = 'decision';
   if (REGISTRY.has(name)) return REGISTRY.get(name);
   if (!looksLikePath(name)) return undefined;
   if (FILE_CACHE.has(name)) return FILE_CACHE.get(name);

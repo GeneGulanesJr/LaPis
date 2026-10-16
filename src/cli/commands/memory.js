@@ -241,8 +241,8 @@ function register(commands, deps) {
   commands.save = (args) =>
     require('../../../commands/observation').save({ sqlJson, sqlRun, sqlRaw, jsonErrNoExit, memoryRepository }, args);
   commands['save-classified'] = buildSaveClassified(deps, commands);
-  // Slice A (judgment): advisory Jev rerank of the ranked results — opt-in.
-  // Default config (provider=heuristic / no TYPESAFE_API_KEY) returns the sync
+  // Slice A (judgment): advisory Decision rerank of the ranked results — opt-in.
+  // Default config (provider=heuristic / no LIQUID_API_KEY) returns the sync
   // result unchanged: no awaits on the judgment path, no new fields. Any
   // judgment failure degrades to the lexical order. The gateway dispatch()
   // awaits command results, so an async wrapper here is safe.
@@ -257,9 +257,9 @@ function register(commands, deps) {
       args,
     );
     try {
-      const { searchJevEnabled, jevRerank } = require('../../memory-domain/search-jev');
-      if (searchJevEnabled() && result && Array.isArray(result.results) && result.results.length > 0) {
-        const rerank = await jevRerank(result.results, args.query, args);
+      const { searchDecisionEnabled, decisionRerank } = require('../../memory-domain/search-decision');
+      if (searchDecisionEnabled() && result && Array.isArray(result.results) && result.results.length > 0) {
+        const rerank = await decisionRerank(result.results, args.query, args);
         if (rerank && rerank.reranked) result.results = rerank.rows;
       }
     } catch {
@@ -267,8 +267,8 @@ function register(commands, deps) {
     }
     return result;
   };
-  // Slice G (judgment): advisory Jev selection of the context candidates —
-  // opt-in. Default config (provider=heuristic / no TYPESAFE_API_KEY) returns
+  // Slice G (judgment): advisory Decision selection of the context candidates —
+  // opt-in. Default config (provider=heuristic / no LIQUID_API_KEY) returns
   // the sync result unchanged: no new fields, no selection change. Any
   // judgment failure degrades to the builder's own ordering. The gateway
   // dispatch() awaits command results, so an async wrapper here is safe.
@@ -284,9 +284,9 @@ function register(commands, deps) {
       args,
     );
     try {
-      const { contextJevEnabled, maybeContextJevSelection } = require('../../memory-domain/context-jev');
-      if (contextJevEnabled() && result && Array.isArray(result.observations) && result.observations.length > 0) {
-        const sel = await maybeContextJevSelection(
+      const { contextDecisionEnabled, maybeContextDecisionSelection } = require('../../memory-domain/context-decision');
+      if (contextDecisionEnabled() && result && Array.isArray(result.observations) && result.observations.length > 0) {
+        const sel = await maybeContextDecisionSelection(
           result.observations,
           args.query || args['topic-key'] || 'context-auto',
           null,
@@ -294,7 +294,7 @@ function register(commands, deps) {
         );
         if (sel && !sel.unavailable && Array.isArray(sel.selected)) {
           result.observations = sel.selected;
-          result.jevSelected = true; // advisory marker — all other result fields kept
+          result.decisionSelected = true; // advisory marker — all other result fields kept
         }
       }
     } catch {

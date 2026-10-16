@@ -1,6 +1,6 @@
 // vitest globals enabled — no import; `vi` is a global
 // Wire tests via injected fetchImpl — NO network, ungated.
-const { createJevAdapter } = require('../src/judgment/adapters/jev');
+const { createDecisionAdapter } = require('../src/judgment/adapters/decision');
 
 const probQ = {
   id: 'sup',
@@ -26,10 +26,15 @@ function jsonResponse(body, status = 200) {
 }
 
 function makeAdapter(fetchImpl, overrides = {}) {
-  return createJevAdapter({ apiKey: 'k-test', endpoint: 'https://fake.local/v1/systemone', fetchImpl, ...overrides });
+  return createDecisionAdapter({
+    apiKey: 'k-test',
+    endpoint: 'https://fake.local/v1/systemone',
+    fetchImpl,
+    ...overrides,
+  });
 }
 
-describe('jev adapter — request side', () => {
+describe('decision adapter — request side', () => {
   it('translates LaPis judgments to the wire (probability→noul, classify→choice, grade→score)', async () => {
     let captured;
     const fetchImpl = vi.fn(async (url, opts) => {
@@ -40,7 +45,7 @@ describe('jev adapter — request side', () => {
           type: { choice: 'decision', confidence: 0.9 },
           rel: { score: 1, confidence: 0.7 },
         },
-        model: 'jev',
+        model: 'd1-ultra',
         usage: {},
       });
     });
@@ -48,7 +53,7 @@ describe('jev adapter — request side', () => {
     const r = await a.judge([probQ, clsQ, gradeQ]);
     expect(r.status).toBe('ok');
     expect(captured.opts.headers.Authorization).toBe('Bearer k-test');
-    expect(captured.body.model).toBe('jev-latest');
+    expect(captured.body.model).toBe('d1-ultra');
     // claim is folded into instructions so the wire question is self-contained
     expect(captured.body.questions.sup).toEqual({
       type: 'noul',
@@ -62,7 +67,70 @@ describe('jev adapter — request side', () => {
   });
 });
 
-describe('jev adapter — response side', () => {
+describe('decision adapter — defaults', () => {
+  it('targets the Liquid Decisions API with d1-ultra unless overridden', async () => {
+    const saved = { e: process.env.LAPIS_JUDGE_ENDPOINT, m: process.env.LAPIS_JUDGE_MODEL };
+    delete process.env.LAPIS_JUDGE_ENDPOINT;
+    delete process.env.LAPIS_JUDGE_MODEL;
+    try {
+      const p = await createDecisionAdapter({ apiKey: 'k-test' }).probe();
+      expect(p).toEqual({
+        ok: true,
+        mode: 'ready',
+        endpoint: 'https://api.liquid.ai/decisions/v1/systemone',
+        model: 'd1-ultra',
+      });
+      expect((await createDecisionAdapter({ apiKey: 'k-test', model: 'd1' }).probe()).model).toBe('d1');
+    } finally {
+      if (saved.e !== undefined) process.env.LAPIS_JUDGE_ENDPOINT = saved.e;
+      if (saved.m !== undefined) process.env.LAPIS_JUDGE_MODEL = saved.m;
+    }
+  });
+});
+
+describe('decision adapter — one-option choice (Liquid 422s on a choice with < 2 options)', () => {
+  const oneQ = {
+    id: 'only',
+    judgment: { kind: 'classify', enum: ['keep'] },
+    instructions: 'classify it',
+    state: { msg: 'y' },
+  };
+  it('answers a one-option classify locally and does not send it', async () => {
+    let captured;
+    const fetchImpl = vi.fn(async (url, opts) => {
+      captured = JSON.parse(opts.body);
+      return jsonResponse({ answers: { sup: { type: 'noul', noul: 0.9 } }, model: 'd1-ultra', usage: {} });
+    });
+    const r = await makeAdapter(fetchImpl).judge([oneQ, probQ]);
+    expect(r.status).toBe('ok');
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(Object.keys(captured.questions)).toEqual(['sup']);
+    // state comes only from the questions actually sent
+    expect(captured.state).toEqual({ a: 'old', b: 'new' });
+    // answers keep the caller's question order
+    expect(r.answers).toEqual([
+      { id: 'only', pick: 'keep', confidence: 1 },
+      { id: 'sup', p: 0.9, confidence: expect.closeTo(0.8, 5) },
+    ]);
+  });
+  it('makes no request when every question is a one-option classify', async () => {
+    const fetchImpl = vi.fn();
+    const r = await makeAdapter(fetchImpl).judge([
+      oneQ,
+      { ...oneQ, id: 'only2', judgment: { kind: 'classify', enum: ['x'] } },
+    ]);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(r).toEqual({
+      status: 'ok',
+      answers: [
+        { id: 'only', pick: 'keep', confidence: 1 },
+        { id: 'only2', pick: 'x', confidence: 1 },
+      ],
+    });
+  });
+});
+
+describe('decision adapter — response side', () => {
   it('maps and normalizes the reply to typed answers', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({
@@ -71,7 +139,7 @@ describe('jev adapter — response side', () => {
           type: { choice: 'decision', confidence: 0.9 },
           rel: { score: 2, confidence: 0.7 },
         },
-        model: 'jev',
+        model: 'd1-ultra',
         usage: {},
       }),
     );
@@ -83,16 +151,16 @@ describe('jev adapter — response side', () => {
       { id: 'rel', level: 2, confidence: 0.7 },
     ]);
   });
-  it('live shape jev-1.13.0: noul reply WITHOUT confidence → derived confidence |p−0.5|×2', async () => {
+  it('live shape (Liquid d1-ultra): noul reply WITHOUT confidence → derived confidence |p−0.5|×2', async () => {
     const fetchImpl = vi.fn(async () =>
-      jsonResponse({ answers: { sup: { type: 'noul', noul: 0.76 } }, model: 'jev-1.13.0', usage: {} }),
+      jsonResponse({ answers: { sup: { type: 'noul', noul: 0.76 } }, model: 'd1-ultra', usage: {} }),
     );
     const r = await makeAdapter(fetchImpl).judge([probQ]);
     expect(r.status).toBe('ok');
     expect(r.answers[0].p).toBe(0.76);
     expect(r.answers[0].confidence).toBeCloseTo(0.52); // |0.76−0.5|×2
   });
-  it('live shape jev-1.13.0: FLOAT score (1.82) + legend → rounds to nearest level index', async () => {
+  it('live shape (Liquid d1-ultra): FLOAT score (1.82) + legend → rounds to nearest level index', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({
         answers: {
@@ -104,7 +172,7 @@ describe('jev adapter — response side', () => {
             probabilities: { 0: 0.08, 1: 0.03, 2: 0.89 },
           },
         },
-        model: 'jev-1.13.0',
+        model: 'd1-ultra',
         usage: {},
       }),
     );
@@ -126,10 +194,10 @@ describe('jev adapter — response side', () => {
   });
   it('missing key → unavailable before any fetch (P1 #2)', async () => {
     const fetchImpl = vi.fn();
-    const a = createJevAdapter({ apiKey: null, endpoint: 'https://fake.local', fetchImpl });
+    const a = createDecisionAdapter({ apiKey: null, endpoint: 'https://fake.local', fetchImpl });
     const r = await a.judge([probQ]);
     expect(r.status).toBe('unavailable');
-    expect(r.reason).toMatch(/TYPESAFE_API_KEY/);
+    expect(r.reason).toMatch(/LIQUID_API_KEY/);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
   it('network throw → unavailable after retries', async () => {

@@ -3,7 +3,7 @@
 // never overrides pi's built-in compaction behavior. Used when:
 //   - The feature is disabled (compaction.judg unset, or "default")
 //   - The configured strategy fails to load
-//   - The user wants Jev-driven decisions temporarily turned off without changing settings
+//   - The user wants Decision-driven compaction temporarily turned off without changing settings
 
 import type { CompactionJudg, DecideKeepInput, DecideKeepResult } from '../compaction-judg';
 

@@ -287,7 +287,7 @@ It should depend on code-index, memory-domain, and doc-index through read-only i
 **Current entry points**
 
 - `src/token-saver/index.js` for command output compression and token savings tracking.
-- `src/token-saver/` modules: `classify-command.js`, `classify-jev.js`, `run-command.js`, `compress-output.js`, `estimate-tokens.js`, `savings-store.js`.
+- `src/token-saver/` modules: `classify-command.js`, `classify-decision.js`, `run-command.js`, `compress-output.js`, `estimate-tokens.js`, `savings-store.js`.
 
 **Sub-features**
 
@@ -298,7 +298,7 @@ It should depend on code-index, memory-domain, and doc-index through read-only i
 
 **Boundary to establish**
 
-Token-saver is standalone apart from an opt-in, lazily-loaded judgment adapter for the classify cascade (`classify-jev.js`). It has no dependency on other feature service internals:
+Token-saver is standalone apart from an opt-in, lazily-loaded judgment adapter for the classify cascade (`classify-decision.js`). It has no dependency on other feature service internals:
 
 ```text
 src/token-saver/

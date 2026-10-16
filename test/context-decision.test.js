@@ -1,5 +1,9 @@
 // vitest globals enabled — no import
-const { contextJevEnabled, jevSelectContext, maybeContextJevSelection } = require('../src/memory-domain/context-jev');
+const {
+  contextDecisionEnabled,
+  decisionSelectContext,
+  maybeContextDecisionSelection,
+} = require('../src/memory-domain/context-decision');
 const { resetConfigCache } = require('../config');
 
 // Real adapter shape for grade answers: {id, level: <index into levels>, confidence}
@@ -16,10 +20,10 @@ function okJudge(levelByIndex) {
   }));
 }
 
-describe('jevSelectContext — budget-constrained selection', () => {
+describe('decisionSelectContext — budget-constrained selection', () => {
   it('empty candidates → {selected: [], dropped: []}, judge never built or called', async () => {
     const judge = vi.fn(),
-      r = await jevSelectContext([], 'ship the parser fix', { _judge: judge });
+      r = await decisionSelectContext([], 'ship the parser fix', { _judge: judge });
     expect(r).toEqual({ selected: [], dropped: [] });
     expect(judge).not.toHaveBeenCalled();
   });
@@ -34,7 +38,7 @@ describe('jevSelectContext — budget-constrained selection', () => {
     ];
     // Level indices: essential=2, relevant=1, filler=0.
     const judge = okJudge({ 0: 2, 1: 1, 2: 0, 3: 2, 4: 1 });
-    const r = await jevSelectContext(candidates, 'fix the tokenizer bug', { _judge: judge });
+    const r = await decisionSelectContext(candidates, 'fix the tokenizer bug', { _judge: judge });
 
     expect(r.unavailable).toBeUndefined();
     // Greedy prefix at budget 4000 (default), level-desc (stable): essentials
@@ -62,7 +66,7 @@ describe('jevSelectContext — budget-constrained selection', () => {
       { id: 3, title: 'c', content: 'ccc', _tokens: 10 },
     ];
     const judge = okJudge({ 0: 0, 1: 0, 2: 0 });
-    const r = await jevSelectContext(candidates, 'anything', { _judge: judge });
+    const r = await decisionSelectContext(candidates, 'anything', { _judge: judge });
     expect(r).toEqual({ selected: [], dropped: candidates });
   });
 
@@ -72,7 +76,7 @@ describe('jevSelectContext — budget-constrained selection', () => {
         { id: 1, title: 'A', content: 'a' },
         { id: 2, title: 'B', content: 'b' },
       ],
-      r = await jevSelectContext(candidates, 'task', { _judge: judge });
+      r = await decisionSelectContext(candidates, 'task', { _judge: judge });
     expect(r.selected).toBe(candidates); // today's selection, same refs, same order
     expect(r.dropped).toEqual([]);
     expect(r.unavailable).toBe(true);
@@ -86,7 +90,7 @@ describe('jevSelectContext — budget-constrained selection', () => {
         { id: 1, title: 'A', content: 'a' },
         { id: 2, title: 'B', content: 'b' },
       ],
-      r = await jevSelectContext(candidates, 'task', { _judge: judge });
+      r = await decisionSelectContext(candidates, 'task', { _judge: judge });
     expect(r.selected).toBe(candidates);
     expect(r.dropped).toEqual([]);
     expect(r.unavailable).toBe(true);
@@ -95,7 +99,7 @@ describe('jevSelectContext — budget-constrained selection', () => {
   it('batching: 30 candidates → 3 judge calls of 10, all essential → all selected in order', async () => {
     const judge = okJudge(Object.fromEntries(Array.from({ length: 30 }, (_, i) => [i, 2]))),
       candidates = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, title: `m${i}`, content: 'x'.repeat(10) })),
-      r = await jevSelectContext(candidates, 'task', { _judge: judge });
+      r = await decisionSelectContext(candidates, 'task', { _judge: judge });
     expect(judge).toHaveBeenCalledTimes(3);
     expect(judge.mock.calls[0][0]).toHaveLength(10);
     expect(judge.mock.calls[1][0]).toHaveLength(10);
@@ -112,16 +116,16 @@ describe('jevSelectContext — budget-constrained selection', () => {
       { id: 3, title: 'small too', content: 'z'.repeat(50) }, // relevant
     ];
     const judge = okJudge({ 0: 2, 1: 2, 2: 1 });
-    const r = await jevSelectContext(candidates, 'task', { _judge: judge, 'token-budget': 300 });
+    const r = await decisionSelectContext(candidates, 'task', { _judge: judge, 'token-budget': 300 });
     // 100 → 2100 would overflow at #2 → scan stops; #3 never reached.
     expect(r.selected.map((c) => c.id)).toEqual([1]);
     expect(r.dropped.map((c) => c.id)).toEqual([2, 3]);
   });
 });
 
-describe('maybeContextJevSelection — guarded wrapper', () => {
+describe('maybeContextDecisionSelection — guarded wrapper', () => {
   const SAVED = {},
-    ENV_KEYS = ['LAPIS_JUDGE_PROVIDER', 'LAPIS_JUDGE_DISABLE_CONTEXT', 'TYPESAFE_API_KEY'];
+    ENV_KEYS = ['LAPIS_JUDGE_PROVIDER', 'LAPIS_JUDGE_DISABLE_CONTEXT', 'LIQUID_API_KEY'];
 
   function withEnv(env, fn) {
     for (const k of ENV_KEYS) {
@@ -150,28 +154,28 @@ describe('maybeContextJevSelection — guarded wrapper', () => {
   it('disabled → null (guard fires before the judge is ever built)', async () => {
     await withEnv({ LAPIS_JUDGE_PROVIDER: 'heuristic' }, async () => {
       const judge = vi.fn(),
-        r = await maybeContextJevSelection([{ id: 1, title: 'A', content: 'a' }], 'task', null, { _judge: judge });
+        r = await maybeContextDecisionSelection([{ id: 1, title: 'A', content: 'a' }], 'task', null, { _judge: judge });
       expect(r).toBeNull();
       expect(judge).not.toHaveBeenCalled();
     });
   });
 
   it('enabled + injectable judge → selection result passes through', async () => {
-    await withEnv({ LAPIS_JUDGE_PROVIDER: 'jev', TYPESAFE_API_KEY: 'k-test' }, async () => {
+    await withEnv({ LAPIS_JUDGE_PROVIDER: 'decision', LIQUID_API_KEY: 'k-test' }, async () => {
       const judge = okJudge({ 0: 2, 1: 0 }),
         candidates = [
           { id: 1, title: 'keep', content: 'a', _tokens: 10 },
           { id: 2, title: 'drop', content: 'b', _tokens: 10 },
         ],
-        r = await maybeContextJevSelection(candidates, 'task', null, { _judge: judge });
+        r = await maybeContextDecisionSelection(candidates, 'task', null, { _judge: judge });
       expect(r).toEqual({ selected: [candidates[0]], dropped: [candidates[1]] });
     });
   });
 });
 
-describe('contextJevEnabled — opt-in guard matrix', () => {
+describe('contextDecisionEnabled — opt-in guard matrix', () => {
   const SAVED = {},
-    ENV_KEYS = ['LAPIS_JUDGE_PROVIDER', 'LAPIS_JUDGE_DISABLE_CONTEXT', 'TYPESAFE_API_KEY'];
+    ENV_KEYS = ['LAPIS_JUDGE_PROVIDER', 'LAPIS_JUDGE_DISABLE_CONTEXT', 'LIQUID_API_KEY'];
 
   function withEnv(env, fn) {
     for (const k of ENV_KEYS) {
@@ -197,27 +201,27 @@ describe('contextJevEnabled — opt-in guard matrix', () => {
     }
   }
 
-  it('provider=jev + TYPESAFE_API_KEY → true', () => {
-    withEnv({ LAPIS_JUDGE_PROVIDER: 'jev', TYPESAFE_API_KEY: 'k-test' }, () => {
-      expect(contextJevEnabled()).toBe(true);
+  it('provider=decision + LIQUID_API_KEY → true', () => {
+    withEnv({ LAPIS_JUDGE_PROVIDER: 'decision', LIQUID_API_KEY: 'k-test' }, () => {
+      expect(contextDecisionEnabled()).toBe(true);
     });
   });
 
   it('provider=heuristic → false even with key', () => {
-    withEnv({ LAPIS_JUDGE_PROVIDER: 'heuristic', TYPESAFE_API_KEY: 'k-test' }, () => {
-      expect(contextJevEnabled()).toBe(false);
+    withEnv({ LAPIS_JUDGE_PROVIDER: 'heuristic', LIQUID_API_KEY: 'k-test' }, () => {
+      expect(contextDecisionEnabled()).toBe(false);
     });
   });
 
-  it('disables.context → false even with provider=jev + key', () => {
-    withEnv({ LAPIS_JUDGE_PROVIDER: 'jev', LAPIS_JUDGE_DISABLE_CONTEXT: '1', TYPESAFE_API_KEY: 'k-test' }, () => {
-      expect(contextJevEnabled()).toBe(false);
+  it('disables.context → false even with provider=decision + key', () => {
+    withEnv({ LAPIS_JUDGE_PROVIDER: 'decision', LAPIS_JUDGE_DISABLE_CONTEXT: '1', LIQUID_API_KEY: 'k-test' }, () => {
+      expect(contextDecisionEnabled()).toBe(false);
     });
   });
 
-  it('missing TYPESAFE_API_KEY → false even with provider=jev', () => {
-    withEnv({ LAPIS_JUDGE_PROVIDER: 'jev' }, () => {
-      expect(contextJevEnabled()).toBe(false);
+  it('missing LIQUID_API_KEY → false even with provider=decision', () => {
+    withEnv({ LAPIS_JUDGE_PROVIDER: 'decision' }, () => {
+      expect(contextDecisionEnabled()).toBe(false);
     });
   });
 });

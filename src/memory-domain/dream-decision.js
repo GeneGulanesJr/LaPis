@@ -1,5 +1,5 @@
-// src/memory-domain/dream-jev.js
-// Slice 1: Dream Cycle Jev review — ADVISORY ANNOTATION ONLY (spec §10).
+// src/memory-domain/dream-decision.js
+// Slice 1: Dream Cycle Decision review — ADVISORY ANNOTATION ONLY (spec §10).
 // Re-runs the dream() Phase-1 (superseded) and Phase-4 (corrections) candidate
 // queries and judge-verifies each pair. NEVER deletes: the report annotates
 // which candidates the judgment would keep. All failures degrade to an
@@ -7,7 +7,7 @@
 
 const { DEDUP } = require('../../constants');
 const { createJudge } = require('../judgment');
-const { createJevAdapter } = require('../judgment/adapters/jev');
+const { createDecisionAdapter } = require('../judgment/adapters/decision');
 const { getConfig } = require('../../config');
 const { chunk, capText } = require('../judgment/internal');
 
@@ -33,7 +33,8 @@ const CORRECTIONS_SQL = `
 function buildJudge(args) {
   if (args && args._judge) return args._judge;
   const cfg = getConfig().judgment || {};
-  const adapters = cfg.provider === 'jev' ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) } : {};
+  const adapters =
+    cfg.provider === 'decision' ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) } : {};
   // verifyBatch calls judge(batch, ...) as a plain function — return the seam's
   // judge MEMBER, not the { provider, probe, judge } object (which would throw
   // 'judge is not a function' in production; injected-test mocks hid this).
@@ -85,11 +86,11 @@ async function verifyBatch(judge, kind, rows) {
 }
 
 /**
- * dreamJevReview(deps, args) — async, advisory.
+ * dreamDecisionReview(deps, args) — async, advisory.
  * deps: { sqlJson } (same handle style as compaction domain). args._judge: test injection.
  * Returns { ok, provider, unavailable?, superseded: {candidates, verified}, corrections: {candidates, verified} }.
  */
-async function dreamJevReview(deps, args = {}) {
+async function dreamDecisionReview(deps, args = {}) {
   const report = { ok: true, provider: 'heuristic' };
   try {
     const judge = buildJudge(args);
@@ -110,24 +111,24 @@ async function dreamJevReview(deps, args = {}) {
 }
 
 /**
- * Guard: should the current process annotate dreams with Jev? Default-off —
- * requires provider=jev + machine-scoped key + surface not disabled.
+ * Guard: should the current process annotate dreams with Decision? Default-off —
+ * requires provider=decision + machine-scoped key + surface not disabled.
  */
-function dreamJevEnabled() {
+function dreamDecisionEnabled() {
   const cfg = getConfig().judgment || {};
-  return cfg.provider === 'jev' && !!process.env.TYPESAFE_API_KEY && !(cfg.disables && cfg.disables.dream);
+  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.dream);
 }
 
 /**
- * maybeDreamJevReview(deps, args) — the ONE guarded entry point for callers
+ * maybeDreamDecisionReview(deps, args) — the ONE guarded entry point for callers
  * (gateway dream command, cleanup-sessions CLI). Returns null when disabled
  * (callers then annotate nothing — identical to pre-judgment behavior),
- * otherwise the dreamJevReview report (all failures already contained).
+ * otherwise the dreamDecisionReview report (all failures already contained).
  * args._judge passes through for tests.
  */
-async function maybeDreamJevReview(deps, args = {}) {
-  if (!dreamJevEnabled()) return null;
-  return dreamJevReview(deps, args);
+async function maybeDreamDecisionReview(deps, args = {}) {
+  if (!dreamDecisionEnabled()) return null;
+  return dreamDecisionReview(deps, args);
 }
 
-module.exports = { dreamJevReview, maybeDreamJevReview, dreamJevEnabled };
+module.exports = { dreamDecisionReview, maybeDreamDecisionReview, dreamDecisionEnabled };

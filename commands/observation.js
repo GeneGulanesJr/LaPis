@@ -3,7 +3,7 @@ const obsService = require('../services/observations'),
   dedupService = require('../services/dedup'),
   sessionsService = require('../services/sessions'),
   { parseExpiresIn } = require('../src/memory-domain/ttl'),
-  { jevVerifyDuplicates, dedupeJevEnabled } = require('../src/memory-domain/dedupe-jev');
+  { decisionVerifyDuplicates, dedupeDecisionEnabled } = require('../src/memory-domain/dedupe-decision');
 
 function getMemoryRepository(deps) {
   if (deps.memoryRepository) {
@@ -28,8 +28,8 @@ function getMemoryRepository(deps) {
 }
 
 // Slice D (judgment): Advisory semantic verification of duplicate warnings.
-// Opt-in only (dedupeJevEnabled); READ-ONLY — enriches the potential_duplicate
-// Payload with `jevVerified` probabilities. Any failure or disabled state
+// Opt-in only (dedupeDecisionEnabled); READ-ONLY — enriches the potential_duplicate
+// Payload with `decisionVerified` probabilities. Any failure or disabled state
 // Degrades to today's payload untouched. The gateway dispatch awaits, so an
 // Async wrapper is safe.
 async function save(deps, args) {
@@ -52,14 +52,14 @@ async function save(deps, args) {
       result.status === 'potential_duplicate' &&
       Array.isArray(result.matches) &&
       result.matches.length > 0 &&
-      dedupeJevEnabled()
+      dedupeDecisionEnabled()
     ) {
-      const res = await jevVerifyDuplicates({ sqlJson: deps.sqlJson }, result.matches, {
+      const res = await decisionVerifyDuplicates({ sqlJson: deps.sqlJson }, result.matches, {
         incomingTitle: args.title,
         incomingContent: args.content,
       });
       if (!res.unavailable && res.verified.length > 0) {
-        result.jevVerified = res.verified;
+        result.decisionVerified = res.verified;
       }
     }
   } catch {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diffLostTopics } from '../extensions/memory-layer/host/jev-lost-topics.ts';
+import { diffLostTopics } from '../extensions/memory-layer/host/decision-lost-topics.ts';
 
 describe('diffLostTopics', () => {
   it('returns [] when before is null (no baseline)', () => {

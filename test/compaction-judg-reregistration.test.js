@@ -55,7 +55,7 @@ function bootAndAssert() {
     expect(errSpy).not.toHaveBeenCalled();
     expect(handlers.has('session_before_compact')).toBe(true);
     expect(handlers.has('session_compact')).toBe(true);
-    expect(listRegisteredJudg()).toEqual(expect.arrayContaining(['default', 'noop', 'jev']));
+    expect(listRegisteredJudg()).toEqual(expect.arrayContaining(['default', 'noop', 'decision']));
   } finally {
     errSpy.mockRestore();
   }

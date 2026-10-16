@@ -1,5 +1,9 @@
 // vitest globals enabled — no import
-const { trustJevEnabled, jevInvalidationReview, maybeTrustJevReview } = require('../src/trust-sync/trust-jev');
+const {
+  trustDecisionEnabled,
+  decisionInvalidationReview,
+  maybeTrustDecisionReview,
+} = require('../src/trust-sync/trust-decision');
 
 function makeJudge(answers, meta = {}) {
   return vi.fn(async () => ({ status: meta.status || 'ok', answers, reason: meta.reason }));
@@ -11,10 +15,10 @@ const decayLinks = [
   { memory_id: 13, symbol_id: 'syncCodeTrust', old_trust: 0.8, new_trust: 0.1 },
 ];
 
-describe('jevInvalidationReview — advisory only, never writes', () => {
+describe('decisionInvalidationReview — advisory only, never writes', () => {
   it('empty links → {verified: []}, no judge constructed', async () => {
     const judge = makeJudge([]);
-    const r = await jevInvalidationReview([], new Set(['x']), { _judge: judge });
+    const r = await decisionInvalidationReview([], new Set(['x']), { _judge: judge });
     expect(r).toEqual({ verified: [] });
     expect(r.unavailable).toBeUndefined();
     expect(judge).not.toHaveBeenCalled();
@@ -25,7 +29,7 @@ describe('jevInvalidationReview — advisory only, never writes', () => {
       { id: 'trust-0', p: 0.9, confidence: 0.92 },
       { id: 'trust-1', p: 0.3, confidence: 0.71 },
     ]);
-    const r = await jevInvalidationReview(decayLinks, ['evaluateTrustSync', 'syncCodeTrust'], { _judge: judge });
+    const r = await decisionInvalidationReview(decayLinks, ['evaluateTrustSync', 'syncCodeTrust'], { _judge: judge });
     expect(r.unavailable).toBeUndefined();
     expect(r.verified).toEqual([
       {
@@ -50,7 +54,7 @@ describe('jevInvalidationReview — advisory only, never writes', () => {
   it('deps with sqlJson → title enriched into state.memory (best-effort)', async () => {
     const judge = makeJudge([{ id: 'trust-0', p: 0.9, confidence: 0.9 }]);
     const deps = { sqlJson: vi.fn(() => [{ id: 12, title: 'Trust policy decays on symbol change' }]) };
-    await jevInvalidationReview([decayLinks[0]], ['evaluateTrustSync'], { _judge: judge, deps });
+    await decisionInvalidationReview([decayLinks[0]], ['evaluateTrustSync'], { _judge: judge, deps });
     expect(deps.sqlJson).toHaveBeenCalled();
     const questions = judge.mock.calls[0][0];
     expect(questions[0].state.memory).toEqual({ id: 12, title: 'Trust policy decays on symbol change' });
@@ -58,7 +62,7 @@ describe('jevInvalidationReview — advisory only, never writes', () => {
 
   it('judge unavailable → {verified: [], unavailable: true}', async () => {
     const judge = makeJudge([], { status: 'unavailable', reason: 'provider off' });
-    const r = await jevInvalidationReview(decayLinks, ['x'], { _judge: judge });
+    const r = await decisionInvalidationReview(decayLinks, ['x'], { _judge: judge });
     expect(r.verified).toEqual([]);
     expect(r.unavailable).toBe(true);
   });
@@ -67,7 +71,7 @@ describe('jevInvalidationReview — advisory only, never writes', () => {
     const judge = vi.fn(async () => {
       throw new Error('boom');
     });
-    const r = await jevInvalidationReview(decayLinks, ['x'], { _judge: judge });
+    const r = await decisionInvalidationReview(decayLinks, ['x'], { _judge: judge });
     expect(r.verified).toEqual([]);
     expect(r.unavailable).toBe(true);
   });
@@ -80,7 +84,7 @@ describe('jevInvalidationReview — advisory only, never writes', () => {
       old_trust: 1,
       new_trust: 0.3,
     }));
-    await jevInvalidationReview(links, ['sym0'], { _judge: judge });
+    await decisionInvalidationReview(links, ['sym0'], { _judge: judge });
     expect(judge).toHaveBeenCalledTimes(3); // 10 + 10 + 2
     expect(judge.mock.calls[0][0]).toHaveLength(10);
     expect(judge.mock.calls[1][0]).toHaveLength(10);
@@ -89,7 +93,7 @@ describe('jevInvalidationReview — advisory only, never writes', () => {
 
   it('accepts Set changedSymbols and raw link shape with trust_score', async () => {
     const judge = makeJudge([{ id: 'trust-0', p: 0.8, confidence: 0.9 }]);
-    const r = await jevInvalidationReview(
+    const r = await decisionInvalidationReview(
       [{ memory_id: 7, symbol_id: 'foo', trust_score: 0.5 }],
       new Set(['foo', 'bar', 'baz']),
       { _judge: judge },
@@ -99,39 +103,39 @@ describe('jevInvalidationReview — advisory only, never writes', () => {
   });
 });
 
-describe('trustJevEnabled + maybeTrustJevReview — guard matrix', () => {
+describe('trustDecisionEnabled + maybeTrustDecisionReview — guard matrix', () => {
   const { resetConfigCache } = require('../config');
   const deps = { sqlJson: () => [] };
-  let savedKey; // ambient TYPESAFE_API_KEY must not leak into guard results
+  let savedKey; // ambient LIQUID_API_KEY must not leak into guard results
 
   function withKey(value, fn) {
-    savedKey = process.env.TYPESAFE_API_KEY;
-    if (value === null) delete process.env.TYPESAFE_API_KEY;
-    else process.env.TYPESAFE_API_KEY = value;
+    savedKey = process.env.LIQUID_API_KEY;
+    if (value === null) delete process.env.LIQUID_API_KEY;
+    else process.env.LIQUID_API_KEY = value;
     return fn();
   }
   function restoreKey() {
-    if (savedKey === undefined) delete process.env.TYPESAFE_API_KEY;
-    else process.env.TYPESAFE_API_KEY = savedKey;
+    if (savedKey === undefined) delete process.env.LIQUID_API_KEY;
+    else process.env.LIQUID_API_KEY = savedKey;
     savedKey = undefined;
   }
 
   it('default config (heuristic, no key) → disabled', () => {
     withKey(null, () => {
       try {
-        expect(trustJevEnabled()).toBe(false);
+        expect(trustDecisionEnabled()).toBe(false);
       } finally {
         restoreKey();
       }
     });
   });
 
-  it('jev provider without key → disabled', () => {
-    process.env.LAPIS_JUDGE_PROVIDER = 'jev';
+  it('decision provider without key → disabled', () => {
+    process.env.LAPIS_JUDGE_PROVIDER = 'decision';
     try {
       withKey(null, () => {
         resetConfigCache();
-        expect(trustJevEnabled()).toBe(false);
+        expect(trustDecisionEnabled()).toBe(false);
       });
     } finally {
       restoreKey();
@@ -140,33 +144,33 @@ describe('trustJevEnabled + maybeTrustJevReview — guard matrix', () => {
     }
   });
 
-  it('disabled trust surface → disabled even with jev + key', async () => {
-    process.env.LAPIS_JUDGE_PROVIDER = 'jev';
-    process.env.TYPESAFE_API_KEY = 'k-test';
+  it('disabled trust surface → disabled even with decision + key', async () => {
+    process.env.LAPIS_JUDGE_PROVIDER = 'decision';
+    process.env.LIQUID_API_KEY = 'k-test';
     process.env.LAPIS_JUDGE_DISABLE_TRUST = '1';
     try {
       resetConfigCache();
-      expect(trustJevEnabled()).toBe(false);
-      await expect(maybeTrustJevReview(decayLinks, ['x'], deps, { _judge: makeJudge([]) })).resolves.toBeNull();
+      expect(trustDecisionEnabled()).toBe(false);
+      await expect(maybeTrustDecisionReview(decayLinks, ['x'], deps, { _judge: makeJudge([]) })).resolves.toBeNull();
     } finally {
       delete process.env.LAPIS_JUDGE_PROVIDER;
-      delete process.env.TYPESAFE_API_KEY;
+      delete process.env.LIQUID_API_KEY;
       delete process.env.LAPIS_JUDGE_DISABLE_TRUST;
       resetConfigCache();
     }
   });
 
-  it('jev + key → enabled; maybe wrapper passes through to the review (not null)', async () => {
-    process.env.LAPIS_JUDGE_PROVIDER = 'jev';
-    process.env.TYPESAFE_API_KEY = 'k-test';
+  it('decision + key → enabled; maybe wrapper passes through to the review (not null)', async () => {
+    process.env.LAPIS_JUDGE_PROVIDER = 'decision';
+    process.env.LIQUID_API_KEY = 'k-test';
     try {
       resetConfigCache();
-      expect(trustJevEnabled()).toBe(true);
+      expect(trustDecisionEnabled()).toBe(true);
       const judge = makeJudge([
         { id: 'trust-0', p: 0.7, confidence: 0.8 },
         { id: 'trust-1', p: 0.2, confidence: 0.8 },
       ]);
-      const r = await maybeTrustJevReview(decayLinks, ['x'], deps, { _judge: judge });
+      const r = await maybeTrustDecisionReview(decayLinks, ['x'], deps, { _judge: judge });
       expect(r).not.toBeNull();
       expect(r.unavailable).toBeUndefined();
       expect(r.verified).toHaveLength(2);
@@ -174,7 +178,7 @@ describe('trustJevEnabled + maybeTrustJevReview — guard matrix', () => {
       expect(r.verified[1].invalidated).toBe(false);
     } finally {
       delete process.env.LAPIS_JUDGE_PROVIDER;
-      delete process.env.TYPESAFE_API_KEY;
+      delete process.env.LIQUID_API_KEY;
       resetConfigCache();
     }
   });

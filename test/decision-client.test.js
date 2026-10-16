@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { jevAsk, isJevDryRun } from '../extensions/memory-layer/host/jev-client.ts';
+import { decisionAsk, isDecisionDryRun } from '../extensions/memory-layer/host/decision-client.ts';
 
-describe('jev-client', () => {
+describe('decision-client', () => {
   const ORIGINAL_ENV = { ...process.env };
 
   beforeEach(() => {
     process.env = { ...ORIGINAL_ENV };
+    delete process.env.DECISION_DRY_RUN;
+    delete process.env.DECISION_TIMEOUT_MS;
+    delete process.env.DECISION_MAX_RETRIES;
     delete process.env.JEV_DRY_RUN;
     delete process.env.JEV_TIMEOUT_MS;
     delete process.env.JEV_MAX_RETRIES;
@@ -15,20 +18,20 @@ describe('jev-client', () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  describe('isJevDryRun', () => {
-    it('returns true when JEV_DRY_RUN=1', () => {
-      process.env.JEV_DRY_RUN = '1';
-      expect(isJevDryRun()).toBe(true);
+  describe('isDecisionDryRun', () => {
+    it('returns true when DECISION_DRY_RUN=1', () => {
+      process.env.DECISION_DRY_RUN = '1';
+      expect(isDecisionDryRun()).toBe(true);
     });
 
-    it('returns false when JEV_DRY_RUN unset', () => {
-      expect(isJevDryRun()).toBe(false);
+    it('returns false when DECISION_DRY_RUN unset', () => {
+      expect(isDecisionDryRun()).toBe(false);
     });
   });
 
-  describe('jevAsk dry-run', () => {
+  describe('decisionAsk dry-run', () => {
     beforeEach(() => {
-      process.env.JEV_DRY_RUN = '1';
+      process.env.DECISION_DRY_RUN = '1';
     });
 
     it('returns a canned verdict for a "choice" question', async () => {
@@ -41,7 +44,7 @@ describe('jev-client', () => {
           { key: 'no', description: 'no references to pinned policies' },
         ],
       };
-      const result = await jevAsk(q);
+      const result = await decisionAsk(q);
       expect(result).toMatchObject({
         choice: expect.stringMatching(/^(yes|partial|no)$/),
         confidence: expect.any(Number),
@@ -56,7 +59,7 @@ describe('jev-client', () => {
         question: 'How complete is the post-compact memory slice?',
         levels: ['incomplete', 'partial', 'mostly-complete', 'complete'],
       };
-      const result = await jevAsk(q);
+      const result = await decisionAsk(q);
       expect(result.score).toBeGreaterThanOrEqual(0);
       expect(result.score).toBeLessThan(4);
       expect(result.confidence).toBeGreaterThanOrEqual(0);
@@ -64,21 +67,21 @@ describe('jev-client', () => {
     });
 
     it('throws on unknown question kind', async () => {
-      await expect(jevAsk({ kind: 'unknown' })).rejects.toThrow(/unknown question kind/);
+      await expect(decisionAsk({ kind: 'unknown' })).rejects.toThrow(/unknown question kind/);
     });
   });
 
-  describe('jevAsk live (mocked fetch)', () => {
+  describe('decisionAsk live (mocked fetch)', () => {
     beforeEach(() => {
       // Live mode requires a key to reach the fetch call; tests don't care about the value.
-      process.env.JEV_API_KEY = 'test-key';
+      process.env.LIQUID_API_KEY = 'test-key';
     });
 
-    it('POSTs to the Jev endpoint with shape { questions: [...] } and unwraps the response', async () => {
+    it('POSTs the /systemone wire shape { model, state, questions: { q } } and unwraps the response', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          answers: [{ choice: 'yes', confidence: 0.9 }],
+          answers: { q: { type: 'choice', choice: 'yes', probabilities: { yes: 0.95, no: 0.05 }, confidence: 0.9 } },
         }),
       });
       globalThis.fetch = fetchMock;
@@ -91,30 +94,70 @@ describe('jev-client', () => {
           { key: 'no', description: 'no' },
         ],
       };
-      const result = await jevAsk(q);
+      const result = await decisionAsk(q);
       expect(result).toEqual({ choice: 'yes', confidence: 0.9 });
       expect(fetchMock).toHaveBeenCalledOnce();
       const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe('https://api.typesafe.ai/v1/systemone');
+      expect(url).toBe('https://api.liquid.ai/decisions/v1/systemone');
       expect(init.method).toBe('POST');
+      expect(init.headers.Authorization).toBe('Bearer test-key');
       const body = JSON.parse(init.body);
-      expect(body).toMatchObject({
-        model: 'jev-latest',
-        questions: [expect.objectContaining({ kind: 'choice' })],
+      expect(body).toEqual({
+        model: 'd1-ultra',
+        state: {},
+        questions: {
+          q: { type: 'choice', instructions: 'Are policies referenced?', criteria: { yes: 'yes', no: 'no' } },
+        },
       });
     });
 
-    it('retries on 5xx up to JEV_MAX_RETRIES times', async () => {
+    it('sends a score question with its levels as criteria', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ answers: { q: { type: 'score', score: 1.6, confidence: 0.4 } } }),
+      });
+      globalThis.fetch = fetchMock;
+      const result = await decisionAsk({ kind: 'score', question: 'How complete?', levels: ['low', 'mid', 'high'] });
+      expect(result).toEqual({ score: 1.6, confidence: 0.4 });
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.questions.q).toEqual({
+        type: 'score',
+        instructions: 'How complete?',
+        criteria: ['low', 'mid', 'high'],
+      });
+    });
+
+    it('answers a one-option choice locally without a request (the API 422s on it)', async () => {
+      const fetchMock = vi.fn();
+      globalThis.fetch = fetchMock;
+      const result = await decisionAsk({
+        kind: 'choice',
+        question: 'only one way',
+        options: [{ key: 'keep', description: 'the only option' }],
+      });
+      expect(result).toEqual({ choice: 'keep', confidence: 1 });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('reads the pre-rename JEV_* gating env vars as deprecated aliases', async () => {
+      delete process.env.DECISION_DRY_RUN;
+      process.env.JEV_DRY_RUN = '1';
+      expect(isDecisionDryRun()).toBe(true);
+      process.env.DECISION_DRY_RUN = '0';
+      expect(isDecisionDryRun()).toBe(false); // the new name wins when set
+    });
+
+    it('retries on 5xx up to DECISION_MAX_RETRIES times', async () => {
       let calls = 0;
       globalThis.fetch = vi.fn().mockImplementation(async () => {
         calls += 1;
         if (calls < 3) return { ok: false, status: 503 };
         return {
           ok: true,
-          json: async () => ({ answers: [{ choice: 'yes', confidence: 0.8 }] }),
+          json: async () => ({ answers: { q: { type: 'choice', choice: 'yes', confidence: 0.8 } } }),
         };
       });
-      process.env.JEV_MAX_RETRIES = '3';
+      process.env.DECISION_MAX_RETRIES = '3';
 
       const q = {
         kind: 'choice',
@@ -124,14 +167,14 @@ describe('jev-client', () => {
           { key: 'no', description: 'n' },
         ],
       };
-      const result = await jevAsk(q);
+      const result = await decisionAsk(q);
       expect(result.choice).toBe('yes');
       expect(calls).toBe(3);
     });
 
     it('throws after exhausting retries', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
-      process.env.JEV_MAX_RETRIES = '1';
+      process.env.DECISION_MAX_RETRIES = '1';
 
       const q = {
         kind: 'choice',
@@ -141,7 +184,7 @@ describe('jev-client', () => {
           { key: 'no', description: 'n' },
         ],
       };
-      await expect(jevAsk(q)).rejects.toThrow(/Jev/);
+      await expect(decisionAsk(q)).rejects.toThrow(/Decision/);
     });
   });
 });

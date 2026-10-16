@@ -81,15 +81,15 @@ describe('session_compact re-injection', () => {
   });
 });
 
-describe('session_compact with Jev post-compact', () => {
+describe('session_compact with Decision post-compact', () => {
   beforeEach(() => {
-    process.env.JEV_DRY_RUN = '1';
+    process.env.DECISION_DRY_RUN = '1';
   });
 
-  test('emits a second Jev message when JEV_ENABLED=1', async () => {
-    // Use dry-run so the Jev client returns canned answers (no API key needed).
-    process.env.JEV_DRY_RUN = '1';
-    process.env.JEV_ENABLED = '1';
+  test('emits a second Decision message when DECISION_ENABLED=1', async () => {
+    // Use dry-run so the Decision client returns canned answers (no API key needed).
+    process.env.DECISION_DRY_RUN = '1';
+    process.env.DECISION_ENABLED = '1';
 
     const deps = buildDeps(async () => ({
       observations: [
@@ -106,15 +106,15 @@ describe('session_compact with Jev post-compact', () => {
     expect(result.messages).toBeDefined();
     expect(Array.isArray(result.messages)).toBe(true);
     expect(result.messages.length).toBeGreaterThan(0);
-    const jevMessage = result.messages.find((m) => m.customType === 'jev-post-compact');
-    expect(jevMessage).toBeDefined();
-    expect(jevMessage.details).toBeDefined();
-    expect(jevMessage.details.some((d) => d.kind === 'reclassify' || d.kind === 'verdict')).toBe(true);
+    const decisionMessage = result.messages.find((m) => m.customType === 'decision-post-compact');
+    expect(decisionMessage).toBeDefined();
+    expect(decisionMessage.details).toBeDefined();
+    expect(decisionMessage.details.some((d) => d.kind === 'reclassify' || d.kind === 'verdict')).toBe(true);
   });
 
-  test('does not emit Jev messages when JEV_ENABLED unset (and not in dry-run)', async () => {
-    delete process.env.JEV_DRY_RUN;
-    delete process.env.JEV_ENABLED;
+  test('does not emit Decision messages when DECISION_ENABLED unset (and not in dry-run)', async () => {
+    delete process.env.DECISION_DRY_RUN;
+    delete process.env.DECISION_ENABLED;
 
     const deps = buildDeps(async () => ({
       observations: [{ id: 1, type: 'decision', title: 'x', trust_score: 0.9 }],
@@ -125,14 +125,14 @@ describe('session_compact with Jev post-compact', () => {
     const handler = extractHandler(deps);
     const result = await handler({}, {});
 
-    // Only the memory-context message — no Jev overlay
+    // Only the memory-context message — no Decision overlay
     expect(result.messages).toHaveLength(1);
     expect(result.messages[0].customType).toBe('memory-context');
   });
 
-  test('picks up pinned policies from <cwd>/AGENTS.md when JEV_ENABLED=1', async () => {
-    process.env.JEV_DRY_RUN = '1';
-    process.env.JEV_ENABLED = '1';
+  test('picks up pinned policies from <cwd>/AGENTS.md when DECISION_ENABLED=1', async () => {
+    process.env.DECISION_DRY_RUN = '1';
+    process.env.DECISION_ENABLED = '1';
 
     const { mkdtempSync, writeFileSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
@@ -147,15 +147,15 @@ describe('session_compact with Jev post-compact', () => {
 `,
     );
 
-    // Spy on the Jev client by mocking global fetch and inspecting the
+    // Spy on the Decision client by mocking global fetch and inspecting the
     // request body (which contains the question text with policy strings).
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ answers: [{ choice: 'yes', confidence: 0.9 }] }),
+      json: async () => ({ answers: { q: { choice: 'yes', confidence: 0.9 } } }),
     });
     globalThis.fetch = fetchMock;
-    process.env.JEV_API_KEY = 'test-key';
-    delete process.env.JEV_DRY_RUN;
+    process.env.LIQUID_API_KEY = 'test-key';
+    delete process.env.DECISION_DRY_RUN;
 
     const deps = buildDeps(async () => ({
       observations: [{ id: 1, type: 'decision', title: 'phase 5', trust_score: 0.9 }],
@@ -170,19 +170,19 @@ describe('session_compact with Jev post-compact', () => {
     const reclassifyCall = fetchMock.mock.calls.find(([, init]) => {
       const body = JSON.parse(init.body);
       return (
-        body.questions?.[0]?.question?.includes('PINNED POLICIES') ||
-        body.questions?.[0]?.question?.includes('pinned polic')
+        body.questions?.q?.instructions?.includes('PINNED POLICIES') ||
+        body.questions?.q?.instructions?.includes('pinned polic')
       );
     });
     expect(reclassifyCall).toBeDefined();
     const body = JSON.parse(reclassifyCall[1].body);
-    expect(body.questions[0].question).toContain('Spelling: letter-by-letter');
-    expect(body.questions[0].question).toContain('Confirmation: exactly once');
+    expect(body.questions.q.instructions).toContain('Spelling: letter-by-letter');
+    expect(body.questions.q.instructions).toContain('Confirmation: exactly once');
   });
 
   test('gracefully degrades when cwd has no AGENTS.md', async () => {
-    process.env.JEV_DRY_RUN = '1';
-    process.env.JEV_ENABLED = '1';
+    process.env.DECISION_DRY_RUN = '1';
+    process.env.DECISION_ENABLED = '1';
 
     const { mkdtempSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
@@ -199,22 +199,22 @@ describe('session_compact with Jev post-compact', () => {
     const handler = extractHandler(deps);
     const result = await handler({}, { cwd });
 
-    // Jev still called (with "no pinned policies declared"); no error
-    const jevMessage = result.messages.find((m) => m.customType === 'jev-post-compact');
-    expect(jevMessage).toBeDefined();
+    // Decision still called (with "no pinned policies declared"); no error
+    const decisionMessage = result.messages.find((m) => m.customType === 'decision-post-compact');
+    expect(decisionMessage).toBeDefined();
   });
 
   test('first compact in session sends empty lostTopics when no baseline exists', async () => {
-    process.env.JEV_DRY_RUN = '1';
-    process.env.JEV_ENABLED = '1';
+    process.env.DECISION_DRY_RUN = '1';
+    process.env.DECISION_ENABLED = '1';
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ answers: [{ score: 2, confidence: 0.8 }] }),
+      json: async () => ({ answers: { q: { score: 2, confidence: 0.8 } } }),
     });
     globalThis.fetch = fetchMock;
-    process.env.JEV_API_KEY = 'test-key';
-    delete process.env.JEV_DRY_RUN;
+    process.env.LIQUID_API_KEY = 'test-key';
+    delete process.env.DECISION_DRY_RUN;
 
     const state = { currentProject: 'TestProject', sessionId: 1, preCompactTitles: null };
     const deps = {
@@ -234,28 +234,28 @@ describe('session_compact with Jev post-compact', () => {
     // Find the verdict question call (A)
     const verdictCall = fetchMock.mock.calls.find(([, init]) => {
       const body = JSON.parse(init.body);
-      const q = body.questions?.[0]?.question || '';
+      const q = body.questions?.q?.instructions || '';
       return q.includes('lost') || q.includes('completely');
     });
     expect(verdictCall).toBeDefined();
     const body = JSON.parse(verdictCall[1].body);
-    expect(body.questions[0].question).toMatch(/nothing (was )?lost/);
+    expect(body.questions.q.instructions).toMatch(/nothing (was )?lost/);
 
     // State was updated for the next compact in the same session
     expect(state.preCompactTitles).toEqual(['phase 5 fallback', 'bun chosen']);
   });
 
   test('second compact diffs lost topics against post-first-compact baseline', async () => {
-    process.env.JEV_DRY_RUN = '1';
-    process.env.JEV_ENABLED = '1';
+    process.env.DECISION_DRY_RUN = '1';
+    process.env.DECISION_ENABLED = '1';
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ answers: [{ score: 1, confidence: 0.7 }] }),
+      json: async () => ({ answers: { q: { score: 1, confidence: 0.7 } } }),
     });
     globalThis.fetch = fetchMock;
-    process.env.JEV_API_KEY = 'test-key';
-    delete process.env.JEV_DRY_RUN;
+    process.env.LIQUID_API_KEY = 'test-key';
+    delete process.env.DECISION_DRY_RUN;
 
     // Simulate that the first compact already ran; baseline now reflects
     // post-first-compact titles.
@@ -289,17 +289,17 @@ describe('session_compact with Jev post-compact', () => {
     // Find the verdict question call (A)
     const verdictCall = fetchMock.mock.calls.find(([, init]) => {
       const body = JSON.parse(init.body);
-      const q = body.questions?.[0]?.question || '';
+      const q = body.questions?.q?.instructions || '';
       return q.includes('Topics lost') || q.includes('completely');
     });
     expect(verdictCall).toBeDefined();
     const body = JSON.parse(verdictCall[1].body);
     // 'verifier ready' was in before but not in after -> lost topic
-    expect(body.questions[0].question).toContain('verifier ready');
+    expect(body.questions.q.instructions).toContain('verifier ready');
     // 'phase 5 fallback' is also in after -> NOT a lost topic (it's in the
     // re-injected section, which is fine; the lost-topics list does not
     // include it). The lost-topics block uses '- <topic>\n' format.
-    const lostBlock = body.questions[0].question
+    const lostBlock = body.questions.q.instructions
       .split('Topics lost during compaction:\n')[1]
       .split('\n\nMemories re-injected')[0];
     expect(lostBlock).toContain('verifier ready');

@@ -1,6 +1,6 @@
 // src/judgment/contract.js
 // LaPis-owned judgment vocabulary (spec §6). Provider names (choice/noul/score)
-// NEVER appear outside adapters/jev.js (rule R1).
+// NEVER appear outside adapters/decision.js (rule R1).
 //
 // Question = {
 //   id: string,
