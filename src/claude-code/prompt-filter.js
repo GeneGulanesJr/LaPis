@@ -21,7 +21,6 @@
 
 const fs = require('node:fs'),
   path = require('node:path'),
-  os = require('node:os'),
   TITLE_CHARS = 160,
   SIGNATURE_CHARS = 200;
 
@@ -187,35 +186,8 @@ function buildCandidates({ memories, suggestions, preflight, summarize }) {
   return { candidates, refs };
 }
 
-function judgmentLogPath() {
-  if (process.env.LAPIS_JUDGE_LOG) {
-    return process.env.LAPIS_JUDGE_LOG;
-  }
-  try {
-    const { getConfig } = require('../../config'),
-      dbPath = getConfig().db_path;
-    if (typeof dbPath === 'string' && dbPath) {
-      return path.join(path.dirname(dbPath), 'judgment.log');
-    }
-  } catch {
-    // Fall through to the default location
-  }
-  return path.join(os.homedir(), '.pi', 'memory', 'judgment.log');
-}
-
-/** Append one JSON line to the judgment log (best-effort, never throws). */
-function writeJudgmentLog(record) {
-  try {
-    if (process.env.LAPIS_JUDGE_LOG === '0') {
-      return;
-    }
-    const file = judgmentLogPath();
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.appendFileSync(file, `${JSON.stringify(record)}\n`);
-  } catch {
-    // Logging must never affect the hook.
-  }
-}
+// The log writer is shared with the other judgment surfaces (src/judgment/log.js).
+const { judgmentLogPath, writeJudgmentLog } = require('../judgment/log');
 
 function countByKind(refs, keep) {
   const kept = { memory: 0, suggestion: 0, code: 0, file: 0 },

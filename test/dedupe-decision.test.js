@@ -38,9 +38,13 @@ describe('decisionVerifyDuplicates — read-only, advisory', () => {
     expect(questions).toHaveLength(2);
     expect(questions[0].judgment.kind).toBe('probability');
     expect(questions[0].judgment.claim).toContain('memory #5');
-    expect(questions[0].state.existing.id).toBe(5);
+    // Each existing memory under its own key (the wire merges states).
+    expect(questions[0].state.existing_0.id).toBe(5);
+    expect(questions[1].state.existing_1.id).toBe(6);
+    expect(questions[0].state.existing_1).toBeUndefined();
+    expect(questions[0].instructions).toContain('`existing_0`');
     expect(questions[0].state.incoming.title).toBe('Auth flow v2');
-    expect(questions[1].state.existing.content).toBe(''); // missing content → capped empty
+    expect(questions[1].state.existing_1.content).toBe(''); // missing content, no deps → capped empty
   });
 
   it('judgment unavailable → {verified: [], unavailable: true}', async () => {

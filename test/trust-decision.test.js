@@ -47,17 +47,20 @@ describe('decisionInvalidationReview — advisory only, never writes', () => {
     expect(questions[0].judgment.kind).toBe('probability');
     expect(questions[0].instructions).toMatch(/WRONG or misleading/);
     expect(opts).toEqual({ surface: 'trust' });
-    expect(questions[0].state.memory).toEqual({ id: 12 }); // no deps → title omitted
+    // Each memory under its own key (the wire merges states).
+    expect(questions[0].state.memory_0).toEqual({ id: 12 }); // no deps → title omitted
+    expect(questions[1].state.memory_1).toEqual({ id: 13 });
+    expect(questions[0].state.memory_1).toBeUndefined();
     expect(questions[0].state.changed_symbols).toEqual(['evaluateTrustSync', 'syncCodeTrust']);
   });
 
-  it('deps with sqlJson → title enriched into state.memory (best-effort)', async () => {
+  it('deps with sqlJson → title enriched into state.memory_0 (best-effort)', async () => {
     const judge = makeJudge([{ id: 'trust-0', p: 0.9, confidence: 0.9 }]);
     const deps = { sqlJson: vi.fn(() => [{ id: 12, title: 'Trust policy decays on symbol change' }]) };
     await decisionInvalidationReview([decayLinks[0]], ['evaluateTrustSync'], { _judge: judge, deps });
     expect(deps.sqlJson).toHaveBeenCalled();
     const questions = judge.mock.calls[0][0];
-    expect(questions[0].state.memory).toEqual({ id: 12, title: 'Trust policy decays on symbol change' });
+    expect(questions[0].state.memory_0).toEqual({ id: 12, title: 'Trust policy decays on symbol change' });
   });
 
   it('judge unavailable → {verified: [], unavailable: true}', async () => {

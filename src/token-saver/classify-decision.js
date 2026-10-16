@@ -17,11 +17,14 @@
 // the public classifyCommandWithJudge() returns exactly `.type`: the SAME
 // string shape as the sync classifier, judgment-informed when confident.
 
+// When on, it runs inside `lapis run <command>` BEFORE the command, only for a
+// command no COMMAND_RULES regex matched: ONE request, capped at
+// judgment.surface_timeout_ms with no retries (src/judgment/surface.js).
+
 const { classifyCommand } = require('./classify-command');
-const { createJudge } = require('../judgment');
-const { createDecisionAdapter } = require('../judgment/adapters/decision');
-const { getConfig } = require('../../config');
+const { surfaceEnabled, buildSurfaceJudge } = require('../judgment/surface');
 const { CONFIDENT_THRESHOLD, capText } = require('../judgment/internal');
+const { logSurfaceCall, capReason, round3 } = require('../judgment/log');
 
 // The file's real taxonomy: every COMMAND_RULES type + the 'generic' default.
 // 'generic' stays in the enum so the judge can answer "none of the above" —
@@ -34,18 +37,7 @@ const COMMAND_CLASSES = ['git-diff', 'git-status', 'test', 'install', 'file-read
  * 'guard' surface not disabled. Mirrors dreamDecisionEnabled/searchDecisionEnabled.
  */
 function guardDecisionEnabled() {
-  const cfg = getConfig().judgment || {};
-  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.guard);
-}
-
-/** args._judge passes a judge through for tests (established sibling convention). */
-function buildJudge(args) {
-  if (args && args._judge) return args._judge;
-  const adapters =
-    (getConfig().judgment || {}).provider === 'decision'
-      ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) }
-      : {};
-  return createJudge({ config: getConfig(), adapters });
+  return surfaceEnabled('guard');
 }
 
 /**
@@ -64,6 +56,10 @@ async function classifyCommandDetailed(commandArgs, { judge, floor } = {}) {
   // documented default). The judge is NEVER consulted for these.
   if (syncType !== 'generic') return { type: syncType, source: 'sync' };
   if (!judge) return { type: syncType, source: 'sync' };
+  const started = Date.now();
+  // One log line per consulted judgment: the pick and confidence only — the
+  // command text never goes to the log.
+  const log = (fields) => logSurfaceCall('guard', started, fields);
   try {
     const result = await judge(
       [
@@ -84,7 +80,10 @@ async function classifyCommandDetailed(commandArgs, { judge, floor } = {}) {
       ],
       { surface: 'guard' },
     );
-    if (!result || result.status !== 'ok') return { type: syncType, source: 'sync' };
+    if (!result || result.status !== 'ok') {
+      log({ status: (result && result.status) || 'unavailable', reason: capReason(result && result.reason) });
+      return { type: syncType, source: 'sync' };
+    }
     const a = result.answers && result.answers.find((x) => x && x.id === 'guard-0');
     const minConf = typeof floor === 'number' ? floor : CONFIDENT_THRESHOLD;
     if (
@@ -95,10 +94,13 @@ async function classifyCommandDetailed(commandArgs, { judge, floor } = {}) {
       typeof a.confidence !== 'number' ||
       a.confidence < minConf
     ) {
+      log({ status: 'ok', pick: a ? a.pick : null, confidence: round3(a && a.confidence), used: false });
       return { type: syncType, source: 'sync' };
     }
+    log({ status: 'ok', pick: a.pick, confidence: round3(a.confidence), used: true });
     return { type: a.pick, source: 'judgment', confidence: a.confidence };
-  } catch {
+  } catch (e) {
+    log({ status: 'error', reason: capReason(e && e.message) });
     return { type: syncType, source: 'sync' };
   }
 }
@@ -121,7 +123,9 @@ async function classifyCommandWithJudge(commandArgs, opts = {}) {
  */
 async function maybeClassifyCommand(commandArgs, args = {}) {
   if (!guardDecisionEnabled()) return classifyCommand(commandArgs);
-  return classifyCommandWithJudge(commandArgs, { judge: buildJudge(args) });
+  // Only the test seam is read from args: here args are executeAndCompress()
+  // options, whose timeoutMs is the COMMAND's timeout, not the judge's.
+  return classifyCommandWithJudge(commandArgs, { judge: buildSurfaceJudge({ _judge: args && args._judge }) });
 }
 
 module.exports = {

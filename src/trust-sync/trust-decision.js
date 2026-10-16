@@ -4,10 +4,13 @@
 // code changes actually invalidate the memory's content. High-p = the decay is
 // justified; low-p = the memory survived semantically (candidate for recovery).
 
-const { createJudge } = require('../judgment');
-const { createDecisionAdapter } = require('../judgment/adapters/decision');
-const { getConfig } = require('../../config');
+// No production caller yet (docs/JUDGMENT.md: "caller wiring pending"): turning
+// the surface on changes nothing until a caller is wired. When one is, each
+// call is ONE request per 10 links, capped at judgment.surface_timeout_ms with
+// no retries (src/judgment/surface.js).
+const { surfaceEnabled, buildSurfaceJudge } = require('../judgment/surface');
 const { chunk, capText } = require('../judgment/internal');
+const { logSurfaceCall, capReason, round3 } = require('../judgment/log');
 
 const BATCH = 10;
 // Prompt-state bounds: the claim names the decisive symbol; the changed list is
@@ -21,17 +24,7 @@ const MAX_TITLE_LEN = 120;
  * (LAPIS_JUDGE_DISABLE_TRUST=1). Mirrors dreamDecisionEnabled()/dedupeDecisionEnabled().
  */
 function trustDecisionEnabled() {
-  const cfg = getConfig().judgment || {};
-  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.trust);
-}
-
-function buildJudge(args) {
-  if (args && args._judge) return args._judge;
-  const adapters =
-    (getConfig().judgment || {}).provider === 'decision'
-      ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) }
-      : {};
-  return createJudge({ config: getConfig(), adapters });
+  return surfaceEnabled('trust');
 }
 
 // Best-effort title enrichment — an advisory module must never let a DB hiccup
@@ -59,10 +52,15 @@ function lookupTitles(deps, memoryIds) {
  * ANY failure → {verified: [], unavailable: true}. Never throws. Never writes.
  */
 async function decisionInvalidationReview(links, changedSymbols, args = {}) {
+  const started = Date.now();
+  const rows = Array.isArray(links) ? links : [];
+  const fail = (status, reason) => {
+    logSurfaceCall('trust', started, { status, n: rows.length, reason: capReason(reason) });
+    return { verified: [], unavailable: true, reason };
+  };
   try {
-    const rows = Array.isArray(links) ? links : [];
     if (rows.length === 0) return { verified: [] };
-    const judge = buildJudge(args);
+    const judge = buildSurfaceJudge(args);
     const titles = lookupTitles(
       args.deps,
       rows.map((r) => Number(r.memory_id)),
@@ -76,9 +74,11 @@ async function decisionInvalidationReview(links, changedSymbols, args = {}) {
           kind: 'probability',
           claim: `Memory #${row.memory_id} is invalidated by changes to ${row.symbol_id}`,
         },
-        instructions: "p = probability the memory's content is now WRONG or misleading because of these code changes.",
+        instructions: `\`memory_${i}\` is a saved memory linked to the code symbol named in the claim; \`changed_symbols\` lists the symbols that changed. p = probability the memory's content is now WRONG or misleading because of these code changes.`,
+        // Own key per memory: the wire merges per-question states, so a shared
+        // `memory` key let the last link overwrite the rest.
         state: {
-          memory: { id: row.memory_id, ...(title ? { title: capText(title, MAX_TITLE_LEN) } : {}) },
+          [`memory_${i}`]: { id: row.memory_id, ...(title ? { title: capText(title, MAX_TITLE_LEN) } : {}) },
           changed_symbols: changed,
         },
       };
@@ -87,7 +87,7 @@ async function decisionInvalidationReview(links, changedSymbols, args = {}) {
     for (const batch of chunk(questions, BATCH)) {
       const result = await judge(batch, { surface: 'trust' });
       if (!result || result.status !== 'ok') {
-        return { verified: [], unavailable: true, reason: result ? result.reason : 'no judge result' };
+        return fail((result && result.status) || 'unavailable', result ? result.reason : 'no judge result');
       }
       for (const q of batch) {
         const answer = result.answers.find((a) => a.id === q.id);
@@ -102,9 +102,14 @@ async function decisionInvalidationReview(links, changedSymbols, args = {}) {
         });
       }
     }
+    logSurfaceCall('trust', started, {
+      status: 'ok',
+      n: rows.length,
+      p: verified.map((v) => ({ id: v.memory_id, p: round3(v.p) })),
+    });
     return { verified };
   } catch (e) {
-    return { verified: [], unavailable: true, reason: e && e.message };
+    return fail('error', e && e.message);
   }
 }
 

@@ -17,6 +17,7 @@
 // layer made every fresh-process context dispatch pay ~10ms for an opt-in
 // feature it never used.
 const { getConfig } = require('../../config');
+const { surfaceEnabled, buildSurfaceJudge } = require('../judgment/surface');
 
 const BATCH = 10;
 // Default selection budget in chars — used when the caller passes neither
@@ -27,8 +28,7 @@ const LEVEL_RANK = { filler: 0, relevant: 1, essential: 2 };
 const CONTENT_SNIPPET_CHARS = 300;
 
 function contextDecisionEnabled() {
-  const cfg = getConfig().judgment || {};
-  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.context);
+  return surfaceEnabled('context');
 }
 
 // Prompt-path wire settings: a tight cap and no retries, so a hook process
@@ -51,25 +51,14 @@ function promptFilterSettings() {
  * returns {provider, probe, judge}; returning that object made every call
  * here throw "judge is not a function", so the selection silently fell back
  * on every run. args.timeoutMs (prompt path) caps both the contract race and
- * the wire, with no retries.
+ * the wire, with no retries. Without args.timeoutMs the cap is
+ * judgment.prompt_filter_timeout_ms (2 s).
  */
 function buildJudge(args) {
-  if (args && args._judge) return args._judge;
-  const { createJudge } = require('../judgment');
-  const { createDecisionAdapter } = require('../judgment/adapters/decision');
-  const config = getConfig();
-  const timeoutMs = args && Number(args.timeoutMs) > 0 ? Number(args.timeoutMs) : null;
-  const judgment = timeoutMs ? { ...(config.judgment || {}), timeout_ms: timeoutMs } : config.judgment || {};
-  const adapters =
-    judgment.provider === 'decision'
-      ? {
-          decision: createDecisionAdapter({
-            apiKey: process.env.LIQUID_API_KEY,
-            ...(timeoutMs ? { timeoutMs, maxRetries: 0 } : {}),
-          }),
-        }
-      : {};
-  return createJudge({ config: { ...config, judgment }, adapters }).judge;
+  // The shared seam (src/judgment/surface.js) returns the function and applies
+  // the cap at the contract race and the wire, with no retries.
+  const timeoutMs = args && Number(args.timeoutMs) > 0 ? Number(args.timeoutMs) : promptFilterSettings().timeoutMs;
+  return buildSurfaceJudge(args, { timeoutMs });
 }
 
 /** Estimated size of one candidate. The real shape carries `_tokens` when the
@@ -98,8 +87,14 @@ function resolveBudget(args) {
  */
 async function decisionSelectContext(candidates, queryOrTask, args = {}) {
   const { chunk, capText } = require('../judgment/internal');
+  const { logSurfaceCall, capReason } = require('../judgment/log');
   const rows = Array.isArray(candidates) ? candidates : [];
   if (rows.length === 0) return { selected: [], dropped: [] };
+  const started = Date.now();
+  const unchanged = (status, reason) => {
+    logSurfaceCall('context', started, { hook: 'gateway', status, n: rows.length, reason: capReason(reason) });
+    return { selected: rows, dropped: [], unavailable: true };
+  };
   const judge = buildJudge(args);
   // The wire takes ONE merged state per request, so each candidate lives
   // under its own key — a shared `candidate` key let the last one overwrite
@@ -124,7 +119,7 @@ async function decisionSelectContext(candidates, queryOrTask, args = {}) {
     for (const batch of chunk(questions, BATCH)) {
       const result = await judge(batch, { surface: 'context' });
       if (!result || result.status !== 'ok') {
-        return { selected: rows, dropped: [], unavailable: true };
+        return unchanged((result && result.status) || 'unavailable', result && result.reason);
       }
       for (const a of result.answers) {
         // Grade answers carry the level as an INDEX into LEVELS (adapter-normalized).
@@ -133,8 +128,8 @@ async function decisionSelectContext(candidates, queryOrTask, args = {}) {
         rankByIndex.set(idx, name === undefined ? LEVEL_RANK.filler : LEVEL_RANK[name]);
       }
     }
-  } catch {
-    return { selected: rows, dropped: [], unavailable: true };
+  } catch (e) {
+    return unchanged('error', e && e.message);
   }
 
   // Select: sort level-desc (stable — original index breaks ties), then keep a
@@ -158,6 +153,16 @@ async function decisionSelectContext(candidates, queryOrTask, args = {}) {
 
   const selected = rows.filter((c) => selectedSet.has(c));
   const dropped = rows.filter((c) => !selectedSet.has(c));
+  logSurfaceCall('context', started, {
+    hook: 'gateway',
+    status: 'ok',
+    n: rows.length,
+    kept: selected.length,
+    levels: rows.map((c, i) => ({
+      id: c && c.id,
+      level: rankByIndex.get(i) === undefined ? LEVEL_RANK.filler : rankByIndex.get(i),
+    })),
+  });
   return { selected, dropped };
 }
 

@@ -58,6 +58,10 @@ const path = require('path'),
       // prompt_filter_timeout_ms (fail open = today's output).
       prompt_filter_threshold: 0.5,
       prompt_filter_timeout_ms: 2000,
+      // Cap on each judged request of the other surfaces (recall, dedupe, trust,
+      // guard, autosave, dream): contract race + wire abort, no wire retries.
+      // A timeout or error falls back to the surface's non-judgment path.
+      surface_timeout_ms: 2000,
     },
   };
 
@@ -184,6 +188,10 @@ function applyEnvOverrides(config) {
   if (process.env.LAPIS_JUDGE_TIMEOUT_MS) {
     const n = parseInt(process.env.LAPIS_JUDGE_TIMEOUT_MS, 10);
     if (Number.isFinite(n)) j.timeout_ms = n;
+  }
+  if (process.env.LAPIS_JUDGE_SURFACE_TIMEOUT_MS) {
+    const n = parseInt(process.env.LAPIS_JUDGE_SURFACE_TIMEOUT_MS, 10);
+    if (Number.isFinite(n) && n > 0) j.surface_timeout_ms = n;
   }
   if (process.env.LAPIS_JUDGE_LOCAL_ONLY === '1' || process.env.LAPIS_JUDGE_LOCAL_ONLY === 'true') {
     j.local_only = true;

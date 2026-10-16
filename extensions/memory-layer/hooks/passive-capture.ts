@@ -15,21 +15,20 @@ import {
 
 // Slice 2: judgment-backed auto-save (default provider = heuristic → inert
 // unless LAPIS_JUDGE_PROVIDER=decision). Failures degrade to regex-only behavior
-// inside shouldAutoCaptureWithJudge.
-import { getConfig } from '../../../config.js';
-import { createDecisionAdapter } from '../../../src/judgment/adapters/decision.js';
-import { createJudge } from '../../../src/judgment/index.js';
+// inside shouldAutoCaptureWithJudge. buildAutosaveJudge() returns the judge
+// FUNCTION (null when the 'autosave' surface is off); this hook used to pass the
+// createJudge() object, so every judged message fell back to regex-only.
+import { buildAutosaveJudge } from '../../../src/hooks-engine/autosave-judge.js';
 
-let _judge: ReturnType<typeof createJudge> | null = null;
+// Built once per Pi process so the judge's breaker persists across messages.
+let _judgeBuilt = false;
+let _judge: ReturnType<typeof buildAutosaveJudge> = null;
 function getJudge() {
-  if (_judge) {
-    return _judge;
+  if (!_judgeBuilt) {
+    _judge = buildAutosaveJudge();
+    _judgeBuilt = true;
   }
-  const cfg = getConfig().judgment || ({} as any);
-  const adapters =
-    cfg.provider === 'decision' ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) } : {};
-  _judge = createJudge({ config: getConfig(), adapters });
-  return _judge;
+  return _judge ?? undefined;
 }
 
 interface PassiveCaptureDeps {
