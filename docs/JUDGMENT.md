@@ -35,6 +35,9 @@ release — a deprecated alias for existing configs; switch to `decision`.
 | `LAPIS_JUDGE_ENDPOINT` | `https://api.liquid.ai/decisions/v1/systemone` | decision adapter endpoint (tests inject, never module-level) |
 | `LAPIS_JUDGE_MODEL` | `d1-ultra` | decision model id: `d1-ultra` or `d1` (same latency in testing, about half the cost) |
 | `LIQUID_API_KEY` | — | decision auth; machine-scoped (`~/.zshenv`), read from process.env only |
+| `LAPIS_JUDGE_LOG` | `~/.pi/memory/judgment.log` | where the prompt filter writes its one JSON line per prompt; `0` turns the log off |
+| `judgment.prompt_filter_threshold` (config) | `0.5` | prompt filter: a candidate is injected when its judged relevance probability is at least this |
+| `judgment.prompt_filter_timeout_ms` (config) | `2000` | prompt filter: cap on its one request (wire timeout, no retries); also used by the gateway `context` selection |
 
 ## Surfaces & egress (what leaves the machine, per provider call)
 
@@ -47,8 +50,37 @@ release — a deprecated alias for existing configs; switch to `decision`.
 | `trust` — invalidation review | implemented (Slice E), caller wiring pending | memory id + title (~120 chars), changed symbol names (up to 20) |
 | `guard` — command classify cascade | implemented (Slice F), caller wiring pending | the bash command text (first 500 chars) |
 | `context` — context selection | wired | the task (first ~400 chars) + per-candidate id/title/type and first ~300 chars of content |
+| `context` — Claude Code prompt filter (`UserPromptSubmit`) | wired | the prompt (first 2000 chars) + per candidate: memory title (~160 chars), type and the injected ~280-char snippet; cross-project suggestion title/type/project; preflight symbol, kind, file path and signature (~200 chars); related file paths |
 
 `LAPIS_JUDGE_LOCAL_ONLY=1` guarantees zero egress regardless of provider config.
+
+### Claude Code prompt filter
+
+The `UserPromptSubmit` hook injects up to three lexically matched lists: Prompt-Matched Memory,
+Cross-Project Suggestions and Preflight code entries. With `provider: "decision"` and `LIQUID_API_KEY`
+set (and `context` not disabled), `src/claude-code/prompt-filter.js`:
+
+1. drops preflight and coding-context entries whose file is not on disk (a code index built on another
+   machine points at paths that do not exist here) — no network;
+2. sends ONE request (`judgePromptRelevance` in `src/memory-domain/context-decision.js`) with a `noul`
+   question per remaining candidate — "`candidate_i` is about the same subject as `prompt` and would help
+   answer it" — and keeps the candidates with p ≥ `prompt_filter_threshold` (0.5). The memory slot is
+   filled with the first kept memory, so a relevant memory ranked second can replace an irrelevant first;
+   a section left empty is omitted.
+
+The gateway's own per-memory selection is skipped for that dispatch (`'decision-select': 'off'`), so a
+prompt makes one request. Tuning data from 2026-10-16 (d1-ultra, 10 real prompts): irrelevant candidates
+scored 0.001–0.31, relevant ones 0.52–0.99. Median added latency about 0.55 s per prompt (request
+400–700 ms); on preflight prompts the hook can be faster, because a dropped preflight target skips the
+coding-context dispatch.
+
+Fail open: a timeout (`prompt_filter_timeout_ms`, 2 s, no retries), an HTTP or network error, a malformed
+reply or any exception renders exactly the unfiltered output. Off (`LAPIS_JUDGE_DISABLE_CONTEXT=1`, another
+provider, no key) is the old code path: no request, no extra dispatch argument, no log line.
+
+Each filtered prompt appends one JSON line to `LAPIS_JUDGE_LOG` (default `~/.pi/memory/judgment.log`):
+status, threshold, the number of missing paths dropped, kept/dropped counts per kind, each candidate's kind,
+memory id and probability, and the latency. It holds no memory text and no prompt text.
 
 ## Provider switching (goldens)
 
@@ -104,5 +136,7 @@ by default.** See [`DECISION_DRIVEN_COMPACTION.md`](./DECISION_DRIVEN_COMPACTION
 | `src/judgment/index.js` | `createJudge()`: registry, contract timeout, circuit breaker, never-throw guarantee |
 | `src/judgment/adapters/heuristic.js` | default provider — always `unavailable` |
 | `src/judgment/adapters/decision.js` | Liquid AI Decisions API wire adapter (the only file that knows the provider wire) |
+| `src/memory-domain/context-decision.js` | surface `context`: gateway context selection + `judgePromptRelevance` |
+| `src/claude-code/prompt-filter.js` | Claude Code prompt filter: path pre-filter, candidate assembly, threshold, judgment log |
 
 Design spec: `docs/superpowers/specs/2026-09-26-jev-judgment-layer-design.md`.

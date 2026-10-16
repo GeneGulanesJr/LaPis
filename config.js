@@ -52,6 +52,12 @@ const path = require('path'),
       breaker_threshold: 3, // consecutive failures before the breaker opens
       breaker_cooldown_ms: 60000,
       disables: {}, // per-surface opt-outs, e.g. { dream: true }
+      // Claude Code UserPromptSubmit relevance filter (surface 'context'): a
+      // candidate is injected when the judged probability that it is relevant
+      // to the prompt is at least this; the whole request is capped at
+      // prompt_filter_timeout_ms (fail open = today's output).
+      prompt_filter_threshold: 0.5,
+      prompt_filter_timeout_ms: 2000,
     },
   };
 
