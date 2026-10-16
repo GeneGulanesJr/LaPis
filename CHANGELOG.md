@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Claude Code prompt context relevance filter** (judgment surface `context`).
+  The `UserPromptSubmit` hook's Prompt-Matched Memory, Cross-Project
+  Suggestions and Preflight entries are now judged for relevance to the prompt
+  in one Liquid Decisions request (`noul`, keep at p ≥ 0.5,
+  `judgment.prompt_filter_threshold`), and a section left empty is omitted.
+  Preflight and coding-context entries whose file is not on disk are dropped
+  first. Runs only with `provider: "decision"` and `LIQUID_API_KEY`; kill
+  switch `LAPIS_JUDGE_DISABLE_CONTEXT=1`. Fails open to the unfiltered output
+  on a timeout (2 s, `judgment.prompt_filter_timeout_ms`, no retries), an
+  error or a malformed reply. One JSON line per prompt (counts, ids,
+  probabilities, latency — no memory or prompt text) goes to
+  `~/.pi/memory/judgment.log` (`LAPIS_JUDGE_LOG`). See
+  [`docs/JUDGMENT.md`](docs/JUDGMENT.md#claude-code-prompt-filter).
+
 - `memory-save-classified` tool — atomic LaPis memory-save + LayaMCP
   classification. Refuses prompt injections by default. New module
   `src/memory-domain/laya-mcp.js` provides the LayaMCP HTTP client.
@@ -59,6 +73,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `JEV_API_KEY`, `JEV_ENDPOINT`, `JEV_MODEL` and `TYPESAFE_API_KEY` are not.
 
 ### Fixed
+
+- **Judgment `context` selection never ran.** `buildJudge` in
+  `src/memory-domain/context-decision.js` returned the `createJudge()` object
+  instead of its `judge` function, so every gateway `context` selection threw
+  and silently fell back (the tests inject a judge function, so they passed).
+  It now returns the function (as `dream-decision.js` already did); each
+  candidate is sent under its own state key (the wire merges per-question
+  state, so the shared `candidate` key let the last candidate overwrite the
+  others); the selection runs only with a query or topic key and with the
+  prompt cap (2 s, no retries). This turns the selection on for callers of the
+  gateway `context` command (e.g. Pi's per-prompt context) when
+  `provider: "decision"` and `LIQUID_API_KEY` are set —
+  `LAPIS_JUDGE_DISABLE_CONTEXT=1` turns it off.
+- **`createJudge` left its timeout timer running** after the adapter
+  answered, keeping a short-lived hook process alive for up to
+  `timeout_ms`. The timer is now cleared when the race settles.
 
 - **Search** — a corrupted FTS index self-heals (rebuild once and retry)
   instead of failing searches; multi-word natural-language queries that
