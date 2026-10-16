@@ -1,27 +1,36 @@
 // src/memory-domain/dedupe-decision.js
-// Slice D: semantic dedup verification — opt-in, advisory. Takes trigram
-// candidates from checkDuplicate and judge-verifies 'same decision?' per pair;
-// verified results carry a probability usable as markDuplicate confidence.
+// Slice D: semantic dedup verification — opt-in, advisory, READ-ONLY. Takes the
+// trigram candidates of a save that stopped at `potential_duplicate` and
+// judge-verifies 'same decision?' per pair; the probabilities are attached to
+// the save result as `decisionVerified`. Nothing reads them to merge, retire or
+// delete: the trigram auto-merge in the save path (dedup.auto_merge_threshold)
+// is unchanged and never consults the judge.
+//
+// Runs once per save that returns potential_duplicate (at most 3 matches → ONE
+// request), capped at judgment.surface_timeout_ms with no retries.
 
-const { createJudge } = require('../judgment');
-const { createDecisionAdapter } = require('../judgment/adapters/decision');
-const { getConfig } = require('../../config');
-const { chunk, capText } = require('../judgment/internal');
+// Lazy judgment modules: commands/observation.js requires this on every save.
+const { surfaceEnabled, buildSurfaceJudge } = require('../judgment/surface');
 
 const BATCH = 10;
 
 function dedupeDecisionEnabled() {
-  const cfg = getConfig().judgment || {};
-  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.dedupe);
+  return surfaceEnabled('dedupe');
 }
 
-function buildJudge(args) {
-  if (args && args._judge) return args._judge;
-  const adapters =
-    (getConfig().judgment || {}).provider === 'decision'
-      ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) }
-      : {};
-  return createJudge({ config: getConfig(), adapters });
+// checkDuplicate() returns id/title/similarity only; the existing memory's
+// content is looked up (best-effort, read-only) so the judge compares content,
+// not titles alone. Any error → no content (the question still carries titles).
+function lookupContents(deps, ids) {
+  try {
+    const unique = [...new Set(ids.filter((n) => n !== undefined && n !== null))];
+    if (!deps || typeof deps.sqlJson !== 'function' || unique.length === 0) return new Map();
+    const placeholders = unique.map(() => '?').join(',');
+    const rows = deps.sqlJson(`SELECT id, content FROM observations WHERE id IN (${placeholders})`, unique) || [];
+    return new Map(rows.map((r) => [String(r.id), typeof r.content === 'string' ? r.content : '']));
+  } catch {
+    return new Map();
+  }
 }
 
 /**
@@ -30,32 +39,55 @@ function buildJudge(args) {
  * {verified: [{id, title, p, confidence, same: boolean}], unavailable?}.
  */
 async function decisionVerifyDuplicates(deps, candidates, args = {}) {
+  const { chunk, capText } = require('../judgment/internal');
+  const { logSurfaceCall, capReason, round3 } = require('../judgment/log');
   const verified = [];
   const rows = candidates || [];
   if (rows.length === 0) return { verified };
-  const judge = buildJudge(args);
-  const questions = rows.map((c, i) => ({
-    id: `dup-${i}`,
-    judgment: { kind: 'probability', claim: `The new memory duplicates memory #${c.id} (${capText(c.title, 60)})` },
-    instructions:
-      'Decide whether the new memory records the SAME decision/content as the existing one — nothing semantically new. p = probability of duplication.',
-    state: {
-      existing: { id: c.id, title: c.title, content: capText(c.content || '', 400) },
-      incoming: { title: args.incomingTitle || '', content: capText(args.incomingContent || '', 400) },
-    },
-  }));
+  const started = Date.now();
+  const fail = (status, reason) => {
+    logSurfaceCall('dedupe', started, { status, n: rows.length, reason: capReason(reason) });
+    return { verified, unavailable: true };
+  };
   try {
+    const contents = lookupContents(
+      deps,
+      rows.filter((c) => !c.content).map((c) => c.id),
+    );
+    // The wire merges per-question states: each existing memory gets its own
+    // key (`existing_i`); `incoming` is the same for every question.
+    const questions = rows.map((c, i) => ({
+      id: `dup-${i}`,
+      judgment: { kind: 'probability', claim: `The new memory duplicates memory #${c.id} (${capText(c.title, 60)})` },
+      instructions: `Decide whether \`incoming\` records the SAME decision/content as the existing memory \`existing_${i}\` — nothing semantically new. p = probability of duplication.`,
+      state: {
+        [`existing_${i}`]: {
+          id: c.id,
+          title: c.title,
+          content: capText(c.content || contents.get(String(c.id)) || '', 400),
+        },
+        incoming: { title: args.incomingTitle || '', content: capText(args.incomingContent || '', 400) },
+      },
+    }));
+    const judge = buildSurfaceJudge(args);
     for (const batch of chunk(questions, BATCH)) {
       const result = await judge(batch, { surface: 'dedupe' });
-      if (!result || result.status !== 'ok') return { verified, unavailable: true };
+      if (!result || result.status !== 'ok') {
+        return fail((result && result.status) || 'unavailable', result && result.reason);
+      }
       for (const a of result.answers) {
         const row = rows[Number(a.id.split('-')[1])];
         verified.push({ id: row.id, title: row.title, p: a.p, confidence: a.confidence, same: a.p >= 0.5 });
       }
     }
-  } catch {
-    return { verified, unavailable: true };
+  } catch (e) {
+    return fail('error', e && e.message);
   }
+  logSurfaceCall('dedupe', started, {
+    status: 'ok',
+    n: rows.length,
+    p: verified.map((v) => ({ id: v.id, p: round3(v.p) })),
+  });
   return { verified };
 }
 
