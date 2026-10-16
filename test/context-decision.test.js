@@ -54,9 +54,13 @@ describe('decisionSelectContext — budget-constrained selection', () => {
     expect(questions[0].judgment.kind).toBe('grade');
     expect(questions[0].judgment.levels).toEqual(['filler', 'relevant', 'essential']);
     expect(questions[0].state.task).toBe('fix the tokenizer bug');
-    expect(questions[0].state.candidate.title).toBe('parser decision');
-    expect(questions[0].state.candidate.content).toBe(`${'x'.repeat(300)}…`); // capText 300
-    expect(questions[2].state.candidate.content).toBe('z');
+    expect(questions[0].state.candidate_0.title).toBe('parser decision');
+    expect(questions[0].state.candidate_0.content).toBe(`${'x'.repeat(300)}…`); // capText 300
+    expect(questions[2].state.candidate_2.content).toBe('z');
+    // The wire merges every question's state into ONE object: candidate keys
+    // must be distinct or the last candidate overwrites the others.
+    const merged = Object.assign({}, ...questions.map((q) => q.state));
+    expect(questions.map((_, i) => merged[`candidate_${i}`].title)).toEqual(candidates.map((c) => c.title));
   });
 
   it('all-filler → empty selection, everything dropped, no error', async () => {

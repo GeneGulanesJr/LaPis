@@ -58,13 +58,19 @@ function createJudge({ config, adapters } = {}) {
       }
       // Contract-level timeout: adapters own their wire timeouts; this guards
       // against an adapter that never resolves.
+      // The timer is cleared once the race settles: a short-lived hook process
+      // would otherwise stay alive until the full timeout elapsed.
       const timeoutMs = Number(c.timeout_ms ?? 5000);
+      let timer;
       const result = await Promise.race([
         Promise.resolve(adapter.judge(questions)),
-        new Promise((resolve) =>
-          setTimeout(() => resolve({ status: 'unavailable', reason: `judge timeout after ${timeoutMs}ms` }), timeoutMs),
-        ),
-      ]);
+        new Promise((resolve) => {
+          timer = setTimeout(
+            () => resolve({ status: 'unavailable', reason: `judge timeout after ${timeoutMs}ms` }),
+            timeoutMs,
+          );
+        }),
+      ]).finally(() => clearTimeout(timer));
       if (result && result.status === 'ok') {
         consecutiveFailures = 0;
       } else {

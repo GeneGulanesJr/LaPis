@@ -5,6 +5,11 @@
 // essential/relevant candidates, level-descending (stable), while the cumulative
 // estimated size fits the budget. Failures degrade to today's selection exactly:
 // { selected: candidates, dropped: [], unavailable: true }.
+//
+// judgePromptRelevance() is the second consumer of this surface: the Claude
+// Code UserPromptSubmit hook (src/claude-code/prompt-filter.js) asks, in ONE
+// request, how likely each injected candidate (prompt-matched memory,
+// cross-project suggestion, preflight code entry) is relevant to the prompt.
 
 // Judgment modules load lazily inside buildJudge()/decisionSelectContext(): this
 // file is required on EVERY context dispatch (the enabled check lives here),
@@ -26,15 +31,45 @@ function contextDecisionEnabled() {
   return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.context);
 }
 
+// Prompt-path wire settings: a tight cap and no retries, so a hook process
+// never waits on (or is kept alive by) a slow provider.
+const PROMPT_FILTER_DEFAULTS = { threshold: 0.5, timeoutMs: 2000 };
+
+function promptFilterSettings() {
+  const cfg = getConfig().judgment || {};
+  const threshold = Number(cfg.prompt_filter_threshold);
+  const timeoutMs = Number(cfg.prompt_filter_timeout_ms);
+  return {
+    threshold:
+      Number.isFinite(threshold) && threshold >= 0 && threshold <= 1 ? threshold : PROMPT_FILTER_DEFAULTS.threshold,
+    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : PROMPT_FILTER_DEFAULTS.timeoutMs,
+  };
+}
+
+/**
+ * Returns the judge FUNCTION (judge(questions, {surface})). createJudge()
+ * returns {provider, probe, judge}; returning that object made every call
+ * here throw "judge is not a function", so the selection silently fell back
+ * on every run. args.timeoutMs (prompt path) caps both the contract race and
+ * the wire, with no retries.
+ */
 function buildJudge(args) {
   if (args && args._judge) return args._judge;
   const { createJudge } = require('../judgment');
   const { createDecisionAdapter } = require('../judgment/adapters/decision');
+  const config = getConfig();
+  const timeoutMs = args && Number(args.timeoutMs) > 0 ? Number(args.timeoutMs) : null;
+  const judgment = timeoutMs ? { ...(config.judgment || {}), timeout_ms: timeoutMs } : config.judgment || {};
   const adapters =
-    (getConfig().judgment || {}).provider === 'decision'
-      ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) }
+    judgment.provider === 'decision'
+      ? {
+          decision: createDecisionAdapter({
+            apiKey: process.env.LIQUID_API_KEY,
+            ...(timeoutMs ? { timeoutMs, maxRetries: 0 } : {}),
+          }),
+        }
       : {};
-  return createJudge({ config: getConfig(), adapters });
+  return createJudge({ config: { ...config, judgment }, adapters }).judge;
 }
 
 /** Estimated size of one candidate. The real shape carries `_tokens` when the
@@ -66,13 +101,16 @@ async function decisionSelectContext(candidates, queryOrTask, args = {}) {
   const rows = Array.isArray(candidates) ? candidates : [];
   if (rows.length === 0) return { selected: [], dropped: [] };
   const judge = buildJudge(args);
+  // The wire takes ONE merged state per request, so each candidate lives
+  // under its own key — a shared `candidate` key let the last one overwrite
+  // the rest and every question saw the same candidate.
   const questions = rows.map((c, i) => ({
     id: `ctx-${i}`,
     judgment: { kind: 'grade', levels: LEVELS },
-    instructions: `Memory [#${c && c.id}] "${capText((c && c.title) || '', 80)}" — grade its relevance to the task: filler = noise for this task, relevant = useful background, essential = directly needed.`,
+    instructions: `Memory \`candidate_${i}\` [#${c && c.id}] "${capText((c && c.title) || '', 80)}" — grade its relevance to \`task\`: filler = noise for this task, relevant = useful background, essential = directly needed.`,
     state: {
       task: capText(String(queryOrTask || ''), 400),
-      candidate: {
+      [`candidate_${i}`]: {
         id: c && c.id,
         title: capText((c && c.title) || '', 80),
         type: (c && c.type) || '',
@@ -131,10 +169,77 @@ async function decisionSelectContext(candidates, queryOrTask, args = {}) {
 async function maybeContextDecisionSelection(candidates, queryOrTask, deps, args = {}) {
   if (!contextDecisionEnabled()) return null;
   try {
-    return await decisionSelectContext(candidates, queryOrTask, args);
+    // Same tight cap as the prompt filter: this runs on per-prompt context too.
+    return await decisionSelectContext(candidates, queryOrTask, {
+      timeoutMs: promptFilterSettings().timeoutMs,
+      ...args,
+    });
   } catch {
     return null;
   }
 }
 
-module.exports = { contextDecisionEnabled, decisionSelectContext, maybeContextDecisionSelection };
+const PROMPT_CANDIDATE_LABELS = {
+  memory: 'a saved memory from the current project',
+  suggestion: 'a saved memory from another project (its `project` field names it)',
+  code: 'an existing code symbol a code-index search matched to the prompt',
+  file: 'a file path a code-index search matched to the prompt',
+};
+// Liquid takes at most 128 questions per request; the hook sends ~5–15.
+const MAX_PROMPT_QUESTIONS = 128;
+
+/**
+ * judgePromptRelevance(prompt, candidates, args) — async, READ-ONLY, ONE request.
+ * candidates: [{ kind: 'memory'|'suggestion'|'code'|'file', fields: {...} }]
+ *   (fields are already capped by the caller; they are sent as state).
+ * Returns { status: 'ok', p: number[] } — p[i] = probability candidate i is
+ * relevant to the prompt (candidates past the request cap get p = 1, i.e.
+ * kept) — or { status: 'unavailable', reason } on any failure. Never throws.
+ * args: { _judge?, timeoutMs? } (default timeout: judgment.prompt_filter_timeout_ms).
+ */
+async function judgePromptRelevance(prompt, candidates, args = {}) {
+  try {
+    const { capText } = require('../judgment/internal');
+    const rows = Array.isArray(candidates) ? candidates : [];
+    if (rows.length === 0) return { status: 'ok', p: [] };
+    const judge = buildJudge({ timeoutMs: promptFilterSettings().timeoutMs, ...args });
+    const promptText = capText(String(prompt || ''), 2000);
+    const questions = rows.slice(0, MAX_PROMPT_QUESTIONS).map((c, i) => {
+      const key = `candidate_${i}`;
+      return {
+        id: `p-${i}`,
+        judgment: {
+          kind: 'probability',
+          claim: `\`${key}\` is about the same subject as \`prompt\` and would help answer it.`,
+        },
+        instructions: `The user just typed \`prompt\` to a coding assistant. \`${key}\` is ${
+          PROMPT_CANDIDATE_LABELS[c.kind] || PROMPT_CANDIDATE_LABELS.memory
+        } that the assistant may be shown before answering.`,
+        state: { prompt: promptText, [key]: c.fields || {} },
+      };
+    });
+    const result = await judge(questions, { surface: 'context' });
+    if (!result || result.status !== 'ok' || !Array.isArray(result.answers)) {
+      return { status: 'unavailable', reason: (result && result.reason) || 'no result' };
+    }
+    const byId = new Map(result.answers.map((a) => [a.id, a]));
+    const p = rows.map((_, i) => {
+      if (i >= MAX_PROMPT_QUESTIONS) return 1;
+      const a = byId.get(`p-${i}`);
+      return a && typeof a.p === 'number' && Number.isFinite(a.p) ? a.p : null;
+    });
+    if (p.some((x) => x === null)) return { status: 'unavailable', reason: 'missing answer' };
+    return { status: 'ok', p };
+  } catch (e) {
+    return { status: 'unavailable', reason: `prompt relevance error contained: ${e && e.message}` };
+  }
+}
+
+module.exports = {
+  contextDecisionEnabled,
+  decisionSelectContext,
+  maybeContextDecisionSelection,
+  judgePromptRelevance,
+  promptFilterSettings,
+  PROMPT_FILTER_DEFAULTS,
+};

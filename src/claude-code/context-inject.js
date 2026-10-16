@@ -22,8 +22,9 @@ const path = require('node:path'),
  * Fetch project context, falling back to cross-project if empty.
  * Returns { contextResult, crossProjectResult } (each may be null on failure).
  */
-async function fetchContext({ dispatch, project, limit, query, sessionId }) {
+async function fetchContext({ dispatch, project, limit, query, sessionId, extraArgs }) {
   const baseArgs = {
+      ...extraArgs,
       project,
       limit: String(limit),
       'token-budget': String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
@@ -45,10 +46,12 @@ async function fetchContext({ dispatch, project, limit, query, sessionId }) {
 }
 
 /**
- * Assemble the memory-context lines (UNCAPPED) + the matched cwd repo.
- * @returns {Promise<{lines: string[], cwdRepo: object|null} | null>}
+ * Fetch + resolve the data bag buildContextBlock renders, without rendering.
+ * Returns null when both context fetches failed. `contextArgs` are extra
+ * dispatch args for the project-scoped fetch (e.g. 'decision-select').
+ * @returns {Promise<object|null>}
  */
-async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, query = null, sessionId = null }) {
+async function collectContext({ dispatch, getKnownRepos, project, cwd, query = null, sessionId = null, contextArgs }) {
   const limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT,
     { contextResult, crossProjectResult } = await fetchContext({
       dispatch,
@@ -56,56 +59,70 @@ async function assembleContextLines({ dispatch, getKnownRepos, project, cwd, que
       limit,
       query,
       sessionId,
-    }),
-    effectiveContext = !(!contextResult && !crossProjectResult) ? contextResult || crossProjectResult : undefined,
-    isNewProject = !(!contextResult && !crossProjectResult) ? crossProjectResult !== null && !contextResult : undefined,
-    observations = !(!contextResult && !crossProjectResult)
-      ? (effectiveContext.observations || []).filter(Boolean)
-      : undefined,
-    personal = !(!contextResult && !crossProjectResult) ? (effectiveContext.personal || []).filter(Boolean) : undefined,
-    stats = !(!contextResult && !crossProjectResult) ? effectiveContext.stats || {} : undefined,
-    topic = !(!contextResult && !crossProjectResult) ? effectiveContext.topic || null : undefined,
-    repos = !(!contextResult && !crossProjectResult) ? getKnownRepos() : undefined,
-    resolvedCwd = !(!contextResult && !crossProjectResult) ? path.resolve(resolveCwd(cwd)) : undefined,
-    cwdRepo = !(!contextResult && !crossProjectResult) ? findMatchingRepo(resolvedCwd, repos) : undefined,
-    isStale = !(!contextResult && !crossProjectResult) ? false : undefined;
+      extraArgs: contextArgs,
+    });
 
   if (!contextResult && !crossProjectResult) {
     return null;
   }
 
+  const effectiveContext = contextResult || crossProjectResult,
+    isNewProject = crossProjectResult !== null && !contextResult,
+    observations = (effectiveContext.observations || []).filter(Boolean),
+    personal = (effectiveContext.personal || []).filter(Boolean),
+    stats = effectiveContext.stats || {},
+    topic = effectiveContext.topic || null,
+    repos = getKnownRepos(),
+    resolvedCwd = path.resolve(resolveCwd(cwd)),
+    cwdRepo = findMatchingRepo(resolvedCwd, repos);
+
   let effectiveObservations = [];
   if (query) {
     effectiveObservations = isNewProject ? crossProjectResult.observations || [] : observations;
   }
-  {
-    const effectiveStats = isNewProject ? crossProjectResult.stats || {} : stats,
-      lines = buildContextBlock({
-        promptQuery: query,
-        currentProject: project,
-        projectDir: cwdRepo?.path || resolvedCwd,
-        cwdRepo,
-        isStale,
-        isNewProject,
-        observations,
-        effectiveObservations,
-        personal,
-        stats,
-        effectiveStats,
-        topic,
-        crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
-      });
+  return {
+    promptQuery: query,
+    currentProject: project,
+    projectDir: cwdRepo?.path || resolvedCwd,
+    resolvedCwd,
+    cwdRepo,
+    isStale: false,
+    isNewProject,
+    observations,
+    effectiveObservations,
+    personal,
+    stats,
+    effectiveStats: isNewProject ? crossProjectResult.stats || {} : stats,
+    topic,
+    crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
+  };
+}
 
-    if (!cwdRepo) {
-      lines.push('');
-      lines.push(
-        `⚠️ **Code not indexed:** Project "${project}" has no code index yet. Index it first: \`memory-code index-repo --path ${resolvedCwd} --name ${project}\``,
-      );
-    }
+/** Render a collectContext() bag into the UNCAPPED lines array. */
+function renderContextLines(bag) {
+  const lines = buildContextBlock(bag);
 
-    appendExtensionHint(lines, resolvedCwd);
-    return { lines, cwdRepo };
+  if (!bag.cwdRepo) {
+    lines.push('');
+    lines.push(
+      `⚠️ **Code not indexed:** Project "${bag.currentProject}" has no code index yet. Index it first: \`memory-code index-repo --path ${bag.resolvedCwd} --name ${bag.currentProject}\``,
+    );
   }
+
+  appendExtensionHint(lines, bag.resolvedCwd);
+  return lines;
+}
+
+/**
+ * Assemble the memory-context lines (UNCAPPED) + the matched cwd repo.
+ * @returns {Promise<{lines: string[], cwdRepo: object|null} | null>}
+ */
+async function assembleContextLines(opts) {
+  const bag = await collectContext(opts);
+  if (!bag) {
+    return null;
+  }
+  return { lines: renderContextLines(bag), cwdRepo: bag.cwdRepo };
 }
 
 /** Capped convenience wrapper returning the final markdown string (or null). */
@@ -122,4 +139,4 @@ async function buildInjectedContext(opts) {
   return capInjectedContext(assembled.lines.join('\n'));
 }
 
-module.exports = { assembleContextLines, buildInjectedContext, fetchContext };
+module.exports = { assembleContextLines, buildInjectedContext, fetchContext, collectContext, renderContextLines };

@@ -285,13 +285,20 @@ function register(commands, deps) {
     );
     try {
       const { contextDecisionEnabled, maybeContextDecisionSelection } = require('../../memory-domain/context-decision');
-      if (contextDecisionEnabled() && result && Array.isArray(result.observations) && result.observations.length > 0) {
-        const sel = await maybeContextDecisionSelection(
-          result.observations,
-          args.query || args['topic-key'] || 'context-auto',
-          null,
-          args,
-        );
+      // Skipped without a query/topic (nothing to judge relevance against) and
+      // when the caller judges the candidates itself ('decision-select': 'off'
+      // — the Claude Code prompt hook, which filters every injected section
+      // in one request).
+      const task = args.query || args['topic-key'];
+      if (
+        task &&
+        args['decision-select'] !== 'off' &&
+        contextDecisionEnabled() &&
+        result &&
+        Array.isArray(result.observations) &&
+        result.observations.length > 0
+      ) {
+        const sel = await maybeContextDecisionSelection(result.observations, task, null, args);
         if (sel && !sel.unavailable && Array.isArray(sel.selected)) {
           result.observations = sel.selected;
           result.decisionSelected = true; // advisory marker — all other result fields kept

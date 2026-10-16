@@ -8,6 +8,11 @@
  * reminder (parity with Pi's context-event reminder, moved here per #207).
  * Passes the stored numeric sessionId as `session-id` to context.
  *
+ * When the judgment layer is on for surface 'context' (provider 'decision' +
+ * LIQUID_API_KEY), the candidates of the three sections are filtered for
+ * relevance to the prompt before rendering (src/claude-code/prompt-filter.js);
+ * any failure renders exactly the unfiltered output.
+ *
  * 30s overall budget: the whole dispatch sequence is raced against a timeout
  * that resolves with whatever context was gathered so far rather than
  * rejecting — best-effort, never blocks the prompt.
@@ -24,7 +29,8 @@ const { CONTEXT } = require('../../../constants'),
     unwrapAnalysisData,
   } = require('../../hooks-engine/preflight-assembly'),
   { capInjectedContext } = require('../../hooks-engine/context-builder'),
-  { assembleContextLines } = require('../context-inject'),
+  { collectContext, renderContextLines } = require('../context-inject'),
+  { contextDecisionEnabled } = require('../../memory-domain/context-decision'),
   { makeMutate } = require('../state-mutate'),
   BUDGET_MS = 30000,
   REMINDER_INTERVAL = 5, // MEMORY_REMINDER_INTERVAL (state.ts:107)
@@ -32,22 +38,38 @@ const { CONTEXT } = require('../../../constants'),
   REMINDER_TEXT =
     '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.';
 
+/** Preflight dispatch for a preflight-worthy prompt (best-effort; null when skipped/failed). */
+async function fetchPreflight({ dispatch, cwdRepo, prompt }) {
+  if (!cwdRepo || !isPreflightWorthyPrompt(prompt)) {
+    return { ran: false, result: null };
+  }
+  try {
+    const result = await dispatch('preflight', {
+      repo: cwdRepo.name,
+      task: prompt,
+      'code-limit': String(CONTEXT.PREFLIGHT_CODE_LIMIT || 3),
+      'memory-limit': String(CONTEXT.PREFLIGHT_MEMORY_LIMIT || 2),
+      'doc-limit': String(CONTEXT.PREFLIGHT_DOC_LIMIT || 1),
+    });
+    return { ran: true, result };
+  } catch {
+    // Preflight is best-effort; never block context injection.
+    return { ran: false, result: null };
+  }
+}
+
 /**
  * Append preflight + coding-context blocks (best-effort). Mutates lines.
+ * `mapCodingContext` post-processes the coding-context result (the prompt
+ * filter drops paths that are not on disk).
  */
-async function appendPreflight({ lines, dispatch, cwdRepo, prompt }) {
-  if (!cwdRepo || !isPreflightWorthyPrompt(prompt)) {
+async function appendPreflight({ lines, dispatch, cwdRepo, prompt, preflight, mapCodingContext }) {
+  if (!preflight.ran) {
     return;
   }
 
   try {
-    const preflightResult = await dispatch('preflight', {
-        repo: cwdRepo.name,
-        task: prompt,
-        'code-limit': String(CONTEXT.PREFLIGHT_CODE_LIMIT || 3),
-        'memory-limit': String(CONTEXT.PREFLIGHT_MEMORY_LIMIT || 2),
-        'doc-limit': String(CONTEXT.PREFLIGHT_DOC_LIMIT || 1),
-      }),
+    const preflightResult = preflight.result,
       target = (() => {
         if (preflightResult && !preflightResult.error) {
           appendPreflightBlock(lines, preflightResult);
@@ -63,7 +85,8 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt }) {
         top: '5',
       });
       if (codingContextResult && !codingContextResult.error) {
-        appendCodingContextBlock(lines, unwrapAnalysisData(codingContextResult));
+        const data = unwrapAnalysisData(codingContextResult);
+        appendCodingContextBlock(lines, mapCodingContext ? mapCodingContext(data) : data);
       }
     }
   } catch {
@@ -77,20 +100,25 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
     claudeSessionId = payload.session_id,
     state = stateStore.loadState(claudeSessionId),
     sessionId = state.sessionId,
-    assembled = await assembleContextLines({
+    // Off path = today's path: no extra dispatch arg, no filter module loaded.
+    filterOn = Boolean(prompt) && contextDecisionEnabled(),
+    collected = await collectContext({
       dispatch,
       getKnownRepos,
       project,
       cwd: payload.cwd,
       query: prompt,
       sessionId,
+      // The prompt filter judges every section in one request; skip the
+      // Gateway's own per-memory selection so a prompt makes one call.
+      contextArgs: filterOn ? { 'decision-select': 'off' } : undefined,
     }).catch((err) => {
       // Log but do not throw — prompt must still go through with whatever
       // Non-memory context we can compute locally. Without logging, dispatch
       // Failures (engine unreachable, schema mismatch) are invisible to the
       // User and indistinguishable from "no relevant memories found".
       console.error(
-        `[claude-code] assembleContextLines failed for session ${claudeSessionId || 'unknown'}: ${
+        `[claude-code] collectContext failed for session ${claudeSessionId || 'unknown'}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
@@ -102,11 +130,30 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
   }
 
   {
-    const lines = assembled ? assembled.lines : [],
-      cwdRepo = assembled ? assembled.cwdRepo : findMatchingRepo(resolvedCwd, repos);
+    const cwdRepo = collected ? collected.cwdRepo : findMatchingRepo(resolvedCwd, repos),
+      preflight = await fetchPreflight({ dispatch, cwdRepo, prompt });
+
+    if (isCancelled?.()) {
+      return null;
+    }
+
+    let bag = collected,
+      mapCodingContext;
+    if (filterOn) {
+      const { filterPromptContext, prefilterCodingContext } = require('../prompt-filter'),
+        baseDirs = [cwdRepo?.path, resolvedCwd],
+        filtered = await filterPromptContext({ prompt, bag, preflight: preflight.result, baseDirs });
+      if (filtered) {
+        bag = filtered.bag;
+        preflight.result = filtered.preflight;
+        mapCodingContext = (data) => prefilterCodingContext(data, baseDirs);
+      }
+    }
+
+    const lines = bag ? renderContextLines(bag) : [];
 
     // Preflight / coding context (best-effort, timeout-safe).
-    await appendPreflight({ lines, dispatch, cwdRepo, prompt });
+    await appendPreflight({ lines, dispatch, cwdRepo, prompt, preflight, mapCodingContext });
 
     if (isCancelled?.()) {
       return null;

@@ -108,20 +108,22 @@ describe('correctness review fixes (round 2) — source-level', () => {
     expect(src).toMatch(/overlap\.slice\(0,\s*4\)\.join/);
   });
 
-  // ── F20: user-prompt-submit logs errors on assembleContextLines failure ──
-  it('F20: user-prompt-submit logs via console.error for assembleContextLines failures', () => {
+  // ── F20: user-prompt-submit logs errors on a context collection failure ──
+  // (The handler calls collectContext since the prompt filter split
+  // assembleContextLines into collect + render.)
+  it('F20: user-prompt-submit logs via console.error for collectContext failures', () => {
     const src = fs.readFileSync(require.resolve('../src/claude-code/handlers/user-prompt-submit'), 'utf8'),
       assembleIdx = (() => {
         expect(src).toContain('console.error');
-        expect(src).toContain('assembleContextLines failed');
-        // The specific catch on the assembleContextLines(...) call must NOT be a
+        expect(src).toContain('collectContext failed');
+        // The specific catch on the collectContext(...) call must NOT be a
         // Silent `() => null` swallow — it must take the error and log it.
 
-        return src.indexOf('assembleContextLines({');
+        return src.indexOf('collectContext({');
       })(),
-      snippet = !(assembleIdx === -1) ? src.slice(assembleIdx, assembleIdx + 800) : undefined;
+      snippet = !(assembleIdx === -1) ? src.slice(assembleIdx, assembleIdx + 900) : undefined;
     if (assembleIdx === -1) {
-      throw new Error('could not locate assembleContextLines({ call');
+      throw new Error('could not locate collectContext({ call');
     }
     // Find the closing `)` of the .catch chained onto that call.
     expect(snippet).toMatch(/\.catch\(\s*\(err\)\s*=>/);
