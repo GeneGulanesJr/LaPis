@@ -101,7 +101,7 @@ LaPis supports tool access tiers to control which commands are available to the 
 
 ## Semantic Judgments (optional)
 
-Provider-agnostic semantic judgments (Dream Cycle, dedupe, and trust-sync surfaces) are **off by default** — every call site keeps its heuristic fallback. The `judgment` config block:
+Provider-agnostic semantic judgments (search rerank, dedupe, trust-sync, the `lapis run` classifier, Pi auto-save, Dream Cycle and context surfaces) are **off by default** — every call site keeps its heuristic fallback. The `judgment` config block:
 
 ```jsonc
 {
@@ -115,7 +115,8 @@ Provider-agnostic semantic judgments (Dream Cycle, dedupe, and trust-sync surfac
     "breaker_cooldown_ms": 60000,
     "disables": {},            // per-surface opt-outs, e.g. { "dream": true }
     "prompt_filter_threshold": 0.5,  // Claude Code prompt context: keep a candidate at p >= this
-    "prompt_filter_timeout_ms": 2000 // cap on that one request (no retries); fail open
+    "prompt_filter_timeout_ms": 2000, // cap on that one request (no retries); fail open
+    "surface_timeout_ms": 2000       // cap on each request of the other surfaces (no retries); fail open
   }
 }
 ```
@@ -131,7 +132,7 @@ Environment overrides use precedence: env var > `config.jsonc` value > built-in 
 | `LAPIS_HOME` | `HOME` / `USERPROFILE` / `os.homedir()` | Base directory for the `.pi/memory` config and data path (`$LAPIS_HOME/.pi/memory/`). |
 | `LAPIS_ASYNC_INDEX_THRESHOLD` | (config default `500`) | Positive integer overriding `async_index_file_threshold`. |
 | `LAPIS_INDEX_ALLOW_NON_GIT` | (unset) | Set to `1` to let `index-repo` / `reindex-repo` index a directory without a `.git` entry. Home directories, standard user content dirs, and the filesystem root are always refused. |
-| `LAPIS_JUDGE_PROVIDER`, `LAPIS_JUDGE_TIMEOUT_MS`, `LAPIS_JUDGE_LOCAL_ONLY`, `LAPIS_JUDGE_DISABLE_<SURFACE>`, `LAPIS_JUDGE_LOG` | (unset) | Environment overrides for the `judgment` config block. See [`JUDGMENT.md`](JUDGMENT.md). |
+| `LAPIS_JUDGE_PROVIDER`, `LAPIS_JUDGE_TIMEOUT_MS`, `LAPIS_JUDGE_SURFACE_TIMEOUT_MS`, `LAPIS_JUDGE_LOCAL_ONLY`, `LAPIS_JUDGE_DISABLE_<SURFACE>`, `LAPIS_JUDGE_LOG` | (unset) | Environment overrides for the `judgment` config block. See [`JUDGMENT.md`](JUDGMENT.md). |
 | `LAPIS_LAYAMCP_URL`, `LAPIS_LAYAMCP_ENABLED`, `LAPIS_LAYAMCP_TIMEOUT_MS` | `http://127.0.0.1:8765`, `true`, `5000` | LayaMCP classification sidecar used by the classified save path. |
 
 Claude Code bridge and HTTP server variables are covered in their sections below.

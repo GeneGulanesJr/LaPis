@@ -41,6 +41,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Judgment surfaces: one capped request, no retries, a log line.** Every
+  surface (`recall`, `dedupe`, `trust`, `guard`, `autosave`, `dream`, `context`)
+  now caps each request at `judgment.surface_timeout_ms` (default 2000;
+  `LAPIS_JUDGE_SURFACE_TIMEOUT_MS`) — `context` keeps
+  `judgment.prompt_filter_timeout_ms` — at both the contract race and the wire,
+  with no wire retries, and falls back to its non-judgment result on a
+  timeout, an error or a malformed reply. Each judged call appends one JSON
+  line to `~/.pi/memory/judgment.log` (status, counts, memory ids with p or
+  level, latency; no memory, message or command text); the writer moved to
+  `src/judgment/log.js`. The surface checks also honor
+  `LAPIS_JUDGE_LOCAL_ONLY=1` (off = no request and no log line). Measured live
+  (d1-ultra, 20 calls each): about 0.35–0.45 s median, 0.5–0.6 s p90 per call.
+
 - **Judgment backend: TypeSafe → Liquid AI Decisions API; "jev" renamed
   "decision".** The judgment adapter and the memory-layer extension client now
   call `POST https://api.liquid.ai/decisions/v1/systemone` with
@@ -89,6 +102,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`createJudge` left its timeout timer running** after the adapter
   answered, keeping a short-lived hook process alive for up to
   `timeout_ms`. The timer is now cleared when the race settles.
+- **Judgment `recall`, `dedupe`, `trust`, `guard` and `autosave` never ran
+  either** — the same bug as `context`. `search-decision.js`,
+  `dedupe-decision.js`, `trust-decision.js` and `classify-decision.js` built
+  the `createJudge()` object and called it as a function, and the Pi
+  passive-capture hook handed that object to `shouldAutoCaptureWithJudge`;
+  every live call threw "judge is not a function" inside the surface's own
+  `try`/`catch` and fell back with no request made (measured live: 0 requests
+  on every surface with `provider: "decision"` and a key). Every surface now
+  builds its judge through one seam, `src/judgment/surface.js`
+  (`buildSurfaceJudge`), which returns the function. New tests
+  (`test/judgment-surfaces-wire.test.js`) run each surface through that real
+  path with only `fetch` stubbed; they fail if the object comes back. This
+  turns these surfaces ON when `provider: "decision"` and `LIQUID_API_KEY` are
+  set: memory search rerank (CLI `search`, the `memory-search` MCP / Pi tool),
+  duplicate verification on a save that stops at `potential_duplicate`
+  (annotation only — `decisionVerified`), the `lapis run` command classifier
+  (unmatched commands only), and Pi's judgment-backed auto-save (Slice 2 — it
+  saves a memory when the judge classifies an assistant message that the
+  regex missed). `trust` still has no caller. Kill switch per surface:
+  `LAPIS_JUDGE_DISABLE_<SURFACE>=1` or `judgment.disables.<surface>`.
+- **Merged question state on `recall`, `dedupe`, `trust` and `dream`.** The wire
+  takes one merged `state` per request; shared keys (`memory`, `existing`,
+  `memory_a`/`memory_b`, `correction`) let the last item of a batch overwrite
+  the others, so every question saw the same memory. Each item now has its own
+  key (`memory_<i>`, `existing_<i>`, `memory_a_<i>`/`memory_b_<i>`,
+  `correction_<i>`) named in its instructions, as `context` does since the fix
+  above. `dedupe` also looks up the existing memory's content (read-only); the
+  trigram matches carried titles only.
 
 - **Search** — a corrupted FTS index self-heals (rebuild once and retry)
   instead of failing searches; multi-word natural-language queries that
