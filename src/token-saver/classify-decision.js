@@ -1,4 +1,4 @@
-// src/token-saver/classify-jev.js
+// src/token-saver/classify-decision.js
 // Slice F: guard classify cascade — regex-first, judgment on ambiguous only.
 //
 // classifyCommand() is SYNC and DEFINITIVE for every command a COMMAND_RULES
@@ -19,7 +19,7 @@
 
 const { classifyCommand } = require('./classify-command');
 const { createJudge } = require('../judgment');
-const { createJevAdapter } = require('../judgment/adapters/jev');
+const { createDecisionAdapter } = require('../judgment/adapters/decision');
 const { getConfig } = require('../../config');
 const { CONFIDENT_THRESHOLD, capText } = require('../judgment/internal');
 
@@ -30,20 +30,20 @@ const COMMAND_CLASSES = ['git-diff', 'git-status', 'test', 'install', 'file-read
 
 /**
  * Guard: should the token-saver consult judgment for ambiguous command
- * classification? Default-off — requires provider=jev + machine-scoped key +
- * 'guard' surface not disabled. Mirrors dreamJevEnabled/searchJevEnabled.
+ * classification? Default-off — requires provider=decision + machine-scoped key +
+ * 'guard' surface not disabled. Mirrors dreamDecisionEnabled/searchDecisionEnabled.
  */
-function guardJevEnabled() {
+function guardDecisionEnabled() {
   const cfg = getConfig().judgment || {};
-  return cfg.provider === 'jev' && !!process.env.TYPESAFE_API_KEY && !(cfg.disables && cfg.disables.guard);
+  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.guard);
 }
 
 /** args._judge passes a judge through for tests (established sibling convention). */
 function buildJudge(args) {
   if (args && args._judge) return args._judge;
   const adapters =
-    (getConfig().judgment || {}).provider === 'jev'
-      ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) }
+    (getConfig().judgment || {}).provider === 'decision'
+      ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) }
       : {};
   return createJudge({ config: getConfig(), adapters });
 }
@@ -120,7 +120,7 @@ async function classifyCommandWithJudge(commandArgs, opts = {}) {
  * failures already contained. args._judge passes through for tests.
  */
 async function maybeClassifyCommand(commandArgs, args = {}) {
-  if (!guardJevEnabled()) return classifyCommand(commandArgs);
+  if (!guardDecisionEnabled()) return classifyCommand(commandArgs);
   return classifyCommandWithJudge(commandArgs, { judge: buildJudge(args) });
 }
 
@@ -128,6 +128,6 @@ module.exports = {
   classifyCommandWithJudge,
   classifyCommandDetailed,
   maybeClassifyCommand,
-  guardJevEnabled,
+  guardDecisionEnabled,
   COMMAND_CLASSES,
 };

@@ -28,7 +28,7 @@ import { ensureNativeModules } from './host/native-health';
 import { registerCodeTools } from './tools/code-tools';
 import { registerDocTools } from './tools/doc-tools';
 import { registerDashboardCommand } from './commands/dashboard';
-import { createJevCompactionPlanner } from './hooks/jev-compaction-planner';
+import { createDecisionCompactionPlanner } from './hooks/decision-compaction-planner';
 import { ensureBuiltinJudgStrategies } from './host/strategies/builtin-judg-strategies';
 import { formatCodeResult } from './tools/format-code-result';
 import { formatDocResult } from './tools/format-doc-result';
@@ -71,7 +71,7 @@ export default function memoryLayer(pi: ExtensionAPI) {
   };
 
   safeRegister('session-lifecycle hooks', registerSessionStart);
-  // Jev-driven compaction (OFF by default — see docs/JEV_DRIVEN_COMPACTION.md).
+  // Decision-driven compaction (OFF by default — see docs/DECISION_DRIVEN_COMPACTION.md).
   // Strategies are registered eagerly so they're discoverable, but the planner
   // is a no-op unless `compaction.judg` / `PI_COMPACTION_JUDG` opts in.
   try {
@@ -84,7 +84,7 @@ export default function memoryLayer(pi: ExtensionAPI) {
     registrationFailures.push('compaction strategies');
   }
   try {
-    createJevCompactionPlanner().register(pi);
+    createDecisionCompactionPlanner().register(pi);
   } catch (e) {
     console.error('[memory-layer] failed to register compaction planner:', e instanceof Error ? e.message : String(e));
     registrationFailures.push('compaction planner');

@@ -1,4 +1,4 @@
-// src/memory-domain/context-jev.js
+// src/memory-domain/context-decision.js
 // Slice G: budget-constrained context selection — opt-in, advisory. Takes the
 // context builder's candidate list and judge-grades each candidate's relevance
 // to the session task ('filler' | 'relevant' | 'essential'); the selection keeps
@@ -6,9 +6,9 @@
 // estimated size fits the budget. Failures degrade to today's selection exactly:
 // { selected: candidates, dropped: [], unavailable: true }.
 
-// Judgment modules load lazily inside buildJudge()/jevSelectContext(): this
+// Judgment modules load lazily inside buildJudge()/decisionSelectContext(): this
 // file is required on EVERY context dispatch (the enabled check lives here),
-// and the default config has jev disabled — eagerly requiring the judgment
+// and the default config has decision disabled — eagerly requiring the judgment
 // layer made every fresh-process context dispatch pay ~10ms for an opt-in
 // feature it never used.
 const { getConfig } = require('../../config');
@@ -21,18 +21,18 @@ const LEVELS = ['filler', 'relevant', 'essential'];
 const LEVEL_RANK = { filler: 0, relevant: 1, essential: 2 };
 const CONTENT_SNIPPET_CHARS = 300;
 
-function contextJevEnabled() {
+function contextDecisionEnabled() {
   const cfg = getConfig().judgment || {};
-  return cfg.provider === 'jev' && !!process.env.TYPESAFE_API_KEY && !(cfg.disables && cfg.disables.context);
+  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.context);
 }
 
 function buildJudge(args) {
   if (args && args._judge) return args._judge;
   const { createJudge } = require('../judgment');
-  const { createJevAdapter } = require('../judgment/adapters/jev');
+  const { createDecisionAdapter } = require('../judgment/adapters/decision');
   const adapters =
-    (getConfig().judgment || {}).provider === 'jev'
-      ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) }
+    (getConfig().judgment || {}).provider === 'decision'
+      ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) }
       : {};
   return createJudge({ config: getConfig(), adapters });
 }
@@ -54,14 +54,14 @@ function resolveBudget(args) {
 }
 
 /**
- * jevSelectContext(candidates, queryOrTask, args) — async, READ-ONLY.
+ * decisionSelectContext(candidates, queryOrTask, args) — async, READ-ONLY.
  * candidates: the context builder's observation list
  * ({id, title, content, type, ... [, _tokens]}).
  * Returns {selected, dropped} partitioning the candidates (selected in original
  * order), or {selected: candidates, dropped: [], unavailable: true} when the
  * judgment layer is unavailable/throws (today's selection, unchanged).
  */
-async function jevSelectContext(candidates, queryOrTask, args = {}) {
+async function decisionSelectContext(candidates, queryOrTask, args = {}) {
   const { chunk, capText } = require('../judgment/internal');
   const rows = Array.isArray(candidates) ? candidates : [];
   if (rows.length === 0) return { selected: [], dropped: [] };
@@ -124,17 +124,17 @@ async function jevSelectContext(candidates, queryOrTask, args = {}) {
 }
 
 /**
- * maybeContextJevSelection(candidates, queryOrTask, deps, args) — guarded
+ * maybeContextDecisionSelection(candidates, queryOrTask, deps, args) — guarded
  * wrapper: null when the slice is disabled (caller keeps today's selection);
- * otherwise delegates to jevSelectContext, which never throws.
+ * otherwise delegates to decisionSelectContext, which never throws.
  */
-async function maybeContextJevSelection(candidates, queryOrTask, deps, args = {}) {
-  if (!contextJevEnabled()) return null;
+async function maybeContextDecisionSelection(candidates, queryOrTask, deps, args = {}) {
+  if (!contextDecisionEnabled()) return null;
   try {
-    return await jevSelectContext(candidates, queryOrTask, args);
+    return await decisionSelectContext(candidates, queryOrTask, args);
   } catch {
     return null;
   }
 }
 
-module.exports = { contextJevEnabled, jevSelectContext, maybeContextJevSelection };
+module.exports = { contextDecisionEnabled, decisionSelectContext, maybeContextDecisionSelection };

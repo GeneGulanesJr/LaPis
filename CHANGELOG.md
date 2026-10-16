@@ -27,6 +27,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Judgment backend: TypeSafe → Liquid AI Decisions API; "jev" renamed
+  "decision".** The judgment adapter and the memory-layer extension client now
+  call `POST https://api.liquid.ai/decisions/v1/systemone` with
+  `LIQUID_API_KEY` (no TypeSafe key fallback). Default model `d1-ultra`
+  (`d1` via `LAPIS_JUDGE_MODEL` / `DECISION_MODEL`). Provider, strategy, env
+  vars, files and identifiers are renamed from `jev` to `decision`
+  (`LAPIS_JUDGE_PROVIDER=decision`, `compaction.judg: "decision"`,
+  `DECISION_ENABLED`, `DECISION_DRY_RUN`, `DECISION_COMPACTION_ENABLED`,
+  `DECISION_TIMEOUT_MS`, `DECISION_MAX_RETRIES`, `DECISION_ENDPOINT`,
+  `DECISION_MODEL`); output fields `jevVerified` / `jevSelected` /
+  `dreamJevReview` / per-row `jev` are now `decisionVerified` /
+  `decisionSelected` / `dreamDecisionReview` / `decision`. A one-option
+  choice, which the Decisions API rejects, is answered locally without a call.
+  The extension client now sends the real `/systemone` request shape.
+
 - **`index-repo` refuses non-codebase directories** — plain directories with
   no git history and no code are rejected by a repo guard instead of indexing
   nothing useful (test fixtures now need `git init`) (#362).
@@ -34,6 +49,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   lazily, out of server-mode startup (#356).
 - Symbol provenance uses a single git spawn, roughly halving `coding-context`
   cost (#358).
+
+### Deprecated
+
+- For one release, `provider: "jev"` (config.jsonc or
+  `LAPIS_JUDGE_PROVIDER`), the compaction strategy name `jev`, and the
+  `JEV_ENABLED` / `JEV_DRY_RUN` / `JEV_COMPACTION_ENABLED` / `JEV_TIMEOUT_MS` /
+  `JEV_MAX_RETRIES` env vars are still read as their `decision` names.
+  `JEV_API_KEY`, `JEV_ENDPOINT`, `JEV_MODEL` and `TYPESAFE_API_KEY` are not.
 
 ### Fixed
 

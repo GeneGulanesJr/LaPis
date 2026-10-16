@@ -41,10 +41,10 @@ const path = require('path'),
     },
     // Provider-agnostic semantic judgments (docs/JUDGMENT.md, spec 2026-09-26).
     // DEFAULT OFF — LaPis is zero-cloud/zero-keys by identity (spec §4);
-    // opting in requires LAPIS_JUDGE_PROVIDER=jev AND a machine-scoped
-    // TYPESAFE_API_KEY. Off = every call site keeps its heuristic fallback.
+    // opting in requires LAPIS_JUDGE_PROVIDER=decision AND a machine-scoped
+    // LIQUID_API_KEY. Off = every call site keeps its heuristic fallback.
     judgment: {
-      provider: 'heuristic', // 'heuristic' | 'jev' | 'off'
+      provider: 'heuristic', // 'heuristic' | 'decision' | 'off'
       timeout_ms: 5000,
       max_retries: 2,
       local_only: false, // kill switch: force heuristic path everywhere
@@ -170,6 +170,11 @@ function applyEnvOverrides(config) {
   }
   const j = config.judgment || (config.judgment = {});
   if (process.env.LAPIS_JUDGE_PROVIDER) j.provider = process.env.LAPIS_JUDGE_PROVIDER;
+  // Deprecated alias (kept for one release): provider 'jev' was renamed
+  // 'decision' when the backend moved to Liquid AI's Decisions API. A saved
+  // config.jsonc or LAPIS_JUDGE_PROVIDER=jev keeps working; remove next release.
+  // Silent on purpose: CLI/hook callers parse stderr, so no warning is printed.
+  if (j.provider === 'jev') j.provider = 'decision';
   if (process.env.LAPIS_JUDGE_TIMEOUT_MS) {
     const n = parseInt(process.env.LAPIS_JUDGE_TIMEOUT_MS, 10);
     if (Number.isFinite(n)) j.timeout_ms = n;

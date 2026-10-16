@@ -1,16 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-process.env.JEV_DRY_RUN = '1';
+process.env.DECISION_DRY_RUN = '1';
 process.env.PI_COMPACTION_JUDG_ENABLED = '1';
-process.env.PI_COMPACTION_JUDG = 'jev';
+process.env.PI_COMPACTION_JUDG = 'decision';
 
-import { readPlannerSettings, enforceCutPointRules } from '../extensions/memory-layer/hooks/jev-compaction-planner.ts';
+import {
+  readPlannerSettings,
+  enforceCutPointRules,
+} from '../extensions/memory-layer/hooks/decision-compaction-planner.ts';
 import {
   registerCompactionJudg,
   __resetJudgRegistryForTests,
   resolveCompactionJudg,
 } from '../extensions/memory-layer/host/compaction-judg.ts';
-import { JevCompactionJudg } from '../extensions/memory-layer/host/strategies/jev-compaction-judg.ts';
+import { DecisionCompactionJudg } from '../extensions/memory-layer/host/strategies/decision-compaction-judg.ts';
 import { NoopCompactionJudg } from '../extensions/memory-layer/host/strategies/noop-compaction-judg.ts';
 import { DefaultCompactionJudg } from '../extensions/memory-layer/host/strategies/default-compaction-judg.ts';
 
@@ -48,7 +51,7 @@ describe('readPlannerSettings', () => {
     delete process.env.PI_COMPACTION_JUDG_PATH;
     delete process.env.PI_COMPACTION_JUDG_THRESHOLD;
     delete process.env.PI_COMPACTION_JUDG_DRY_RUN;
-    delete process.env.JEV_COMPACTION_ENABLED;
+    delete process.env.DECISION_COMPACTION_ENABLED;
   });
 
   it('returns enabled=false when no compaction config is present', () => {
@@ -59,9 +62,9 @@ describe('readPlannerSettings', () => {
   });
 
   it('honors compaction.judg setting when set to a real strategy', () => {
-    const s = readPlannerSettings({ compaction: { judg: 'jev' } });
+    const s = readPlannerSettings({ compaction: { judg: 'decision' } });
     expect(s.enabled).toBe(true);
-    expect(s.name).toBe('jev');
+    expect(s.name).toBe('decision');
   });
 
   it('does NOT enable when compaction.judg is "default" or "noop"', () => {
@@ -72,18 +75,18 @@ describe('readPlannerSettings', () => {
   });
 
   it('respects env PI_COMPACTION_JUDG over settings when both are set', () => {
-    process.env.PI_COMPACTION_JUDG = 'jev';
+    process.env.PI_COMPACTION_JUDG = 'decision';
     const s2 = readPlannerSettings({ compaction: { judg: 'foo' } });
-    expect(s2.name).toBe('jev');
+    expect(s2.name).toBe('decision');
   });
 
   it('honors custom threshold', () => {
-    const s = readPlannerSettings({ compaction: { judg: 'jev', judgThresholdTokens: 50_000 } });
+    const s = readPlannerSettings({ compaction: { judg: 'decision', judgThresholdTokens: 50_000 } });
     expect(s.thresholdTokens).toBe(50_000);
   });
 
   it('clamps invalid threshold to default 100_000', () => {
-    const s = readPlannerSettings({ compaction: { judg: 'jev', judgThresholdTokens: -1 } });
+    const s = readPlannerSettings({ compaction: { judg: 'decision', judgThresholdTokens: -1 } });
     expect(s.thresholdTokens).toBe(100_000);
   });
 
@@ -115,10 +118,12 @@ describe('compaction-judg registry', () => {
   it('resolves registered strategies', async () => {
     registerCompactionJudg('noop', new NoopCompactionJudg());
     registerCompactionJudg('default', new DefaultCompactionJudg());
-    registerCompactionJudg('jev', new JevCompactionJudg());
+    registerCompactionJudg('decision', new DecisionCompactionJudg());
     expect((await resolveCompactionJudg('noop')).name).toBe('noop');
     expect((await resolveCompactionJudg('default')).name).toBe('default');
-    expect((await resolveCompactionJudg('jev')).name).toBe('jev');
+    expect((await resolveCompactionJudg('decision')).name).toBe('decision');
+    // deprecated alias: the pre-rename strategy name still resolves (one release)
+    expect((await resolveCompactionJudg('jev')).name).toBe('decision');
   });
 
   it('returns undefined for unknown names that are not paths', async () => {
@@ -131,13 +136,13 @@ describe('compaction-judg registry', () => {
 // ---------------------------------------------------------------------------
 
 describe('strategy implementations', () => {
-  it('JevCompactionJudg returns a valid verdict + reason under dry-run', async () => {
-    const j = new JevCompactionJudg();
+  it('DecisionCompactionJudg returns a valid verdict + reason under dry-run', async () => {
+    const j = new DecisionCompactionJudg();
     const r = await j.decideKeep(inputAt(0, 1, userMsg));
     expect([0, 1, 2, 3]).toContain(r.verdict);
     expect(r.confidence).toBeGreaterThanOrEqual(0);
     expect(r.confidence).toBeLessThanOrEqual(1);
-    expect(r.reason).toMatch(/^jev:/);
+    expect(r.reason).toMatch(/^decision:/);
   });
 
   it('DefaultCompactionJudg always returns verdict=1', async () => {

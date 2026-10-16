@@ -1,11 +1,11 @@
 // vitest globals enabled — no import
-const { jevVerifyDuplicates, dedupeJevEnabled } = require('../src/memory-domain/dedupe-jev');
+const { decisionVerifyDuplicates, dedupeDecisionEnabled } = require('../src/memory-domain/dedupe-decision');
 const { resetConfigCache } = require('../config');
 
-describe('jevVerifyDuplicates — read-only, advisory', () => {
+describe('decisionVerifyDuplicates — read-only, advisory', () => {
   it('empty candidates → {verified: []}, judge never built or called', async () => {
     const judge = vi.fn(),
-      r = await jevVerifyDuplicates({}, [], { _judge: judge });
+      r = await decisionVerifyDuplicates({}, [], { _judge: judge });
     expect(r).toEqual({ verified: [] });
     expect(judge).not.toHaveBeenCalled();
   });
@@ -22,7 +22,7 @@ describe('jevVerifyDuplicates — read-only, advisory', () => {
         { id: 5, title: 'Auth flow v1', content: 'session cookie flow' },
         { id: 6, title: 'Deploy docs' },
       ],
-      r = await jevVerifyDuplicates({}, candidates, {
+      r = await decisionVerifyDuplicates({}, candidates, {
         _judge: judge,
         incomingTitle: 'Auth flow v2',
         incomingContent: 'v2 replaces v1',
@@ -45,7 +45,7 @@ describe('jevVerifyDuplicates — read-only, advisory', () => {
 
   it('judgment unavailable → {verified: [], unavailable: true}', async () => {
     const judge = vi.fn(async () => ({ status: 'unavailable', reason: 'breaker open' })),
-      r = await jevVerifyDuplicates({}, [{ id: 1, title: 'A' }], { _judge: judge });
+      r = await decisionVerifyDuplicates({}, [{ id: 1, title: 'A' }], { _judge: judge });
     expect(r.verified).toEqual([]);
     expect(r.unavailable).toBe(true);
   });
@@ -54,7 +54,7 @@ describe('jevVerifyDuplicates — read-only, advisory', () => {
     const judge = vi.fn(async () => {
         throw new Error('wire exploded');
       }),
-      r = await jevVerifyDuplicates(
+      r = await decisionVerifyDuplicates(
         {},
         [
           { id: 1, title: 'A' },
@@ -72,7 +72,7 @@ describe('jevVerifyDuplicates — read-only, advisory', () => {
         answers: questions.map((q) => ({ id: q.id, p: 0.6, confidence: 0.5 })),
       })),
       candidates = Array.from({ length: 15 }, (_, i) => ({ id: i + 1, title: `m${i}` })),
-      r = await jevVerifyDuplicates({}, candidates, { _judge: judge });
+      r = await decisionVerifyDuplicates({}, candidates, { _judge: judge });
     expect(judge).toHaveBeenCalledTimes(2);
     expect(judge.mock.calls[0][0]).toHaveLength(10);
     expect(judge.mock.calls[1][0]).toHaveLength(5);
@@ -81,9 +81,9 @@ describe('jevVerifyDuplicates — read-only, advisory', () => {
   });
 });
 
-describe('dedupeJevEnabled — opt-in guard matrix', () => {
+describe('dedupeDecisionEnabled — opt-in guard matrix', () => {
   const SAVED = {},
-    ENV_KEYS = ['LAPIS_JUDGE_PROVIDER', 'LAPIS_JUDGE_DISABLE_DEDUPE', 'TYPESAFE_API_KEY'];
+    ENV_KEYS = ['LAPIS_JUDGE_PROVIDER', 'LAPIS_JUDGE_DISABLE_DEDUPE', 'LIQUID_API_KEY'];
 
   function withEnv(env, fn) {
     for (const k of ENV_KEYS) {
@@ -109,27 +109,27 @@ describe('dedupeJevEnabled — opt-in guard matrix', () => {
     }
   }
 
-  it('provider=jev + TYPESAFE_API_KEY → true', () => {
-    withEnv({ LAPIS_JUDGE_PROVIDER: 'jev', TYPESAFE_API_KEY: 'k-test' }, () => {
-      expect(dedupeJevEnabled()).toBe(true);
+  it('provider=decision + LIQUID_API_KEY → true', () => {
+    withEnv({ LAPIS_JUDGE_PROVIDER: 'decision', LIQUID_API_KEY: 'k-test' }, () => {
+      expect(dedupeDecisionEnabled()).toBe(true);
     });
   });
 
   it('provider=heuristic → false even with key', () => {
-    withEnv({ LAPIS_JUDGE_PROVIDER: 'heuristic', TYPESAFE_API_KEY: 'k-test' }, () => {
-      expect(dedupeJevEnabled()).toBe(false);
+    withEnv({ LAPIS_JUDGE_PROVIDER: 'heuristic', LIQUID_API_KEY: 'k-test' }, () => {
+      expect(dedupeDecisionEnabled()).toBe(false);
     });
   });
 
-  it('disables.dedupe → false even with provider=jev + key', () => {
-    withEnv({ LAPIS_JUDGE_PROVIDER: 'jev', LAPIS_JUDGE_DISABLE_DEDUPE: '1', TYPESAFE_API_KEY: 'k-test' }, () => {
-      expect(dedupeJevEnabled()).toBe(false);
+  it('disables.dedupe → false even with provider=decision + key', () => {
+    withEnv({ LAPIS_JUDGE_PROVIDER: 'decision', LAPIS_JUDGE_DISABLE_DEDUPE: '1', LIQUID_API_KEY: 'k-test' }, () => {
+      expect(dedupeDecisionEnabled()).toBe(false);
     });
   });
 
-  it('missing TYPESAFE_API_KEY → false even with provider=jev', () => {
-    withEnv({ LAPIS_JUDGE_PROVIDER: 'jev' }, () => {
-      expect(dedupeJevEnabled()).toBe(false);
+  it('missing LIQUID_API_KEY → false even with provider=decision', () => {
+    withEnv({ LAPIS_JUDGE_PROVIDER: 'decision' }, () => {
+      expect(dedupeDecisionEnabled()).toBe(false);
     });
   });
 });

@@ -1,5 +1,5 @@
-// extensions/memory-layer/host/strategies/jev-compaction-judg.ts
-// Jev-driven compaction judgment. One Jev `score` call per candidate message
+// extensions/memory-layer/host/strategies/decision-compaction-judg.ts
+// Decision-driven compaction judgment. One Decision `score` call per candidate message
 // in messagesToSummarize. The 4-level scale (drop / summarize / keep-verbatim
 // / keep-with-tools) maps directly to pi's KeepVerdict.
 //
@@ -7,7 +7,7 @@
 // via `registerCompactionJudg()` or `compaction.judgPath` in settings.
 
 import { convertToLlm, serializeConversation } from '@earendil-works/pi-coding-agent';
-import { jevAsk, type JevScoreAnswer } from '../jev-client';
+import { decisionAsk, type DecisionScoreAnswer } from '../decision-client';
 import {
   type CompactionJudg,
   type DecideKeepInput,
@@ -31,12 +31,12 @@ const QUESTION_BODY =
 
 const SCORE_LEVELS = ['drop', 'summarize', 'keep-verbatim', 'keep-with-tools'];
 
-export class JevCompactionJudg implements CompactionJudg {
-  readonly name = 'jev';
+export class DecisionCompactionJudg implements CompactionJudg {
+  readonly name = 'decision';
 
   async decideKeep(inp: DecideKeepInput, signal?: AbortSignal): Promise<DecideKeepResult> {
     const question = buildKeepQuestion(inp);
-    const answer = await jevAskWithAbort(question, signal);
+    const answer = await decisionAskWithAbort(question, signal);
     return mapAnswer(answer);
   }
 }
@@ -77,15 +77,15 @@ function buildKeepQuestion(inp: DecideKeepInput) {
   };
 }
 
-function mapAnswer(answer: JevScoreAnswer): DecideKeepResult {
-  // Jev returns float scores; round to nearest level index, then clamp.
+function mapAnswer(answer: DecisionScoreAnswer): DecideKeepResult {
+  // Decision returns float scores; round to nearest level index, then clamp.
   const raw = Number(answer.score);
   const idx = Number.isFinite(raw) ? Math.round(raw) : 1; // default to summarize
   const verdict = clampVerdict(idx);
   return {
     verdict,
     confidence: clamp01(Number(answer.confidence ?? 0)),
-    reason: `jev: ${VERDICT_LABELS[verdict]} (raw=${raw})`,
+    reason: `decision: ${VERDICT_LABELS[verdict]} (raw=${raw})`,
   };
 }
 
@@ -103,16 +103,16 @@ function clamp01(n: number): number {
 }
 
 /**
- * Wrap jevAsk with an AbortSignal. The base client has its own timeout, but
+ * Wrap decisionAsk with an AbortSignal. The base client has its own timeout, but
  * compaction can run for many messages in a batch — if the user cancels
  * mid-batch we want to bail out cleanly rather than waiting for the timeout.
  */
-async function jevAskWithAbort(
+async function decisionAskWithAbort(
   question: ReturnType<typeof buildKeepQuestion>,
   signal?: AbortSignal,
-): Promise<JevScoreAnswer> {
+): Promise<DecisionScoreAnswer> {
   if (signal?.aborted) {
     return { score: 1, confidence: 0 };
   }
-  return (await jevAsk(question)) as JevScoreAnswer;
+  return (await decisionAsk(question)) as DecisionScoreAnswer;
 }

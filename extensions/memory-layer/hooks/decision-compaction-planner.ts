@@ -1,4 +1,4 @@
-// extensions/memory-layer/hooks/jev-compaction-planner.ts
+// extensions/memory-layer/hooks/decision-compaction-planner.ts
 // session_before_compact handler that drives pi's compaction via a CompactionJudg
 // strategy. Wires together for: threshold gate → per-message judgment →
 // cut-point enforcement → custom summary → return CompactionResult.
@@ -11,7 +11,7 @@
 //      a) reason === "manual" (user typed /compact), OR
 //      b) tokensBefore >= compaction.judgThresholdTokens (default 100_000)
 //         AND reason !== "overflow" (overflow recovery is reserved for pi's
-//         built-in path — see docs/JEV_DRIVEN_COMPACTION.md §"Cut-point rules")
+//         built-in path — see docs/DECISION_DRIVEN_COMPACTION.md §"Cut-point rules")
 //
 // When disabled, the handler is a no-op that returns undefined → pi's default
 // compaction runs unchanged. This guarantees zero behavior change for users
@@ -29,6 +29,7 @@ import {
   type KeepVerdict,
 } from '../host/compaction-judg';
 import { ensureBuiltinJudgStrategies } from '../host/strategies/builtin-judg-strategies';
+import { decisionEnv } from '../host/decision-client';
 
 // ----- settings + env resolution ---------------------------------------------
 
@@ -45,11 +46,11 @@ export function readPlannerSettings(settings: any): PlannerSettings {
   const compaction = settings?.compaction ?? {};
   const envName = process.env.PI_COMPACTION_JUDG?.trim() || null;
   const envPath = process.env.PI_COMPACTION_JUDG_PATH?.trim() || null;
-  const envEnabled = process.env.PI_COMPACTION_JUDG_ENABLED === '1' || process.env.JEV_COMPACTION_ENABLED === '1';
+  const envEnabled = process.env.PI_COMPACTION_JUDG_ENABLED === '1' || decisionEnv('COMPACTION_ENABLED') === '1';
   const envThreshold = process.env.PI_COMPACTION_JUDG_THRESHOLD
     ? Number(process.env.PI_COMPACTION_JUDG_THRESHOLD)
     : null;
-  const envDryRun = process.env.PI_COMPACTION_JUDG_DRY_RUN === '1' || process.env.JEV_DRY_RUN === '1';
+  const envDryRun = process.env.PI_COMPACTION_JUDG_DRY_RUN === '1' || decisionEnv('DRY_RUN') === '1';
 
   // env overrides settings when present
   const name = envName ?? (typeof compaction.judg === 'string' ? compaction.judg : null);
@@ -75,7 +76,7 @@ export type PlannerHooks = {
   register(pi: ExtensionAPI): void;
 };
 
-export function createJevCompactionPlanner(): PlannerHooks {
+export function createDecisionCompactionPlanner(): PlannerHooks {
   // Eagerly register the built-in strategies so they're discoverable without
   // needing to load index.ts. Idempotent — see builtin-judg-strategies.ts.
   // A genuinely conflicting custom impl under a builtin name propagates here
@@ -136,7 +137,7 @@ function shouldFire(settings: PlannerSettings, event: any): boolean {
   const tokens = Number(event.preparation?.tokensBefore ?? 0);
   // Manual /compact always fires (user opted in).
   if (reason === 'manual') return true;
-  // Overflow recovery: defer to pi's built-in path; Jev-driven summary may
+  // Overflow recovery: defer to pi's built-in path; Decision-driven summary may
   // not have time to complete inside the recovery window.
   if (reason === 'overflow') return false;
   // Threshold-driven: only fire above the configured token floor.
@@ -160,7 +161,7 @@ async function judgeAll(judg: CompactionJudg, event: any): Promise<DecideKeepRes
   const total = messages.length;
   if (total === 0) return [];
 
-  // Run all judgments in parallel; each is bounded by JEV_TIMEOUT_MS.
+  // Run all judgments in parallel; each is bounded by DECISION_TIMEOUT_MS.
   // abortSignal from event propagates so /compact cancel bails out cleanly.
   return Promise.all(
     messages.map((message, messageIndex) =>
@@ -180,7 +181,7 @@ async function judgeAll(judg: CompactionJudg, event: any): Promise<DecideKeepRes
         .catch((err) => {
           // Strategy must never break compaction. On failure, treat as summarize.
           process.stderr.write(
-            `[jev-compaction-planner] decideKeep failed at index ${messageIndex}: ${(err as Error).message}; falling back to summarize\n`,
+            `[decision-compaction-planner] decideKeep failed at index ${messageIndex}: ${(err as Error).message}; falling back to summarize\n`,
           );
           return {
             verdict: 1 as KeepVerdict,
@@ -284,7 +285,7 @@ function assembleSummary(input: {
   const lines: string[] = [];
   if (previousSummary) lines.push(previousSummary.trim(), '');
 
-  lines.push('## Step decisions (Jev-driven)');
+  lines.push('## Step decisions (Decision-driven)');
   lines.push(
     `drop=${drop.length} summarize=${summary.length} keep-verbatim=${keep.filter((k) => k.label === 'keep-verbatim').length} keep-with-tools=${keep.filter((k) => k.label === 'keep-with-tools').length}`,
   );

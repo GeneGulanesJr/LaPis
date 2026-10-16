@@ -78,7 +78,7 @@ Feature services live under `src/` and own one feature family each:
 - `src/trust-sync/` — explicit integration between memory observations and code symbols.
 - `src/agent-intel/` — agent-facing coding intelligence orchestration: preflight checks, agent-pack planning, audit-diff, and symbol enrichment.
 - `src/token-saver/` — output compression, command classification, token estimation, and savings tracking.
-- `src/judgment/` — provider-agnostic semantic judgment calls (`judge()`): heuristic (default) and Jev providers, off by default, always falling back to the caller's heuristic on any non-ok result.
+- `src/judgment/` — provider-agnostic semantic judgment calls (`judge()`): heuristic (default) and `decision` (Liquid AI Decisions API) providers, off by default, always falling back to the caller's heuristic on any non-ok result.
 
 > Note: `src/workflow-memory/` (procedural workflow memory) was removed in commit `a2b151b` (Issue #167). The CLI commands `save-workflow`, `record-step`, `step-outcome`, and `get-workflow` no longer exist; the corresponding module, router, repository, and test files were deleted. Use `memory-save` observations and the trust/session subsystems for the use case this module was originally intended to address.
 

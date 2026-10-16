@@ -1,12 +1,12 @@
-// test/jev-compaction-planner.smoke.test.js
-// End-to-end smoke test for the Jev-driven compaction planner.
+// test/decision-compaction-planner.smoke.test.js
+// End-to-end smoke test for the Decision-driven compaction planner.
 //
 // Runs the planner hook handler against a synthetic preparation with mixed
 // messages (user / assistant tool-call / tool-result / decision) and asserts
 // the resulting CompactionResult has the expected shape:
 //
 //   - summary contains <keep> blocks for verbatim-kept messages
-//   - details.strategy === "jev"
+//   - details.strategy === "decision"
 //   - details.verdicts length matches messagesToSummarize length
 //   - cut-point rule enforced (tool-call ↔ tool-result pair stays together)
 //      - a summary containing `<keep>` blocks for kept messages
@@ -16,16 +16,16 @@
 //
 // Exits 0 on success, 1 on any assertion failure.
 
-process.env.JEV_DRY_RUN = '1';
-process.env.JEV_ENABLED = '1';
+process.env.DECISION_DRY_RUN = '1';
+process.env.DECISION_ENABLED = '1';
 process.env.PI_COMPACTION_JUDG_ENABLED = '1';
-process.env.PI_COMPACTION_JUDG = 'jev';
+process.env.PI_COMPACTION_JUDG = 'decision';
 
 // Use the built dist for the source — vitest already required it but we want
 // a standalone ESM run here. Build a minimal mock of the pi ExtensionAPI.
 
-import { createJevCompactionPlanner } from '../extensions/memory-layer/hooks/jev-compaction-planner.ts';
-import { JevCompactionJudg } from '../extensions/memory-layer/host/strategies/jev-compaction-judg.ts';
+import { createDecisionCompactionPlanner } from '../extensions/memory-layer/hooks/decision-compaction-planner.ts';
+import { DecisionCompactionJudg } from '../extensions/memory-layer/host/strategies/decision-compaction-judg.ts';
 import { registerCompactionJudg } from '../extensions/memory-layer/host/compaction-judg.ts';
 import { VERDICT_LABELS } from '../extensions/memory-layer/host/compaction-judg.ts';
 
@@ -37,7 +37,7 @@ const fakePi = {
   },
 };
 
-createJevCompactionPlanner().register(fakePi);
+createDecisionCompactionPlanner().register(fakePi);
 
 const handler = handlers.get('session_before_compact');
 if (!handler) {
@@ -123,8 +123,8 @@ describe('planner end-to-end (synthetic event)', () => {
     expect(/<keep idx="\d+"/.test(result.compaction.summary)).toBe(true);
   });
 
-  it('details.strategy is "jev"', () => {
-    expect(result.compaction.details.strategy).toBe('jev');
+  it('details.strategy is "decision"', () => {
+    expect(result.compaction.details.strategy).toBe('decision');
   });
 
   it('details.verdicts length matches messagesToSummarize', () => {

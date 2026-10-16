@@ -186,30 +186,32 @@ if (require.main === module) {
         return cleanupSessions(deps, opts);
       })();
 
-    // Slice 1 (judgment): advisory dreamJevReview — annotates the report and
+    // Slice 1 (judgment): advisory dreamDecisionReview — annotates the report and
     // continues; never blocks or alters the dream result. Guard lives in ONE
-    // place (maybeDreamJevReview): default config skips this entirely, so the
+    // place (maybeDreamDecisionReview): default config skips this entirely, so the
     // default CLI path is unchanged.
     try {
-      const review = await require('../src/memory-domain/dream-jev').maybeDreamJevReview({ sqlJson });
-      if (review) result.phases.dreamJevReview = review;
+      const review = await require('../src/memory-domain/dream-decision').maybeDreamDecisionReview({ sqlJson });
+      if (review) result.phases.dreamDecisionReview = review;
     } catch (e) {
-      result.phases.dreamJevReview = { ok: false, reason: (e && e.message) || String(e) };
+      result.phases.dreamDecisionReview = { ok: false, reason: (e && e.message) || String(e) };
     }
 
     console.log(JSON.stringify(result, null, 2));
 
     // Compact advisory summary (only printed when the phase actually ran).
-    const rev = result.phases.dreamJevReview;
+    const rev = result.phases.dreamDecisionReview;
     if (rev) {
       if (rev.unavailable || rev.ok === false) {
-        console.log(`cleanup-sessions: dreamJevReview — unavailable${rev.reason ? ` (${rev.reason})` : ''}`);
+        console.log(`cleanup-sessions: dreamDecisionReview — unavailable${rev.reason ? ` (${rev.reason})` : ''}`);
       } else {
         for (const [label, section] of [
           ['superseded', rev.superseded],
           ['corrections', rev.corrections],
         ]) {
-          console.log(`cleanup-sessions: dreamJevReview ${label}: ${(section && section.candidates) || 0} candidates`);
+          console.log(
+            `cleanup-sessions: dreamDecisionReview ${label}: ${(section && section.candidates) || 0} candidates`,
+          );
           for (const v of (section && section.verified) || []) {
             if (v.verdict === 'keep') {
               console.log(`  #${v.id} ${v.title} — keep (p=${typeof v.p === 'number' ? v.p.toFixed(2) : 'n/a'})`);

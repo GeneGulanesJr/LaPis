@@ -1,5 +1,5 @@
 const { runCommand } = require('./run-command'),
-  { maybeClassifyCommand } = require('./classify-jev'),
+  { maybeClassifyCommand } = require('./classify-decision'),
   { estimateTokens } = require('./estimate-tokens'),
   { compressOutput } = require('./compress-output'),
   { recordRun } = require('./savings-store');
@@ -7,8 +7,8 @@ const { runCommand } = require('./run-command'),
 async function executeAndCompress(commandArgs, options = {}) {
   const command = commandArgs.join(' '),
     // Slice F: guarded classify cascade. Inert — byte-identical sync
-    // classification — unless judgment is opted in (provider=jev +
-    // TYPESAFE_API_KEY + 'guard' surface enabled); any judgment failure
+    // classification — unless judgment is opted in (provider=decision +
+    // LIQUID_API_KEY + 'guard' surface enabled); any judgment failure
     // degrades to the sync classification exactly. options._judge = test hook.
     commandType = await maybeClassifyCommand(commandArgs, options),
     result = await runCommand(commandArgs, {

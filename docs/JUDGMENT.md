@@ -18,20 +18,23 @@ Call sites ask `judge(questions, {surface})`. The result is ALWAYS one of:
 | Provider | Config value | Needs |
 | --- | --- | --- |
 | Heuristic (default) | `LAPIS_JUDGE_PROVIDER=heuristic` | nothing — all fallbacks |
-| TypeSafe Jev | `LAPIS_JUDGE_PROVIDER=jev` | machine-scoped `TYPESAFE_API_KEY` (never in project .env) |
+| Liquid AI Decisions API | `LAPIS_JUDGE_PROVIDER=decision` | machine-scoped `LIQUID_API_KEY` (never in project .env) |
+
+`provider: 'jev'` (the pre-rename name) is still read as `decision` for one
+release — a deprecated alias for existing configs; switch to `decision`.
 
 ## Flag matrix
 
 | Flag | Default | Effect |
 | --- | --- | --- |
-| `LAPIS_JUDGE_PROVIDER` | `heuristic` | `heuristic` \| `jev` \| `off` |
-| `LAPIS_JUDGE_TIMEOUT_MS` | `5000` | contract-level timeout per judge call (also read by the jev adapter as its wire timeout, which falls back to 8000 when unset) |
-| `LAPIS_JUDGE_MAX_RETRIES` | `2` | jev adapter wire retries per call |
+| `LAPIS_JUDGE_PROVIDER` | `heuristic` | `heuristic` \| `decision` \| `off` |
+| `LAPIS_JUDGE_TIMEOUT_MS` | `5000` | contract-level timeout per judge call (also read by the decision adapter as its wire timeout, which falls back to 8000 when unset) |
+| `LAPIS_JUDGE_MAX_RETRIES` | `2` | decision adapter wire retries per call |
 | `LAPIS_JUDGE_LOCAL_ONLY` | `0` | kill switch — force heuristic path everywhere |
 | `LAPIS_JUDGE_DISABLE_<SURFACE>` | unset | per-surface opt-out (e.g. `LAPIS_JUDGE_DISABLE_DREAM=1`) |
-| `LAPIS_JUDGE_ENDPOINT` | `https://api.typesafe.ai/v1/systemone` | jev adapter endpoint (tests inject, never module-level) |
-| `LAPIS_JUDGE_MODEL` | `jev-latest` | jev model id |
-| `TYPESAFE_API_KEY` | — | jev auth; machine-scoped (`~/.zshenv`), read from process.env only |
+| `LAPIS_JUDGE_ENDPOINT` | `https://api.liquid.ai/decisions/v1/systemone` | decision adapter endpoint (tests inject, never module-level) |
+| `LAPIS_JUDGE_MODEL` | `d1-ultra` | decision model id: `d1-ultra` or `d1` (same latency in testing, about half the cost) |
+| `LIQUID_API_KEY` | — | decision auth; machine-scoped (`~/.zshenv`), read from process.env only |
 
 ## Surfaces & egress (what leaves the machine, per provider call)
 
@@ -54,26 +57,42 @@ them: `npx vitest run test/judgment-goldens.test.js` plus the adapter's own wire
 tests, then a live acceptance run against the real endpoint. Goldens measure the new
 provider — they are the switch acceptance test, not a formality.
 
-## Live wire shapes (verified 2026-09-26, jev-1.13.0)
+## Live wire shapes (verified on Liquid 2026-10-16)
+
+Request: `POST https://api.liquid.ai/decisions/v1/systemone`, `Authorization: Bearer $LIQUID_API_KEY`,
+body `{model, state, questions}` with `questions` an object keyed by id.
 
 - `noul` replies: `{type, noul}` — **confidence omitted** → adapter derives it as `|p−0.5|×2`
-- `score` replies: **float** position (e.g. `1.82`) + `legend` + `probabilities` → adapter rounds to nearest level index
+- `score` replies: **float** position (e.g. `1.82`) + `legend` + `probabilities` + `confidence` → adapter rounds to nearest level index
 - `choice` replies: `{type, choice, confidence, probabilities}` — as expected
+- `usage`: `{input_tokens, output_tokens, cost}`
+
+Wire limits (HTTP 422 `invalid_request_error`, `error.param` names the field):
+
+- a `choice` needs **at least 2 options** — the adapter answers a one-option
+  classify locally (pick = the option, confidence 1) and never sends it; a
+  request whose questions are all one-option makes no call
+- a `score` takes 2–10 levels; a request takes at most 128 questions
+- each question's prompt (instructions + state) is capped at 32,768 tokens or
+  250,000 bytes; empty `instructions` are rejected
+- errors come back as `{error: {message, type, param, code}}` (401
+  `authentication_error`, 404 `not_found_error` for an unknown model, 422
+  `invalid_request_error`); a malformed body is a plain-text 400
 
 ## Compaction integration
 
-The same judgment primitives power the **Jev-driven compaction** feature in
+The same judgment primitives power the **Decision-driven compaction** feature in
 `extensions/memory-layer/`. It uses a `CompactionJudg` strategy to score each
 candidate message before summarization (verdict = drop / summarize /
 keep-verbatim / keep-with-tools) and assembles a custom summary from those
 per-message decisions. The post-compact C+A integration in
-`extensions/memory-layer/hooks/jev-post-compact.ts` then validates the
+`extensions/memory-layer/hooks/decision-post-compact.ts` then validates the
 re-injected slice against pinned policies and lost topics — closing a
-Jev-decides-in / Jev-validates-out loop. Both extension features share
-`JEV_ENABLED` / `JEV_DRY_RUN` / `JEV_API_KEY` gating (the `src/judgment` surfaces
-above gate on `LAPIS_JUDGE_PROVIDER=jev` + `TYPESAFE_API_KEY` instead) and the
+decides-in / validates-out loop. Both extension features share
+`DECISION_ENABLED` / `DECISION_DRY_RUN` / `LIQUID_API_KEY` gating (the `src/judgment` surfaces
+above gate on `LAPIS_JUDGE_PROVIDER=decision` + `LIQUID_API_KEY` instead) and the
 never-throw guarantee. **Off
-by default.** See [`JEV_DRIVEN_COMPACTION.md`](./JEV_DRIVEN_COMPACTION.md).
+by default.** See [`DECISION_DRIVEN_COMPACTION.md`](./DECISION_DRIVEN_COMPACTION.md).
 
 ## Module map
 
@@ -84,6 +103,6 @@ by default.** See [`JEV_DRIVEN_COMPACTION.md`](./JEV_DRIVEN_COMPACTION.md).
 | `src/judgment/evaluate.js` | pure policy evaluation — the ONLY place dangerous-answer polarity is interpreted |
 | `src/judgment/index.js` | `createJudge()`: registry, contract timeout, circuit breaker, never-throw guarantee |
 | `src/judgment/adapters/heuristic.js` | default provider — always `unavailable` |
-| `src/judgment/adapters/jev.js` | TypeSafe System One wire adapter (the only file that knows Jev) |
+| `src/judgment/adapters/decision.js` | Liquid AI Decisions API wire adapter (the only file that knows the provider wire) |
 
 Design spec: `docs/superpowers/specs/2026-09-26-jev-judgment-layer-design.md`.

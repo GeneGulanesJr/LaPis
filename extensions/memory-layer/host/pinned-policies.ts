@@ -1,5 +1,5 @@
 // extensions/memory-layer/host/pinned-policies.ts
-// AGENTS.md pinned-policy parser for the post-compact Jev integration.
+// AGENTS.md pinned-policy parser for the post-compact Decision integration.
 //
 // loadPinnedPolicies(cwd) reads the project's AGENTS.md (cwd/AGENTS.md),
 // extracts the pinned-policies section, and returns [{ id, title, text }]

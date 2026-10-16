@@ -7,9 +7,9 @@ import { detectProject } from '../host/project-detector';
 
 // Engine delegation (pure transport-agnostic core).
 import { buildSessionSummary } from '../../../src/hooks-engine/session-summary.js';
-import { runJevPostCompact } from './jev-post-compact.ts';
+import { runDecisionPostCompact } from './decision-post-compact.ts';
 import { loadPinnedPolicies } from '../host/pinned-policies.ts';
-import { diffLostTopics } from '../host/jev-lost-topics.ts';
+import { diffLostTopics } from '../host/decision-lost-topics.ts';
 
 interface SessionDeps {
   state: typeof state;
@@ -150,7 +150,7 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
       },
     ];
 
-    // Run Jev post-compact (C + A) if enabled. Never throws — degrades to
+    // Run Decision post-compact (C + A) if enabled. Never throws — degrades to
     // empty output on failure. Pinned policies come from <ctx.cwd>/AGENTS.md;
     // lost topics are diffed against state.preCompactTitles (snapshot taken
     // at session_start, refreshed after each compact).
@@ -158,7 +158,7 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
     const newTitles = effectiveObservations.map((o: any) => o.title).filter(Boolean);
     const lostTopics = diffLostTopics(deps.state.preCompactTitles, newTitles);
     deps.state.preCompactTitles = newTitles; // refresh baseline for next compact
-    const jevOutput = await runJevPostCompact({
+    const decisionOutput = await runDecisionPostCompact({
       currentProject: deps.state.currentProject,
       sessionId: deps.state.sessionId,
       pinnedPolicies,
@@ -166,8 +166,8 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
       lostTopics,
     });
 
-    if (jevOutput.messages.length > 0) {
-      const summary = jevOutput.messages
+    if (decisionOutput.messages.length > 0) {
+      const summary = decisionOutput.messages
         .map((m) => {
           if (m.kind === 'reclassify') {
             return `policies: **${m.choice}** (conf ${m.confidence.toFixed(2)})`;
@@ -177,10 +177,10 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
         .join(' · ');
 
       messages.push({
-        customType: 'jev-post-compact',
-        content: `🧠 Jev post-compact: ${summary}`,
+        customType: 'decision-post-compact',
+        content: `🧠 Decision post-compact: ${summary}`,
         display: true,
-        details: jevOutput.messages,
+        details: decisionOutput.messages,
       });
     }
 

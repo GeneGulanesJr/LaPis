@@ -1,5 +1,5 @@
-// extensions/memory-layer/host/jev-questions.ts
-// Question shapes for the post-compact Jev integration.
+// extensions/memory-layer/host/decision-questions.ts
+// Question shapes for the post-compact Decision integration.
 //
 // (C) buildReclassifyQuestion — re-classify the re-injected slice against
 //     pinned policies. Catches dropped policy citations.
@@ -8,12 +8,12 @@
 //
 // Both shapes are deterministic so tests can assert exact bodies.
 
-import type { JevChoiceQuestion, JevScoreQuestion } from './jev-client.ts';
+import type { DecisionChoiceQuestion, DecisionScoreQuestion } from './decision-client.ts';
 
 export function buildReclassifyQuestion(input: {
   pinnedPolicies: string[];
   reInjectedTitles: string[];
-}): JevChoiceQuestion {
+}): DecisionChoiceQuestion {
   const { pinnedPolicies, reInjectedTitles } = input;
   const policyList =
     pinnedPolicies.length > 0 ? pinnedPolicies.map((p) => `- ${p}`).join('\n') : '(no pinned policies declared)';
@@ -37,7 +37,10 @@ export function buildReclassifyQuestion(input: {
   };
 }
 
-export function buildVerdictQuestion(input: { lostTopics: string[]; reInjectedTitles: string[] }): JevScoreQuestion {
+export function buildVerdictQuestion(input: {
+  lostTopics: string[];
+  reInjectedTitles: string[];
+}): DecisionScoreQuestion {
   const { lostTopics, reInjectedTitles } = input;
   const lostList =
     lostTopics.length > 0

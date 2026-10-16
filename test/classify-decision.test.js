@@ -3,9 +3,9 @@ const {
   classifyCommandWithJudge,
   classifyCommandDetailed,
   maybeClassifyCommand,
-  guardJevEnabled,
+  guardDecisionEnabled,
   COMMAND_CLASSES,
-} = require('../src/token-saver/classify-jev');
+} = require('../src/token-saver/classify-decision');
 const { classifyCommand } = require('../src/token-saver/classify-command');
 
 function makeJudge(answers, meta = {}) {
@@ -144,7 +144,7 @@ describe('classifyCommandDetailed — provenance', () => {
   });
 });
 
-describe('guardJevEnabled — opt-in matrix', () => {
+describe('guardDecisionEnabled — opt-in matrix', () => {
   const { resetConfigCache } = require('../config');
 
   function withEnv(fn) {
@@ -153,7 +153,7 @@ describe('guardJevEnabled — opt-in matrix', () => {
     } finally {
       delete process.env.LAPIS_JUDGE_PROVIDER;
       delete process.env.LAPIS_JUDGE_DISABLE_GUARD;
-      delete process.env.TYPESAFE_API_KEY;
+      delete process.env.LIQUID_API_KEY;
       resetConfigCache();
     }
   }
@@ -161,34 +161,34 @@ describe('guardJevEnabled — opt-in matrix', () => {
   it('default config (heuristic, no key) → false', () => {
     withEnv(() => {
       resetConfigCache();
-      expect(guardJevEnabled()).toBe(false);
+      expect(guardDecisionEnabled()).toBe(false);
     });
   });
 
-  it('provider=jev + TYPESAFE_API_KEY → true', () => {
+  it('provider=decision + LIQUID_API_KEY → true', () => {
     withEnv(() => {
-      process.env.LAPIS_JUDGE_PROVIDER = 'jev';
-      process.env.TYPESAFE_API_KEY = 'k-test';
+      process.env.LAPIS_JUDGE_PROVIDER = 'decision';
+      process.env.LIQUID_API_KEY = 'k-test';
       resetConfigCache();
-      expect(guardJevEnabled()).toBe(true);
+      expect(guardDecisionEnabled()).toBe(true);
     });
   });
 
-  it('provider=jev without key → false', () => {
+  it('provider=decision without key → false', () => {
     withEnv(() => {
-      process.env.LAPIS_JUDGE_PROVIDER = 'jev';
+      process.env.LAPIS_JUDGE_PROVIDER = 'decision';
       resetConfigCache();
-      expect(guardJevEnabled()).toBe(false);
+      expect(guardDecisionEnabled()).toBe(false);
     });
   });
 
-  it('disables.guard (LAPIS_JUDGE_DISABLE_GUARD=1) → false even with jev + key', () => {
+  it('disables.guard (LAPIS_JUDGE_DISABLE_GUARD=1) → false even with decision + key', () => {
     withEnv(() => {
-      process.env.LAPIS_JUDGE_PROVIDER = 'jev';
-      process.env.TYPESAFE_API_KEY = 'k-test';
+      process.env.LAPIS_JUDGE_PROVIDER = 'decision';
+      process.env.LIQUID_API_KEY = 'k-test';
       process.env.LAPIS_JUDGE_DISABLE_GUARD = '1';
       resetConfigCache();
-      expect(guardJevEnabled()).toBe(false);
+      expect(guardDecisionEnabled()).toBe(false);
     });
   });
 });
@@ -208,9 +208,9 @@ describe('maybeClassifyCommand — single guarded seam entry', () => {
     }
   });
 
-  it('enabled (jev + key) + args._judge → cascade consulted', async () => {
-    process.env.LAPIS_JUDGE_PROVIDER = 'jev';
-    process.env.TYPESAFE_API_KEY = 'k-test';
+  it('enabled (decision + key) + args._judge → cascade consulted', async () => {
+    process.env.LAPIS_JUDGE_PROVIDER = 'decision';
+    process.env.LIQUID_API_KEY = 'k-test';
     try {
       resetConfigCache();
       const judge = makeJudge([{ id: 'guard-0', pick: 'logs', confidence: 0.95 }]);
@@ -222,7 +222,7 @@ describe('maybeClassifyCommand — single guarded seam entry', () => {
       expect(judge2).not.toHaveBeenCalled();
     } finally {
       delete process.env.LAPIS_JUDGE_PROVIDER;
-      delete process.env.TYPESAFE_API_KEY;
+      delete process.env.LIQUID_API_KEY;
       resetConfigCache();
     }
   });

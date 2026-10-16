@@ -53,7 +53,7 @@ That subset collects **20** test files and **327** tests (the `test/claude-code`
 | Configuration file and stored data | [`docs/CONFIGURATION.md`](CONFIGURATION.md) |
 | Dream Cycle (stale-memory cleanup) | [`docs/DREAM_CYCLE.md`](DREAM_CYCLE.md) |
 | Judgment layer (opt-in LLM judgments) | [`docs/JUDGMENT.md`](JUDGMENT.md) |
-| Jev-driven compaction (opt-in) | [`docs/JEV_DRIVEN_COMPACTION.md`](JEV_DRIVEN_COMPACTION.md) |
+| Decision-driven compaction (opt-in) | [`docs/DECISION_DRIVEN_COMPACTION.md`](DECISION_DRIVEN_COMPACTION.md) |
 | Step-by-step usage tutorial | [`docs/TUTORIAL.md`](TUTORIAL.md) |
 | Async code indexing | [`docs/code-indexing.md`](code-indexing.md) |
 | Extension skill overview | [`docs/SKILL.md`](SKILL.md) |

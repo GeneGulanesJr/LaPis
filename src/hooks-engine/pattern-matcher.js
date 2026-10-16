@@ -122,7 +122,7 @@ async function shouldAutoCaptureWithJudge(text, { judge, floor } = {}) {
       match: true,
       confidence: 'medium',
       source: 'judgment',
-      pattern: { type: a.pick, label: 'Jev semantic match', minConfidence: 'medium' },
+      pattern: { type: a.pick, label: 'Decisions API semantic match', minConfidence: 'medium' },
     };
   } catch {
     return base;

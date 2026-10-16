@@ -1,17 +1,17 @@
-// extensions/memory-layer/hooks/jev-post-compact.ts
+// extensions/memory-layer/hooks/decision-post-compact.ts
 // Runs after `session_compact` re-injects memory context. Two-question shape:
 // (C) reclassify the re-injected slice against pinned policies
 // (A) verdict on completeness of the re-injected slice given lost topics
 //
 // Gating:
-//   JEV_ENABLED=1   -> opt-in to live calls (default OFF)
-//   JEV_DRY_RUN=1   -> return canned answers (tests + local dev)
+//   DECISION_ENABLED=1   -> opt-in to live calls (default OFF)
+//   DECISION_DRY_RUN=1   -> return canned answers (tests + local dev)
 //
 // The hook MUST NEVER throw — failures degrade to { messages: [] } so the
 // re-injection path is never blocked.
 
-import { jevAsk, isJevDryRun } from '../host/jev-client.ts';
-import { buildReclassifyQuestion, buildVerdictQuestion } from '../host/jev-questions.ts';
+import { decisionAsk, decisionEnv, isDecisionDryRun } from '../host/decision-client.ts';
+import { buildReclassifyQuestion, buildVerdictQuestion } from '../host/decision-questions.ts';
 
 export type PostCompactInput = {
   currentProject: string;
@@ -27,19 +27,26 @@ export type PostCompactMessage =
 
 export type PostCompactOutput = { messages: PostCompactMessage[] };
 
-function isJevEnabled(): boolean {
-  return process.env.JEV_ENABLED === '1';
+function isDecisionEnabled(): boolean {
+  return decisionEnv('ENABLED') === '1';
 }
 
 const VERDICT_LABELS = ['incomplete', 'partial', 'mostly-complete', 'complete'];
 
-export async function runJevPostCompact(input: PostCompactInput): Promise<PostCompactOutput> {
+/** The API returns a float score (e.g. 1.72): round to the nearest level, clamped. */
+export function verdictLabel(score: number): string {
+  if (!Number.isFinite(score)) return 'unknown';
+  const idx = Math.min(VERDICT_LABELS.length - 1, Math.max(0, Math.round(score)));
+  return VERDICT_LABELS[idx];
+}
+
+export async function runDecisionPostCompact(input: PostCompactInput): Promise<PostCompactOutput> {
   if (!input.currentProject) return { messages: [] };
-  if (!isJevEnabled() && !isJevDryRun()) return { messages: [] };
+  if (!isDecisionEnabled() && !isDecisionDryRun()) return { messages: [] };
 
   try {
-    const cAnswer = await jevAsk(buildReclassifyQuestion(input));
-    const aAnswer = await jevAsk(buildVerdictQuestion(input));
+    const cAnswer = await decisionAsk(buildReclassifyQuestion(input));
+    const aAnswer = await decisionAsk(buildVerdictQuestion(input));
 
     const messages: PostCompactMessage[] = [];
 
@@ -55,7 +62,7 @@ export async function runJevPostCompact(input: PostCompactInput): Promise<PostCo
       messages.push({
         kind: 'verdict',
         score: aAnswer.score,
-        label: VERDICT_LABELS[aAnswer.score] ?? 'unknown',
+        label: verdictLabel(aAnswer.score),
       });
     }
 

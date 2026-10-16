@@ -59,10 +59,12 @@ async function dream(deps, args) {
     args,
   );
   // Slice 1 annotation: judge-verify dream candidates (advisory, default-off).
-  // Inert unless LAPIS_JUDGE_PROVIDER=jev + TYPESAFE_API_KEY + surface enabled.
+  // Inert unless LAPIS_JUDGE_PROVIDER=decision + LIQUID_API_KEY + surface enabled.
   // The gateway dispatcher awaits command results, so this is safe to await.
-  const review = await require('../src/memory-domain/dream-jev').maybeDreamJevReview({ sqlJson: deps.sqlJson });
-  if (review) result.dreamJevReview = review;
+  const review = await require('../src/memory-domain/dream-decision').maybeDreamDecisionReview({
+    sqlJson: deps.sqlJson,
+  });
+  if (review) result.dreamDecisionReview = review;
   return result;
 }
 

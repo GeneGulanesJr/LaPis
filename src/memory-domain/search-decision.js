@@ -1,12 +1,12 @@
-// src/memory-domain/search-jev.js
+// src/memory-domain/search-decision.js
 // Slice A: semantic rerank of lexical search results — opt-in, advisory.
 // Takes the already-ranked rows from rankObservations and re-orders the top-N
-// by a Jev grade judgment ('central' > 'related' > 'irrelevant'). Never throws;
+// by a Decision grade judgment ('central' > 'related' > 'irrelevant'). Never throws;
 // any judgment failure returns the input order unchanged.
 
-// Judgment modules load lazily inside buildJudge()/jevRerank(): this file is
+// Judgment modules load lazily inside buildJudge()/decisionRerank(): this file is
 // required on EVERY search dispatch (the enabled check lives here), and the
-// default config has jev disabled — eagerly requiring the judgment layer made
+// default config has decision disabled — eagerly requiring the judgment layer made
 // every fresh-process search dispatch pay ~10ms for an opt-in feature it
 // never used.
 const { getConfig } = require('../../config');
@@ -14,29 +14,29 @@ const { getConfig } = require('../../config');
 const LEVELS = ['irrelevant', 'related', 'central'];
 const BATCH = 10;
 
-function searchJevEnabled() {
+function searchDecisionEnabled() {
   const cfg = getConfig().judgment || {};
-  return cfg.provider === 'jev' && !!process.env.TYPESAFE_API_KEY && !(cfg.disables && cfg.disables.recall);
+  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.recall);
 }
 
 function buildJudge(args) {
   if (args && args._judge) return args._judge;
   const { createJudge } = require('../judgment');
-  const { createJevAdapter } = require('../judgment/adapters/jev');
+  const { createDecisionAdapter } = require('../judgment/adapters/decision');
   const adapters =
-    (getConfig().judgment || {}).provider === 'jev'
-      ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) }
+    (getConfig().judgment || {}).provider === 'decision'
+      ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) }
       : {};
   return createJudge({ config: getConfig(), adapters });
 }
 
 /**
- * jevRerank(rows, query, args) — async. rows: lexically-ranked observations
+ * decisionRerank(rows, query, args) — async. rows: lexically-ranked observations
  * (each has id, title, snippet or content). Returns {rows, reranked, unavailable?}
  * where rows are re-ordered ONLY by level (stable within equal levels) and each
- * reranked row carries `jev: {level, confidence}`.
+ * reranked row carries `decision: {level, confidence}`.
  */
-async function jevRerank(rows, query, args = {}) {
+async function decisionRerank(rows, query, args = {}) {
   const { chunk, capText } = require('../judgment/internal');
   const topN = Number(args.topN ?? 10);
   const head = (rows || []).slice(0, topN);
@@ -63,11 +63,11 @@ async function jevRerank(rows, query, args = {}) {
   const graded = head.map((row, i) => {
     const a = byId.get(`rr-${i}`);
     const level = a && typeof a.level === 'number' ? a.level : 0;
-    return { ...row, jev: { level, confidence: a ? a.confidence : 0, relevance: LEVELS[level] } };
+    return { ...row, decision: { level, confidence: a ? a.confidence : 0, relevance: LEVELS[level] } };
   });
   // Stable sort: central first, then related, then irrelevant; ties keep lexical order.
-  graded.sort((x, y) => y.jev.level - x.jev.level);
+  graded.sort((x, y) => y.decision.level - x.decision.level);
   return { rows: [...graded, ...tail], reranked: true };
 }
 
-module.exports = { jevRerank, searchJevEnabled, LEVELS };
+module.exports = { decisionRerank, searchDecisionEnabled, LEVELS };

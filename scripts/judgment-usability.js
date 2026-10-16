@@ -19,7 +19,7 @@
  *   --project X    Scope candidates to one project.
  *   --apply        Soft-delete confident retire candidates (gated, see above).
  *   --allow-network
- *                  Explicit opt-in for a remote provider (e.g. jev). Without
+ *                  Explicit opt-in for a remote provider (e.g. decision). Without
  *                  it, a remote provider config degrades to unavailable —
  *                  a one-off hygiene script must never spend API calls by
  *                  accident.
@@ -34,7 +34,7 @@
 const { getConfig } = require('../config');
 const { chunk, capText } = require('../src/judgment/internal');
 
-const BATCH = 10; // same batch size as dream-jev.js verifyBatch
+const BATCH = 10; // same batch size as dream-decision.js verifyBatch
 
 // --apply gates: BOTH thresholds must hold, and the type must not be protected.
 const APPLY_P_MIN = 0.7;
@@ -64,7 +64,7 @@ function candidateSql(project) {
 }
 
 /**
- * Mirror of dream-jev.js buildJudge, plus the --judge-off override: a judge
+ * Mirror of dream-decision.js buildJudge, plus the --judge-off override: a judge
  * pinned to the heuristic provider. Returns the full judgment seam
  * { provider, probe, judge } — the judge() member is the total function:
  * { status: 'ok', answers } or { status: 'unavailable', reason }, never throws.
@@ -81,12 +81,13 @@ function buildJudge(opts = {}) {
   if (provider !== 'heuristic' && !opts.allowNetwork) {
     return createJudge({ config: { judgment: { provider: 'off' } } });
   }
-  const { createJevAdapter } = require('../src/judgment/adapters/jev');
-  const adapters = provider === 'jev' ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) } : {};
+  const { createDecisionAdapter } = require('../src/judgment/adapters/decision');
+  const adapters =
+    provider === 'decision' ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) } : {};
   return createJudge({ config: getConfig(), adapters });
 }
 
-/** Question shape copied from src/memory-domain/dream-jev.js verifyBatch. */
+/** Question shape copied from src/memory-domain/dream-decision.js verifyBatch. */
 function buildQuestion(row, i) {
   return {
     id: `q${i}`,
@@ -111,7 +112,7 @@ function buildQuestion(row, i) {
   };
 }
 
-/** Same verdict convention as dream-jev.js: p >= 0.5 → retire candidate. */
+/** Same verdict convention as dream-decision.js: p >= 0.5 → retire candidate. */
 function verdictOf(answer) {
   if (!answer || typeof answer.p !== 'number') return { verdict: 'unknown' };
   return { verdict: answer.p >= 0.5 ? 'retire' : 'keep', p: answer.p, confidence: answer.confidence };

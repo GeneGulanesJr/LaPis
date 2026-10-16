@@ -106,7 +106,7 @@ Provider-agnostic semantic judgments (Dream Cycle, dedupe, and trust-sync surfac
 ```jsonc
 {
   "judgment": {
-    "provider": "heuristic",   // "heuristic" | "jev" | "off"
+    "provider": "heuristic",   // "heuristic" | "decision" | "off"
     "timeout_ms": 5000,
     "max_retries": 2,
     "local_only": false,       // kill switch: force the heuristic path everywhere
@@ -118,7 +118,7 @@ Provider-agnostic semantic judgments (Dream Cycle, dedupe, and trust-sync surfac
 }
 ```
 
-Opting in to the remote provider requires `LAPIS_JUDGE_PROVIDER=jev` and a machine-scoped `TYPESAFE_API_KEY`. Full env-var and surface reference: [`JUDGMENT.md`](JUDGMENT.md).
+Opting in to the remote provider requires `LAPIS_JUDGE_PROVIDER=decision` and a machine-scoped `LIQUID_API_KEY`. Full env-var and surface reference: [`JUDGMENT.md`](JUDGMENT.md).
 
 ## Environment Variables
 

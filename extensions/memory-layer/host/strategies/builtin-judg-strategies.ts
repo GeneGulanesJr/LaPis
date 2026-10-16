@@ -15,13 +15,13 @@
 
 import { registerCompactionJudg, type CompactionJudg } from '../compaction-judg';
 import { DefaultCompactionJudg } from './default-compaction-judg';
-import { JevCompactionJudg } from './jev-compaction-judg';
+import { DecisionCompactionJudg } from './decision-compaction-judg';
 import { NoopCompactionJudg } from './noop-compaction-judg';
 
 export const BUILTIN_JUDG_STRATEGIES: ReadonlyArray<[string, CompactionJudg]> = [
   ['default', new DefaultCompactionJudg()],
   ['noop', new NoopCompactionJudg()],
-  ['jev', new JevCompactionJudg()],
+  ['decision', new DecisionCompactionJudg()],
 ];
 
 /** Register the built-in strategies. Idempotent; safe to call repeatedly. */

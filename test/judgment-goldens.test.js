@@ -1,13 +1,13 @@
 // vitest globals enabled — no import
 // Provider-neutral golden replay (spec §11.2): validates golden shape, runs the
 // PURE pipeline (contract → evaluate) on expected answers, and shape-checks the
-// jev translation — all with NO network. A future provider passes these same
+// decision translation — all with NO network. A future provider passes these same
 // files through its adapter; that is the switch acceptance run.
 const fs = require('fs');
 const path = require('path');
 const { assertValidQuestion, assertValidAnswers } = require('../src/judgment/contract');
 const { evaluate } = require('../src/judgment/evaluate');
-const { buildWireQuestion } = require('../src/judgment/adapters/jev');
+const { buildWireQuestion } = require('../src/judgment/adapters/decision');
 
 const GOLDEN_DIR = path.join(__dirname, 'judgment-goldens');
 const goldens = fs

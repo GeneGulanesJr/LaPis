@@ -1,18 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { buildReclassifyQuestion, buildVerdictQuestion } from '../extensions/memory-layer/host/jev-questions.ts';
+import { buildReclassifyQuestion, buildVerdictQuestion } from '../extensions/memory-layer/host/decision-questions.ts';
 
-describe('jev-questions', () => {
+describe('decision-questions', () => {
   describe('buildReclassifyQuestion (C)', () => {
     it('asks whether all pinned policies are referenced in the re-injected slice', () => {
       const q = buildReclassifyQuestion({
         pinnedPolicies: ['no hardcoded secrets', 'memory-search before memory-save'],
-        reInjectedTitles: ['Jev Phase 5 schema fallback', 'Compact test fixture'],
+        reInjectedTitles: ['Decision Phase 5 schema fallback', 'Compact test fixture'],
       });
       expect(q.kind).toBe('choice');
       expect(q.question).toMatch(/pinned polic/i);
       expect(q.question).toContain('no hardcoded secrets');
       expect(q.question).toContain('memory-search before memory-save');
-      expect(q.question).toContain('Jev Phase 5 schema fallback');
+      expect(q.question).toContain('Decision Phase 5 schema fallback');
       const keys = q.options.map((o) => o.key);
       expect(keys).toEqual(['yes', 'partial', 'no']);
     });

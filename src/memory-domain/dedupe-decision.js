@@ -1,35 +1,35 @@
-// src/memory-domain/dedupe-jev.js
+// src/memory-domain/dedupe-decision.js
 // Slice D: semantic dedup verification — opt-in, advisory. Takes trigram
 // candidates from checkDuplicate and judge-verifies 'same decision?' per pair;
 // verified results carry a probability usable as markDuplicate confidence.
 
 const { createJudge } = require('../judgment');
-const { createJevAdapter } = require('../judgment/adapters/jev');
+const { createDecisionAdapter } = require('../judgment/adapters/decision');
 const { getConfig } = require('../../config');
 const { chunk, capText } = require('../judgment/internal');
 
 const BATCH = 10;
 
-function dedupeJevEnabled() {
+function dedupeDecisionEnabled() {
   const cfg = getConfig().judgment || {};
-  return cfg.provider === 'jev' && !!process.env.TYPESAFE_API_KEY && !(cfg.disables && cfg.disables.dedupe);
+  return cfg.provider === 'decision' && !!process.env.LIQUID_API_KEY && !(cfg.disables && cfg.disables.dedupe);
 }
 
 function buildJudge(args) {
   if (args && args._judge) return args._judge;
   const adapters =
-    (getConfig().judgment || {}).provider === 'jev'
-      ? { jev: createJevAdapter({ apiKey: process.env.TYPESAFE_API_KEY }) }
+    (getConfig().judgment || {}).provider === 'decision'
+      ? { decision: createDecisionAdapter({ apiKey: process.env.LIQUID_API_KEY }) }
       : {};
   return createJudge({ config: getConfig(), adapters });
 }
 
 /**
- * jevVerifyDuplicates(deps, candidates, args) — async, READ-ONLY (never writes).
+ * decisionVerifyDuplicates(deps, candidates, args) — async, READ-ONLY (never writes).
  * candidates: [{id, title, content?}] from checkDuplicate. Returns
  * {verified: [{id, title, p, confidence, same: boolean}], unavailable?}.
  */
-async function jevVerifyDuplicates(deps, candidates, args = {}) {
+async function decisionVerifyDuplicates(deps, candidates, args = {}) {
   const verified = [];
   const rows = candidates || [];
   if (rows.length === 0) return { verified };
@@ -59,4 +59,4 @@ async function jevVerifyDuplicates(deps, candidates, args = {}) {
   return { verified };
 }
 
-module.exports = { jevVerifyDuplicates, dedupeJevEnabled };
+module.exports = { decisionVerifyDuplicates, dedupeDecisionEnabled };
