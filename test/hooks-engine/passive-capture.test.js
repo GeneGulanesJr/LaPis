@@ -41,6 +41,33 @@ describe('hooks-engine passive-capture: buildAutoDecisionPayload', () => {
   });
 });
 
+describe('hooks-engine passive-capture: weak titles (#371)', () => {
+  const capture = { match: true, confidence: 'medium', pattern: { type: 'bugfix', label: 'Bug fix' } },
+    build = (lastLine) =>
+      buildAutoDecisionPayload({
+        text: `The root cause was a stale cache key.\n${lastLine}`,
+        capture,
+        project: 'p',
+        sessionId: 1,
+      });
+
+  test.each([
+    "All good. Here's exactly what changed and why:",
+    'If you were using a symlink for npm or node, this error can occur if:',
+    '**Changes:**',
+    '{"summary":"All 9 reviewed findings implemented"}',
+    "Here's my review — I found several issues that need fixing",
+    'Looking good, nothing else to do',
+  ])('rejects %s', (line) => {
+    expect(build(line)).toBeNull();
+  });
+
+  test('keeps a line that states the finding, judged on the full line', () => {
+    const line = `The cache key ignored the locale, so ${'x'.repeat(130)} — fixed by adding it.`;
+    expect(build(line).title).toBe(`Bug fix: ${line.slice(0, 80)}`);
+  });
+});
+
 describe('hooks-engine passive-capture: gating helpers', () => {
   test('shouldCheckpoint fires on interval boundary, not 0', () => {
     expect(shouldCheckpoint(0, 10)).toBe(false);

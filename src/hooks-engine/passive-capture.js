@@ -9,6 +9,9 @@
  * Claude Code bridge can reuse them.
  */
 
+// A lead-in ("Here's what changed:"), a stock opener or a JSON blob says nothing as a title (#371).
+const WEAK_TITLE_RE = /:[\s*_]*$|^\s*\{|^[\s*_]*(?:all good|looking good|here['\u2019]s|here is|here are)\b/i;
+
 /**
  * Build the auto-decision save payload from a matched capture.
  * Mirrors passive-capture.ts:71-84.
@@ -26,12 +29,14 @@ function buildAutoDecisionPayload({ text, capture, project, sessionId }) {
   }
 
   const lastLine =
-      text
-        .split('\n')
-        .filter((l) => l.trim())
-        .pop()
-        ?.slice(0, 120) || text.slice(0, 120),
-    title = `${capture.pattern.label}: ${lastLine.slice(0, 80)}`;
+    text
+      .split('\n')
+      .filter((l) => l.trim())
+      .pop() || text;
+  if (WEAK_TITLE_RE.test(lastLine)) {
+    return null;
+  }
+  const title = `${capture.pattern.label}: ${lastLine.slice(0, 80)}`;
 
   return {
     title,
