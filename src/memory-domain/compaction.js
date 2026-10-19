@@ -254,7 +254,7 @@ function dream(deps, args = {}) {
 
           // Phase 3: Never-recalled auto-detected decisions with low trust
 
-          return ['decision', 'bugfix', 'discovery'];
+          return ['decision', 'bugfix', 'discovery', 'architecture', 'pattern'];
         })();
       for (const type of autoDetectedTypes) {
         const rows = deps.sqlJson(
@@ -273,7 +273,7 @@ function dream(deps, args = {}) {
       ) sl ON sl.memory_id = CAST(o.id AS TEXT)
       WHERE o.type = ? AND o.deleted_at IS NULL
         AND (rl.recall_count IS NULL OR rl.recall_count = 0)
-        AND o.content LIKE '%Auto-detected%'
+        AND o.content LIKE '**What**: Auto-detected%'
         AND (sl.trust_score IS NULL OR sl.trust_score < ${DEDUP.DREAM_LOW_TRUST_THRESHOLD})
         ${args.bypassAgeGates ? '' : `AND o.created_at < datetime('now', '-${TIME_WINDOWS.DREAM_AUTO_DETECTED_MIN_AGE_DAYS} days')`}
     `,

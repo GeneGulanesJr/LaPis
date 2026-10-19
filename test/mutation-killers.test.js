@@ -2711,7 +2711,7 @@ describe('context.js ORDER BY / LIMIT verification', () => {
 
         return sqlJson.mock.calls.find((c) => c[0].includes('project != ?'));
       })();
-    expect(crossCall[0]).toContain('ORDER BY match_score DESC, trust_score DESC, o.created_at DESC');
+    expect(crossCall[0]).toContain('match_score DESC, trust_score DESC, o.created_at DESC');
   });
 });
 

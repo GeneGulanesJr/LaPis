@@ -266,6 +266,47 @@ describe('claude-code handlers: UserPromptSubmit', () => {
 
     expect(stateStore._peek('claude-7').hasInjectedContext).toBe(true);
   });
+
+  test('skips a prompt that is only a background task notification (#370)', async () => {
+    const stateStore = makeStateStore(),
+      { dispatch, calls } = makeFakeDispatch({ context: () => EMPTY_CONTEXT }),
+      before = { ...realStateStore.defaultState(), sessionId: 1 },
+      out = await (async () => {
+        stateStore.saveState('claude-tn', before);
+        return handleUserPromptSubmit({
+          payload: {
+            session_id: 'claude-tn',
+            prompt:
+              '<task-notification>\n<task-id>k74jnbcg6</task-id>\n<status>completed</status>\n</task-notification>\n',
+            cwd: '/p',
+          },
+          dispatch,
+          getKnownRepos: () => [{ name: 'myapp', path: '/p', indexed_at: new Date().toISOString() }],
+          stateStore,
+        });
+      })();
+
+    expect(out).toBeNull();
+    expect(calls).toHaveLength(0);
+    expect(stateStore._peek('claude-tn')).toEqual(before);
+  });
+
+  test('uses the user text that follows a task notification as the query', async () => {
+    const stateStore = makeStateStore(),
+      { dispatch, calls } = makeFakeDispatch({ context: () => EMPTY_CONTEXT });
+    await handleUserPromptSubmit({
+      payload: {
+        session_id: 'claude-tn2',
+        prompt: '<task-notification><task-id>x</task-id></task-notification>\nfix the login bug',
+        cwd: '/p',
+      },
+      dispatch,
+      getKnownRepos: () => [],
+      stateStore,
+    });
+
+    expect(hasCall(calls, 'context', (a) => a.query === 'fix the login bug')).toBe(true);
+  });
 });
 
 // =====================================================================

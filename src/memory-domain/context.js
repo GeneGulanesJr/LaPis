@@ -11,6 +11,9 @@ const TRUST_RECALL_COLUMNS = `
              COALESCE(${TRUST_RECALL_SUBQ.trustScore}, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
              ${TRUST_RECALL_SUBQ.recallCount} as recall_count,`;
 
+// Passive captures rank below every hand-saved memory that matches the prompt (#371).
+const AUTO_CAPTURE_LAST = "(o.content LIKE '**What**: Auto-detected%')";
+
 const TOPIC_QUERY_STOP_WORDS = new Set([
   'the',
   'and',
@@ -145,7 +148,7 @@ ${TRUST_RECALL_COLUMNS}
           WHERE project = ? AND deleted_at IS NULL AND type != 'skill'
             AND (expires_at IS NULL OR expires_at > datetime('now'))
             AND (${match.whereSql})
-          ORDER BY match_score DESC, created_at DESC
+          ORDER BY ${AUTO_CAPTURE_LAST}, match_score DESC, created_at DESC
           LIMIT ?
         )
         SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.created_at,
@@ -153,7 +156,7 @@ ${TRUST_RECALL_COLUMNS}
                ${TYPE_PRIORITY_CASE} as type_priority
         FROM observations o
         JOIN topic_matches tm ON o.id = tm.id
-        ORDER BY tm.match_score DESC, recall_count DESC, trust_score DESC, type_priority DESC, o.created_at DESC
+        ORDER BY ${AUTO_CAPTURE_LAST}, tm.match_score DESC, recall_count DESC, trust_score DESC, type_priority DESC, o.created_at DESC
       `;
       obsParams = [...match.scoreParams, project, ...match.whereParams, topicLimit];
     } else {
@@ -218,7 +221,7 @@ ${TRUST_RECALL_COLUMNS}
           AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
           AND (${match.whereSql})
         GROUP BY o.id
-        ORDER BY match_score DESC, trust_score DESC, o.created_at DESC
+        ORDER BY ${AUTO_CAPTURE_LAST}, match_score DESC, trust_score DESC, o.created_at DESC
         LIMIT ?`,
       [...match.scoreParams, project, ...match.whereParams, supplementLimit],
     );

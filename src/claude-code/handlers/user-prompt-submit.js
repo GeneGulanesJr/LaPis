@@ -36,7 +36,9 @@ const { CONTEXT } = require('../../../constants'),
   REMINDER_INTERVAL = 5, // MEMORY_REMINDER_INTERVAL (state.ts:107)
   REMINDER_RECENT_MS = 180000, // 3min (context-injection.ts:235)
   REMINDER_TEXT =
-    '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.';
+    '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.',
+  // Claude Code delivers background-task results through UserPromptSubmit; they are not user prompts (#370).
+  TASK_NOTIFICATION_RE = /<task-notification>[\s\S]*?<\/task-notification>/g;
 
 /** Preflight dispatch for a preflight-worthy prompt (best-effort; null when skipped/failed). */
 async function fetchPreflight({ dispatch, cwdRepo, prompt }) {
@@ -95,8 +97,13 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt, preflight, ma
 }
 
 async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, isCancelled }) {
-  const prompt = payload.prompt || '',
-    { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
+  const rawPrompt = payload.prompt || '',
+    prompt = rawPrompt.replace(TASK_NOTIFICATION_RE, '').trim();
+  if (rawPrompt && !prompt) {
+    return null;
+  }
+
+  const { resolvedCwd, repos, project } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
     claudeSessionId = payload.session_id,
     state = stateStore.loadState(claudeSessionId),
     sessionId = state.sessionId,
