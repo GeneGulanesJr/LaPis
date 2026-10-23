@@ -19,6 +19,8 @@ jobs:
   # ── Gate: same quality bar as the publish workflow, before any tag exists ──
   gate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       should_release: ${{ steps.version.outputs.should_release }}
