@@ -203,22 +203,28 @@ describe('rich context injection', () => {
     expect(content).toContain('new project');
   });
 
-  test('personal preferences are not injected when PERSONAL_INJECT_LIMIT is 0', async () => {
-    const deps = buildDeps({
+  test.each([
+    ['with a prompt', { prompt: 'format code' }],
+    ['without a prompt', {}],
+  ])('personal preferences are injected %s (#373)', async (_label, event) => {
+    const personal = [1, 2, 3, 4].map((id) => ({ id, title: `Preference ${id}`, type: 'preference' })),
+      deps = buildDeps({
         mem: vi.fn().mockResolvedValue({
           observations: [],
-          personal: [{ id: 1, title: 'Use tabs not spaces', type: 'preference' }],
-          stats: { total_memories: 10, total_personal: 1, active_workflows: 0 },
+          personal,
+          stats: { total_memories: 10, total_personal: 4, active_workflows: 0 },
           topic: null,
         }),
       }),
       handler = extractHandler(deps),
-      result = await handler({ prompt: 'format code' }, { cwd: process.cwd() }),
+      result = await handler(event, { cwd: process.cwd() }),
       content = result.message.content;
 
-    // PERSONAL_INJECT_LIMIT = 0, so no personal section appears
-    expect(content).not.toContain('### Personal Preferences');
-    expect(content).not.toContain('Use tabs not spaces');
+    expect(content).toContain('### Personal Preferences');
+    expect(content).toContain('- Preference 1');
+    expect(content).toContain('- Preference 3');
+    // Capped at PERSONAL_INJECT_LIMIT (3).
+    expect(content).not.toContain('Preference 4');
   });
 
   test('caps injected context size while preserving essential memory details', async () => {

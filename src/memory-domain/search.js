@@ -264,7 +264,7 @@ function search(deps, args) {
       `;
     const params = [ftsTerms];
     if (project) {
-      q += ' AND o.project = ? COLLATE NOCASE';
+      q += " AND (o.project = ? COLLATE NOCASE OR o.scope = 'personal')";
       params.push(project);
     }
     if (type) {
@@ -324,7 +324,7 @@ function search(deps, args) {
         `;
         const orParams = [terms.join(' OR ')];
         if (project) {
-          q += ' AND o.project = ? COLLATE NOCASE';
+          q += " AND (o.project = ? COLLATE NOCASE OR o.scope = 'personal')";
           orParams.push(project);
         }
         if (type) {
@@ -365,7 +365,7 @@ function search(deps, args) {
       const like = `%${query.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
       const params = [like, like];
       if (project) {
-        q += ' AND o.project = ? COLLATE NOCASE';
+        q += " AND (o.project = ? COLLATE NOCASE OR o.scope = 'personal')";
         params.push(project);
       }
       if (type) {
