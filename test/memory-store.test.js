@@ -177,6 +177,19 @@ describe('memory-store: search', () => {
     expect(result.results.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('should find personal memories saved in another project (#373)', () => {
+    const otherProject = `${testProject}-other`;
+    run(
+      `save --title "Zorblax personal rule" --content "Use vision, never OCR" --project ${otherProject} --type preference --scope personal --force`,
+    );
+    run(
+      `save --title "Zorblax project rule" --content "Only for the other project" --project ${otherProject} --type decision --force`,
+    );
+    const titles = run(`search --query "Zorblax" --project ${testProject}`).results.map((r) => r.title);
+    expect(titles).toContain('Zorblax personal rule');
+    expect(titles).not.toContain('Zorblax project rule');
+  });
+
   it('should return ranked results with _score', () => {
     const result = run(`search --query "alpha" --project ${testProject}`);
     expect(result.results.length).toBeGreaterThanOrEqual(1);

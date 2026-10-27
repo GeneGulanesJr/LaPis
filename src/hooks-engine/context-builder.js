@@ -216,7 +216,8 @@ function buildContextBlock(bag) {
     lines.push('');
   }
 
-  if (promptQuery && personal.length > 0 && CONTEXT.PERSONAL_INJECT_LIMIT > 0) {
+  // Personal preferences apply in every project, so list them in every block (#373).
+  if (personal.length > 0 && CONTEXT.PERSONAL_INJECT_LIMIT > 0) {
     lines.push('### Personal Preferences');
     for (const p of personal.slice(0, CONTEXT.PERSONAL_INJECT_LIMIT)) {
       lines.push(`- ${p.title}`);

@@ -131,7 +131,7 @@ describe('context injection prompt extraction', () => {
     expect(content).toContain('### Project Context');
     expect(content).toContain('Code index: `PiMemoryExtension`');
     expect(content).not.toContain('Noisy prior decision');
-    expect(content).not.toContain('Personal preference');
+    expect(content).toContain('Personal preference');
   });
 
   test('policy prompt caps injected memories to one and omits Related paths', async () => {
