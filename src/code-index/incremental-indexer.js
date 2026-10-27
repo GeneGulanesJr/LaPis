@@ -1283,7 +1283,7 @@ async function indexRepository(deps, repoPath, repoName) {
 
     if (!(await registry.ensureReady())) {
       return {
-        error: `WASM tree-sitter parser not available. Run: cd ${path.resolve(__dirname, '..', '..')} && npm install web-tree-sitter`,
+        error: `WASM tree-sitter parser not available. Run: cd ${path.resolve(__dirname, '..', '..')} && npm install --omit=dev web-tree-sitter`,
       };
     }
 

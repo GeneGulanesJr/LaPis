@@ -28,7 +28,9 @@ let _wtsPath,
   _ParserClass = null,
   _LanguageClass = null;
 try {
-  _wtsPath = require.resolve('web-tree-sitter/web-tree-sitter.cjs', { paths: [__dirname] });
+  // Resolve the package root: its exports map only exposes "." (require → web-tree-sitter.cjs),
+  // so a subpath like 'web-tree-sitter/web-tree-sitter.cjs' throws ERR_PACKAGE_PATH_NOT_EXPORTED.
+  _wtsPath = require.resolve('web-tree-sitter', { paths: [__dirname] });
 } catch {
   _wtsPath = path.resolve(__dirname, 'node_modules', 'web-tree-sitter', 'web-tree-sitter.cjs');
 }
