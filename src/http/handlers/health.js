@@ -13,7 +13,7 @@ function healthCheck(deps) {
     } catch {
       dbReachable = false;
     }
-    jsonOk(res, { status: dbReachable ? 'ok' : 'degraded', db: dbReachable });
+    jsonOk(res, { status: dbReachable ? 'ok' : 'degraded', db: dbReachable, pid: process.pid });
   };
 }
 

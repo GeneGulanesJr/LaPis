@@ -1,8 +1,32 @@
 const fs = require('node:fs'),
   os = require('node:os'),
   path = require('node:path'),
+  net = require('node:net'),
+  { spawn } = require('node:child_process'),
   dispatchClient = require('../../src/claude-code/dispatch-client'),
-  daemon = require('../../src/claude-code/daemon');
+  daemon = require('../../src/claude-code/daemon'),
+  { createHttpServer } = require('../../src/http/server');
+
+// A real LaPis HTTP server on a random port; its /health reports this process's pid.
+async function listenHealthServer() {
+  const server = createHttpServer({
+    repositories: {},
+    sqlJson: () => [],
+    sqlRun: () => {},
+    getDb: () => ({ prepare: () => ({ get: () => ({ 1: 1 }) }) }),
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  return server;
+}
+
+// A port that was free a moment ago, so nothing answers on it.
+async function closedPort() {
+  const srv = net.createServer();
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const { port } = srv.address();
+  await new Promise((r) => srv.close(r));
+  return port;
+}
 
 describe('dispatch-client', () => {
   test('direct mode returns gateway-shaped results when no daemon is configured', async () => {
@@ -118,20 +142,46 @@ describe('daemon lockfile resolution', () => {
     delete process.env.LAPIS_DAEMON_URL;
   });
 
-  test('resolveDaemonUrl prefers LAPIS_DAEMON_URL', () => {
+  test('resolveDaemonUrl prefers LAPIS_DAEMON_URL', async () => {
     process.env.LAPIS_DAEMON_URL = 'http://127.0.0.1:9200/';
     daemon.writeLockfile({ pid: process.pid, port: 9100, host: '127.0.0.1' }, lockfilePath);
-    expect(daemon.resolveDaemonUrl({ lockfilePath })).toBe('http://127.0.0.1:9200');
+    expect(await daemon.resolveDaemonUrl({ lockfilePath })).toBe('http://127.0.0.1:9200');
   });
 
-  test('resolveDaemonUrl reads live lockfile when env is unset', () => {
-    daemon.writeLockfile({ pid: process.pid, port: 9100, host: '127.0.0.1' }, lockfilePath);
-    expect(daemon.resolveDaemonUrl({ lockfilePath })).toBe('http://127.0.0.1:9100');
+  test('resolveDaemonUrl reads a lockfile whose pid is the server answering /health', async () => {
+    const server = await listenHealthServer();
+    try {
+      const { port } = server.address();
+      daemon.writeLockfile({ pid: process.pid, port, host: '127.0.0.1' }, lockfilePath);
+      expect(await daemon.resolveDaemonUrl({ lockfilePath })).toBe(`http://127.0.0.1:${port}`);
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
   });
 
-  test('resolveDaemonUrl returns null when lockfile pid is stale', () => {
+  test('resolveDaemonUrl returns null when lockfile pid is stale', async () => {
     daemon.writeLockfile({ pid: 999999999, port: 9100, host: '127.0.0.1' }, lockfilePath);
-    expect(daemon.resolveDaemonUrl({ lockfilePath })).toBeNull();
+    expect(await daemon.resolveDaemonUrl({ lockfilePath })).toBeNull();
+  });
+
+  test('resolveDaemonUrl returns null when the live pid is not the server on the lockfile port', async () => {
+    // Pid reuse after a crash/reboot: the pid is alive but nothing LaPis answers there.
+    daemon.writeLockfile({ pid: process.pid, port: await closedPort(), host: '127.0.0.1' }, lockfilePath);
+    expect(await daemon.resolveDaemonUrl({ lockfilePath })).toBeNull();
+  });
+
+  test('runStop never signals a live pid that is not the daemon on the lockfile port', async () => {
+    const bystander = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore' });
+    try {
+      daemon.writeLockfile({ pid: bystander.pid, port: await closedPort(), host: '127.0.0.1' }, lockfilePath);
+      await daemon.runStop([], { lockfilePath, log: () => {}, graceMs: 200 });
+      expect(fs.existsSync(lockfilePath)).toBe(false);
+      expect(bystander.exitCode).toBeNull();
+      expect(bystander.signalCode).toBeNull();
+      expect(daemon.isProcessAlive(bystander.pid)).toBe(true);
+    } finally {
+      bystander.kill();
+    }
   });
 
   test('runStop removes lockfile', async () => {
@@ -191,6 +241,7 @@ describe('daemon start/stop flags', () => {
       result = await daemon.runStart(['--detached', '--port', '9300'], {
         lockfilePath,
         log: (l) => lines.push(l),
+        probeDaemonPid: async () => process.pid,
       });
     expect(result.alreadyRunning).toBe(true);
     expect(result.port).toBe(9100);
@@ -210,10 +261,61 @@ describe('daemon start/stop flags', () => {
       result = await daemon.runStart(['--port', '9100'], {
         lockfilePath,
         log: (l) => lines.push(l),
+        probeDaemonPid: async () => process.pid,
       });
     expect(result.alreadyRunning).toBe(true);
     expect(result.mismatch).toBeUndefined();
     expect(lines.join('\n')).not.toContain('was requested');
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
+describe('daemon pid safety', () => {
+  test('detached runStart records the pid /health reports, not the (dead) child pid', async () => {
+    // Another LaPis server already holds the port: our child dies on EADDRINUSE
+    // And health is answered by that server, so adopt its pid.
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-adopt-')),
+      lockfilePath = path.join(tmpDir, 'daemon.json'),
+      server = await listenHealthServer(),
+      { port } = server.address();
+    try {
+      const result = await daemon.runStart(['--detached', '--port', String(port)], {
+        lockfilePath,
+        log: () => {},
+        spawnDetachedServe: () => ({ pid: 999999999 }),
+        stopProcess: async () => false,
+      });
+      expect(result.pid).toBe(process.pid);
+      expect(daemon.readLockfile(lockfilePath).pid).toBe(process.pid);
+    } finally {
+      await new Promise((r) => server.close(r));
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('daemon dispatch sends the configured API key', async () => {
+    const prev = process.env.LAPIS_HTTP_API_KEY;
+    process.env.LAPIS_HTTP_API_KEY = 'k-123';
+    try {
+      let headers;
+      await dispatchClient.dispatchViaDaemon(
+        'http://127.0.0.1:1',
+        'search',
+        {},
+        {
+          fetch: async (_url, init) => {
+            headers = init.headers;
+            return { ok: true, json: async () => ({}) };
+          },
+        },
+      );
+      expect(headers['x-api-key']).toBe('k-123');
+    } finally {
+      if (prev === undefined) {
+        delete process.env.LAPIS_HTTP_API_KEY;
+      } else {
+        process.env.LAPIS_HTTP_API_KEY = prev;
+      }
+    }
   });
 });

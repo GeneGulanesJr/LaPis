@@ -90,6 +90,36 @@ describe('HTTP auth middleware', () => {
   });
 });
 
+describe('HTTP auth malformed request path', () => {
+  it('answers `GET //` with an api key set and keeps serving', async () => {
+    const net = require('net'),
+      server = createHttpServer({ repositories: { aurex: {} }, sqlJson: () => [], sqlRun: () => {}, apiKey: 'k' }),
+      rejections = [],
+      onRejection = (e) => rejections.push(e);
+    process.on('unhandledRejection', onRejection);
+    try {
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const statusLine = await new Promise((resolve, reject) => {
+        const sock = net.connect(server.address().port, '127.0.0.1', () =>
+          sock.write('GET // HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n'),
+        );
+        let data = '';
+        sock.on('data', (d) => (data += d));
+        sock.on('end', () => resolve(data.split('\r\n')[0]));
+        sock.on('error', reject);
+        sock.setTimeout(3000, () => reject(new Error('no response to GET //')));
+      });
+      expect(statusLine).toMatch(/^HTTP\/1\.1 401/);
+      const res = await request(server, { path: '/health' });
+      expect(res.status).toBe(200);
+      expect(rejections).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onRejection);
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+});
+
 describe('HTTP serve host policy', () => {
   it('refuses 0.0.0.0 without api key', () => {
     const { assertServeHostPolicy } = require('../src/http/auth');

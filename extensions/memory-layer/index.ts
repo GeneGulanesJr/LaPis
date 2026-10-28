@@ -14,6 +14,7 @@ import { registerSessionCompact, registerSessionShutdown, registerSessionStart }
 import { mem, memCmd, memStreaming } from './host/memory-client';
 import {
   detectProject,
+  findRepoForAnyFile,
   getKnownRepos,
   getKnownDocRepos,
   invalidateRepoCache,
@@ -58,6 +59,7 @@ export default function memoryLayer(pi: ExtensionAPI) {
     memCmd,
     memStreaming,
     detectProject,
+    findRepoForAnyFile,
     getKnownRepos,
     getKnownDocRepos,
     invalidateRepoCache,

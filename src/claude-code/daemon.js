@@ -20,6 +20,7 @@ const fs = require('node:fs'),
   DEFAULT_PORT = 9100,
   HEALTH_POLL_MS = 100,
   HEALTH_TIMEOUT_MS = 15_000,
+  PROBE_TIMEOUT_MS = 1000,
   STOP_GRACE_MS = 5_000;
 
 function defaultLockfilePath() {
@@ -115,24 +116,43 @@ function daemonUrlFromLock(info) {
 }
 
 /**
+ * Pid the LaPis server on host:port reports via /health, or null when nothing
+ * answers in time or the answer is not a LaPis health body.
+ */
+async function probeDaemonPid(host, port, timeoutMs = PROBE_TIMEOUT_MS) {
+  try {
+    const res = await httpGet('/health', { host, port, timeoutMs }),
+      pid = res.status === 200 ? JSON.parse(res.body)?.pid : null;
+    return Number.isInteger(pid) ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A lockfile is trusted only when its pid is the server answering on its
+ * host:port. A bare liveness check is not enough: after a crash or reboot the
+ * OS can hand the recorded pid to an unrelated program.
+ */
+async function lockOwnerIsLive(info, probe = probeDaemonPid) {
+  if (!info?.pid || !daemonUrlFromLock(info) || !isProcessAlive(info.pid)) {
+    return false;
+  }
+  return (await probe(info.host || DEFAULT_HOST, info.port)) === info.pid;
+}
+
+/**
  * Resolve the daemon base URL for dispatch-client. Priority:
  *   1. LAPIS_DAEMON_URL env
- *   2. lockfile with a live pid
+ *   2. lockfile whose pid is the server answering /health on its port
  */
-function resolveDaemonUrl(opts = {}) {
-  const envUrl = process.env.LAPIS_DAEMON_URL,
-    lockfilePath = !envUrl ? opts.lockfilePath || defaultLockfilePath() : undefined,
-    info = !envUrl ? readLockfile(lockfilePath) : undefined;
+async function resolveDaemonUrl(opts = {}) {
+  const envUrl = process.env.LAPIS_DAEMON_URL;
   if (envUrl) {
     return envUrl.replace(/\/$/, '');
   }
-  if (!info) {
-    return null;
-  }
-  if (info.pid && !isProcessAlive(info.pid)) {
-    return null;
-  }
-  return daemonUrlFromLock(info);
+  const info = readLockfile(opts.lockfilePath || defaultLockfilePath());
+  return (await lockOwnerIsLive(info, opts.probeDaemonPid)) ? daemonUrlFromLock(info) : null;
 }
 
 const AUTODAEMON_ENV = 'LAPIS_HOOK_AUTODAEMON',
@@ -157,7 +177,7 @@ async function ensureDaemonRunning(opts = {}) {
   if (opts.forceDirect || !autoDaemonEnabled()) {
     return null;
   }
-  const existing = resolveDaemonUrl(opts);
+  const existing = await resolveDaemonUrl(opts);
   if (existing) {
     return existing;
   }
@@ -172,10 +192,10 @@ async function ensureDaemonRunning(opts = {}) {
   } catch {
     return null;
   }
-  return resolveDaemonUrl(opts);
+  return await resolveDaemonUrl(opts);
 }
 
-function httpGet(urlPath, { host, port }) {
+function httpGet(urlPath, { host, port, timeoutMs }) {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
@@ -196,6 +216,9 @@ function httpGet(urlPath, { host, port }) {
       },
     );
     req.on('error', reject);
+    if (timeoutMs) {
+      req.setTimeout(timeoutMs, () => req.destroy(new Error(`timed out after ${timeoutMs}ms`)));
+    }
     req.end();
   });
 }
@@ -235,8 +258,9 @@ async function runStart(argv, io = {}) {
   const flags = parseStartFlags(argv),
     lockfilePath = io.lockfilePath || defaultLockfilePath(),
     log = io.log || ((line) => process.stdout.write(`${line}\n`)),
+    probe = io.probeDaemonPid || probeDaemonPid,
     existing = readLockfile(lockfilePath);
-  if (existing?.pid && isProcessAlive(existing.pid)) {
+  if (existing && (await lockOwnerIsLive(existing, probe))) {
     const portMismatch = Number.isFinite(existing.port) && existing.port !== flags.port,
       hostMismatch = Boolean(existing.host) && existing.host !== flags.host;
     if (portMismatch || hostMismatch) {
@@ -277,26 +301,26 @@ async function runStart(argv, io = {}) {
       }
       throw e;
     }
-    // Race guard: a concurrent start (two hooks firing at once on cold start)
-    // may have bound the port first and written its lockfile. Our child then
-    // died on EADDRINUSE and the health check answered by the winner — keep
-    // the winner's live-pid record rather than overwriting it with our dead
-    // child's pid (which would force every later hook to re-attempt a start).
+    // Record the pid the server on the port reports, not child.pid: when a
+    // concurrent start or an existing `lapis serve` already held the port, our
+    // child died on EADDRINUSE and health was answered by that server. Adopt
+    // it; a recorded dead pid would make every later hook start again.
+    const pid = await probe(flags.host, flags.port);
+    if (!pid) {
+      if (child?.pid) {
+        await stopFn(child.pid, io);
+      }
+      throw new Error(`Server on ${flags.host}:${flags.port} is not a LaPis daemon (no pid in /health)`);
+    }
     {
       const current = readLockfile(lockfilePath);
-      if (
-        current?.pid &&
-        current.pid !== child.pid &&
-        isProcessAlive(current.pid) &&
-        current.port === flags.port &&
-        (!current.host || current.host === flags.host)
-      ) {
+      if (current?.pid === pid && current.port === flags.port && (!current.host || current.host === flags.host)) {
         log(`LaPis daemon already started by a concurrent process (pid ${current.pid}).`);
         return { alreadyRunning: true, ...current };
       }
     }
     const info = {
-      pid: child.pid,
+      pid,
       port: flags.port,
       host: flags.host,
       startedAt: new Date().toISOString(),
@@ -319,8 +343,10 @@ async function runStart(argv, io = {}) {
         removeLockfile(lockfilePath);
       };
     })();
-  process.on('SIGINT', cleanup);
-  process.on('SIGTERM', cleanup);
+  // A signal listener replaces Node's default exit, so exit explicitly; the
+  // 'exit' listener removes the lockfile.
+  process.on('SIGINT', () => process.exit(130));
+  process.on('SIGTERM', () => process.exit(143));
   process.on('exit', cleanup);
 
   {
@@ -364,7 +390,8 @@ async function runStop(_argv, io = {}) {
     log('LaPis daemon is not running (no lockfile).');
     return { stopped: false };
   }
-  if (info.pid && info.pid !== process.pid) {
+  // Signal only a pid that is provably our daemon; a reused pid is someone else's program.
+  if (info.pid && info.pid !== process.pid && (await lockOwnerIsLive(info, io.probeDaemonPid))) {
     await stopProcess(info.pid, io);
   }
   removeLockfile(lockfilePath);
@@ -383,6 +410,8 @@ module.exports = {
   removeLockfile,
   isProcessAlive,
   daemonUrlFromLock,
+  probeDaemonPid,
+  lockOwnerIsLive,
   resolveDaemonUrl,
   autoDaemonEnabled,
   ensureDaemonRunning,

@@ -1,6 +1,7 @@
 import { AUTO_DECISION_COOLDOWN, CHECKPOINT_INTERVAL, state } from '../state';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { mem, memCmd } from '../host/memory-client';
+import type { findRepoForAnyFile, getKnownRepos } from '../host/project-detector';
 import { shouldAutoCapture, shouldAutoCaptureWithJudge } from './pattern-matcher';
 import path from 'node:path';
 
@@ -35,6 +36,8 @@ interface PassiveCaptureDeps {
   state: typeof state;
   mem: typeof mem;
   memCmd: typeof memCmd;
+  getKnownRepos: typeof getKnownRepos;
+  findRepoForAnyFile: typeof findRepoForAnyFile;
 }
 
 export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDeps) {

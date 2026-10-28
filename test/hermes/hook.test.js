@@ -218,3 +218,36 @@ describe('hermes hook: session-end args', () => {
     expect(args).toContain('hermes-s1');
   });
 });
+
+describe('hermes hook: project key', () => {
+  test('injectContext recalls a memory saved under the short project name (as MCP keys it)', () => {
+    const fs = require('node:fs'),
+      os = require('node:os'),
+      path = require('node:path'),
+      { execFileSync } = require('node:child_process'),
+      { injectContext, lapisEntry } = require('../../src/hermes/hook'),
+      cwd = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-hermes-proj-')), 'work', 'proj');
+    fs.mkdirSync(cwd, { recursive: true });
+    // MCP in <cwd> saves under projectFromCwd/resolveProjectKey → 'proj', not the full path.
+    execFileSync(
+      process.execPath,
+      [
+        lapisEntry(),
+        'save',
+        '--title',
+        'Zephyrquux deploy rule',
+        '--content',
+        '**What**: Zephyrquux deploys on Fridays',
+        '--type',
+        'decision',
+        '--project',
+        'proj',
+      ],
+      { encoding: 'utf8', timeout: 15000, stdio: 'pipe' },
+    );
+    const ctx = injectContext({ cwd, session_id: 'hermes-proj-key', extra: { user_message: 'Zephyrquux deploy' } });
+    // The query text echoes as the topic, so assert on the memory's own title.
+    expect(ctx && ctx.context).toContain('Zephyrquux deploy rule');
+    expect(ctx.context).toContain('Project: **proj**');
+  }, 60000);
+});

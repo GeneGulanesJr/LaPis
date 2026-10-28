@@ -85,7 +85,8 @@ function requireHttpAuth(apiKey) {
       }
       return true;
     }
-    if (req.method === 'GET' && new URL(req.url, 'http://localhost').pathname === '/health') {
+    // Raw path compare: URL parsing throws on inputs like `//`, crashing the server.
+    if (req.method === 'GET' && String(req.url).split('?')[0] === '/health') {
       return true;
     }
     if (isAuthorized(req, apiKey)) {
