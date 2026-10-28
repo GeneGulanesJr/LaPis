@@ -101,7 +101,6 @@ describe('claude-code install: default (npx, project scope)', () => {
   test('PostToolUse only matches tools that have a PostToolUse role (#395)', async () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json')),
       groups = settings.hooks.PostToolUse,
-      { postToolRole } = require('../../src/claude-code/tool-map'),
       matches = (group, tool) => new RegExp(`^(?:${group.matcher})$`).test(tool),
       [syncGroup, bashGroup] = groups;
     expect(groups).toHaveLength(2);
