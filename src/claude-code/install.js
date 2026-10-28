@@ -640,6 +640,11 @@ function configPaths({ home, cwd }) {
  * | project + machine `--bin` | ~/.claude.json projects[cwd].mcpServers | settings.local.json   |
  * | --global                  | ~/.claude.json mcpServers (user scope)  | ~/.claude/settings.json |
  */
+/** Key Claude Code uses for a project in ~/.claude.json: forward slashes on Windows (#385). */
+function claudeProjectKey(cwd, platform = process.platform) {
+  return platform === 'win32' ? cwd.replace(/\\/g, '/') : cwd;
+}
+
 function routeTargets(flags, invocation, paths, cwd) {
   if (flags.global) {
     return {
@@ -652,7 +657,7 @@ function routeTargets(flags, invocation, paths, cwd) {
     return {
       hooksFile: paths.localSettings,
       claudeMdFile: paths.projectClaudeMd,
-      mcp: { kind: 'local', file: paths.claudeJson, projectKey: cwd },
+      mcp: { kind: 'local', file: paths.claudeJson, projectKey: claudeProjectKey(cwd) },
     };
   }
   return {
@@ -802,6 +807,7 @@ module.exports = {
   writeTextAtomic,
   resolveIo,
   configPaths,
+  claudeProjectKey,
   routeTargets,
   mcpServersFor,
   runInstall,
