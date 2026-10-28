@@ -223,7 +223,7 @@ describe('claude-code install: machine-specific --bin', () => {
         return readJson(path.join(io.home, '.claude.json'));
       })();
     expect(claudeJson.mcpServers).toBeUndefined(); // Not user scope
-    expect(claudeJson.projects[io.cwd].mcpServers.lapis).toEqual({
+    expect(claudeJson.projects[install.claudeProjectKey(io.cwd)].mcpServers.lapis).toEqual({
       command: 'node',
       args: [bin, 'mcp'],
     });
@@ -246,7 +246,7 @@ describe('claude-code install: machine-specific --bin', () => {
 
         return readJson(path.join(io.home, '.claude.json'));
       })();
-    expect(claudeJson.projects[io.cwd].mcpServers.lapis.args[0]).toBe(bin);
+    expect(claudeJson.projects[install.claudeProjectKey(io.cwd)].mcpServers.lapis.args[0]).toBe(bin);
   });
 
   test('a bare --bin name is treated as PATH-relative (committable global-bin mode)', async () => {
@@ -442,7 +442,7 @@ describe('claude-code install: leaves unrelated config intact', () => {
     expect(claudeJson.oauthAccount).toEqual(foreign.oauthAccount);
     expect(claudeJson.projects['/other/project']).toEqual(foreign.projects['/other/project']);
     expect(claudeJson.mcpServers).toEqual(foreign.mcpServers); // User scope untouched
-    expect(claudeJson.projects[io.cwd].mcpServers.lapis).toBeDefined();
+    expect(claudeJson.projects[install.claudeProjectKey(io.cwd)].mcpServers.lapis).toBeDefined();
 
     await runUninstall([], io);
     claudeJson = readJson(claudeJsonPath);
@@ -501,7 +501,27 @@ describe('claude-code uninstall', () => {
     await runUninstall([], io);
     expect(fs.existsSync(path.join(io.cwd, '.claude', 'settings.local.json'))).toBe(false);
     const claudeJson = readJson(path.join(io.home, '.claude.json'));
-    expect(claudeJson.projects?.[io.cwd]?.mcpServers?.lapis).toBeUndefined();
+    expect(claudeJson.projects?.[install.claudeProjectKey(io.cwd)]?.mcpServers?.lapis).toBeUndefined();
+  });
+
+  test('claudeProjectKey uses forward slashes on win32 only (#385)', () => {
+    expect(install.claudeProjectKey('C:\\Users\\me\\proj', 'win32')).toBe('C:/Users/me/proj');
+    expect(install.claudeProjectKey('/home/me/proj', 'linux')).toBe('/home/me/proj');
+  });
+
+  test('uninstall also removes a local entry stored under the raw cwd key (pre-#385 installs)', async () => {
+    const io = makeIo(),
+      claudeJsonPath = path.join(io.home, '.claude.json'),
+      bin = path.join(io.root, 'clone', 'memory-store.js');
+    fs.mkdirSync(path.dirname(bin), { recursive: true });
+    fs.writeFileSync(bin, '// stub', 'utf8');
+    fs.writeFileSync(
+      claudeJsonPath,
+      JSON.stringify({ projects: { [io.cwd]: { mcpServers: { lapis: { command: 'node', args: [bin, 'mcp'] } } } } }),
+      'utf8',
+    );
+    await runUninstall([], io);
+    expect(readJson(claudeJsonPath).projects?.[io.cwd]?.mcpServers?.lapis).toBeUndefined();
   });
 
   test('uninstall without --mcp-name still reverses an install that used a custom name', async () => {

@@ -17,7 +17,15 @@
 
 const fs = require('node:fs'),
   path = require('node:path'),
-  { parseFlags, isLapisHookHandler, isLapisMcpEntry, readJson, resolveIo, configPaths } = require('./install');
+  {
+    parseFlags,
+    claudeProjectKey,
+    isLapisHookHandler,
+    isLapisMcpEntry,
+    readJson,
+    resolveIo,
+    configPaths,
+  } = require('./install');
 
 /** Which(1): resolve a bare command name against PATH (with PATHEXT on Windows). */
 function resolveOnPath(command, env = process.env) {
@@ -50,7 +58,7 @@ function resolveOnPath(command, env = process.env) {
 function findMcpEntry(paths, mcpName, cwd) {
   const candidates = [
     { scope: 'project', file: paths.projectMcp, get: (c) => c.mcpServers },
-    { scope: 'local', file: paths.claudeJson, get: (c) => c.projects?.[cwd]?.mcpServers },
+    { scope: 'local', file: paths.claudeJson, get: (c) => c.projects?.[claudeProjectKey(cwd)]?.mcpServers },
     { scope: 'user', file: paths.claudeJson, get: (c) => c.mcpServers },
   ];
   for (const { scope, file, get } of candidates) {

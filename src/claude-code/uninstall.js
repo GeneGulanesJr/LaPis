@@ -21,6 +21,7 @@
 const fs = require('node:fs'),
   {
     parseFlags,
+    claudeProjectKey,
     stripLapisHooks,
     removeAutoAllow,
     isLapisMcpEntry,
@@ -183,7 +184,10 @@ async function runUninstall(argv, io) {
           cleaned.push(paths.projectMcp);
         }
 
-        return cleanClaudeJson(paths.claudeJson, { projectKey: cwd });
+        // Also clear the raw backslash key that installs before #385 wrote on Windows.
+        return [...new Set([claudeProjectKey(cwd), cwd])].flatMap((projectKey) =>
+          cleanClaudeJson(paths.claudeJson, { projectKey }),
+        );
       })(),
       mcpNames = (() => {
         if (removedLocal.length > 0) {
