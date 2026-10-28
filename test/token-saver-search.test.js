@@ -45,3 +45,20 @@ describe('compress-search-output', () => {
     expect(result.summary).toContain('100 match');
   });
 });
+
+describe('compress-search-output without line numbers (#382)', () => {
+  it('shows grep -l / no -n output instead of reporting 0 matches', () => {
+    const stdout = ['src/a.js:TODO fix', 'src/b.js:TODO later', 'src/c.js'].join('\n'),
+      result = compressSearchOutput({ stdout, stderr: '', exitCode: 0, commandArgs: ['grep', '-r', 'TODO', 'src'] });
+    expect(result.importantOutput).toContain('src/a.js:TODO fix');
+    expect(result.importantOutput).toContain('src/c.js');
+  });
+
+  it('caps the extra lines', () => {
+    const stdout = Array.from({ length: 80 }, (_, i) => `file${i}.js`).join('\n'),
+      result = compressSearchOutput({ stdout, stderr: '', exitCode: 0, commandArgs: ['grep', '-l', 'x'] });
+    expect(result.importantOutput).toContain('file49.js');
+    expect(result.importantOutput).not.toContain('file50.js');
+    expect(result.importantOutput).toContain('30 more lines not shown');
+  });
+});

@@ -204,4 +204,17 @@ describe('registerOutputCompression', () => {
     await pi.getHandler('tool_result')(bashEvent('npm test', large, true), {});
     expect(compressOutput).toHaveBeenCalledWith(expect.objectContaining({ exitCode: 1 }));
   });
+
+  test('list/search/logs/git-diff output uses the generic compressor (#382)', async () => {
+    const { compressOutput } = await import('../src/token-saver/compress-output'),
+      pi = makePi(),
+      large = 'src/a.js:TODO fix\n'.repeat(300);
+    registerOutputCompression(pi as any, { state: makeState() as any, getConfig: makeConfig() });
+    for (const cmd of ['grep -r TODO src', "find . -name '*.test.js'", 'tail -150 src/big.ts', 'git diff']) {
+      await pi.getHandler('tool_result')(bashEvent(cmd, large), {});
+    }
+    await pi.getHandler('tool_result')(bashEvent('npm test', large), {});
+    const types = (compressOutput as any).mock.calls.map((c: any[]) => c[0].commandType);
+    expect(types).toEqual(['generic', 'generic', 'generic', 'generic', 'test']);
+  });
 });

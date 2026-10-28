@@ -21,7 +21,10 @@ interface CompressionDeps {
 }
 
 const DEFAULT_MIN_CHARS = 2000,
-  DEFAULT_MIN_SAVINGS_PERCENT = 30;
+  DEFAULT_MIN_SAVINGS_PERCENT = 30,
+  // These summaries replace the output the agent asked for (a "0 matches" grep,
+  // File lists, diff bodies); the generic head/tail compressor keeps it (#382).
+  LOSSY_TYPES = new Set(['list', 'search', 'logs', 'git-diff']);
 
 export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDeps) {
   pi.on('tool_result', async (event, _ctx) => {
@@ -63,7 +66,7 @@ export function registerOutputCompression(pi: ExtensionAPI, deps: CompressionDep
           // A single stream. We pass the combined output as stdout with empty stderr.
           // If Pi ever separates streams, this would need updating.
           compressed = compressOutput({
-            commandType,
+            commandType: LOSSY_TYPES.has(commandType) ? 'generic' : commandType,
             commandArgs,
             stdout: output,
             stderr: '',
