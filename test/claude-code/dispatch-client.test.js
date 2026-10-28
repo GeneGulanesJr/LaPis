@@ -271,22 +271,26 @@ describe('daemon start/stop flags', () => {
 });
 
 describe('daemon pid safety', () => {
-  test('detached runStart records the pid /health reports, not the (dead) child pid', async () => {
-    // Another LaPis server already holds the port: our child dies on EADDRINUSE
-    // And health is answered by that server, so adopt its pid.
+  test('detached runStart refuses a server it did not start that already holds the port', async () => {
+    // Another server already holds the port: our child dies on EADDRINUSE and
+    // Health is answered by that server. /health is answerable by anything, and
+    // Hooks send the daemon the API key and prompts, so never adopt it.
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-daemon-adopt-')),
       lockfilePath = path.join(tmpDir, 'daemon.json'),
       server = await listenHealthServer(),
-      { port } = server.address();
+      { port } = server.address(),
+      stopSpy = vi.fn(async () => false);
     try {
-      const result = await daemon.runStart(['--detached', '--port', String(port)], {
-        lockfilePath,
-        log: () => {},
-        spawnDetachedServe: () => ({ pid: 999999999 }),
-        stopProcess: async () => false,
-      });
-      expect(result.pid).toBe(process.pid);
-      expect(daemon.readLockfile(lockfilePath).pid).toBe(process.pid);
+      await expect(
+        daemon.runStart(['--detached', '--port', String(port)], {
+          lockfilePath,
+          log: () => {},
+          spawnDetachedServe: () => ({ pid: 999999999 }),
+          stopProcess: stopSpy,
+        }),
+      ).rejects.toThrow(/held by another server/);
+      expect(stopSpy).toHaveBeenCalledWith(999999999, expect.anything());
+      expect(fs.existsSync(lockfilePath)).toBe(false);
     } finally {
       await new Promise((r) => server.close(r));
       fs.rmSync(tmpDir, { recursive: true, force: true });

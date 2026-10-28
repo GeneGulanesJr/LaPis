@@ -71,6 +71,28 @@ describe('db.js (database layer)', () => {
         })();
       expect(result.ok).toBe(true);
     });
+
+    // V7 rebuilt code_calls and created its indexes before dropping the old
+    // Table; the indexes had moved with the rename, so the drop removed them.
+    it('code_calls keeps its lookup indexes through V7 and V30', () => {
+      const db = dbModule.getDb(),
+        ccIndexes = () =>
+          dbModule
+            .sqlJson("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='code_calls' AND name LIKE 'idx_cc_%'")
+            .map((r) => r.name)
+            .sort(),
+        all = ['idx_cc_callee', 'idx_cc_callee_name', 'idx_cc_caller'];
+
+      db.exec('PRAGMA user_version = 6');
+      expect(dbModule.ensureDb().ok).toBe(true);
+      expect(ccIndexes()).toEqual(all);
+
+      // A DB upgraded by the old V7: indexes gone, already past V7.
+      db.exec('DROP INDEX idx_cc_caller; DROP INDEX idx_cc_callee_name; DROP INDEX idx_cc_callee');
+      db.exec('PRAGMA user_version = 29');
+      expect(dbModule.ensureDb().ok).toBe(true);
+      expect(ccIndexes()).toEqual(all);
+    });
   });
 
   describe('sqlJson', () => {

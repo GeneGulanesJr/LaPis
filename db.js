@@ -182,6 +182,7 @@ class MemoryError extends Error {
         { to: 27, run: runMigrationV27 },
         { to: 28, run: runMigrationV28 },
         { to: 29, run: runMigrationV29 },
+        { to: 30, run: runMigrationV30 },
       ],
       LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
 
@@ -434,10 +435,9 @@ class MemoryError extends Error {
           sqlRaw(`INSERT OR IGNORE INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, line_number)
         SELECT repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence, MIN(line_number)
         FROM code_calls_old GROUP BY repo_id, caller_symbol_id, callee_name`);
-          sqlRaw('CREATE INDEX IF NOT EXISTS idx_cc_caller ON code_calls(caller_symbol_id)');
-          sqlRaw('CREATE INDEX IF NOT EXISTS idx_cc_callee_name ON code_calls(repo_id, callee_name)');
-          sqlRaw('CREATE INDEX IF NOT EXISTS idx_cc_callee ON code_calls(callee_symbol_id)');
+          // Indexes move with a renamed table, so create them only after the old one is dropped.
           sqlRaw('DROP TABLE code_calls_old');
+          createCodeCallsIndexes();
           sqlRaw('PRAGMA user_version = 7');
         });
       } catch (e) {
@@ -1194,6 +1194,26 @@ class MemoryError extends Error {
         });
       } catch (e) {
         errors.push(`V29: ${e.message}`);
+      }
+      return errors;
+    }
+
+    function createCodeCallsIndexes() {
+      sqlRaw('CREATE INDEX IF NOT EXISTS idx_cc_caller ON code_calls(caller_symbol_id)');
+      sqlRaw('CREATE INDEX IF NOT EXISTS idx_cc_callee_name ON code_calls(repo_id, callee_name)');
+      sqlRaw('CREATE INDEX IF NOT EXISTS idx_cc_callee ON code_calls(callee_symbol_id)');
+    }
+
+    function runMigrationV30() {
+      const errors = [];
+      try {
+        withTransaction(() => {
+          // V7 used to create these before dropping code_calls_old, so the drop took them along.
+          createCodeCallsIndexes();
+          sqlRaw('PRAGMA user_version = 30');
+        });
+      } catch (e) {
+        errors.push(`V30: ${e.message}`);
       }
       return errors;
     }

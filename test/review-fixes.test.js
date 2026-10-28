@@ -55,7 +55,7 @@ describe('review fixes', () => {
             .prepare('PRAGMA table_info(code_repos)')
             .all()
             .some((c) => c.name === 'trust_head');
-        expect(version).toBe(29);
+        expect(version).toBe(30);
         expect(table).toBeTruthy();
         expect(sourceModuleCol).toBe(true);
         expect(hasTotalFilesChanged).toBe(true);
