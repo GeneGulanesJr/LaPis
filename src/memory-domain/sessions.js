@@ -1,6 +1,7 @@
 const { sqlJson, jsonErrNoExit, withTransaction } = require('../../db'),
   { TIME_WINDOWS } = require('../../constants'),
-  { getConfig } = require('../../config');
+  { getConfig } = require('../../config'),
+  { STALE_SESSION_SQL } = require('../../services/recovery');
 
 function findLatestSession(project) {
   const q = project
@@ -41,7 +42,7 @@ function sessionStart(deps, args) {
         incomplete = deps.sqlJson(
           `
       SELECT id FROM session_log
-      WHERE project = ? AND ended_at IS NULL AND id != ?
+      WHERE project = ? AND ended_at IS NULL AND id != ? AND ${STALE_SESSION_SQL}
       ORDER BY started_at DESC LIMIT 1
     `,
           [project, sid],

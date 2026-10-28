@@ -48,6 +48,7 @@ describe('#290 memCmd honors MAIN_THREAD_BLOCKING_COMMANDS', () => {
   });
 });
 
+// Since #392 only read-only commands (like this `search`) fall back on timeout.
 describe('#297 daemon dispatch timeout falls back to direct mode', () => {
   it('aborts a stalled daemon POST and rejects', async () => {
     const { dispatchViaDaemon } = require('../src/claude-code/dispatch-client'),

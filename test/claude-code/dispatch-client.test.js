@@ -83,6 +83,22 @@ describe('dispatch-client', () => {
     stderrSpy.mockRestore();
   });
 
+  test('does not re-run the command directly when the daemon times out (#392)', async () => {
+    const fetch = async () => {
+        throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      },
+      directSpy = vi.fn(async () => ({ via: 'direct' }));
+
+    await expect(
+      dispatchClient.dispatch(
+        'save',
+        { title: 'x' },
+        { resolveDaemonUrl: () => 'http://127.0.0.1:9100', fetch, directDispatch: directSpy },
+      ),
+    ).rejects.toThrow('timeout');
+    expect(directSpy).not.toHaveBeenCalled();
+  });
+
   test('daemon and direct paths stringify args the same way', () => {
     const args = { query: 'hooks', limit: 5, empty: '', skip: null };
     expect(dispatchClient.stringifyArgs(args)).toEqual({ query: 'hooks', limit: '5' });
