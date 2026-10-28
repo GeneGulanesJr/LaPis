@@ -1,5 +1,5 @@
 const { createDb, resetDb, sqlJson } = require('../db'),
-  { tryAcquireSqliteLock, releaseSqliteLock, makeHolderId } = require('../src/code-index/repo-lock');
+  { tryAcquireSqliteLock, releaseSqliteLock, makeHolderId, withRepoIndexLock } = require('../src/code-index/repo-lock');
 
 describe('repo-index lock', () => {
   beforeEach(() => {
@@ -28,5 +28,23 @@ describe('repo-index lock', () => {
     expect(tryAcquireSqliteLock('shared-repo', second)).toBe(false);
     releaseSqliteLock('shared-repo', first);
     expect(tryAcquireSqliteLock('shared-repo', second)).toBe(true);
+  });
+
+  it('serializes concurrent callers in one process but stays reentrant within a call chain', async () => {
+    let inside = 0,
+      maxInside = 0,
+      nested = false;
+    const job = () =>
+      withRepoIndexLock('demo', async () => {
+        inside++;
+        maxInside = Math.max(maxInside, inside);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        nested = await withRepoIndexLock('DEMO', async () => true);
+        inside--;
+      });
+    await Promise.all([job(), new Promise((resolve) => setTimeout(resolve, 50)).then(job)]);
+    expect(maxInside).toBe(1);
+    expect(nested).toBe(true);
+    expect(sqlJson('SELECT holder_id FROM repo_index_locks WHERE repo_name = ?', ['demo'])).toHaveLength(0);
   });
 });

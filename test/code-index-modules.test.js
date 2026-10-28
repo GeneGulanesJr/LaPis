@@ -1,4 +1,5 @@
-const fs = require('fs'),
+const { execFileSync } = require('child_process'),
+  fs = require('fs'),
   os = require('os'),
   path = require('path'),
   { getLanguageForFile, canParseFile } = require('../src/code-index/parser-registry'),
@@ -378,6 +379,53 @@ describe('code-index incremental reindexer', () => {
     expect(result.files_removed).toBe(1);
     expect(calls).toContainEqual(['deleteFile', 10]);
     expect(calls).toContainEqual(['updateRepoStats', 7]);
+  });
+
+  it('git-delta reindex applies the scanner ignore rules (dist/, .memorycodeignore, size cap)', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-delta-ignore-')),
+      git = (...a) =>
+        execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: tmp, encoding: 'utf-8' }),
+      write = (rel, body) => {
+        fs.mkdirSync(path.dirname(path.join(tmp, rel)), { recursive: true });
+        fs.writeFileSync(path.join(tmp, rel), body);
+      };
+    try {
+      git('init', '-q');
+      write('app.js', 'function app() {}\n');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'base');
+      const base = git('rev-parse', 'HEAD').trim();
+      write('.memorycodeignore', 'gen/\n');
+      write('dist/bundle.js', 'function bundled() {}\n');
+      write('gen/g.js', 'function generated() {}\n');
+      write('big.js', `// ${'x'.repeat(1024 * 1024)}\n`);
+      write('src/ok.js', 'function ok() {}\n');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'delta');
+
+      const inserted = [],
+        repository = {
+          findRepoByName: () => ({ id: 7, name: 'repo', path: tmp, head_commit: base }),
+          listFiles: () => [],
+          insertFile: (params) => inserted.push(path.relative(fs.realpathSync(tmp), params.path)) + 100,
+          insertSymbolBulk: () => {},
+          insertSymbolBatch: () => {},
+          clearFileSymbols: () => {},
+          updateFile: () => {},
+          deleteFile: () => {},
+          updateRepoStats: () => {},
+          summarizeDiagnostics: () => ({}),
+          listDiagnostics: () => [],
+          withTransaction: (fn) => fn(),
+        },
+        parserRegistry = { ensureReady: async () => true, canParseFile: () => true, parseContent: () => [] },
+        result = await reindexRepository({ db: {}, repository, parserRegistry, args: {} }, 'repo', 'incremental');
+
+      expect(result.success).toBe(true);
+      expect(inserted).toEqual([path.join('src', 'ok.js')]);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });
 

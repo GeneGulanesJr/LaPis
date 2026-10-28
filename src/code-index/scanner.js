@@ -155,6 +155,124 @@ function prioritySort(root) {
   };
 }
 
+// The ignore/size/binary rules shared by scanRepository's walk and createFileFilter.
+function createScanRules(absRoot, options = {}) {
+  const gitignoreIg = loadGitignoreRules(absRoot);
+  const nestedGitignoreRules = [];
+  const memorycodeignoreIg = loadMemorycodeignoreRules(absRoot);
+  const extraIgnoreIg = tryCreateIgnore(options.extraIgnorePatterns || []);
+  const maxFileSize = Number(options.maxFileSize || DEFAULT_MAX_FILE_SIZE);
+
+  function addNestedGitignore(dir) {
+    try {
+      const ig = require('ignore')().add(fs.readFileSync(path.join(dir, '.gitignore'), 'utf-8'));
+      const dirRel = path.relative(absRoot, dir);
+      nestedGitignoreRules.push({ prefix: dirRel ? `${dirRel}${path.sep}` : '', ig });
+    } catch {}
+  }
+
+  function ignoredBy(relativePath, isDir = false) {
+    const rel = relativePath.replace(/\\/g, '/') + (isDir && !relativePath.endsWith(path.sep) ? '/' : '');
+    if (gitignoreIg && (gitignoreIg.ignores(relativePath) || gitignoreIg.ignores(rel))) {
+      return 'gitignore';
+    }
+    for (const rule of nestedGitignoreRules) {
+      if (!relativePath.startsWith(rule.prefix)) {
+        // oxlint-disable-next-line no-continue
+        continue;
+      }
+      const local = relativePath.slice(rule.prefix.length).replace(/\\/g, '/');
+      const localDir = local + (isDir && !local.endsWith('/') ? '/' : '');
+      if (local && (rule.ig.ignores(local) || rule.ig.ignores(localDir))) {
+        return 'gitignore';
+      }
+    }
+    if (memorycodeignoreIg && (memorycodeignoreIg.ignores(relativePath) || memorycodeignoreIg.ignores(rel))) {
+      return 'memorycodeignore';
+    }
+    if (extraIgnoreIg && (extraIgnoreIg.ignores(relativePath) || extraIgnoreIg.ignores(rel))) {
+      return 'extraIgnore';
+    }
+    return null;
+  }
+
+  // Skip reason for a regular file (directories are checked separately), or null to index it.
+  function fileSkipReason(fullPath, relativePath) {
+    if (!isCodeFile(fullPath)) {
+      return 'unsupportedExt';
+    }
+    const ignored = ignoredBy(relativePath, false);
+    if (ignored) {
+      return ignored;
+    }
+    if (isSecretFilePath(relativePath)) {
+      return 'secret';
+    }
+    if (SKIP_FILE_RE.test(relativePath.replace(/\\/g, '/'))) {
+      return 'lock';
+    }
+    let stats;
+    try {
+      stats = fs.statSync(fullPath);
+    } catch {
+      return 'unreadable';
+    }
+    if (maxFileSize > 0 && stats.size > maxFileSize) {
+      return 'tooLarge';
+    }
+    if (isBinaryFile(fullPath)) {
+      return 'binary';
+    }
+    return null;
+  }
+
+  return { addNestedGitignore, ignoredBy, fileSkipReason };
+}
+
+/**
+ * Per-file predicate applying the same rules as scanRepository (built-in skip
+ * dirs, .gitignore incl. nested, .memorycodeignore, size cap, binary, secret,
+ * lock files) to paths that did not come from a directory walk, e.g. a git
+ * delta. Returns the skip reason, or null when the file would be indexed.
+ * Symlink handling is left to the caller (delta paths are already realpath'd).
+ */
+function createFileFilter(repoPath, options = {}) {
+  let root = path.resolve(repoPath);
+  try {
+    root = fs.realpathSync(root);
+  } catch {}
+  const rules = createScanRules(root, options);
+  const extraIgnoreDirs = options.ignoreDirs || [];
+  const loadedDirs = new Set();
+  const loadDir = (dir) => {
+    if (!loadedDirs.has(dir)) {
+      loadedDirs.add(dir);
+      rules.addNestedGitignore(dir);
+    }
+  };
+  return (filePath) => {
+    const fullPath = path.resolve(root, filePath);
+    const relativePath = path.relative(root, fullPath);
+    if (!relativePath || !pathIsInside(root, fullPath)) {
+      return 'pathTraversal';
+    }
+    let dir = root;
+    loadDir(dir);
+    for (const name of relativePath.split(path.sep).slice(0, -1)) {
+      dir = path.join(dir, name);
+      if (shouldSkipDir(name, extraIgnoreDirs)) {
+        return 'builtIn';
+      }
+      const ignored = rules.ignoredBy(path.relative(root, dir), true);
+      if (ignored) {
+        return ignored;
+      }
+      loadDir(dir);
+    }
+    return rules.fileSkipReason(fullPath, relativePath);
+  };
+}
+
 function scanRepository(repoPath, options = {}) {
   const results = [];
   const absRoot = path.resolve(repoPath);
@@ -174,11 +292,7 @@ function scanRepository(repoPath, options = {}) {
     // repoPath doesn't exist yet or isn't readable — fall back to unresolved.
   }
   const extraIgnoreDirs = options.ignoreDirs || [];
-  const gitignoreIg = loadGitignoreRules(absRoot);
-  const nestedGitignoreRules = [];
-  const memorycodeignoreIg = loadMemorycodeignoreRules(absRoot);
-  const extraIgnoreIg = tryCreateIgnore(options.extraIgnorePatterns || []);
-  const maxFileSize = Number(options.maxFileSize || DEFAULT_MAX_FILE_SIZE);
+  const { addNestedGitignore, ignoredBy, fileSkipReason } = createScanRules(absRoot, options);
   const maxFiles = Number(options.maxFiles || DEFAULT_MAX_FILES);
   const followSymlinks = options.followSymlinks === true;
   const skipReport = {
@@ -225,31 +339,6 @@ function scanRepository(repoPath, options = {}) {
     }
   }
 
-  function ignoredBy(relativePath, isDir = false) {
-    const rel = relativePath.replace(/\\/g, '/') + (isDir && !relativePath.endsWith(path.sep) ? '/' : '');
-    if (gitignoreIg && (gitignoreIg.ignores(relativePath) || gitignoreIg.ignores(rel))) {
-      return 'gitignore';
-    }
-    for (const rule of nestedGitignoreRules) {
-      if (!relativePath.startsWith(rule.prefix)) {
-        // oxlint-disable-next-line no-continue
-        continue;
-      }
-      const local = relativePath.slice(rule.prefix.length).replace(/\\/g, '/');
-      const localDir = local + (isDir && !local.endsWith('/') ? '/' : '');
-      if (local && (rule.ig.ignores(local) || rule.ig.ignores(localDir))) {
-        return 'gitignore';
-      }
-    }
-    if (memorycodeignoreIg && (memorycodeignoreIg.ignores(relativePath) || memorycodeignoreIg.ignores(rel))) {
-      return 'memorycodeignore';
-    }
-    if (extraIgnoreIg && (extraIgnoreIg.ignores(relativePath) || extraIgnoreIg.ignores(rel))) {
-      return 'extraIgnore';
-    }
-    return null;
-  }
-
   function walk(dir) {
     scanStats.dirsVisited++;
     scanStats.currentPath = path.relative(absRoot, dir) || '.';
@@ -266,11 +355,7 @@ function scanRepository(repoPath, options = {}) {
     }
 
     if (entries.some((entry) => entry.isFile() && entry.name === '.gitignore')) {
-      try {
-        const ig = require('ignore')().add(fs.readFileSync(path.join(dir, '.gitignore'), 'utf-8'));
-        const dirRel = path.relative(absRoot, dir);
-        nestedGitignoreRules.push({ prefix: dirRel ? `${dirRel}${path.sep}` : '', ig });
-      } catch {}
+      addNestedGitignore(dir);
     }
 
     for (const entry of entries) {
@@ -305,43 +390,21 @@ function scanRepository(repoPath, options = {}) {
           }
         }
       } else if (entry.isFile()) {
-        if (!isCodeFile(fullPath)) {
+        const reason = fileSkipReason(fullPath, relativePath);
+        if (reason === 'unsupportedExt') {
           skipReport.unsupportedExt++;
           maybeReportScanProgress();
           // oxlint-disable-next-line no-continue
           continue;
         }
-        const ignored = ignoredBy(relativePath, false);
-        if (ignored) {
-          mark(ignored, path.extname(entry.name) || entry.name, relativePath);
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-        if (isSecretFilePath(relativePath)) {
-          mark('secret', entry.name, relativePath);
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-        if (SKIP_FILE_RE.test(relativePath.replace(/\\/g, '/'))) {
-          mark('lock', entry.name, relativePath);
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-        let stats;
-        try {
-          stats = fs.statSync(fullPath);
-        } catch {
+        if (reason === 'unreadable') {
           skipReport.unreadable++;
           // oxlint-disable-next-line no-continue
           continue;
         }
-        if (maxFileSize > 0 && stats.size > maxFileSize) {
-          mark('tooLarge', path.extname(entry.name) || entry.name, relativePath);
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-        if (isBinaryFile(fullPath)) {
-          mark('binary', path.extname(entry.name) || entry.name, relativePath);
+        if (reason) {
+          const key = reason === 'secret' || reason === 'lock' ? entry.name : path.extname(entry.name) || entry.name;
+          mark(reason, key, relativePath);
           // oxlint-disable-next-line no-continue
           continue;
         }
@@ -365,6 +428,7 @@ function scanRepository(repoPath, options = {}) {
 }
 
 module.exports = {
+  createFileFilter,
   isBinaryFile,
   isCodeFile,
   scanRepository,

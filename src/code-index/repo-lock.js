@@ -1,7 +1,9 @@
 const crypto = require('crypto'),
   os = require('os'),
+  { AsyncLocalStorage } = require('async_hooks'),
   { threadId } = require('worker_threads'),
-  localHolding = new Set(),
+  // Keys held by the current async call chain: allows re-entry without letting concurrent callers skip the lock.
+  heldKeys = new AsyncLocalStorage(),
   DEFAULT_LOCK_TIMEOUT_MS = 10 * 60 * 1000,
   LOCK_POLL_MS = 200;
 
@@ -10,10 +12,6 @@ const crypto = require('crypto'),
 // Look alive forever and stall every future index of that repo (#295).
 function makeHolderId() {
   return `${process.pid}:${threadId}:${crypto.randomBytes(4).toString('hex')}`;
-}
-
-function locksForCurrentThreadPrefix() {
-  return `${process.pid}:${threadId}:%`;
 }
 
 /**
@@ -102,22 +100,22 @@ function releaseSqliteLock(repoName, holderId) {
 
 /**
  * Serialize full/incremental index operations per repo across processes via SQLite.
- * Reentrant within the same process (nested full reindex -> indexRepository).
+ * Reentrant within the same async call chain (nested full reindex -> indexRepository);
+ * concurrent callers in the same process still wait for the lock.
  */
 async function withRepoIndexLock(repoName, fn) {
-  const key = String(repoName || '').toLowerCase();
-  if (localHolding.has(key)) {
+  const key = String(repoName || '').toLowerCase(),
+    held = heldKeys.getStore();
+  if (held?.has(key)) {
     return fn();
   }
 
   {
     const holderId = makeHolderId();
     await acquireSqliteLock(key, holderId);
-    localHolding.add(key);
     try {
-      return await fn();
+      return await heldKeys.run(new Set(held).add(key), fn);
     } finally {
-      localHolding.delete(key);
       try {
         releaseSqliteLock(key, holderId);
       } catch (e) {
@@ -133,5 +131,4 @@ module.exports = {
   tryAcquireSqliteLock,
   releaseSqliteLock,
   releaseLocksForHolderPrefix,
-  locksForCurrentThreadPrefix,
 };
