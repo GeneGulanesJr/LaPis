@@ -141,6 +141,11 @@ describe('src/memory-domain boundary', () => {
   it('trigramOverlap handles edge cases correctly', () => {
     // Both empty → perfect similarity (1.0)
     expect(trigramOverlap('', '')).toBe(1.0);
+    // No [a-z0-9] trigrams: only identical titles match (#379)
+    expect(trigramOverlap('数据库配置', '认证流程')).toBe(0.0);
+    expect(trigramOverlap('DB', 'UI')).toBe(0.0);
+    expect(trigramOverlap('数据库配置', '数据库配置')).toBe(1.0);
+    expect(trigramOverlap('ab', 'ab')).toBe(1.0);
     // One empty → zero similarity
     expect(trigramOverlap('abc', '')).toBe(0.0);
     expect(trigramOverlap('', 'abc')).toBe(0.0);

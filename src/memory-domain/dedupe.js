@@ -13,7 +13,8 @@ function trigramOverlap(a, b) {
     ta = trigrams(a),
     tb = trigrams(b);
   if (ta.size === 0 && tb.size === 0) {
-    return 1.0;
+    // No [a-z0-9] trigrams (CJK, emoji, very short): only identical titles count as a match (#379).
+    return a.trim().toLowerCase() === b.trim().toLowerCase() ? 1.0 : 0.0;
   }
   if (ta.size === 0 || tb.size === 0) {
     return 0.0;

@@ -143,31 +143,21 @@ describe('services/sessions', () => {
         runVacuum = vi.fn(() => ({ ok: true, steps: { vacuumed: true } })),
         result = sessionEnd(
           { sqlJson, sqlRun, jsonErrNoExit, trustRecovery, runCompactCheap, runVacuum },
-          { id: '10', memories: '5' },
+          { id: '11', memories: '5' },
         );
       expect(runCompactCheap).toHaveBeenCalled();
-      // Vacuum is gated by session count; with an unmocked count query it
-      // Returns undefined and vacuum is skipped (cheap path only).
+      // Vacuum is gated by session id; 11 is off the cadence (cheap path only).
       expect(runVacuum).not.toHaveBeenCalled();
       expect(result.compacted).toEqual({ ok: true, pruned: 3 });
     });
 
-    it('should run vacuum only when ended session count is a multiple of compact_every_n_sessions', () => {
+    it('should run vacuum only when the session id is a multiple of compact_every_n_sessions', () => {
       const sqlRun = vi.fn(),
         jsonErrNoExit = vi.fn((msg) => ({ error: msg })),
         trustRecovery = vi.fn(() => ({ ok: true })),
         runCompactCheap = vi.fn(() => ({ ok: true, startedAt: 't', steps: { expiredPurged: true } })),
         runVacuum = vi.fn(() => ({ ok: true, steps: { vacuumed: true } })),
-        // Vacuum is gated by per-project session count (same query as sessionStart).
-        sqlJson = vi.fn((query) => {
-          if (/SELECT project FROM session_log WHERE id = \?/i.test(query)) {
-            return [{ project: 'test-project' }];
-          }
-          if (/COUNT\(\*\) as cnt FROM session_log WHERE project = \?$/i.test(query)) {
-            return [{ cnt: 10 }];
-          }
-          return [];
-        }),
+        sqlJson = vi.fn(() => []),
         result = sessionEnd(
           { sqlJson, sqlRun, jsonErrNoExit, trustRecovery, runCompactCheap, runVacuum },
           { id: '10', memories: '5' },
@@ -177,25 +167,17 @@ describe('services/sessions', () => {
       expect(result.compacted.steps.vacuumed).toBe(true);
     });
 
-    it('should skip vacuum when ended session count is not on the gated cadence', () => {
+    it('should skip vacuum off the cadence even when the capped row count is a multiple (#389)', () => {
       const sqlRun = vi.fn(),
         jsonErrNoExit = vi.fn((msg) => ({ error: msg })),
         trustRecovery = vi.fn(() => ({ ok: true })),
         runCompactCheap = vi.fn(() => ({ ok: true, steps: { expiredPurged: true } })),
         runVacuum = vi.fn(() => ({ ok: true })),
-        // 7 sessions → not divisible by 5 → vacuum NOT due.
-        sqlJson = vi.fn((query) => {
-          if (/SELECT project FROM session_log WHERE id = \?/i.test(query)) {
-            return [{ project: 'test-project' }];
-          }
-          if (/COUNT\(\*\) as cnt FROM session_log WHERE project = \?$/i.test(query)) {
-            return [{ cnt: 7 }];
-          }
-          return [];
-        }),
+        // session_log is capped at 10 rows per project, so the count stays at 10.
+        sqlJson = vi.fn((query) => (/COUNT\(\*\)/i.test(query) ? [{ cnt: 10 }] : [])),
         result = sessionEnd(
           { sqlJson, sqlRun, jsonErrNoExit, trustRecovery, runCompactCheap, runVacuum },
-          { id: '10', memories: '5' },
+          { id: '12', memories: '5' },
         );
       expect(runCompactCheap).toHaveBeenCalled();
       expect(runVacuum).not.toHaveBeenCalled();

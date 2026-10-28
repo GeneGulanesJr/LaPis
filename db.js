@@ -179,6 +179,7 @@ class MemoryError extends Error {
         { to: 25, run: runMigrationV25 },
         { to: 26, run: runMigrationV26 },
         { to: 27, run: runMigrationV27 },
+        { to: 28, run: runMigrationV28 },
       ],
       LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
 
@@ -1155,6 +1156,20 @@ class MemoryError extends Error {
         });
       } catch (e) {
         errors.push(`V27: ${e.message}`);
+      }
+      return errors;
+    }
+
+    function runMigrationV28() {
+      const errors = [];
+      try {
+        withTransaction(() => {
+          // Repair observations_fts left inconsistent by the old soft-delete 'delete' command (#378).
+          sqlRaw("INSERT INTO observations_fts(observations_fts) VALUES('rebuild')");
+          sqlRaw('PRAGMA user_version = 28');
+        });
+      } catch (e) {
+        errors.push(`V28: ${e.message}`);
       }
       return errors;
     }

@@ -48,7 +48,7 @@ describe('review fixes', () => {
           hasImportantOutput = compressionCols.some((c) => c.name === 'important_output'),
           linkCols = reopened.prepare('PRAGMA table_info(symbol_links)').all(),
           hasSymbolPath = linkCols.some((c) => c.name === 'symbol_path');
-        expect(version).toBe(27);
+        expect(version).toBe(28);
         expect(table).toBeTruthy();
         expect(sourceModuleCol).toBe(true);
         expect(hasTotalFilesChanged).toBe(true);
