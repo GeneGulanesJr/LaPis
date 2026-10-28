@@ -1,20 +1,14 @@
 'use strict';
 
 const path = require('path'),
-  { AUDIT_DIFF: CFG } = require('../../constants');
-
-function _requireNativeDb(db) {
-  if (!db || !db.prepare) {
-    return { error: 'Native database connection required' };
-  }
-  return null;
-}
+  { AUDIT_DIFF: CFG } = require('../../constants'),
+  { requireNativeDb } = require('../../utils');
 
 /**
  * Audit changed files for violations.
  */
 function auditDiff(db, repoId, opts = {}) {
-  const guard = _requireNativeDb(db),
+  const guard = requireNativeDb(db, 'audit-diff'),
     { files = [], task = '' } = !guard ? opts : undefined,
     violations = !guard && !(files.length === 0) ? [] : undefined,
     weights = !guard && !(files.length === 0) ? CFG.RISK_WEIGHTS : undefined;

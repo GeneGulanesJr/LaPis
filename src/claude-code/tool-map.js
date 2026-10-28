@@ -84,12 +84,6 @@ function mcpToolName(toolName) {
   return null;
 }
 
-/** True for any LaPis memory-* MCP tool (memory-save, memory-search, …). */
-function isMemoryMcpTool(toolName) {
-  const bare = mcpToolName(toolName);
-  return bare !== null && bare.startsWith('memory-');
-}
-
 const EDIT_TOOLS = new Set(['Write', 'MultiEdit', 'Edit']);
 
 /**
@@ -148,7 +142,6 @@ function postToolRole(toolName) {
 module.exports = {
   MCP_PREFIX,
   mcpToolName,
-  isMemoryMcpTool,
   preToolRole,
   postToolRole,
   EDIT_TOOLS,

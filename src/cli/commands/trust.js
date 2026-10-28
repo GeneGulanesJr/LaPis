@@ -1,4 +1,4 @@
-const symCmd = require('../../../commands/symbols'),
+const symCmd = require('../../trust-sync'),
   USAGE = {
     'link-symbol': '--memory-id ID --repo X [--file PATH] [--trust N]',
     'auto-link': '--project X',

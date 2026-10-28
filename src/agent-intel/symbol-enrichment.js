@@ -1,13 +1,7 @@
 'use strict';
 
-const { SYMBOL_ENRICHMENT: CFG } = require('../../constants');
-
-function _requireNativeDb(db) {
-  if (!db || !db.prepare) {
-    return { error: 'Native database connection required' };
-  }
-  return null;
-}
+const { SYMBOL_ENRICHMENT: CFG } = require('../../constants'),
+  { requireNativeDb } = require('../../utils');
 
 /**
  * Extract intent from symbol data using heuristics.
@@ -127,7 +121,7 @@ function _buildBehaviorSummary(symbol) {
  * Enrich all symbols in a repo with metadata.
  */
 function enrichSymbols(db, repoId, _opts = {}) {
-  const guard = _requireNativeDb(db);
+  const guard = requireNativeDb(db, 'symbol enrichment');
   if (guard) {
     return guard;
   }
@@ -178,30 +172,9 @@ function getSymbolMeta(db, symbolId) {
   return db.prepare(`SELECT * FROM symbol_metadata WHERE symbol_id = ?`).get(symbolId) || null;
 }
 
-/**
- * Get enriched symbols for a file (used by preflight).
- */
-function getFileEnrichment(db, repoId, filePath) {
-  const symbols = db
-    .prepare(
-      `SELECT s.id, s.name, s.kind, s.start_line, s.docstring,
-              sm.intent, sm.constraints, sm.behavior_summary
-       FROM code_symbols s
-       LEFT JOIN symbol_metadata sm ON sm.symbol_id = s.id
-       WHERE s.repo_id = ? AND s.file_path = ?`,
-    )
-    .all(repoId, filePath);
-
-  return symbols.map((sym) => ({
-    ...sym,
-    constraints: sym.constraints ? JSON.parse(sym.constraints) : [],
-  }));
-}
-
 module.exports = {
   enrichSymbols,
   getSymbolMeta,
-  getFileEnrichment,
   extractIntent,
   extractConstraints,
 };

@@ -1,21 +1,15 @@
 'use strict';
 
 const { DUPLICATE_DETECTION: CFG } = require('../../constants'),
-  { fingerprintSymbol, jaccardSimilarity, lshBands } = require('../code-analysis/fingerprint');
-
-function _requireNativeDb(db) {
-  if (!db || !db.prepare) {
-    return { error: 'Native database connection required' };
-  }
-  return null;
-}
+  { fingerprintSymbol, jaccardSimilarity, lshBands } = require('../code-analysis/fingerprint'),
+  { requireNativeDb } = require('../../utils');
 
 /**
  * Find duplicate code in a repo.
  * Fingerprints all symbols, clusters by Jaccard similarity.
  */
 function findDupes(db, repoId, opts = {}) {
-  const guard = _requireNativeDb(db);
+  const guard = requireNativeDb(db, 'dupes');
   if (guard) {
     return guard;
   }

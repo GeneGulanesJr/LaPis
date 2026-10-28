@@ -1,7 +1,7 @@
 const { createRepositories } = require('../src/platform/storage/repositories'),
   { createStorageContext } = require('../src/platform/storage'),
   obsCmd = require('../commands/observation'),
-  symCmd = require('../commands/symbols');
+  symCmd = require('../src/trust-sync');
 
 describe('platform storage repositories', () => {
   function mockDeps() {
