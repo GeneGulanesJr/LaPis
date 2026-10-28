@@ -52,6 +52,10 @@ describe('code-analysis audit fixes', () => {
         'module.exports = { runB, f1 };\n',
       'lib/c.js': 'function useLater() {\n  return later();\n}\nmodule.exports = { useLater };\n',
       'lib/d.js': 'function unrelated() {\n  return externalLib(2);\n}\nmodule.exports = { unrelated };\n',
+      'package.json': JSON.stringify({ name: 'fx', bin: { fx: './tools/run.js' } }),
+      'tools/run.js': 'function runTool() {\n  return 1;\n}\nrunTool();\n',
+      'lib/café.js':
+        'function cafeFn() {\n  if (globalThis.y) {\n    return 1;\n  }\n  return 2;\n}\nmodule.exports = { cafeFn };\n',
     });
     cli('index-repo', '--path', dir, '--name', name);
   }, 120000);
@@ -69,12 +73,20 @@ describe('code-analysis audit fixes', () => {
     expect(data.dead_symbols.find((s) => s.name === 'runA')?.signals || []).not.toContain('unreachable_file');
   });
 
+  it('dead-code treats package.json bin targets as entry files', () => {
+    const r = cli('dead-code', '--repo', name),
+      deadPaths = (r.data || r).dead_files.map((f) => f.path.replace(/\\/g, '/'));
+    expect(deadPaths.some((p) => p.endsWith('tools/run.js'))).toBe(false);
+  });
+
   it('churn writes per-file rows so hotspots is not empty (#13)', () => {
     cli('churn', '--repo', name, '--refresh');
     const r = cli('hotspots', '--repo', name),
       data = r.data || r;
     expect(data.hotspots.length).toBeGreaterThan(0);
     expect(data.hotspots.some((h) => h.name === 'runB')).toBe(true);
+    // Non-ASCII file names must not come back git-quoted ("lib/caf\303\251.js").
+    expect(data.hotspots.some((h) => h.name === 'cafeFn')).toBe(true);
   });
 
   it('blast-radius honours --depth (bonus)', () => {
@@ -159,5 +171,119 @@ describe('complexity scoring is shared by full and incremental builds (#19)', ()
     expect(full).toHaveLength(1);
     expect(rows()).toEqual(full);
     db.close();
+  });
+});
+
+describe('dependency cycles', () => {
+  const { getDependencyCycles } = require('../src/code-analysis/import-graph-impl');
+
+  function graphDb(edges) {
+    const db = new Database(':memory:');
+    db.exec(fs.readFileSync(path.resolve(__dirname, '..', 'schema.sql'), 'utf8'));
+    const repoId = db.prepare("INSERT INTO code_repos (name, path) VALUES ('cy', '/cy')").run().lastInsertRowid,
+      ids = new Map(),
+      fileId = (p) => {
+        if (!ids.has(p)) {
+          ids.set(
+            p,
+            db
+              .prepare(
+                "INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, 'javascript', '', 'h')",
+              )
+              .run(repoId, p).lastInsertRowid,
+          );
+        }
+        return ids.get(p);
+      },
+      ins = db.prepare(
+        'INSERT INTO code_imports (repo_id, source_file_id, target_module, target_file_id) VALUES (?, ?, ?, ?)',
+      );
+    db.transaction(() => {
+      for (const [a, b] of edges) {
+        ins.run(repoId, fileId(a), b, fileId(b));
+      }
+    })();
+    return { db, repoId };
+  }
+
+  it('finds separate cycles and ignores acyclic files', () => {
+    const { db, repoId } = graphDb([
+        ['a', 'b'],
+        ['b', 'a'],
+        ['c', 'd'],
+        ['d', 'e'],
+        ['e', 'c'],
+        ['f', 'a'],
+      ]),
+      r = getDependencyCycles(db, repoId);
+    expect(r.cycles.map((c) => c.files.slice().sort())).toEqual([
+      ['c', 'd', 'e'],
+      ['a', 'b'],
+    ]);
+    expect(r.total_circular_files).toBe(5);
+    db.close();
+  });
+
+  it('handles a 20k-file import cycle without overflowing the stack', () => {
+    const N = 20000,
+      edges = Array.from({ length: N }, (_, i) => [`f${i}`, `f${(i + 1) % N}`]),
+      { db, repoId } = graphDb(edges),
+      r = getDependencyCycles(db, repoId);
+    expect(r.cycles).toHaveLength(1);
+    expect(r.cycles[0].size).toBe(N);
+    db.close();
+  }, 60000);
+});
+
+describe('pr-risk batch blast radius counts transitive callers', () => {
+  it('scores a 3-deep caller chain, not just the direct caller (>20 changed symbols)', () => {
+    const { getPrRiskProfile } = require('../src/code-analysis/risk-impl'),
+      repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-risk-'));
+    fs.writeFileSync(path.join(repoDir, 'a.js'), '1\n');
+    git(repoDir, 'init', '-q');
+    git(repoDir, 'add', '.');
+    git(repoDir, 'commit', '-q', '-m', 'one');
+    fs.writeFileSync(path.join(repoDir, 'a.js'), '2\n');
+    git(repoDir, 'commit', '-q', '-am', 'two');
+
+    const db = new Database(':memory:');
+    db.exec(fs.readFileSync(path.resolve(__dirname, '..', 'schema.sql'), 'utf8'));
+    const repoId = db.prepare("INSERT INTO code_repos (name, path) VALUES ('risk', ?)").run(repoDir).lastInsertRowid,
+      file = (p) =>
+        db
+          .prepare(
+            "INSERT INTO code_files (repo_id, path, language, content, content_hash) VALUES (?, ?, 'javascript', '', 'h')",
+          )
+          .run(repoId, p).lastInsertRowid,
+      aPath = path.join(repoDir, 'a.js'),
+      bPath = path.join(repoDir, 'b.js'),
+      aId = file(aPath),
+      bId = file(bPath),
+      sym = (fileId, filePath, name) =>
+        db
+          .prepare(
+            `INSERT INTO code_symbols (repo_id, file_id, name, kind, file_path, start_line, end_line, start_byte, end_byte, language, qualified_name)
+             VALUES (?, ?, ?, 'function', ?, 1, 1, 0, 1, 'javascript', ?)`,
+          )
+          .run(repoId, fileId, name, filePath, name).lastInsertRowid,
+      call = (caller, callee, name) =>
+        db
+          .prepare(
+            'INSERT INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id) VALUES (?, ?, ?, ?)',
+          )
+          .run(repoId, caller, name, callee);
+    const changed = Array.from({ length: 21 }, (_, i) => sym(aId, aPath, `s${i}`)),
+      c1 = sym(bId, bPath, 'c1'),
+      c2 = sym(bId, bPath, 'c2'),
+      c3 = sym(bId, bPath, 'c3');
+    call(c1, changed[0], 's0');
+    call(c2, c1, 'c1');
+    call(c3, c2, 'c2');
+
+    const r = getPrRiskProfile(db, repoId, { base: 'HEAD~1', branch: 'HEAD' });
+    expect(r.changed_symbols).toBe(21);
+    expect(r.signals.blast_radius).toBe(0.06); // 3 callers / BLAST_RADIUS_NORMALIZER 50
+    db.close();
+    fs.rmSync(repoDir, { recursive: true, force: true });
   });
 });

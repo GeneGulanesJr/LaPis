@@ -551,32 +551,48 @@ function getDependencyCycles(db, repoId) {
       cycles: cycles.sort((a, b) => b.size - a.size),
       total_circular_files: cycles.reduce((sum, c) => sum + c.size, 0),
     };
-    function strongconnect(v) {
-      indices.set(v, index);
-      lowlink.set(v, index);
-      index++;
-      stack.push(v);
-      onStack.add(v);
-
-      for (const w of adj.get(v) || []) {
-        if (!indices.has(w)) {
-          strongconnect(w);
-          lowlink.set(v, Math.min(lowlink.get(v), lowlink.get(w)));
-        } else if (onStack.has(w)) {
-          lowlink.set(v, Math.min(lowlink.get(v), indices.get(w)));
-        }
-      }
-
-      if (lowlink.get(v) === indices.get(v)) {
-        const scc = [];
-        let w;
-        do {
-          w = stack.pop();
-          onStack.delete(w);
-          scc.push(w);
-        } while (w !== v);
-        if (scc.length > 1) {
-          sccs.push(scc);
+    // Iterative Tarjan: an explicit frame stack instead of recursion, so a
+    // Long import chain (thousands of files) can't overflow the JS call stack.
+    function strongconnect(root) {
+      const frames = [],
+        visit = (v) => {
+          indices.set(v, index);
+          lowlink.set(v, index);
+          index++;
+          stack.push(v);
+          onStack.add(v);
+          frames.push({ v, next: 0 });
+        };
+      visit(root);
+      while (frames.length > 0) {
+        const frame = frames[frames.length - 1],
+          { v } = frame,
+          neighbors = adj.get(v) || [];
+        if (frame.next < neighbors.length) {
+          const w = neighbors[frame.next++];
+          if (!indices.has(w)) {
+            visit(w);
+          } else if (onStack.has(w)) {
+            lowlink.set(v, Math.min(lowlink.get(v), indices.get(w)));
+          }
+        } else {
+          frames.pop();
+          if (frames.length > 0) {
+            const parent = frames[frames.length - 1].v;
+            lowlink.set(parent, Math.min(lowlink.get(parent), lowlink.get(v)));
+          }
+          if (lowlink.get(v) === indices.get(v)) {
+            const scc = [];
+            let w;
+            do {
+              w = stack.pop();
+              onStack.delete(w);
+              scc.push(w);
+            } while (w !== v);
+            if (scc.length > 1) {
+              sccs.push(scc);
+            }
+          }
         }
       }
     }
