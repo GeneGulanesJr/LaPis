@@ -1,6 +1,6 @@
-const searchService = require('../services/search'),
-  contextService = require('../services/context'),
-  dedupService = require('../services/dedup'),
+const searchService = require('../src/memory-domain/search'),
+  contextService = require('../src/memory-domain/context'),
+  dedupService = require('../src/memory-domain/dedupe'),
   obsDA = require('../data-access/observations');
 
 function search(deps, args) {
