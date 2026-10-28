@@ -62,7 +62,7 @@ class MemoryError extends Error {
         // V3: code indexing
         [
           'code_repos',
-          "CREATE TABLE IF NOT EXISTS code_repos (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, path TEXT NOT NULL UNIQUE, file_count INTEGER DEFAULT 0, symbol_count INTEGER DEFAULT 0, indexed_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), head_commit TEXT, current_branch TEXT, base_head TEXT)",
+          "CREATE TABLE IF NOT EXISTS code_repos (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, path TEXT NOT NULL UNIQUE, file_count INTEGER DEFAULT 0, symbol_count INTEGER DEFAULT 0, indexed_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), head_commit TEXT, current_branch TEXT, base_head TEXT, trust_head TEXT)",
         ],
         [
           'code_files',
@@ -180,6 +180,7 @@ class MemoryError extends Error {
         { to: 26, run: runMigrationV26 },
         { to: 27, run: runMigrationV27 },
         { to: 28, run: runMigrationV28 },
+        { to: 29, run: runMigrationV29 },
       ],
       LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
 
@@ -1170,6 +1171,28 @@ class MemoryError extends Error {
         });
       } catch (e) {
         errors.push(`V28: ${e.message}`);
+      }
+      return errors;
+    }
+
+    function runMigrationV29() {
+      const errors = [];
+      try {
+        withTransaction(() => {
+          // Trust-sync gets its own baseline so it stops sharing head_commit with the indexer (#386).
+          try {
+            sqlRaw('ALTER TABLE code_repos ADD COLUMN trust_head TEXT');
+          } catch (e) {
+            if (!/duplicate column/i.test(e.message)) {
+              throw e;
+            }
+          }
+          // Seed from the old shared baseline so the first sync after upgrade diffs from where it left off.
+          sqlRaw('UPDATE code_repos SET trust_head = head_commit WHERE trust_head IS NULL');
+          sqlRaw('PRAGMA user_version = 29');
+        });
+      } catch (e) {
+        errors.push(`V29: ${e.message}`);
       }
       return errors;
     }

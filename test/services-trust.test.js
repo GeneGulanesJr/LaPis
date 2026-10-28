@@ -19,7 +19,7 @@ describe('services/trust: syncCodeTrust', () => {
     const headCommit = 'abc123',
       sqlJson = vi.fn((query, _params) => {
         if (query.includes('code_repos')) {
-          return [{ id: 1, path: '/tmp/repo', head_commit: headCommit }];
+          return [{ id: 1, path: '/tmp/repo', trust_head: headCommit }];
         }
         return [];
       }),
@@ -42,7 +42,7 @@ describe('services/trust: syncCodeTrust', () => {
       _newHead = 'def456',
       sqlJson = vi.fn((query, _params) => {
         if (query.includes('code_repos')) {
-          return [{ id: 1, path: '/tmp/repo', head_commit: headCommit }];
+          return [{ id: 1, path: '/tmp/repo', trust_head: headCommit }];
         }
         if (query.includes('code_symbols')) {
           return [{ name: 'myFunc', qualified_name: 'myFunc' }];

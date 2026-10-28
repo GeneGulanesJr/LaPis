@@ -209,7 +209,8 @@ CREATE TABLE IF NOT EXISTS code_repos (
   updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
   head_commit   TEXT,
   current_branch TEXT,
-  base_head     TEXT
+  base_head     TEXT,
+  trust_head    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS index_jobs (

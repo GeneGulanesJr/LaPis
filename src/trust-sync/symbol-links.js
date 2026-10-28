@@ -163,11 +163,11 @@ function syncCodeTrust(deps, args) {
     return detected;
   }
 
-  // No changed symbols in the index — update head_commit and return
+  // No changed symbols in the index — update trust_head and return
   if (detected.changedSet.size === 0) {
     const tx = deps.withTransaction || require('../../db').withTransaction;
     tx(() => {
-      deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE name = ?', [detected.new_head, repo]);
+      deps.sqlRun('UPDATE code_repos SET trust_head = ? WHERE name = ?', [detected.new_head, repo]);
     });
     return {
       ok: true,
@@ -196,7 +196,7 @@ function syncCodeTrust(deps, args) {
           delta: operation.delta,
         });
       }
-      deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE name = ?', [detected.new_head, repo]);
+      deps.sqlRun('UPDATE code_repos SET trust_head = ? WHERE name = ?', [detected.new_head, repo]);
     },
     tx = deps.withTransaction || require('../../db').withTransaction,
     result = (() => {
