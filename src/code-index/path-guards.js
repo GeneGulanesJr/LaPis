@@ -44,7 +44,9 @@ function resolveRepoScopedPath(repoPath, filePath, rejections) {
     }
     return null;
   }
-  return resolved;
+  // Map back onto the lexical root: the scanner stores paths under path.resolve(repoPath), so a repo reached
+  // Through a symlink/junction must not get a second, real-path row for the same file.
+  return path.join(path.resolve(repoPath), path.relative(absRoot, resolved));
 }
 
 /**

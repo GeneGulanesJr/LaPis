@@ -326,7 +326,7 @@ describe('buildReferenceEdges', () => {
       Number(binding.lastInsertRowid),
       Number(typeSym.lastInsertRowid),
       Number(fB.lastInsertRowid),
-      'resolved',
+      'resolved_internal',
       2,
       1.0,
     );
@@ -377,7 +377,7 @@ describe('buildReferenceEdges', () => {
       Number(binding.lastInsertRowid),
       Number(fnSym.lastInsertRowid),
       Number(fB.lastInsertRowid),
-      'resolved',
+      'resolved_internal',
       2,
       1.0,
     );

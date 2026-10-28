@@ -330,11 +330,11 @@ function runReexportResolution(db, repoId, passNum) {
     // ── Re-export chains ─────────────────────────────────
     const reexportBindings = db
         .prepare(`
-      SELECT fsb.id, fsb.file_id, fsb.name, fsb.kind, fsb.source_file_id, fsb.source_name
+      SELECT fsb.id, fsb.file_id, fsb.name, fsb.kind, COALESCE(fsb.source_file_id, sr.resolved_file_id) AS source_file_id, fsb.source_name
       FROM file_scope_bindings fsb
       JOIN scope_resolution sr ON sr.binding_id = fsb.id
-      WHERE fsb.repo_id = ? AND fsb.kind = 're_export' AND sr.status = 'unresolved'
-        AND fsb.source_file_id IS NOT NULL
+      WHERE fsb.repo_id = ? AND fsb.kind IN ('re_export', 'named_import') AND sr.status = 'unresolved'
+        AND COALESCE(fsb.source_file_id, sr.resolved_file_id) IS NOT NULL
     `)
         .all(repoId),
       sourceBindingStmt = db.prepare(`
@@ -361,11 +361,11 @@ function runReexportResolution(db, repoId, passNum) {
     // ── Wildcard imports (Python) ────────────────────────
     const wildcardBindings = db
         .prepare(`
-      SELECT fsb.id, fsb.file_id, fsb.name, fsb.source_file_id, fsb.source_module
+      SELECT fsb.id, fsb.file_id, fsb.name, COALESCE(fsb.source_file_id, sr.resolved_file_id) AS source_file_id, fsb.source_module
       FROM file_scope_bindings fsb
       JOIN scope_resolution sr ON sr.binding_id = fsb.id
       WHERE fsb.repo_id = ? AND fsb.kind = 'wildcard_import'
-        AND sr.status = 'unresolved' AND fsb.source_file_id IS NOT NULL
+        AND sr.status = 'unresolved' AND COALESCE(fsb.source_file_id, sr.resolved_file_id) IS NOT NULL
     `)
         .all(repoId),
       insertBinding = db.prepare(
@@ -422,11 +422,11 @@ function runReexportResolution(db, repoId, passNum) {
 
         return db
           .prepare(`
-      SELECT fsb.id, fsb.file_id, fsb.name, fsb.source_file_id, fsb.source_module
+      SELECT fsb.id, fsb.file_id, fsb.name, COALESCE(fsb.source_file_id, sr.resolved_file_id) AS source_file_id, fsb.source_module
       FROM file_scope_bindings fsb
       JOIN scope_resolution sr ON sr.binding_id = fsb.id
       WHERE fsb.repo_id = ? AND fsb.kind = 'namespace_import'
-        AND sr.status = 'unresolved' AND fsb.source_file_id IS NOT NULL
+        AND sr.status = 'unresolved' AND COALESCE(fsb.source_file_id, sr.resolved_file_id) IS NOT NULL
     `)
           .all(repoId);
       })();
@@ -449,6 +449,7 @@ function runReexportResolution(db, repoId, passNum) {
             'external_file',
             binding.source_file_id,
             sym.name,
+            binding.source_module || null,
             ...getBindingLineRange(db, binding.id),
             0,
             passNum,
@@ -536,6 +537,11 @@ function resolveScopeBindingsForFiles(db, repoId, changedFileIds, deletedFileIds
           ).run(fileId);
         }
 
+        // Drop pass-3 synthetic bindings (namespace/wildcard expansions); pass 3 below recreates them
+        for (const fileId of [...changedFileIds, ...importerFileIds]) {
+          db.prepare('DELETE FROM file_scope_bindings WHERE file_id = ? AND first_seen_pass > 0').run(fileId);
+        }
+
         // Re-resolve for all affected files
 
         return [...new Set([...changedFileIds, ...importerFileIds])];
@@ -546,7 +552,7 @@ function resolveScopeBindingsForFiles(db, repoId, changedFileIds, deletedFileIds
           const bindings = db
             .prepare(`
           SELECT fsb.id, fsb.file_id, fsb.name, fsb.kind, fsb.origin, fsb.source_file_id,
-                 fsb.source_name, fsb.line_start, fsb.line_end, fsb.scope_depth
+                 fsb.source_name, fsb.source_module, fsb.line_start, fsb.line_end, fsb.scope_depth
           FROM file_scope_bindings fsb
           WHERE fsb.repo_id = ? AND fsb.file_id = ? AND fsb.id NOT IN (SELECT binding_id FROM scope_resolution)
         `)

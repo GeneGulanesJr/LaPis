@@ -184,9 +184,9 @@ function buildReferenceEdges(db, repoId) {
     FROM scope_resolution sr
     JOIN file_scope_bindings fsb ON fsb.id = sr.binding_id
     JOIN code_symbols cs ON cs.id = sr.resolved_symbol_id
-    WHERE fsb.repo_id = ? AND sr.status = 'resolved'
+    WHERE fsb.repo_id = ? AND sr.status = 'resolved_internal'
       AND cs.kind NOT IN ('function', 'method')
-      AND sr.resolved_symbol_id IS NOT NULL
+      AND sr.resolved_symbol_id IS NOT NULL AND cs.file_id != fsb.file_id
   `)
       .all(repoId),
     insertStmt = db.prepare(

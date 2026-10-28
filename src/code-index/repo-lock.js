@@ -19,7 +19,8 @@ function makeHolderId() {
  * queue after forcibly terminating a worker whose lock release never ran.
  */
 function releaseLocksForHolderPrefix(sqlRun, prefix) {
-  sqlRun('DELETE FROM repo_index_locks WHERE holder_id LIKE ?', [`${prefix}%`]);
+  // The trailing separator keeps thread 1 from matching threads 10-19.
+  sqlRun('DELETE FROM repo_index_locks WHERE holder_id LIKE ?', [`${prefix}:%`]);
 }
 
 function sleep(ms) {
