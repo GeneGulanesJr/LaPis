@@ -480,6 +480,32 @@ describe('memory tool renderer safety', () => {
     expect(result.reason).toContain('memory-code search');
   });
 
+  it('matches indexed repos stored with backslash paths on read (#383)', async () => {
+    const memStreaming = vi.fn(),
+      toolCall = captureHook(
+        registerToolGuardrails,
+        {
+          state: {
+            currentProject: 'app',
+            lastMemoryToolCall: 0,
+            callsSinceLastMemory: 0,
+            exploredFiles: new Set(['parse-code.js']),
+          },
+          // Windows stores repo paths with backslashes
+          getKnownRepos: vi.fn().mockResolvedValue([{ name: 'app', path: process.cwd().replace(/\//g, '\\') }]),
+          isCodeFile: vi.fn(() => true),
+          memStreaming,
+          invalidateRepoCache: vi.fn(),
+        },
+        'tool_call',
+      ),
+      result = await toolCall({ toolName: 'read', input: { path: 'parse-code.js' } }, { ui: { notify: vi.fn() } });
+
+    // Matched the indexed repo and the file was already outlined: allowed, no re-index.
+    expect(result).toBeUndefined();
+    expect(memStreaming).not.toHaveBeenCalled();
+  });
+
   it('allows grep when it only filters another command output', async () => {
     const toolCall = captureHook(
         registerToolGuardrails,

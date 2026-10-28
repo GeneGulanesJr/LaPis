@@ -9,7 +9,7 @@ import {
   CONFIG_FILENAMES,
   CODE_PATH_HINT_RE,
 } from './guardrail-utils';
-import { getKnownRepos, invalidateRepoCache } from '../host/project-detector';
+import { findRepoForFile, getKnownRepos, invalidateRepoCache } from '../host/project-detector';
 import { memStreaming } from '../host/memory-client';
 import path from 'node:path';
 
@@ -181,12 +181,9 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
         return;
       }
 
+      // findRepoForFile normalizes separators, so Windows backslash paths match (#383).
       const repos = await deps.getKnownRepos(),
-        matchedRepo = repos.find(
-          (r) =>
-            absPath.toLowerCase().startsWith(`${r.path.toLowerCase()}/`) ||
-            absPath.toLowerCase() === r.path.toLowerCase(),
-        );
+        matchedRepo = findRepoForFile(absPath, repos);
 
       if (!matchedRepo) {
         // Prefer cwd (project root) to match the bash guardrail behavior.
