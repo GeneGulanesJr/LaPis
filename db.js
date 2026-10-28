@@ -42,7 +42,8 @@ class MemoryError extends Error {
 
   /**
    * Retry `fn` on SQLITE_BUSY with exponential backoff (100 * 2^attempt ms).
-   * Max attempts come from `config.busy_retry_max` (default 5).
+   * Max attempts come from `config.busy_retry_max` (default 5). No retry inside a
+   * transaction, and none once `busy_timeout_ms` has already been spent waiting.
    * @param {Function} fn no-arg work function
    * @param {string} [label] used only in the retry warning log
    * @returns {*} the return value of `fn`
@@ -1422,14 +1423,23 @@ class MemoryError extends Error {
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
     }
     function retryOnBusy(fn, label) {
-      const maxRetries = safeInt(getConfig().busy_retry_max, 5);
+      const cfg = getConfig(),
+        maxRetries = safeInt(cfg.busy_retry_max, 5),
+        // busy_timeout already waits inside SQLite; once it has been spent, more
+        // retries only multiply the stall (6x busy_timeout), so stop at that point.
+        // With busy_timeout = 0 the backoff below is the only wait (~3s), kept as-is.
+        busyMs = safeInt(cfg.busy_timeout_ms, 30000),
+        start = Date.now(),
+        // Inside a transaction a BUSY (e.g. SQLITE_BUSY_SNAPSHOT) is tied to the
+        // transaction's snapshot; re-running the statement can never succeed.
+        inTx = Boolean(_db && _db.inTransaction);
       let lastError;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           return fn();
         } catch (e) {
           lastError = e;
-          if (!isBusyError(e) || attempt >= maxRetries) {
+          if (!isBusyError(e) || attempt >= maxRetries || inTx || (busyMs > 0 && Date.now() - start >= busyMs)) {
             break;
           }
           const delay = 100 * 2 ** attempt;
@@ -1504,9 +1514,12 @@ class MemoryError extends Error {
         ensureDb();
       }
       if (typeof _db.transaction === 'function') {
-        return _db.transaction(fn)();
+        // IMMEDIATE takes the write lock up front so busy_timeout waits for it; a
+        // deferred read-then-write fails with SQLITE_BUSY_SNAPSHOT in WAL mode if
+        // another connection commits in between. Nested calls still use SAVEPOINTs.
+        return _db.transaction(fn).immediate();
       }
-      _db.exec('BEGIN');
+      _db.exec('BEGIN IMMEDIATE');
       try {
         const result = fn();
         _db.exec('COMMIT');
