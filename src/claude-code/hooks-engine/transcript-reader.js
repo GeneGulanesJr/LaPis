@@ -40,6 +40,8 @@ function parseTranscriptLine(line) {
   return obj;
 }
 
+const NON_PROMPT_PREFIX = /^<(bash-|command-|local-command-|task-notification|system-reminder)/;
+
 /**
  * Reduce a parsed entry into the transcript summary accumulator. Mutates acc.
  */
@@ -53,8 +55,13 @@ function classifyEntry(entry, acc) {
   }
 
   if (role === 'user') {
+    // Meta entries, slash-command tags, `! cmd` shell output and injected
+    // notifications are user-role but not prompts; they can carry secrets.
+    if (entry.isMeta) {
+      return;
+    }
     const text = extractMessageText(message);
-    if (text && text.trim()) {
+    if (text && text.trim() && !NON_PROMPT_PREFIX.test(text.trim())) {
       acc.userMessages.push({ message });
     }
     return;

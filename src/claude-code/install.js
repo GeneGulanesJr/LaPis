@@ -170,10 +170,23 @@ function isLapisHookHandler(handler) {
   return i !== -1 && handler.args[i + 1] === 'hook' && typeof handler.args[i + 2] === 'string';
 }
 
-/** Does this path/name look like a LaPis executable or entry script? */
+// Exact package.json "bin" names plus their npm shim variants — a prefix match
+// would claim unrelated servers like `lapis-dashboard` on uninstall.
+const LAPIS_BIN_NAMES = new Set([
+  'memory-store.js',
+  ...['lapis', 'lapis-cc', 'lapis-mcp', 'memory-store'].flatMap((n) => [n, `${n}.cmd`, `${n}.ps1`]),
+]);
+
+/** Is this path/name a LaPis executable or entry script? */
 function isLapisBinName(value) {
-  const base = path.basename(String(value || '')).toLowerCase();
-  return base.startsWith('lapis') || base.startsWith('memory-store') || base === 'cli.js';
+  const p = String(value || ''),
+    base = path.basename(p).toLowerCase();
+  if (base === 'cli.js') {
+    // `cli.js` is a generic name: only LaPis's own (install always writes it
+    // absolute) sits next to memory-store.js.
+    return path.isAbsolute(p) && fs.existsSync(path.join(path.dirname(p), 'memory-store.js'));
+  }
+  return LAPIS_BIN_NAMES.has(base);
 }
 
 /**
@@ -405,8 +418,15 @@ function readJson(filePath) {
  * or ENOSPC mid-write must never leave a truncated config — `~/.claude.json`
  * also holds the user's OAuth state. Preserves the existing file mode
  * (`~/.claude.json` is typically 0600).
+ *
+ * Returns false and writes nothing when the path is a symlink: the rename
+ * would replace a dotfiles-managed link with a regular file, and writing
+ * through it would let a repo-committed link redirect the write.
  */
 function writeJson(filePath, value) {
+  if (isSymlink(filePath)) {
+    return false;
+  }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   let mode;
   try {
@@ -425,6 +445,16 @@ function writeJson(filePath, value) {
     fs.chmodSync(tmpPath, mode);
   }
   fs.renameSync(tmpPath, filePath);
+  return true;
+}
+
+/** True when the path itself is a symlink (lstat — never follows it). */
+function isSymlink(filePath) {
+  try {
+    return fs.lstatSync(filePath).isSymbolicLink();
+  } catch {
+    return false;
+  }
 }
 
 /** True when a config object carries no meaningful keys anymore. */
@@ -446,8 +476,14 @@ function isEmptyConfig(value) {
   });
 }
 
-/** Write back a mutated config, deleting the file when nothing remains. */
+/**
+ * Write back a mutated config, deleting the file when nothing remains.
+ * Returns false (file untouched) for a symlink, true otherwise.
+ */
 function writeJsonOrRemove(filePath, value) {
+  if (isSymlink(filePath)) {
+    return false;
+  }
   if (isEmptyConfig(value)) {
     try {
       fs.unlinkSync(filePath);
@@ -456,10 +492,9 @@ function writeJsonOrRemove(filePath, value) {
         throw e;
       }
     }
-    return false;
+    return true;
   }
-  writeJson(filePath, value);
-  return true;
+  return writeJson(filePath, value);
 }
 
 /**
@@ -552,22 +587,18 @@ function writeTextAtomic(filePath, content) {
   fs.renameSync(tmpPath, filePath);
 }
 
-/** Insert or replace the delimited LaPis block in a CLAUDE.md file. */
+/**
+ * Insert or replace the delimited LaPis block in a CLAUDE.md file. A symlink
+ * (e.g. `CLAUDE.md -> AGENTS.md`) is left alone — neither written through nor
+ * replaced — and false is returned so the caller can warn.
+ */
 function upsertClaudeMdBlock(filePath, block) {
-  const { existed, content: existing } = readClaudeMdSafe(filePath),
+  if (isSymlink(filePath)) {
+    return false;
+  }
+  const { content: existing } = readClaudeMdSafe(filePath),
     start = existing.indexOf(CLAUDE_MD_START),
     end = existing.indexOf(CLAUDE_MD_END);
-  // If a symlink is in the way, remove the link itself (NOT its target) so the
-  // Atomic rename below installs a fresh regular file.
-  if (existed === false) {
-    try {
-      if (fs.lstatSync(filePath).isSymbolicLink()) {
-        fs.unlinkSync(filePath);
-      }
-    } catch {
-      // Raced away — the atomic rename below still produces a regular file
-    }
-  }
 
   let next;
   if (start !== -1 && end !== -1 && end > start) {
@@ -578,6 +609,7 @@ function upsertClaudeMdBlock(filePath, block) {
     next = `${block}\n`;
   }
   writeTextAtomic(filePath, next);
+  return true;
 }
 
 /** Remove the delimited LaPis block; delete the file when nothing else remains. */
@@ -588,16 +620,8 @@ function removeClaudeMdBlock(filePath) {
     next = !(start === -1 || end === -1 || end <= start)
       ? (existing.slice(0, start) + existing.slice(end + CLAUDE_MD_END.length)).replace(/\n{3,}/g, '\n\n')
       : undefined;
+  // Missing, or a symlink (readClaudeMdSafe treats it as absent): leave it be.
   if (!existed) {
-    // A bare symlink (no block to remove) — unlink the LINK only, never a target.
-    try {
-      if (fs.lstatSync(filePath).isSymbolicLink()) {
-        fs.unlinkSync(filePath);
-        return true;
-      }
-    } catch {
-      // Already gone
-    }
     return false;
   }
 
@@ -706,6 +730,7 @@ async function runInstall(argv, io) {
     paths = configPaths({ home, cwd }),
     targets = routeTargets(flags, invocation, paths, cwd),
     written = [],
+    skipped = [],
     // READ PHASE — parse every target file before writing any of them, so a
     // Corrupt file aborts the whole install instead of leaving a half-installed
     // State (readJson throws on corrupt JSON rather than clobbering it).
@@ -715,8 +740,7 @@ async function runInstall(argv, io) {
       // WRITE PHASE.
       // 1. MCP server config (one of the two config systems).
       upsertMcpServer(mcpServersFor(mcpConfig, targets.mcp), flags.mcpName, buildMcpEntry(invocation));
-      writeJson(targets.mcp.file, mcpConfig);
-      written.push(targets.mcp.file);
+      (writeJson(targets.mcp.file, mcpConfig) ? written : skipped).push(targets.mcp.file);
 
       // 2. Hooks config (the other config system) — plus optional auto-allow.
 
@@ -727,13 +751,13 @@ async function runInstall(argv, io) {
       if (flags.autoAllow) {
         addAutoAllow(settings, flags.mcpName);
       }
-      writeJson(targets.hooksFile, settings);
-      written.push(targets.hooksFile);
+      (writeJson(targets.hooksFile, settings) ? written : skipped).push(targets.hooksFile);
 
       // 3. CLAUDE.md memory protocol block (optional, default on).
       if (flags.claudeMd) {
-        upsertClaudeMdBlock(targets.claudeMdFile, claudeMdBlock(flags.mcpName));
-        written.push(targets.claudeMdFile);
+        (upsertClaudeMdBlock(targets.claudeMdFile, claudeMdBlock(flags.mcpName)) ? written : skipped).push(
+          targets.claudeMdFile,
+        );
       }
 
       return flags.daemon ? 'daemon' : invocation.mode;
@@ -752,6 +776,10 @@ async function runInstall(argv, io) {
   if (targets.hooksFile === paths.localSettings) {
     log('');
     log('Note: .claude/settings.local.json holds a machine-specific path; keep it gitignored.');
+  }
+  for (const file of skipped) {
+    log(`Warning: ${file} is a symlink — left untouched (LaPis never writes through or replaces a link).`);
+    log('  Add the LaPis config to the link target by hand, or replace the link with a regular file and re-run.');
   }
   if (!flags.autoAllow) {
     log(`Tip: pass --auto-allow to pre-approve mcp__${flags.mcpName}__* tool permissions.`);
@@ -800,6 +828,7 @@ module.exports = {
   readJson,
   writeJson,
   writeJsonOrRemove,
+  isSymlink,
   isEmptyConfig,
   claudeMdBlock,
   upsertClaudeMdBlock,

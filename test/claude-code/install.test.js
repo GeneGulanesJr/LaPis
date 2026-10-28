@@ -439,6 +439,25 @@ describe('claude-code install: leaves unrelated config intact', () => {
     expect(settings).toEqual({ hooks: { Stop: [{ hooks: [foreign] }] } });
   });
 
+  test('uninstall keeps look-alike MCP servers (generic cli.js, lapis-* prefixed bins)', async () => {
+    const io = makeIo(),
+      mcpPath = path.join(io.cwd, '.mcp.json'),
+      others = {
+        'my-tool': { command: 'node', args: ['./tools/cli.js', 'mcp'] },
+        'lapis-dashboard': { command: 'lapis-dashboard', args: ['mcp'] },
+      };
+    await runInstall([], io);
+    fs.writeFileSync(mcpPath, JSON.stringify({ mcpServers: { ...readJson(mcpPath).mcpServers, ...others } }), 'utf8');
+
+    await runUninstall([], io);
+    expect(readJson(mcpPath)).toEqual({ mcpServers: others });
+    // LaPis's own cli.js (next to memory-store.js) and exact bin names still match.
+    expect(install.isLapisMcpEntry({ command: 'node', args: [path.join(__dirname, '../../cli.js'), 'mcp'] })).toBe(
+      true,
+    );
+    expect(install.isLapisMcpEntry({ command: 'lapis-mcp.cmd', args: ['mcp'] })).toBe(true);
+  });
+
   test('unrelated ~/.claude.json content (OAuth state, other projects) survives a --bin install + uninstall', async () => {
     const io = makeIo(),
       claudeJsonPath = path.join(io.home, '.claude.json'),
@@ -845,9 +864,9 @@ describe('claude-code hook role filter', () => {
 //
 // A malicious repo can commit `.claude/CLAUDE.md` as a symlink to an
 // Attacker-chosen file (e.g. ~/.bashrc). install/uninstall must NEVER read or
-// Write through that link — only ever replace it with a fresh regular file
-// (upsert) or unlink the link itself (remove). Regression coverage for the
-// Arbitrary-file-write vector fixed alongside this test.
+// Write through that link. Legit links (`CLAUDE.md -> AGENTS.md`, dotfiles-
+// managed ~/.claude/settings.json) must not be replaced or unlinked either, so
+// a symlinked config file is skipped with a warning and left exactly as is.
 
 describe('claude-code install: CLAUDE.md symlink safety', () => {
   const { upsertClaudeMdBlock, removeClaudeMdBlock, claudeMdBlock } = install;
@@ -873,26 +892,21 @@ describe('claude-code install: CLAUDE.md symlink safety', () => {
     const { target, md } = makeSymlinkRoot(),
       before = fs.readFileSync(target, 'utf8');
 
-    upsertClaudeMdBlock(md, claudeMdBlock('lapis'));
+    expect(upsertClaudeMdBlock(md, claudeMdBlock('lapis'))).toBe(false);
 
-    // The victim file must be byte-for-byte untouched.
+    // The target is byte-for-byte untouched and the link is neither written
+    // through nor replaced.
     expect(fs.readFileSync(target, 'utf8')).toBe(before);
-    // The path is now a regular file (the symlink was replaced), carrying the
-    // LaPis block — not the victim's prior contents.
-    expect(fs.lstatSync(md).isSymbolicLink()).toBe(false);
-    expect(fs.readFileSync(md, 'utf8')).toContain('<!-- lapis:start -->');
-    expect(fs.readFileSync(md, 'utf8')).not.toContain('victim-contents');
+    expect(fs.lstatSync(md).isSymbolicLink()).toBe(true);
   });
 
-  test('removeClaudeMdBlock on a bare symlink unlinks the LINK, never the target', () => {
+  test('removeClaudeMdBlock on a bare symlink leaves the link and its target alone', () => {
     const { target, md } = makeSymlinkRoot(),
       before = fs.readFileSync(target, 'utf8'),
       removed = removeClaudeMdBlock(md);
 
-    expect(removed).toBe(true);
-    // Symlink itself is gone.
-    expect(fs.existsSync(md)).toBe(false);
-    // Target file is untouched.
+    expect(removed).toBe(false);
+    expect(fs.lstatSync(md).isSymbolicLink()).toBe(true);
     expect(fs.readFileSync(target, 'utf8')).toBe(before);
   });
 
@@ -932,11 +946,37 @@ describe('claude-code install: CLAUDE.md symlink safety', () => {
 
         return fs.readFileSync(target, 'utf8');
       })();
-    await runInstall([], io);
+    const { written } = await runInstall([], io);
 
-    // Victim untouched, CLAUDE.md is now a regular file with the protocol block.
+    // Target untouched, the link survives, and the skip is reported.
     expect(fs.readFileSync(target, 'utf8')).toBe(before);
-    expect(fs.lstatSync(md).isSymbolicLink()).toBe(false);
-    expect(fs.readFileSync(md, 'utf8')).toContain('<!-- lapis:start -->');
+    expect(fs.lstatSync(md).isSymbolicLink()).toBe(true);
+    expect(written).not.toContain(md);
+    expect(io.lines.some((l) => l.includes(md) && l.includes('symlink'))).toBe(true);
+
+    await runUninstall([], io);
+    expect(fs.lstatSync(md).isSymbolicLink()).toBe(true);
+    expect(fs.readFileSync(target, 'utf8')).toBe(before);
+  });
+
+  test('install + uninstall leave a symlinked .claude/settings.json (dotfiles) as a link', async () => {
+    const io = makeIo(),
+      target = path.join(io.root, 'dotfiles-settings.json'),
+      settingsPath = path.join(io.cwd, '.claude', 'settings.json'),
+      before = '{\n  "theme": "dark"\n}\n';
+    fs.writeFileSync(target, before, 'utf8');
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.symlinkSync(target, settingsPath);
+
+    const { written } = await runInstall([], io);
+    expect(fs.lstatSync(settingsPath).isSymbolicLink()).toBe(true);
+    expect(fs.readFileSync(target, 'utf8')).toBe(before);
+    expect(written).not.toContain(settingsPath);
+    expect(written).toContain(path.join(io.cwd, '.mcp.json'));
+    expect(io.lines.some((l) => l.includes(settingsPath) && l.includes('symlink'))).toBe(true);
+
+    await runUninstall([], io);
+    expect(fs.lstatSync(settingsPath).isSymbolicLink()).toBe(true);
+    expect(fs.readFileSync(target, 'utf8')).toBe(before);
   });
 });
