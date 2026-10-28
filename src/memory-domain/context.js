@@ -1,7 +1,7 @@
 const { getConfig } = require('../../config');
 const { RESULT_LIMITS, RANKING, CONTEXT } = require('../../constants');
 const { estimateTokens } = require('../../utils');
-const { TRUST_RECALL_SUBQ, TYPE_PRIORITY_CASE } = require('./search');
+const { TRUST_RECALL_SUBQ, TYPE_PRIORITY_CASE, _extractFtsTerms } = require('./search');
 
 // Trust/recall signals come from correlated scalar subqueries (TRUST_RECALL_SUBQ
 // in ./search): per-row index seeks instead of materializing full-table GROUP
@@ -80,6 +80,35 @@ function buildTopicQueryMatch(needles) {
   };
 }
 
+// FTS candidate prefilter for the LIKE topic scan, so it no longer reads every row (#396).
+// _extractFtsTerms keeps only lowercase [a-z0-9] words without and/or/not, so no FTS operator reaches MATCH.
+// Shortcut: mid-word substring hits (e.g. "index" in "reindex") are lost once FTS matches any row; add a trigram index if that matters.
+function topicFtsMatch(needles) {
+  const terms = [...new Set(needles.flatMap((needle) => _extractFtsTerms(needle).split(' ')).filter(Boolean))];
+  return terms.length > 0 ? `{title content topic_key} : (${terms.map((term) => `${term}*`).join(' OR ')})` : null;
+}
+
+// Runs build(prefilterSql, prefilterParams) with the FTS prefilter; full scan when FTS errors or finds nothing.
+// An empty result with FTS hits elsewhere (e.g. only in the current project) is final: no full scan.
+function prefilteredTopicScan(sqlJson, ftsMatch, build) {
+  if (ftsMatch) {
+    try {
+      const rows = sqlJson(
+        ...build('AND o.id IN (SELECT rowid FROM observations_fts WHERE observations_fts MATCH ?)', [ftsMatch]),
+      );
+      if (
+        rows.length > 0 ||
+        sqlJson('SELECT 1 FROM observations_fts WHERE observations_fts MATCH ? LIMIT 1', [ftsMatch]).length > 0
+      ) {
+        return rows;
+      }
+    } catch {
+      // Fall through to the full scan.
+    }
+  }
+  return sqlJson(...build('', []));
+}
+
 function context(deps, args) {
   const { sqlJson, jsonErrNoExit } = deps;
   const countObservationsByProjectAndType = deps.countObservationsByProjectAndType || (() => 0);
@@ -119,7 +148,7 @@ function context(deps, args) {
     LIMIT ${RESULT_LIMITS.PERSONAL_OBSERVATIONS}
   `);
 
-  let obsQuery, obsParams;
+  let obsQuery, obsParams, topicScan, topicFts;
   if (crossProject) {
     const crossLimit = deep
       ? Math.min(fetchCeiling * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
@@ -140,14 +169,17 @@ ${TRUST_RECALL_COLUMNS}
       ? Math.min(fetchCeiling * CONTEXT.CROSS_PROJECT_DEEP_MULTIPLIER, CONTEXT.CROSS_PROJECT_DEEP_MAX)
       : fetchCeiling;
     if (topicQuery) {
-      const match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
-      obsQuery = `
+      const needles = topicQueryNeedles(topicQuery),
+        match = buildTopicQueryMatch(needles);
+      topicScan = (prefilterSql, prefilterParams) => [
+        `
         WITH topic_matches AS (
           SELECT id, ${match.scoreSql} as match_score
           FROM observations o
           WHERE project = ? AND deleted_at IS NULL AND type != 'skill'
             AND (expires_at IS NULL OR expires_at > datetime('now'))
             AND (${match.whereSql})
+            ${prefilterSql}
           ORDER BY ${AUTO_CAPTURE_LAST}, match_score DESC, created_at DESC
           LIMIT ?
         )
@@ -157,8 +189,10 @@ ${TRUST_RECALL_COLUMNS}
         FROM observations o
         JOIN topic_matches tm ON o.id = tm.id
         ORDER BY ${AUTO_CAPTURE_LAST}, tm.match_score DESC, recall_count DESC, trust_score DESC, type_priority DESC, o.created_at DESC
-      `;
-      obsParams = [...match.scoreParams, project, ...match.whereParams, topicLimit];
+      `,
+        [...match.scoreParams, project, ...match.whereParams, ...prefilterParams, topicLimit],
+      ];
+      topicFts = topicFtsMatch(needles);
     } else {
       obsQuery = `
         SELECT o.id, o.title, o.content, o.type, o.scope, o.topic_key, o.created_at,
@@ -192,7 +226,7 @@ ${TRUST_RECALL_COLUMNS}
     `;
     obsParams = [project, fetchCeiling];
   }
-  const observations = sqlJson(obsQuery, obsParams);
+  const observations = topicScan ? prefilteredTopicScan(sqlJson, topicFts, topicScan) : sqlJson(obsQuery, obsParams);
 
   const excludedSet = new Set(CONTEXT.EXCLUDED_TYPES);
   const filtered = observations.filter((o) => !excludedSet.has(o.type));
@@ -207,9 +241,10 @@ ${TRUST_RECALL_COLUMNS}
   // Relevant memories from other projects so insights transfer across projects.
   let crossProjectSuggestions = [];
   if (!crossProject && project && filtered.length > 0 && topicQuery) {
-    const supplementLimit = CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3;
-    const match = buildTopicQueryMatch(topicQueryNeedles(topicQuery));
-    crossProjectSuggestions = sqlJson(
+    const supplementLimit = CONTEXT.CROSS_PROJECT_SUPPLEMENT_LIMIT || 3,
+      needles = topicQueryNeedles(topicQuery),
+      match = buildTopicQueryMatch(needles);
+    crossProjectSuggestions = prefilteredTopicScan(sqlJson, topicFtsMatch(needles), (prefilterSql, prefilterParams) => [
       `
         SELECT o.id, o.title, o.type, o.project, o.created_at,
                COALESCE(sl.trust_score, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
@@ -220,11 +255,12 @@ ${TRUST_RECALL_COLUMNS}
           AND o.scope = 'project' AND o.project != ?
           AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
           AND (${match.whereSql})
+          ${prefilterSql}
         GROUP BY o.id
         ORDER BY ${AUTO_CAPTURE_LAST}, match_score DESC, trust_score DESC, o.created_at DESC
         LIMIT ?`,
-      [...match.scoreParams, project, ...match.whereParams, supplementLimit],
-    );
+      [...match.scoreParams, project, ...match.whereParams, ...prefilterParams, supplementLimit],
+    ]);
   }
 
   const totalAll = countObservationsByProjectAndType(crossProject ? null : project);
