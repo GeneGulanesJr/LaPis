@@ -18,7 +18,10 @@ const { sqlJson, sqlRun, ensureDb, getDb, jsonOut, parseArgs, MemoryError } = re
 
   const args = parseArgs(process.argv),
     cmd = process.argv[2],
-    isHelpRequest = cmd === 'help' || cmd === '--help' || cmd === '-h' || args.help === true || args._.includes('-h');
+    // `lapis run <cmd> --help` belongs to the wrapped command; only `lapis run --help` is ours.
+    helpFlagged =
+      cmd === 'run' ? ['--help', '-h'].includes(process.argv[3]) : args.help === true || args._.includes('-h'),
+    isHelpRequest = cmd === 'help' || cmd === '--help' || cmd === '-h' || helpFlagged;
 
   if (isHelpRequest) {
     printHelp(getCommands()[cmd] ? cmd : null);
@@ -150,6 +153,9 @@ const { sqlJson, sqlRun, ensureDb, getDb, jsonOut, parseArgs, MemoryError } = re
     if (cmd === 'run') {
       ensureDb();
       const { executeAndCompress, formatTextOutput } = require('./src/cli/commands/token-saver'),
+        path = require('node:path'),
+        { resolveProjectKey } = require('./src/hooks-engine/project'),
+        { getKnownRepos, getKnownProjects } = require('./src/platform/project-db'),
         runArgv = process.argv.slice(3),
         runArgs = [];
       let raw = false,
@@ -190,7 +196,8 @@ const { sqlJson, sqlRun, ensureDb, getDb, jsonOut, parseArgs, MemoryError } = re
               'command-summary',
               `Command: ${result.command}`,
               result.summary,
-              cwd || process.cwd(),
+              // Same short project key every other write path uses, not the folder path.
+              resolveProjectKey(path.resolve(cwd || process.cwd()), getKnownRepos(), getKnownProjects()),
               'project',
             ],
           );

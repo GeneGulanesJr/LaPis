@@ -31,7 +31,7 @@ const path = require('node:path'),
   { resolveIndexedRepo } = require('../../hooks-engine/project'),
   { resolveProjectForCwd } = require('../project-resolve'),
   { CODE_EXTENSIONS } = require('../../hooks-engine/guardrail-utils'),
-  { addNormalized } = require('../file-keys'),
+  { addNormalized, uniqueEditedPaths } = require('../file-keys'),
   { postToolRole } = require('../tool-map'),
   { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust'),
   // Harvest relative code paths from a memory-code response (parity with the Pi
@@ -47,7 +47,7 @@ function addEditedFile(state, filePath) {
   if (!Array.isArray(state.editedFiles)) {
     state.editedFiles = [];
   }
-  addNormalized(state.editedFiles, filePath);
+  state.editedFiles = uniqueEditedPaths([...state.editedFiles, filePath]);
 }
 
 function addExploredPath(state, p) {

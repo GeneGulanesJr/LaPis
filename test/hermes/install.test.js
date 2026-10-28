@@ -319,6 +319,32 @@ describe('hermes config safety (#384)', () => {
     expect(fs.statSync(path.join(io.home, 'config.yaml')).isDirectory()).toBe(true);
     expect(fs.existsSync(path.join(io.home, 'shell-hooks-allowlist.json'))).toBe(false);
   });
+
+  test('install refuses to overwrite an allowlist that is not valid JSON', async () => {
+    const io = makeIo(),
+      allowPath = path.join(io.home, 'shell-hooks-allowlist.json'),
+      corrupt = '{"approvals": [{"event": "pre_tool_call", "command": "/user/script.sh"},]}';
+    fs.writeFileSync(allowPath, corrupt);
+    await expect(runInstall([], io)).rejects.toThrow('not valid JSON');
+    expect(fs.readFileSync(allowPath, 'utf8')).toBe(corrupt);
+    expect(fs.existsSync(path.join(io.home, 'config.yaml'))).toBe(false);
+  });
+
+  test("install keeps the user's hooks_auto_accept: false", async () => {
+    const io = makeIo();
+    fs.writeFileSync(path.join(io.home, 'config.yaml'), 'hooks_auto_accept: false\n');
+    await runInstall([], io);
+    expect(readConfig(io.home)).toContain('hooks_auto_accept: false');
+    expect(readConfig(io.home)).not.toContain('hooks_auto_accept: true');
+  });
+
+  test('uninstall keeps a hooks_auto_accept the user set before install', async () => {
+    const io = makeIo();
+    fs.writeFileSync(path.join(io.home, 'config.yaml'), 'hooks_auto_accept: true\n');
+    await runInstall([], io);
+    await runUninstall([], io);
+    expect(readConfig(io.home).trim()).toBe('hooks_auto_accept: true');
+  });
 });
 
 describe('hermes install with a Windows-style node path (spaces + backslashes)', () => {
@@ -342,5 +368,17 @@ describe('hermes install with a Windows-style node path (spaces + backslashes)',
     expect(doctor.runDoctor([], io).checks.find((c) => c.name.includes('Hooks config')).ok).toBe(true);
     await runUninstall([], io);
     expect(readConfig(io.home).trim()).toBe('');
+  });
+
+  test('re-install and uninstall replace hook entries left by an older node path', async () => {
+    const io = makeIo();
+    await runInstall([], io);
+    Object.defineProperty(process, 'execPath', { value: 'C:\\nvm\\v22.1.0\\node.exe', configurable: true });
+    await runInstall([], io);
+    expect(readConfig(io.home).match(/ hermes hook/g)).toHaveLength(5);
+    expect(readConfig(io.home)).not.toContain('Program Files');
+    await runUninstall([], io);
+    expect(readConfig(io.home).trim()).toBe('');
+    expect(fs.existsSync(path.join(io.home, 'shell-hooks-allowlist.json'))).toBe(false);
   });
 });

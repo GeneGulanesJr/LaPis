@@ -9,9 +9,9 @@
  *     (other user hooks untouched; empty `hooks:` block removed)
  *   - allowlist approvals for the LaPis hook command
  *   - `skills/memory/lapis/` skill directory
- * `hooks_auto_accept` is removed only when the `hooks:` block ends up empty
- * (no other hooks remain) — otherwise it is left alone, since other hooks may
- * rely on it for headless consent.
+ * `hooks_auto_accept` is removed only when install added it (marked line) and
+ * the `hooks:` block ends up empty (no other hooks remain) — otherwise it is
+ * left alone: it may be the user's setting, or other hooks may rely on it.
  */
 
 const fs = require('node:fs'),
@@ -26,15 +26,14 @@ const fs = require('node:fs'),
     readText,
     writeTextAtomic,
   } = require('./config-editor'),
-  { parseFlags, resolveHermesHome, hermesPaths, hookCommand, hookCommandYaml, HOOK_EVENTS } = require('./install');
+  { parseFlags, resolveHermesHome, hermesPaths, isLapisHook, AUTO_ACCEPT_MARK, HOOK_EVENTS } = require('./install');
 
 async function runUninstall(argv, io = {}) {
   const flags = parseFlags(argv),
     home = resolveHermesHome(flags, io),
     paths = hermesPaths(home),
     log = io.log || ((l) => console.log(l)),
-    removed = [],
-    command = hookCommand();
+    removed = [];
 
   // MCP server entry.
   let text = readText(paths.config);
@@ -47,25 +46,28 @@ async function runUninstall(argv, io = {}) {
           removed.push(`mcp_servers.${flags.mcpName}`);
         }
 
-        // Hook entries (one list item per event, keyed by the LaPis command).
+        // Hook entries (one list item per event), whatever node path they were installed with.
         for (const { event } of HOOK_EVENTS) {
           const beforeHooks = text;
-          text = removeListItems(text, 'hooks', event, hookCommandYaml());
+          text = removeListItems(text, 'hooks', event, isLapisHook);
           if (text !== beforeHooks) {
             removed.push(`hooks.${event}`);
           }
         }
 
         // Prune empty `hooks.<event>` shells, then drop the `hooks:` block and the
-        // `hooks_auto_accept` scalar — but only when no other hooks remain. The
-        // Scalar is shared config that other hooks may rely on for headless consent.
+        // `hooks_auto_accept` scalar — but only when no other hooks remain (other
+        // Hooks may rely on it for headless consent) and only if LaPis added it.
         for (const { event } of HOOK_EVENTS) {
           text = removeEmptySubBlock(text, 'hooks', event);
         }
         if (topBlockEmpty(text, 'hooks')) {
           text = removeTopLevelBlock(text, 'hooks');
-          text = removeScalar(text, 'hooks_auto_accept');
-          removed.push('hooks (empty block)', 'hooks_auto_accept');
+          removed.push('hooks (empty block)');
+          if (text.split('\n').some((l) => /^hooks_auto_accept\s*:/.test(l) && l.includes(AUTO_ACCEPT_MARK))) {
+            text = removeScalar(text, 'hooks_auto_accept');
+            removed.push('hooks_auto_accept');
+          }
         }
         if (topBlockEmpty(text, 'mcp_servers')) {
           text = removeTopLevelBlock(text, 'mcp_servers');
@@ -84,7 +86,7 @@ async function runUninstall(argv, io = {}) {
           const allow = JSON.parse(readText(paths.allowlist) || '{}');
           if (Array.isArray(allow.approvals)) {
             const before = allow.approvals.length;
-            allow.approvals = allow.approvals.filter((a) => !(a && a.command === command));
+            allow.approvals = allow.approvals.filter((a) => !isLapisHook(a?.command));
             if (allow.approvals.length !== before) {
               if (allow.approvals.length === 0 && Object.keys(allow).length === 1) {
                 // Nothing left to approve and the file holds only `approvals` (the

@@ -3,10 +3,9 @@
 /**
  * Claude Code bridge: shared file-path normalization for per-session state.
  *
- * editedFiles and exploredFiles previously normalized inconsistently
- * (exploredFiles: lowercased + basename; editedFiles: raw). Centralizing the
- * scheme here makes the two arrays comparable and keeps the read-guardrail's
- * lookup shape stable (#230).
+ * exploredFiles stores lowercased full path + basename for the read-guardrail
+ * lookup (#230). editedFiles stores original-case paths (deduped by normalized
+ * path) because audit-diff and summaries need the real path.
  */
 
 const path = require('node:path');
@@ -45,8 +44,8 @@ function fileKey(p) {
 
 /**
  * Append the canonical {lower, base} forms of a path onto an array, deduped.
- * Used by both addEditedFile (PostToolUse) and addExploredFile/addExploredPath
- * (PreToolUse/PostToolUse) so the two trackers share one normalization scheme.
+ * Used by addExploredFile/addExploredPath (PreToolUse/PostToolUse) so the
+ * read-guardrail can look files up by full path or basename.
  *
  * @param {string[]} arr
  * @param {string} p
@@ -64,9 +63,10 @@ function addNormalized(arr, p) {
 }
 
 /**
- * Collapse the dual {fullPath, basename} entries stored by addNormalized into
- * one representative path per file for summaries, checkpoints, and audit-diff.
- * Prefers the longest path in each basename group (typically the full path).
+ * Dedupe edited paths by full normalized path, keeping each file's first-seen
+ * original-case spelling. Audit-diff matches file_path case-sensitively, and
+ * same-named files in different folders (src/a/index.js, src/b/index.js) must
+ * stay separate in summaries and checkpoints.
  *
  * @param {Iterable<string>|null|undefined} editedFiles
  * @returns {string[]}
@@ -75,19 +75,14 @@ function uniqueEditedPaths(editedFiles) {
   if (!editedFiles) {
     return [];
   }
-  const byBase = new Map();
-  for (const entry of editedFiles instanceof Set ? editedFiles : editedFiles) {
-    if (!entry) {
-      continue;
-    }
-    const raw = String(entry),
-      base = path.basename(raw.replace(/\\/g, '/')).toLowerCase(),
-      prev = byBase.get(base);
-    if (!prev || raw.length > prev.length) {
-      byBase.set(base, raw);
+  const byKey = new Map();
+  for (const entry of editedFiles) {
+    const key = normalizePathForCompare(entry);
+    if (key && !byKey.has(key)) {
+      byKey.set(key, entry);
     }
   }
-  return [...byBase.values()];
+  return [...byKey.values()];
 }
 
 module.exports = { fileKey, addNormalized, uniqueEditedPaths, normalizePathForCompare };

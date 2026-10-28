@@ -772,7 +772,7 @@ describe('claude-code hook role filter', () => {
       stateStore,
       roleFilter: { skip: 'git-trust' },
     });
-    expect(stateStore._peek('s1').editedFiles).toEqual(['/proj/a.js', 'a.js']);
+    expect(stateStore._peek('s1').editedFiles).toEqual(['/proj/a.js']);
   });
 
   test('--only git-trust runs git-trust and nothing else', async () => {

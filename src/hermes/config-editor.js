@@ -262,8 +262,8 @@ function removeTopLevelBlock(text, key) {
 }
 
 /**
- * Upsert a dash-list item under `topKey.subKey`. Items whose serialized text
- * contains `marker` are removed first (idempotent re-install), then the new
+ * Upsert a dash-list item under `topKey.subKey`. Items matching `marker` (see
+ * removeListItems) are removed first (idempotent re-install), then the new
  * item lines are inserted after the `subKey:` header. `itemLines` are
  * relative to the item (rendered at indent 4, or at the indent the block's
  * existing items use — PyYAML writes indentless `  - ` lists). Other items are preserved.
@@ -296,11 +296,12 @@ function upsertListItem(text, topKey, subKey, itemLines, marker) {
   return squashBlankLines(joinLines(ls));
 }
 
-/** Remove every dash-list item under `topKey.subKey` containing `marker`. */
+/** Remove every dash-list item under `topKey.subKey` containing `marker` (a substring, or a predicate on the item text). */
 function removeListItems(text, topKey, subKey, marker) {
   const ls = splitLines(text),
     range = topBlockRange(text, topKey),
-    kept = [];
+    kept = [],
+    isMatch = typeof marker === 'function' ? marker : (t) => t.includes(marker);
   if (!range) {
     return text;
   }
@@ -333,7 +334,7 @@ function removeListItems(text, topKey, subKey, marker) {
         itemLines.push(ls[j]);
         j++;
       }
-      if (!itemLines.join('\n').includes(marker)) {
+      if (!isMatch(itemLines.join('\n'))) {
         kept.push(...itemLines);
       }
       i = j;
