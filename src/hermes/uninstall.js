@@ -38,6 +38,7 @@ async function runUninstall(argv, io = {}) {
 
   // MCP server entry.
   let text = readText(paths.config);
+  const original = text;
   {
     const beforeMcp = text,
       skillDir = (() => {
@@ -71,9 +72,12 @@ async function runUninstall(argv, io = {}) {
           removed.push('mcp_servers (empty block)');
         }
 
-        // Always write: if every LaPis-owned entry is gone the config may now be
-        // Empty, and leaving stale content behind would be worse than an empty file.
-        writeTextAtomic(paths.config, text);
+        // Write only when something changed: a missing config stays missing and an
+        // Untouched one is never rewritten (#384). The result may be empty when
+        // Every entry was LaPis-owned; that beats leaving stale content behind.
+        if (text !== original) {
+          writeTextAtomic(paths.config, text);
+        }
 
         // Allowlist approvals for the LaPis hook command.
         try {
