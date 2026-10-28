@@ -8,7 +8,12 @@ function parseFiles(files) {
   const results = [];
   for (const { filePath, content } of files) {
     try {
-      results.push({ filePath, symbols: codeParser.parseContent(filePath, content) });
+      const symbols = codeParser.parseContent(filePath, content);
+      let callees = [];
+      try {
+        callees = codeParser.extractCalleesFromContent(filePath, content);
+      } catch {}
+      results.push({ filePath, symbols, callees });
     } catch (e) {
       results.push({ filePath, symbols: [], error: e instanceof Error ? e.message : String(e) });
     }
