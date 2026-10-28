@@ -301,23 +301,31 @@ async function runStart(argv, io = {}) {
       }
       throw e;
     }
-    // Record the pid the server on the port reports, not child.pid: when a
-    // concurrent start or an existing `lapis serve` already held the port, our
-    // child died on EADDRINUSE and health was answered by that server. Adopt
-    // it; a recorded dead pid would make every later hook start again.
+    // Health may have been answered by another server that already held the
+    // Port (our child then died on EADDRINUSE). Only trust our own child, or a
+    // Pid a concurrent LaPis start already wrote to the lockfile: /health is
+    // Answerable by anything on the port, and the daemon is sent the API key
+    // And prompts.
     const pid = await probe(flags.host, flags.port);
-    if (!pid) {
-      if (child?.pid) {
-        await stopFn(child.pid, io);
-      }
-      throw new Error(`Server on ${flags.host}:${flags.port} is not a LaPis daemon (no pid in /health)`);
-    }
     {
       const current = readLockfile(lockfilePath);
-      if (current?.pid === pid && current.port === flags.port && (!current.host || current.host === flags.host)) {
+      if (
+        pid &&
+        current?.pid === pid &&
+        current.port === flags.port &&
+        (!current.host || current.host === flags.host)
+      ) {
         log(`LaPis daemon already started by a concurrent process (pid ${current.pid}).`);
         return { alreadyRunning: true, ...current };
       }
+    }
+    if (!pid || pid !== child?.pid) {
+      if (child?.pid) {
+        await stopFn(child.pid, io);
+      }
+      throw new Error(
+        `Port ${flags.host}:${flags.port} is held by another server (pid ${pid ?? 'unknown'}); not adopting it. Stop it or pick another --port.`,
+      );
     }
     const info = {
       pid,
