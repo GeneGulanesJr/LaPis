@@ -78,7 +78,9 @@ describe('db.js (database layer)', () => {
       const db = dbModule.getDb(),
         ccIndexes = () =>
           dbModule
-            .sqlJson("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='code_calls' AND name LIKE 'idx_cc_%'")
+            .sqlJson(
+              "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='code_calls' AND name LIKE 'idx_cc_%'",
+            )
             .map((r) => r.name)
             .sort(),
         all = ['idx_cc_callee', 'idx_cc_callee_name', 'idx_cc_caller'];
