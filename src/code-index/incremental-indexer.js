@@ -20,7 +20,6 @@ const fs = require('fs'),
     buildCochangeEdges,
   } = require('./edge-extractor'),
   { createParsePool } = require('./worker-pool'),
-  { buildScopeBindings: _buildScopeBindings } = require('./scope-builder'),
   { resolveScopeBindings, resolveScopeBindingsForFiles } = require('./scope-resolver');
 
 /**
@@ -429,38 +428,6 @@ function recordDiagnostic(repository, repoId, record, status, message, symbolCou
     symbolCount,
     contentHash: record.content ? hashContent(record.content) : null,
   });
-}
-
-function insertSymbols(repository, repoId, fileId, filePath, symbols) {
-  let count = 0;
-  for (const sym of symbols) {
-    repository.insertSymbol({
-      repoId,
-      fileId,
-      filePath,
-      name: sym.name,
-      kind: sym.kind,
-      signature: sym.signature,
-      qualifiedName: sym.qualified_name,
-      startLine: sym.start_line,
-      endLine: sym.end_line,
-      startByte: sym.start_byte,
-      endByte: sym.end_byte,
-      docstring: sym.docstring || '',
-      bodyPreview: sym.body_preview || '',
-      language: sym.language,
-      parentName: sym.parent_name || '',
-      stableSymbolId: sym.stable_symbol_id || '',
-      contentHash: sym.content_hash || '',
-      summary: sym.summary || '',
-      decoratorsJson: sym.decorators_json || '[]',
-      keywordsJson: sym.keywords_json || '[]',
-      callReferencesJson: sym.call_references_json || '[]',
-      ecosystemContext: sym.ecosystem_context || '',
-    });
-    count++;
-  }
-  return count;
 }
 
 function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCount, changedFileIds, deletedFileIds) {
@@ -1873,7 +1840,6 @@ module.exports = {
   parseChangedPathsInput,
   getCodeRepoHealth,
   indexRepository,
-  insertSymbols,
   parsePhase,
   rebuildDerivedIndexes,
   rebuildDerivedIncremental,

@@ -29,14 +29,15 @@ name: Pack verify
 # long-running server. We use a bounded `timeout` + a require/import smoke
 # check instead (see the native-load step).
 #
-# Reusable by publish.yml via `workflow_call`; also runs on push/PR to main.
+# Reusable by auto-release.yml and publish.yml via `workflow_call`; also runs
+# on push/PR to main.
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_call: # lets .github/workflows/publish.yml depend on this gate
+  workflow_call: # lets auto-release.yml and publish.yml depend on this gate
 
 permissions:
   contents: read
@@ -130,12 +131,13 @@ jobs:
         run: |
           set -euo pipefail
           # Files that have broken releases before: bin shim, postinstall
-          # driver + helpers, the hermes skill, and the HTML grammar (used by
+          # driver, the session-cleanup script (required by the maintenance
+          # command), the hermes skill, and the HTML grammar (used by
           # doc-indexing).
           for f in \
               memory-store.js \
               postinstall.js \
-              scripts/postinstall-helpers.js \
+              scripts/cleanup-sessions.js \
               hermes/SKILL.md \
               grammars/tree-sitter-html.wasm; do
             if [ ! -f "$f" ]; then

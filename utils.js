@@ -224,7 +224,6 @@ function withDb(fn, featureName) {
       IGNORE_DIRS_DOCS,
       CODE_EXTENSIONS,
       MD_EXTENSIONS,
-      DOC_EXTENSIONS,
       walkDirForCode,
       walkDirForDocs,
       hashContent,

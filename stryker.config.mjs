@@ -18,7 +18,7 @@ export default {
   packageManager: 'npm',
   // Explicit plugin list — Stryker 9 needs this when packages are installed
   // Via npm (auto-discovery via keywords doesn't always trigger).
-  plugins: ['@stryker-mutator/vitest-runner', '@stryker-mutator/typescript-checker'],
+  plugins: ['@stryker-mutator/vitest-runner'],
   reporters: ['html', 'clear-text', 'progress', 'json'],
   testRunner: 'vitest',
   // PerTest = only run tests that cover the mutated line (huge speedup).

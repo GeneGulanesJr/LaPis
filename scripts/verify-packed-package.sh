@@ -61,7 +61,7 @@ echo "==> Verifying critical packed resources"
 for f in \
     memory-store.js \
     postinstall.js \
-    scripts/postinstall-helpers.js \
+    scripts/cleanup-sessions.js \
     hermes/SKILL.md \
     grammars/tree-sitter-html.wasm; do
   test -f "$EXTRACT/$f" || { echo "MISSING: $f" >&2; exit 1; }
