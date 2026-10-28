@@ -47,14 +47,19 @@ describe('review fixes', () => {
           compressionCols = reopened.prepare('PRAGMA table_info(mission_compression_log)').all(),
           hasImportantOutput = compressionCols.some((c) => c.name === 'important_output'),
           linkCols = reopened.prepare('PRAGMA table_info(symbol_links)').all(),
-          hasSymbolPath = linkCols.some((c) => c.name === 'symbol_path');
-        expect(version).toBe(28);
+          hasSymbolPath = linkCols.some((c) => c.name === 'symbol_path'),
+          hasTrustHead = reopened
+            .prepare('PRAGMA table_info(code_repos)')
+            .all()
+            .some((c) => c.name === 'trust_head');
+        expect(version).toBe(29);
         expect(table).toBeTruthy();
         expect(sourceModuleCol).toBe(true);
         expect(hasTotalFilesChanged).toBe(true);
         expect(hasTopFilesJson).toBe(true);
         expect(hasImportantOutput).toBe(true);
         expect(hasSymbolPath).toBe(true);
+        expect(hasTrustHead).toBe(true);
       }
     });
   });

@@ -55,7 +55,7 @@ function parseGitDiffNameStatus(output) {
   return [...changed];
 }
 
-function updateHeadCommit(deps, repoId, headCommit) {
+function updateTrustHead(deps, repoId, headCommit) {
   let withTransaction = deps.withTransaction;
   if (!withTransaction) {
     try {
@@ -66,25 +66,25 @@ function updateHeadCommit(deps, repoId, headCommit) {
   }
   if (typeof withTransaction === 'function') {
     withTransaction(() => {
-      deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [headCommit, repoId]);
+      deps.sqlRun('UPDATE code_repos SET trust_head = ? WHERE id = ?', [headCommit, repoId]);
     });
   } else {
-    deps.sqlRun('UPDATE code_repos SET head_commit = ? WHERE id = ?', [headCommit, repoId]);
+    deps.sqlRun('UPDATE code_repos SET trust_head = ? WHERE id = ?', [headCommit, repoId]);
   }
 }
 
 /**
- * Detects changed symbols by comparing stored head_commit against current HEAD.
+ * Detects changed symbols by comparing stored trust_head against current HEAD.
  * Uses git diff + the built-in code index (zero external dependencies).
  */
 function detectChangedSymbols(deps, repoName) {
   const { sqlJson, jsonErrNoExit } = deps,
     // Look up the indexed repo
-    repoRow = sqlJson('SELECT id, path, head_commit FROM code_repos WHERE name = ?', [repoName]);
+    repoRow = sqlJson('SELECT id, path, trust_head FROM code_repos WHERE name = ?', [repoName]);
   if (!repoRow || repoRow.length === 0) {
     return { error: jsonErrNoExit(`Repo not found: ${repoName}. Index it first with index-repo.`) };
   }
-  const { id: repoId, path: repoPath, head_commit: storedHead } = repoRow[0];
+  const { id: repoId, path: repoPath, trust_head: storedHead } = repoRow[0];
 
   // Get current HEAD commit
   let currentHead = null,
@@ -99,13 +99,13 @@ function detectChangedSymbols(deps, repoName) {
     return { error: jsonErrNoExit(`Cannot read HEAD commit from ${repoPath}. Is it a git repo?`) };
   }
 
-  // No stored baseline — establish head_commit without penalizing linked memories.
+  // No stored baseline — establish trust_head without penalizing linked memories.
   if (!storedHead) {
-    updateHeadCommit(deps, repoId, currentHead);
+    updateTrustHead(deps, repoId, currentHead);
     return {
       ok: true,
       repo: repoName,
-      message: 'Initialized head_commit baseline',
+      message: 'Initialized trust_head baseline',
       old_head: null,
       new_head: currentHead,
       changedSet: new Set(),
@@ -143,8 +143,8 @@ function detectChangedSymbols(deps, repoName) {
   }
 
   if (changedFiles.length === 0) {
-    // Update head_commit even if no file changes
-    updateHeadCommit(deps, repoId, currentHead);
+    // Update trust_head even if no file changes
+    updateTrustHead(deps, repoId, currentHead);
     return {
       ok: true,
       repo: repoName,
