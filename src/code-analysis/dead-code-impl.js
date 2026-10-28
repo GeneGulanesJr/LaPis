@@ -52,7 +52,7 @@ function getDeadCode(db, repoId, opts) {
               if (pkgData.main) {
                 const mainRow = db
                   .prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?')
-                  .get(repoId, `%${pkgData.main}%`);
+                  .get(repoId, `%${String(pkgData.main).replace(/^\.\//, '')}%`);
                 if (mainRow) {
                   entryFiles.add(mainRow.id);
                 }
@@ -62,7 +62,7 @@ function getDeadCode(db, repoId, opts) {
                 for (const bin of bins) {
                   const binRow = db
                     .prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?')
-                    .get(repoId, `%${bin}%`);
+                    .get(repoId, `%${String(bin).replace(/^\.\//, '')}%`);
                   if (binRow) {
                     entryFiles.add(binRow.id);
                   }
@@ -86,18 +86,17 @@ function getDeadCode(db, repoId, opts) {
       // ── BFS from entry points through import graph ──
       {
         const reachable = new Set(entryFiles),
-          queue = [...entryFiles];
+          queue = [...entryFiles],
+          importedStmt = db.prepare(
+            'SELECT DISTINCT target_file_id FROM code_imports WHERE source_file_id = ? AND target_file_id IS NOT NULL',
+          );
         while (queue.length > 0) {
-          const current = queue.shift(),
-            importers = db
-              .prepare(
-                'SELECT DISTINCT source_file_id FROM code_imports WHERE target_file_id = ? AND source_file_id IS NOT NULL',
-              )
-              .all(current);
-          for (const imp of importers) {
-            if (!reachable.has(imp.source_file_id)) {
-              reachable.add(imp.source_file_id);
-              queue.push(imp.source_file_id);
+          // Walk forward: a file is reachable when a reachable file imports it.
+          const current = queue.shift();
+          for (const imp of importedStmt.all(current)) {
+            if (!reachable.has(imp.target_file_id)) {
+              reachable.add(imp.target_file_id);
+              queue.push(imp.target_file_id);
             }
           }
         }
@@ -185,7 +184,7 @@ function getDeadCode(db, repoId, opts) {
           return {
             dead_files: deadFiles.map((f) => ({ id: f.id, path: f.path })),
             dead_symbols: results,
-            total_symbols: allFiles.length,
+            total_symbols: db.prepare('SELECT COUNT(*) AS n FROM code_symbols WHERE repo_id = ?').get(repoId).n,
           };
         }
       }

@@ -1,16 +1,6 @@
 const gitAnalysis = require('../../git-analysis'),
   legacy = require('./legacy-core'),
-  { createCodeIndexReadRepository } = require('./read-model'),
-  { runAnalyzer } = require('./analyzer-runner');
-
-function withRepo(db, analyzer, fn) {
-  const codeIndex = createCodeIndexReadRepository(db),
-    guard = codeIndex.guard();
-  if (guard) {
-    return guard;
-  }
-  return runAnalyzer(analyzer, () => fn(codeIndex));
-}
+  { withRepo } = require('./analyzer-runner');
 
 function analyzeGetChurn(db, repoId, filePath = '__all__', days = 90, refresh = false) {
   return withRepo(db, 'churn', () => gitAnalysis.getChurn(db, repoId, filePath, days, refresh));

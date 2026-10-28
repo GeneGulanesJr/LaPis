@@ -1,7 +1,8 @@
 // Incremental builders for import graph, call graph, and complexity.
 
-const { codeParser, _requireNativeDb, _SKIP_CALLEE_NAMES, CALL_GRAPH, COMPLEXITY } = require('./shared-deps'),
-  { extractImportBindings, extractImportsFromSource, resolveImportTarget } = require('./import-graph-impl');
+const { codeParser, _requireNativeDb, _SKIP_CALLEE_NAMES, CALL_GRAPH } = require('./shared-deps'),
+  { extractImportBindings, extractImportsFromSource, resolveImportTarget } = require('./import-graph-impl'),
+  { computeComplexity } = require('./complexity-impl');
 
 function buildImportGraphForFiles(db, repoId, changedFileIds, deletedFileIds = []) {
   const guard = _requireNativeDb(db),
@@ -98,18 +99,24 @@ function buildCallGraphForFiles(db, repoId, changedFileIds, deletedFileIds = [],
     ).run(repoId, ...deletedFileIds);
   }
 
-  const staleCallers = db
+  // Unresolved calls are normal (builtins, libraries), so only re-resolve the
+  // Ones whose callee name is now defined in a changed file.
+  const changedPh = changedFileIds.map(() => '?').join(','),
+    newNames = changedFileIds.length
+      ? `AND callee_name IN (SELECT name FROM code_symbols WHERE file_id IN (${changedPh}))`
+      : 'AND 0',
+    staleCallers = db
       .prepare(
-        `SELECT DISTINCT s.file_id FROM code_calls cc JOIN code_symbols s ON s.id = cc.caller_symbol_id WHERE cc.repo_id = ? AND cc.callee_symbol_id IS NULL`,
+        `SELECT DISTINCT s.file_id FROM code_calls cc JOIN code_symbols s ON s.id = cc.caller_symbol_id WHERE cc.repo_id = ? AND cc.callee_symbol_id IS NULL ${newNames}`,
       )
-      .all(repoId)
+      .all(repoId, ...changedFileIds)
       .map((r) => r.file_id),
     rebuildFileIds = (() => {
       if (staleCallers.length > 0) {
         const stalePh = staleCallers.map(() => '?').join(',');
         db.prepare(
-          `DELETE FROM code_calls WHERE repo_id = ? AND caller_symbol_id IN (SELECT id FROM code_symbols WHERE file_id IN (${stalePh})) AND callee_symbol_id IS NULL`,
-        ).run(repoId, ...staleCallers);
+          `DELETE FROM code_calls WHERE repo_id = ? AND caller_symbol_id IN (SELECT id FROM code_symbols WHERE file_id IN (${stalePh})) AND callee_symbol_id IS NULL ${newNames}`,
+        ).run(repoId, ...staleCallers, ...changedFileIds);
       }
 
       return new Set([...changedFileIds, ...staleCallers].filter((id) => !deletedSet.has(id)));
@@ -538,7 +545,7 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
   const changedPh = changedFileIds.map(() => '?').join(','),
     symbols = db
       .prepare(
-        `SELECT cs.id, cs.name, cs.start_byte, cs.end_byte, cs.start_line, cs.end_line, cs.signature, cf.content as file_content
+        `SELECT cs.id, cs.name, cs.file_id, cs.start_byte, cs.end_byte, cs.start_line, cs.end_line, cs.signature, cf.content as file_content
        FROM code_symbols cs JOIN code_files cf ON cf.id = cs.file_id
        WHERE cs.repo_id = ? AND cs.kind IN ('function', 'method') AND cs.file_id IN (${changedPh})`,
       )
@@ -547,139 +554,28 @@ function buildComplexityForFiles(db, repoId, changedFileIds, deletedFileIds = []
       `INSERT OR REPLACE INTO symbol_complexity (symbol_id, cyclomatic, nesting_depth, param_count, lines_of_code, assessment) VALUES (?, ?, ?, ?, ?, ?)`,
     );
 
+  const fileBuffers = new Map();
   let count = 0;
   for (const sym of symbols) {
     // oxlint-disable-next-line no-continue
     if (!sym.file_content || sym.end_byte <= sym.start_byte) {
       continue;
     }
-    const body = Buffer.from(sym.file_content, 'utf-8').toString('utf-8', sym.start_byte, sym.end_byte);
+    // The JOIN repeats file_content per symbol; encode each file once.
+    let fileBuf = fileBuffers.get(sym.file_id);
+    if (!fileBuf) {
+      fileBuf = Buffer.from(sym.file_content, 'utf-8');
+      fileBuffers.set(sym.file_id, fileBuf);
+    }
+    const body = fileBuf.toString('utf-8', sym.start_byte, sym.end_byte);
     // oxlint-disable-next-line no-continue
     if (!body) {
       continue;
     }
 
-    let cyclomatic = 1,
-      __ternaryMatch,
-      maxDepth = 0,
-      currentDepth = 0,
-      inString = false,
-      stringCharCode = 0,
-      templateDepth = 0,
-      assessment = 'high';
-    {
-      const decisionPatterns = [
-          /(?<!else\s+)if\b/g,
-          /\belse\s+if\b/g,
-          /\bfor\b/g,
-          /\bwhile\b/g,
-          /\bdo\b/g,
-          /\bcase\b/g,
-          /\bcatch\b/g,
-          /\&\&/g,
-          /\|\|/g,
-          /\?\?/g,
-        ],
-        ternaryRe = (() => {
-          for (const pattern of decisionPatterns) {
-            pattern.lastIndex = 0;
-            const m = body.match(pattern);
-            if (m) {
-              cyclomatic += m.length;
-            }
-          }
-
-          // Excludes both `?.` (optional chaining) and `??` (nullish coalescing)
-          // from counting as a ternary — without the `?` exclusion, `??` was
-          // matched here (its second `?` isn't `.` or `:`) on top of the `\?\?`
-          // decisionPatterns entry, double-counting every nullish-coalescing op.
-          return /\?(?:\s*[^.:?])/g;
-        })();
-      while ((__ternaryMatch = ternaryRe.exec(body)) !== null) {
-        cyclomatic++;
-      }
-
-      // PERF(issue #133): CharCode fast-path — reduces branch evaluations from 6+ per byte to
-      // 1 for the common case (plain code, not in string/template). Uses integer charCodeAt
-      // Instead of string boxing. body.substring() replaced with charCodeAt to avoid allocation.
-      // Do NOT replace charCode checks with string comparisons; the integer path is the
-      // Performance-critical fast path. Template depth tracking logic is preserved as-is.
-
-      for (let i = 0; i < body.length; i++) {
-        const code = body.charCodeAt(i);
-
-        if (inString) {
-          if (code === stringCharCode && (i === 0 || body.charCodeAt(i - 1) !== 92)) {
-            inString = false;
-          }
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-
-        if (templateDepth === 0) {
-          if (code !== 34 && code !== 39 && code !== 96 && code !== 123 && code !== 125) {
-            // oxlint-disable-next-line no-continue
-            continue;
-          }
-          if (code === 34 || code === 39) {
-            inString = true;
-            stringCharCode = code;
-            // oxlint-disable-next-line no-continue
-            continue;
-          }
-          if (code === 96) {
-            templateDepth++;
-            // oxlint-disable-next-line no-continue
-            continue;
-          }
-          if (code === 123) {
-            currentDepth++;
-            if (currentDepth > maxDepth) {
-              maxDepth = currentDepth;
-            }
-            // oxlint-disable-next-line no-continue
-            continue;
-          }
-          if (currentDepth > 0) {
-            currentDepth--;
-          }
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-
-        if (code === 96) {
-          templateDepth++;
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-        if (code === 123) {
-          currentDepth++;
-          if (currentDepth > maxDepth) {
-            maxDepth = currentDepth;
-          }
-        } else if (code === 125) {
-          if (currentDepth > 0) {
-            currentDepth--;
-          }
-        }
-      }
-
-      {
-        const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null,
-          paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0,
-          lines = body.split('\n'),
-          codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
-
-        if (cyclomatic <= COMPLEXITY.LOW_THRESHOLD) {
-          assessment = 'low';
-        } else if (cyclomatic <= COMPLEXITY.MEDIUM_THRESHOLD) {
-          assessment = 'medium';
-        }
-
-        insertStmt.run(sym.id, cyclomatic, maxDepth, paramCount, codeLines, assessment);
-        count++;
-      }
-    }
+    const c = computeComplexity(body, sym.signature);
+    insertStmt.run(sym.id, c.cyclomatic, c.nesting_depth, c.param_count, c.lines_of_code, c.assessment);
+    count++;
   }
 
   return { success: true, symbols: count, incremental: true };

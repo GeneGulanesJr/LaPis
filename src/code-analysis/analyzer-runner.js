@@ -1,3 +1,5 @@
+const { createCodeIndexReadRepository } = require('./read-model');
+
 function scopedError(analyzer, error) {
   return {
     error: error?.message || String(error),
@@ -14,4 +16,13 @@ function runAnalyzer(analyzer, fn) {
   }
 }
 
-module.exports = { runAnalyzer, scopedError };
+function withRepo(db, analyzer, fn) {
+  const codeIndex = createCodeIndexReadRepository(db),
+    guard = codeIndex.guard();
+  if (guard) {
+    return guard;
+  }
+  return runAnalyzer(analyzer, () => fn(codeIndex));
+}
+
+module.exports = { runAnalyzer, scopedError, withRepo };
