@@ -10,7 +10,6 @@ const { execFileSync } = require('child_process');
       COMPLEXITY /* oxlint-disable-line no-unused-vars */,
       HOTSPOT_THRESHOLDS /* oxlint-disable-line no-unused-vars */,
     } = require('./shared-deps'),
-    { getBlastRadius } = require('./import-graph-impl'),
     GIT_REF_RE = /^[A-Za-z0-9._^~/-]+$/;
 
   function isValidGitRef(ref) {
@@ -233,51 +232,30 @@ const { execFileSync } = require('child_process');
           return { signals: {}, risk_level: 'low', composite: 0.1, changed_files: changedFiles.length };
         }
 
-        // Signal 1: Blast radius (30%) — batch computation for >20 symbols
+        // Signal 1: Blast radius (30%) — most distinct transitive callers (depth 5,
+        // Confidence >= 0.7 like blast-radius) of any changed symbol, by id so
+        // Same-named symbols in other files don't matter.
         let blastRadiusScore = 0,
           complexityScore = (() => {
             try {
-              if (changedSymbolIds.size > 20) {
-                // Batch: recursive CTE for all changed symbols at once
-                // Use parameterized query to prevent SQL injection
-                const changedIdsArr = [...changedSymbolIds],
-                  placeholders = changedIdsArr.map(() => '?').join(','),
-                  rows = db
-                    .prepare(`
+              const changedIdsArr = [...changedSymbolIds],
+                placeholders = changedIdsArr.map(() => '?').join(','),
+                rows = db
+                  .prepare(`
           WITH RECURSIVE call_tree AS (
             SELECT callee_symbol_id AS root_id, caller_symbol_id, 1 as depth
-            FROM code_calls WHERE repo_id = ? AND callee_symbol_id IN (${placeholders})
+            FROM code_calls WHERE repo_id = ? AND confidence >= 0.7 AND callee_symbol_id IN (${placeholders})
             UNION ALL
             SELECT ct.root_id, cc.caller_symbol_id, ct.depth + 1
             FROM code_calls cc JOIN call_tree ct ON cc.callee_symbol_id = ct.caller_symbol_id
-            WHERE ct.depth < 5
+            WHERE ct.depth < 5 AND cc.confidence >= 0.7
           )
           SELECT root_id, COUNT(DISTINCT caller_symbol_id) as affected_callers
           FROM call_tree GROUP BY root_id
         `)
-                    .all(repoId, ...changedIdsArr),
-                  maxCallers = Math.max(...rows.map((r) => r.affected_callers), 1);
-                blastRadiusScore = Math.min(1.0, maxCallers / PR_RISK.BLAST_RADIUS_NORMALIZER);
-              } else {
-                // Per-symbol blast radius for small PRs. Pass depth=5 to match the
-                // Batch CTE's `ct.depth < 5` boundary above; otherwise the per-symbol
-                // Path would use getBlastRadius's default depth=3 and produce a
-                // Systematically smaller affected-callers count than the batch branch,
-                // Causing risk scores to jump discontinuously when the changed-symbol
-                // Count crosses the >20 threshold.
-                let maxCallers = 0;
-                for (const sid of changedSymbolIds) {
-                  const br = getBlastRadius(db, repoId, {
-                      symbol: db.prepare('SELECT name FROM code_symbols WHERE id = ?').get(sid)?.name,
-                      depth: 5,
-                    }),
-                    edgeCount = (br.callers || []).length;
-                  if (edgeCount > maxCallers) {
-                    maxCallers = edgeCount;
-                  }
-                }
-                blastRadiusScore = Math.min(1.0, maxCallers / PR_RISK.BLAST_RADIUS_NORMALIZER);
-              }
+                  .all(repoId, ...changedIdsArr),
+                maxCallers = Math.max(0, ...rows.map((r) => r.affected_callers));
+              blastRadiusScore = Math.min(1.0, maxCallers / PR_RISK.BLAST_RADIUS_NORMALIZER);
             } catch {}
 
             // Signal 2: Complexity (20%)
