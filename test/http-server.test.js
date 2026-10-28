@@ -341,7 +341,7 @@ describe('Aurex HTTP Server', () => {
     it('GET /health returns ok', async () => {
       const res = await request('GET', '/health');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ status: 'ok', db: true });
+      expect(res.body).toEqual({ status: 'ok', db: true, pid: process.pid });
     });
 
     it('returns 404 for unknown routes', async () => {

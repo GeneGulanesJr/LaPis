@@ -31,7 +31,14 @@ const fs = require('node:fs'),
   path = require('node:path'),
   { spawn, spawnSync } = require('node:child_process'),
   { isCodeFile } = require('../code-index/scanner'),
-  { resolveIndexedRepo, normalizeRepoPath } = require('../hooks-engine/project'),
+  {
+    resolveIndexedRepo,
+    normalizeRepoPath,
+    resolveCwd,
+    resolveProjectKey,
+    projectFromCwd,
+  } = require('../hooks-engine/project'),
+  { getKnownRepos, getKnownProjects } = require('../platform/project-db'),
   { CONFIG_FILENAMES, isTargetedGrepLookup } = require('../hooks-engine/guardrail-utils'),
   { loadState, saveState, sessionStateDir } = require('./state-store'),
   { CONTEXT } = require('../../constants'),
@@ -40,6 +47,20 @@ const fs = require('node:fs'),
 /** Absolute path to this repo's `memory-store.js` entry point. */
 function lapisEntry() {
   return path.resolve(__dirname, '..', '..', 'memory-store.js');
+}
+
+/**
+ * Memory project key for a cwd, derived exactly like the MCP server
+ * (detectMcpProject) so Hermes reads what MCP/Pi/Claude Code saved — memories
+ * are keyed by short project name, never by the full folder path.
+ */
+function projectKey(cwd) {
+  const resolved = path.resolve(resolveCwd(cwd));
+  try {
+    return resolveProjectKey(resolved, getKnownRepos(), getKnownProjects());
+  } catch {
+    return projectFromCwd(resolved);
+  }
 }
 
 /** Indexed code repos (rows from code_repos: {name, path, …}). Never throws. */
@@ -222,7 +243,7 @@ function syncTrust(payload) {
  */
 function startSession(payload) {
   try {
-    const args = [lapisEntry(), 'session-start', '--project', payload.cwd || process.cwd()],
+    const args = [lapisEntry(), 'session-start', '--project', projectKey(payload.cwd || process.cwd())],
       res = spawnSync(process.execPath, args, { timeout: 15000, encoding: 'utf8' });
     if (res.status !== 0 || !res.stdout) {
       return;
@@ -253,7 +274,7 @@ function injectContext(payload) {
             '--query',
             userMessage.slice(0, 500),
             '--project',
-            payload.cwd,
+            projectKey(payload.cwd),
             '--token-budget',
             String(CONTEXT.TOKEN_BUDGET_DEFAULT || 2000),
           ]
@@ -369,6 +390,7 @@ function runHook(io = {}) {
 
 module.exports = {
   lapisEntry,
+  projectKey,
   indexedRepos,
   countSessionMemories,
   readGuardReason,

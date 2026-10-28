@@ -16,6 +16,7 @@
  */
 
 const { resolveDaemonUrl, ensureDaemonRunning } = require('./daemon'),
+  { resolveHttpApiKey } = require('../http/auth'),
   { getKnownRepos, getKnownProjects } = require('../platform/project-db');
 
 /**
@@ -62,9 +63,10 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
   // The real source of truth (#229).
   {
     const payload = { cmd, args: stringifyArgs(args) },
+      apiKey = resolveHttpApiKey(),
       res = await fetchFn(`${baseUrl.replace(/\/$/, '')}/dispatch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(apiKey ? { 'x-api-key': apiKey } : {}) },
         body: JSON.stringify(payload),
         signal: opts.timeoutMs === null ? undefined : AbortSignal.timeout(opts.timeoutMs ?? DAEMON_TIMEOUT_MS),
       });
@@ -93,7 +95,7 @@ async function dispatchViaDaemon(baseUrl, cmd, args, opts = {}) {
  */
 async function dispatch(cmd, args, opts = {}) {
   const resolveUrl = opts.resolveDaemonUrl || resolveDaemonUrl;
-  let daemonUrl = resolveUrl(opts);
+  let daemonUrl = await resolveUrl(opts);
   if (!daemonUrl && !opts.forceDirect) {
     daemonUrl = await ensureDaemonRunning(opts);
   }

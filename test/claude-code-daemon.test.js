@@ -80,7 +80,7 @@ describe('ensureDaemonRunning', () => {
     );
     const { ensureDaemonRunning } = require('../src/claude-code/daemon');
     const startFn = vi.fn();
-    const url = await ensureDaemonRunning({ lockfilePath, startFn });
+    const url = await ensureDaemonRunning({ lockfilePath, startFn, probeDaemonPid: async () => process.pid });
     expect(url).toBe('http://127.0.0.1:9100');
     expect(startFn).not.toHaveBeenCalled();
   });
@@ -96,7 +96,7 @@ describe('ensureDaemonRunning', () => {
       );
       return { pid: process.pid, port: 9100, host: '127.0.0.1' };
     });
-    const url = await ensureDaemonRunning({ lockfilePath, startFn });
+    const url = await ensureDaemonRunning({ lockfilePath, startFn, probeDaemonPid: async () => process.pid });
     expect(startFn).toHaveBeenCalledTimes(1);
     expect(startFn.mock.calls[0][0]).toEqual(['--detached']);
     expect(url).toBe('http://127.0.0.1:9100');
@@ -142,6 +142,7 @@ describe('runStart detached race guard', () => {
       spawnDetachedServe: vi.fn(() => ({ pid: deadChildPid, unref() {} })),
       waitForHealth: vi.fn(async () => true),
       stopProcess: vi.fn(async () => false),
+      probeDaemonPid: vi.fn(async () => process.pid),
     });
     expect(result.alreadyRunning).toBe(true);
     expect(result.pid).toBe(process.pid);
@@ -158,6 +159,7 @@ describe('runStart detached race guard', () => {
       spawnDetachedServe: vi.fn(() => ({ pid: childPid, unref() {} })),
       waitForHealth: vi.fn(async () => true),
       stopProcess: vi.fn(async () => false),
+      probeDaemonPid: vi.fn(async () => childPid),
     });
     expect(result.alreadyRunning).toBeUndefined();
     expect(result.pid).toBe(childPid);
