@@ -9,7 +9,7 @@ const fs = require('fs'),
   { resolveRepoScopedPath, resolveRepoScopedDeletedPath } = require('./path-guards'),
   { withRepoIndexLock } = require('./repo-lock'),
   { createParserRegistry, getLanguageForFile } = require('./parser-registry'),
-  { extractSymbolsSplit, normalizeSymbolHot } = require('./symbol-extractor'),
+  { extractSymbolsSplit, normalizeSymbolHot, normalizeSymbolCold } = require('./symbol-extractor'),
   {
     buildImportEdges,
     buildImportEdgesForFiles,
@@ -1103,6 +1103,7 @@ async function parsePhase(files, deps, repoId, args) {
             // oxlint-disable-next-line no-await-in-loop
             workerResults = await pool.parseAll(workerInputs),
             symbolMap = new Map(workerResults.map((r) => [r.filePath, r.symbols])),
+            calleeMap = new Map(workerResults.map((r) => [r.filePath, r.callees])),
             workerErrors = new Map(workerResults.filter((r) => r.error).map((r) => [r.filePath, r.error]));
           for (const record of validReads) {
             const parseError = workerErrors.get(record.filePath),
@@ -1127,8 +1128,11 @@ async function parsePhase(files, deps, repoId, args) {
                 );
 
                 return symbols.map((s) => normalizeSymbolHot(s, record.filePath));
-              })();
-            parsedRecords.push({ record, hotSymbols, coldSymbols: symbols, tree: null });
+              })(),
+              // Raw worker symbols lack summary/hash/keywords; derive them like extractSymbolsSplit does (#390).
+              ctx = { content: record.content, callees: calleeMap.get(record.filePath) || [] },
+              coldSymbols = symbols.map((s, si) => normalizeSymbolCold(hotSymbols[si], s, record.filePath, ctx));
+            parsedRecords.push({ record, hotSymbols, coldSymbols, tree: null });
           }
         } catch (e) {
           emitProgress(args, 'parsing', {
