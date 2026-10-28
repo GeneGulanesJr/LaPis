@@ -3,10 +3,6 @@ const { createParserRegistry } = require('../src/code-index/parser-registry'),
   { createJobQueue } = require('../src/code-index/job-queue'),
   jobStore = require('../src/code-index/job-store');
 
-function parseCodeFile(filePath) {
-  return createParserRegistry().parseFile(filePath);
-}
-
 async function ensureParserAvailable() {
   return createParserRegistry().ensureReady();
 }
@@ -65,7 +61,6 @@ function listIndexJobsInternal({ onlyRunning = false, limit = 20 } = {}) {
 }
 
 module.exports = {
-  parseCodeFile,
   ensureParserAvailable,
   indexRepoInternal,
   reindexRepoInternal,
