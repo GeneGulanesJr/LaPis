@@ -72,6 +72,29 @@ describe('getGitDelta working-tree coverage (#282)', () => {
     }
   });
 
+  it('reports non-ASCII file names verbatim (core.quotePath would C-quote them)', () => {
+    const { repo, git, base } = makeRepo();
+    try {
+      git('config', 'core.quotePath', 'true');
+      fs.writeFileSync(path.join(repo, 'café.js'), 'function cafe() {}\n');
+      git('add', 'café.js');
+      git('commit', '-m', 'add cafe');
+      fs.writeFileSync(path.join(repo, 'naïve.js'), 'function naive() {}\n');
+      git('add', 'naïve.js');
+      fs.writeFileSync(path.join(repo, 'über.js'), 'function uber() {}\n');
+      git('mv', 'a.js', 'ünïcode.js');
+
+      const delta = getGitDelta(repo, base),
+        changed = delta.changed.map((p) => path.basename(p));
+
+      expect(changed).toEqual(expect.arrayContaining(['café.js', 'naïve.js', 'über.js', 'ünïcode.js']));
+      expect(delta.deleted.map((p) => path.basename(p))).toContain('a.js');
+      expect(delta.rejected).toEqual([]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   it('respects .gitignore when collecting untracked files', () => {
     const { repo, git, base } = makeRepo();
     try {

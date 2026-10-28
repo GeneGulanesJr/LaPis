@@ -28,28 +28,29 @@ function resolveIndexedFilePaths(repoPath, gitPaths) {
 }
 
 /**
- * Parse `git diff --name-status` output into repo-relative changed paths.
+ * Parse `git diff --name-status -z` output (`STATUS\0path\0`, renames/copies
+ * `R100\0old\0new\0`) into repo-relative changed paths. -z keeps non-ASCII,
+ * space and quote characters in names verbatim instead of C-quoting them.
  * Includes both sides of renames so indexed symbols on old paths are detected.
  */
 function parseGitDiffNameStatus(output) {
-  const changed = new Set();
-  for (const line of output.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) {
+  const changed = new Set(),
+    tokens = output.split('\0');
+  for (let i = 0; i < tokens.length; ) {
+    const status = tokens[i++];
+    if (!status) {
       // oxlint-disable-next-line no-continue
       continue;
     }
-    {
-      const parts = trimmed.split('\t'),
-        status = parts[0];
-      if (status.startsWith('R') && parts[1] && parts[2]) {
-        changed.add(parts[1]);
-        changed.add(parts[2]);
-      } else if (status.startsWith('D') && parts[1]) {
-        changed.add(parts[1]);
-      } else if (parts[1]) {
-        changed.add(parts[1]);
-      }
+    const twoPaths = status.startsWith('R') || status.startsWith('C'),
+      first = tokens[i++],
+      second = twoPaths ? tokens[i++] : undefined;
+    // A copy leaves its source untouched; only a rename changes both sides.
+    if (first && !status.startsWith('C')) {
+      changed.add(first);
+    }
+    if (second) {
+      changed.add(second);
     }
   }
   return [...changed];
@@ -131,7 +132,7 @@ function detectChangedSymbols(deps, repoName) {
 
   try {
     const diffRange = `${baseCommit}..HEAD`,
-      output = execFileSync('git', ['diff', '--name-status', diffRange], {
+      output = execFileSync('git', ['diff', '--name-status', '-z', diffRange], {
         cwd: repoPath,
         encoding: 'utf-8',
         timeout: 10000,

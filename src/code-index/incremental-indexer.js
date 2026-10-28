@@ -4,8 +4,7 @@ const fs = require('fs'),
   { RESULT_LIMITS, WORKER_POOL } = require('../../constants'),
   { hashContent } = require('../../utils'),
   { createCodeIndexRepository } = require('./repos'),
-  { scanRepository } = require('./scanner'),
-  { SKIP_FILE_RE } = require('./scanner'),
+  { scanRepository, createFileFilter } = require('./scanner'),
   { resolveRepoScopedPath, resolveRepoScopedDeletedPath } = require('./path-guards'),
   { withRepoIndexLock } = require('./repo-lock'),
   { createParserRegistry, getLanguageForFile } = require('./parser-registry'),
@@ -260,7 +259,7 @@ function getGitDelta(repoPath, baseCommit) {
     return null;
   }
   try {
-    const output = execFileSync('git', ['diff', '--name-status', `${baseCommit}..HEAD`], {
+    const output = execFileSync('git', ['diff', '--name-status', '-z', `${baseCommit}..HEAD`], {
         cwd: repoPath,
         encoding: 'utf-8',
         timeout: 15000,
@@ -271,7 +270,7 @@ function getGitDelta(repoPath, baseCommit) {
       // File edited but not yet committed — the normal state while an agent
       // Works — is invisible to delta mode and stays stale after head_commit
       // Advances past it.
-      wtOutput = execFileSync('git', ['diff', '--name-status', 'HEAD'], {
+      wtOutput = execFileSync('git', ['diff', '--name-status', '-z', 'HEAD'], {
         cwd: repoPath,
         encoding: 'utf-8',
         timeout: 15000,
@@ -279,7 +278,7 @@ function getGitDelta(repoPath, baseCommit) {
         stdio: ['ignore', 'pipe', 'ignore'],
       }),
       // Untracked-but-not-ignored files are new work; they appear in no diff.
-      untrackedOutput = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], {
+      untrackedOutput = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], {
         cwd: repoPath,
         encoding: 'utf-8',
         timeout: 15000,
@@ -291,16 +290,26 @@ function getGitDelta(repoPath, baseCommit) {
       renamed = [],
       rejected = [],
       absRoot = path.resolve(repoPath);
+    // -z output: `STATUS\0path\0`, renames/copies `R100\0old\0new\0`; names are never C-quoted.
     const parseNameStatus = (raw) => {
-      for (const line of raw.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed) {
+      const tokens = raw.split('\0');
+      for (let i = 0; i < tokens.length; ) {
+        const status = tokens[i++];
+        if (!status) {
           // oxlint-disable-next-line no-continue
           continue;
         }
-        const parts = trimmed.split('\t'),
-          status = parts[0];
-        if (status.startsWith('D') && parts[1]) {
+        const parts = [status, tokens[i++]];
+        if (status.startsWith('R') || status.startsWith('C')) {
+          parts.push(tokens[i++]);
+        }
+        if (status.startsWith('C') && parts[2]) {
+          // A copy leaves its source untouched; only the new path needs indexing.
+          const abs = resolveRepoScopedPath(repoPath, parts[2], rejected);
+          if (abs) {
+            changed.add(abs);
+          }
+        } else if (status.startsWith('D') && parts[1]) {
           // Deleted files no longer exist on disk; use the existence-tolerant resolver so they are recorded as deleted.
           const abs = resolveRepoScopedDeletedPath(absRoot, parts[1], rejected);
           if (abs) {
@@ -326,13 +335,12 @@ function getGitDelta(repoPath, baseCommit) {
     };
     parseNameStatus(output);
     parseNameStatus(wtOutput);
-    for (const line of untrackedOutput.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed) {
+    for (const name of untrackedOutput.split('\0')) {
+      if (!name) {
         // oxlint-disable-next-line no-continue
         continue;
       }
-      const abs = resolveRepoScopedPath(repoPath, trimmed, rejected);
+      const abs = resolveRepoScopedPath(repoPath, name, rejected);
       if (abs) {
         changed.add(abs);
       }
@@ -1385,13 +1393,15 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
         : null,
       gitDelta =
         explicitDelta || (fs.existsSync(existing.path) ? getGitDelta(existing.path, existing.head_commit) : null),
+      // Same ignore dirs, ignore files, size cap and binary check as a full scan, so delta and scan agree.
+      skipReason = gitDelta ? createFileFilter(existing.path) : null,
       gitChangedFiles = gitDelta
         ? gitDelta.changed.filter(
             (filePath) =>
               resolveRepoScopedPath(existing.path, filePath) &&
               fs.existsSync(filePath) &&
               registry.canParseFile(filePath) &&
-              !SKIP_FILE_RE.test(filePath.replace(/\\/g, '/')),
+              !skipReason(filePath),
           )
         : null,
       gitDeletedFiles = gitDelta ? gitDelta.deleted : [],
