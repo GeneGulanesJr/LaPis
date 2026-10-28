@@ -245,15 +245,15 @@ const { execFileSync } = require('child_process');
                   rows = db
                     .prepare(`
           WITH RECURSIVE call_tree AS (
-            SELECT callee_symbol_id, caller_symbol_id, 1 as depth
+            SELECT callee_symbol_id AS root_id, caller_symbol_id, 1 as depth
             FROM code_calls WHERE repo_id = ? AND callee_symbol_id IN (${placeholders})
             UNION ALL
-            SELECT cc.callee_symbol_id, cc.caller_symbol_id, ct.depth + 1
+            SELECT ct.root_id, cc.caller_symbol_id, ct.depth + 1
             FROM code_calls cc JOIN call_tree ct ON cc.callee_symbol_id = ct.caller_symbol_id
             WHERE ct.depth < 5
           )
-          SELECT callee_symbol_id, COUNT(DISTINCT caller_symbol_id) as affected_callers
-          FROM call_tree GROUP BY callee_symbol_id
+          SELECT root_id, COUNT(DISTINCT caller_symbol_id) as affected_callers
+          FROM call_tree GROUP BY root_id
         `)
                     .all(repoId, ...changedIdsArr),
                   maxCallers = Math.max(...rows.map((r) => r.affected_callers), 1);

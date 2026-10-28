@@ -185,9 +185,20 @@ function computeFileChurn(db, repo, filePath, days, since) {
 function computeRepoChurn(db, repo, days, since) {
   try {
     // Each commit prints a "\x01author|date" header line followed by its files (newest commit first).
+    // With core.quotePath=false git prints non-ASCII names as raw UTF-8 instead of "\303\251"-style quoting.
+    // shortcut: names containing a quote, backslash, tab or newline are still C-quoted by git; switch to -z parsing if that matters.
     const log = execFileSync(
         'git',
-        ['-C', repo.path, 'log', `--since=${since}`, '--format=%x01%an|%aI', '--name-only'],
+        [
+          '-C',
+          repo.path,
+          '-c',
+          'core.quotePath=false',
+          'log',
+          `--since=${since}`,
+          '--format=%x01%an|%aI',
+          '--name-only',
+        ],
         {
           encoding: 'utf8',
           timeout: 30000,

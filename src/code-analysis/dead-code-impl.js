@@ -1,6 +1,8 @@
 // Dead code detection via call graph reachability analysis.
 
-const { _requireNativeDb, DEAD_CODE } = require('./shared-deps');
+const fs = require('fs'),
+  path = require('path'),
+  { _requireNativeDb, DEAD_CODE } = require('./shared-deps');
 
 function getDeadCode(db, repoId, opts) {
   const guard = _requireNativeDb(db),
@@ -40,45 +42,32 @@ function getDeadCode(db, repoId, opts) {
       entryFiles.add(r.id);
     }
 
-    // 4. package.json bin/main/exports fields
+    // 4. package.json bin/main fields. The scanner never indexes package.json,
+    // So read the repo root's copy from disk.
+    // shortcut: root package.json only; nested workspace packages are not read. Upgrade if monorepos need it.
     {
-      const packageJsonFiles = db
-          .prepare("SELECT id, path, content FROM code_files WHERE repo_id = ? AND path LIKE '%/package.json'")
-          .all(repoId),
-        barrelFiles = (() => {
-          for (const pkg of packageJsonFiles) {
-            try {
-              const pkgData = JSON.parse(pkg.content);
-              if (pkgData.main) {
-                const mainRow = db
-                  .prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?')
-                  .get(repoId, `%${String(pkgData.main).replace(/^\.\//, '')}%`);
-                if (mainRow) {
-                  entryFiles.add(mainRow.id);
-                }
-              }
-              if (pkgData.bin) {
-                const bins = typeof pkgData.bin === 'string' ? [pkgData.bin] : Object.values(pkgData.bin);
-                for (const bin of bins) {
-                  const binRow = db
-                    .prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?')
-                    .get(repoId, `%${String(bin).replace(/^\.\//, '')}%`);
-                  if (binRow) {
-                    entryFiles.add(binRow.id);
-                  }
-                }
-              }
-            } catch {}
+      const barrelFiles = (() => {
+        const repoRoot = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId)?.path;
+        try {
+          const pkgData = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')),
+            bins = typeof pkgData.bin === 'string' ? [pkgData.bin] : Object.values(pkgData.bin || {}),
+            byPath = db.prepare('SELECT id FROM code_files WHERE repo_id = ? AND path = ?');
+          for (const rel of [pkgData.main, ...bins].filter((p) => typeof p === 'string')) {
+            const row = byPath.get(repoId, path.resolve(repoRoot, rel));
+            if (row) {
+              entryFiles.add(row.id);
+            }
           }
+        } catch {}
 
-          // 5. Barrel files (index.js/ts that re-export other modules)
+        // 5. Barrel files (index.js/ts that re-export other modules)
 
-          return db
-            .prepare(
-              "SELECT source_file_id as file_id FROM code_imports WHERE import_type = 're-export' AND repo_id = ? GROUP BY source_file_id",
-            )
-            .all(repoId);
-        })();
+        return db
+          .prepare(
+            "SELECT source_file_id as file_id FROM code_imports WHERE import_type = 're-export' AND repo_id = ? GROUP BY source_file_id",
+          )
+          .all(repoId);
+      })();
       for (const b of barrelFiles) {
         entryFiles.add(b.file_id);
       }
