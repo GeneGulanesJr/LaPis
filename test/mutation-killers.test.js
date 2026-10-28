@@ -403,10 +403,11 @@ describe('search.js search()', () => {
     expect(result.results.length).toBe(1);
   });
 
-  it('LIKE fallback for special chars', () => {
+  it('special chars are stripped and still use FTS (#380)', () => {
     const sqlJson = vi.fn(() => [baseObs({ id: 1 })]);
     search(mockDeps({ sqlJson }), { query: 'test*' });
-    expect(sqlJson.mock.calls[0][0]).toContain('LIKE');
+    expect(sqlJson.mock.calls[0][0]).toContain('MATCH');
+    expect(sqlJson.mock.calls[0][1][0]).toBe('test');
   });
 
   it('filters by project, type, scope', () => {
@@ -449,7 +450,7 @@ describe('search.js search()', () => {
         }
         return [];
       }),
-      r = search(mockDeps({ sqlJson }), { query: 't' });
+      r = search(mockDeps({ sqlJson }), { query: 'test' });
     expect(r.results[0]._relations).toBeDefined();
   });
 });
@@ -1438,8 +1439,9 @@ describe('dedupe.js remaining mutation killers', () => {
     expect(trigramOverlap('', '')).toBe(1.0);
     expect(trigramOverlap('abc', '')).toBe(0.0);
     expect(trigramOverlap('', 'abc')).toBe(0.0);
-    // Both < 3 chars → no trigrams → both empty → 1.0
-    expect(trigramOverlap('ab', 'cd')).toBe(1.0);
+    // Both < 3 chars → no trigrams → only identical titles match (#379)
+    expect(trigramOverlap('ab', 'cd')).toBe(0.0);
+    expect(trigramOverlap('ab', 'AB')).toBe(1.0);
   });
 
   it('checkDuplicate: includes similarity rounded to 2 decimal places', () => {
@@ -1580,17 +1582,18 @@ describe('search.js special query handling', () => {
     expect(likeCall).toBeDefined();
   });
 
-  it('query with quotes triggers FTS special check', () => {
+  it('query with quotes still uses FTS with clean terms (#380)', () => {
     const sqlJson = vi.fn(() => [baseObs({ id: 1 })]);
     search(mockDeps({ sqlJson }), { query: 'hello "world"' });
-    // Should fall back to LIKE
-    expect(sqlJson.mock.calls[0][0]).toContain('LIKE');
+    expect(sqlJson.mock.calls[0][0]).toContain('MATCH');
+    expect(sqlJson.mock.calls[0][1][0]).toBe('hello world');
   });
 
-  it('query with AND/OR/NOT triggers FTS special check', () => {
+  it('query with AND/OR/NOT drops the operator and uses FTS (#380)', () => {
     const sqlJson = vi.fn(() => [baseObs({ id: 1 })]);
     search(mockDeps({ sqlJson }), { query: 'test AND debug' });
-    expect(sqlJson.mock.calls[0][0]).toContain('LIKE');
+    expect(sqlJson.mock.calls[0][0]).toContain('MATCH');
+    expect(sqlJson.mock.calls[0][1][0]).toBe('test debug');
   });
 
   it('empty query string triggers fallback', () => {
@@ -2090,15 +2093,13 @@ describe('search.js ranking formula exact', () => {
 // Search.js — special query FTS path (NoCoverage)
 // ═══════════════════════════════════════════════
 describe('search.js FTS special path', () => {
-  it('FTS query with special chars: catches the error in try/catch', () => {
-    // For special queries, FTS is skipped entirely (isFtsSpecial check)
-    // So no error is thrown
+  it('FTS query with special chars: does not throw', () => {
     const sqlJson = vi.fn(() => [baseObs({ id: 1 })]),
       deps = mockDeps({ sqlJson });
     delete deps.insertRecallLog;
     expect(() => search(deps, { query: 'test*' })).not.toThrow();
-    // The first call should be LIKE (not FTS) because of the special char
-    expect(sqlJson.mock.calls[0][0]).toContain('LIKE');
+    // The special char is stripped, so the first call is FTS with the clean term
+    expect(sqlJson.mock.calls[0][0]).toContain('MATCH');
   });
 
   it('search function: FTS LIMIT multiplier is SEARCH_MULTIPLIER', () => {
@@ -3969,14 +3970,11 @@ describe('dedupe.js L18 BlockStatement killers', () => {
     expect(trigramOverlap('', 'abc')).toBe(0.0);
   });
 
-  it('trigramOverlap: both < 3 chars → both empty → 1.0', () => {
-    // 'a' has 0 trigrams (loop doesn't run for length < 3)
-    // Both sets are empty → return 1.0
-    expect(trigramOverlap('a', 'b')).toBe(1.0);
-    // One empty string (truly empty), one 'a' (0 trigrams)
-    // 'a' → ta = empty set, '' → tb = empty set
-    // Both empty → 1.0
-    expect(trigramOverlap('a', '')).toBe(1.0);
+  it('trigramOverlap: both < 3 chars → both empty → exact compare (#379)', () => {
+    // 'a' has 0 trigrams (loop doesn't run for length < 3), so both sets are empty
+    expect(trigramOverlap('a', 'b')).toBe(0.0);
+    expect(trigramOverlap('a', '')).toBe(0.0);
+    expect(trigramOverlap('a', 'a')).toBe(1.0);
   });
 
   it('trigramOverlap: short string (< 3 chars) produces 0 trigrams', () => {

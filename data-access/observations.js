@@ -17,13 +17,8 @@ function insertObservationRelation(deps, { sourceId, targetId, relation, confide
 
 function softDeleteObservation(deps, id) {
   const { sqlRun } = deps;
+  // The obs_fts_update trigger keeps FTS in sync; search filters deleted_at IS NULL (#378).
   sqlRun("UPDATE observations SET deleted_at = datetime('now') WHERE id = ?", [parseInt(id, 10)]);
-  try {
-    sqlRun(
-      "INSERT INTO observations_fts(observations_fts, rowid, title, content, type, project, topic_key) VALUES ('delete', ?, '', '', '', '', '')",
-      [parseInt(id, 10)],
-    );
-  } catch {}
 }
 
 function hardDeleteObservation(deps, id) {

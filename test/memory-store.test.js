@@ -225,6 +225,16 @@ describe('memory-store: search', () => {
     expect(result.results).toEqual([]);
   });
 
+  it('should still use FTS for queries with and/not/- (#380)', () => {
+    run(
+      `save --title "Quuxly WAL journal mode" --content "Enable quuxly WAL / busy timeout" --project ${testProject} --force`,
+    );
+    for (const q of ['quuxly and busy timeout', 'quuxly not busy', 'quuxly-wal busy']) {
+      const titles = run(`search --query "${q}" --project ${testProject}`).results.map((r) => r.title);
+      expect(titles).toContain('Quuxly WAL journal mode');
+    }
+  });
+
   it('should handle special characters in query gracefully', () => {
     expect(() => {
       run(`search --query "foo.bar()" --project ${testProject}`);

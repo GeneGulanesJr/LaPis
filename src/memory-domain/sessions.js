@@ -26,7 +26,8 @@ function sessionStart(deps, args) {
         countRows = deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [project]),
         sCnt = countRows[0].cnt,
         compactInterval = getConfig().compact_every_n_sessions || 5,
-        cDue = sCnt > 0 && sCnt % compactInterval === 0,
+        // Use the ever-increasing id: runCompactCheap caps session_log rows, so the count stalls (#389).
+        cDue = sid > 0 && sid % compactInterval === 0,
         aCandidates = deps.sqlJson(
           `
       SELECT project, MAX(started_at) as last_active
@@ -106,26 +107,16 @@ function sessionEnd(deps, args) {
   ]);
 
   // Always run the cheap, lock-light cleanup (DELETEs + trust decay).
-  // The expensive VACUUM + FTS 'optimize' is gated by per-project session count
-  // (same query as sessionStart) so heavy work lands on the same cadence.
+  // The expensive VACUUM + FTS 'optimize' runs every Nth session id, the same
+  // cadence sessionStart uses for consolidation. Session id only grows, while
+  // runCompactCheap caps session_log rows, so a row count would stall (#389).
   {
     const cheapResult = deps.runCompactCheap ? deps.runCompactCheap() : null;
 
     if (deps.runVacuum) {
-      let vacuumDue = true;
-      try {
-        const sessionRows = deps.sqlJson('SELECT project FROM session_log WHERE id = ?', [parseInt(id, 10)]),
-          project = sessionRows[0]?.project,
-          compactInterval = getConfig().compact_every_n_sessions || 5,
-          row = project
-            ? deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log WHERE project = ?', [project])
-            : deps.sqlJson('SELECT COUNT(*) as cnt FROM session_log'),
-          sessionCount = row && row[0] ? parseInt(row[0].cnt, 10) : 0;
-        vacuumDue = sessionCount > 0 && sessionCount % compactInterval === 0;
-      } catch {
-        // If the count query fails, skip vacuum rather than block exit.
-        vacuumDue = false;
-      }
+      const sid = parseInt(id, 10),
+        compactInterval = getConfig().compact_every_n_sessions || 5,
+        vacuumDue = sid > 0 && sid % compactInterval === 0;
       if (vacuumDue) {
         vacuumResult = deps.runVacuum();
       }

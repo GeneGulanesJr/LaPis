@@ -241,9 +241,9 @@ function search(deps, args) {
     return jsonErrNoExit('Missing --query');
   }
 
-  const isFtsSpecial = /[*"\-]|\b(AND|OR|NOT)\b/i.test(query);
-  const needsFallback = query === '*' || query === '' || isFtsSpecial;
+  // _extractFtsTerms keeps only lowercase [a-z0-9] words and drops and/or/not, so no FTS operator reaches MATCH (#380).
   const ftsTerms = _extractFtsTerms(query);
+  const needsFallback = !ftsTerms;
   let degraded = null;
 
   let rows;
@@ -302,8 +302,8 @@ function search(deps, args) {
     // Full AND conjunction still recall the best partial matches — FTS5's
     // Implicit AND made e.g. "lapis mcp architecture design decisions" a
     // Guaranteed zero-hit. Only multi-term clean queries degrade here: a
-    // Single term's OR is identical to its AND, and FTS-special queries never
-    // Reach this path (needsFallback routes them straight to LIKE below).
+    // Single term's OR is identical to its AND, and queries with no usable
+    // Terms never reach this path (needsFallback routes them straight to LIKE below).
     // (rows here is null/undefined on FTS error/skip, or [] on a successful
     // Zero-hit query — both should attempt the OR tier, so don't test !rows.)
     const terms = String(ftsTerms).split(' ').filter(Boolean);

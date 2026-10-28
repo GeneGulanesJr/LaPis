@@ -47,6 +47,26 @@ describe('data-access/observations', () => {
         [42],
       );
     });
+
+    it('keeps the FTS index consistent on a real DB (#378)', () => {
+      const Database = require('better-sqlite3'),
+        db = new Database(':memory:');
+      db.exec(require('fs').readFileSync(require('path').resolve(__dirname, '..', 'schema.sql'), 'utf8'));
+      const sqlRun = (sql, params = []) => db.prepare(sql).run(...params),
+        sid = db.prepare("INSERT INTO session_log (project) VALUES ('p')").run().lastInsertRowid,
+        ins = db.prepare('INSERT INTO observations (session_id, type, title, content, project) VALUES (?, ?, ?, ?, ?)');
+      for (const n of [1, 2, 3]) {
+        ins.run(sid, 'decision', `busy timeout ${n}`, 'busy timeout setting', 'p');
+      }
+      softDeleteObservation({ sqlRun }, 1);
+      softDeleteObservation({ sqlRun }, 2);
+      // rank=1 also checks the index against the content table.
+      expect(() =>
+        db.exec("INSERT INTO observations_fts(observations_fts, rank) VALUES('integrity-check', 1)"),
+      ).not.toThrow();
+      expect(() => db.prepare('DELETE FROM observations WHERE id = 1').run()).not.toThrow();
+      db.close();
+    });
   });
 
   describe('hardDeleteObservation', () => {
