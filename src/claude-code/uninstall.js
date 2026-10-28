@@ -28,6 +28,7 @@ const fs = require('node:fs'),
     readJson,
     writeJson,
     writeJsonOrRemove,
+    isSymlink,
     removeClaudeMdBlock,
     resolveIo,
     configPaths,
@@ -53,8 +54,7 @@ function cleanSettingsFile(filePath, mcpNames) {
   if (JSON.stringify(settings) === before) {
     return false;
   }
-  writeJsonOrRemove(filePath, settings);
-  return true;
+  return writeJsonOrRemove(filePath, settings);
 }
 
 /**
@@ -91,8 +91,7 @@ function cleanProjectMcp(filePath) {
   if (config.mcpServers && Object.keys(config.mcpServers).length === 0) {
     delete config.mcpServers;
   }
-  writeJsonOrRemove(filePath, config);
-  return removed;
+  return writeJsonOrRemove(filePath, config) ? removed : [];
 }
 
 /**
@@ -129,8 +128,8 @@ function cleanClaudeJson(filePath, { user, projectKey }) {
       }
     }
   }
-  if (removed.length > 0) {
-    writeJson(filePath, config);
+  if (removed.length > 0 && !writeJson(filePath, config)) {
+    return [];
   }
   return removed;
 }
@@ -205,6 +204,13 @@ async function runUninstall(argv, io) {
     if (removeClaudeMdBlock(paths.projectClaudeMd)) {
       cleaned.push(paths.projectClaudeMd);
     }
+  }
+
+  const scopeFiles = flags.global
+    ? [paths.claudeJson, paths.userSettings, paths.userClaudeMd]
+    : [paths.projectMcp, paths.claudeJson, paths.projectSettings, paths.localSettings, paths.projectClaudeMd];
+  for (const file of scopeFiles.filter(isSymlink)) {
+    log(`Warning: ${file} is a symlink — left untouched; remove any LaPis config from its target by hand.`);
   }
 
   if (cleaned.length === 0) {
