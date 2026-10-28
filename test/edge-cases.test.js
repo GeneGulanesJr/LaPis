@@ -179,19 +179,17 @@ describe('edge cases: search', () => {
 // Dedup Edge Cases
 // ═══════════════════════════════════════════
 describe('edge cases: dedup', () => {
-  it('should auto-merge duplicate saves', () => {
+  it('should flag an identical-title save as a duplicate without deleting the original', () => {
     const title = `Edge: dedup auto ${process.pid}`;
     const r1 = run(`save --title "${title}" --content "first" --type learning --force --project ${testProject}`);
     expect(r1.id).toBeTruthy();
-    expect(r1.auto_merged).toBeUndefined();
 
     const r2 = run(`save --title "${title}" --content "second" --type learning --project ${testProject}`);
-    expect(r2.auto_merged).toBe(true);
-    expect(r2.superseded_id).toBe(r1.id);
-    expect(r2.similarity).toBe(1);
+    expect(r2.status).toBe('potential_duplicate');
+    expect(r2.matches[0].id).toBe(r1.id);
+    expect(run(`get --id ${r1.id}`).deleted_at).toBeNull();
 
-    // Clean up both
-    run(`delete --id ${r2.id} --hard true`);
+    run(`delete --id ${r1.id} --hard true`);
   });
 
   it('should bypass dedup with --force', () => {

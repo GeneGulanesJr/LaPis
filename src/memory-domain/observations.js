@@ -1,16 +1,8 @@
-const { getConfig } = require('../../config');
 const { CAPTURE_PASSIVE } = require('../../constants');
 const { parseExpiresIn } = require('./ttl');
 
 function save(deps, args) {
-  const {
-    jsonErrNoExit,
-    insertObservation,
-    insertObservationRelation,
-    softDeleteObservation,
-    checkDuplicate,
-    findLatestSession,
-  } = deps;
+  const { jsonErrNoExit, insertObservation, checkDuplicate, findLatestSession } = deps;
 
   const title = args.title;
   const type = args.type || 'manual';
@@ -43,30 +35,9 @@ function save(deps, args) {
 
   if (!force) {
     const dupes = checkDuplicate(title, type, project, topicKey);
+    // Never auto-merge on title similarity alone: near-identical titles can hold
+    // Different content, so the caller decides (update the match or --force).
     if (dupes.potential_duplicates.length > 0) {
-      const bestMatch = dupes.potential_duplicates[0];
-      const dedupCfg = getConfig().dedup;
-      if (bestMatch.similarity >= dedupCfg.auto_merge_threshold) {
-        const rows = insertObservation({ sessionId, type, title, content, project, scope, topicKey, expiresAt });
-        const newId = rows[0].id;
-        insertObservationRelation({
-          sourceId: newId,
-          targetId: bestMatch.id,
-          relation: 'duplicate',
-          confidence: bestMatch.similarity,
-        });
-        softDeleteObservation(bestMatch.id);
-        return {
-          id: newId,
-          title,
-          created_at: rows[0].created_at,
-          expires_at: rows[0].expires_at,
-          auto_merged: true,
-          superseded_id: bestMatch.id,
-          superseded_title: bestMatch.title,
-          similarity: bestMatch.similarity,
-        };
-      }
       return {
         status: 'potential_duplicate',
         message: 'Similar observations exist. Use --force to save anyway.',

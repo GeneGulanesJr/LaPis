@@ -3,8 +3,7 @@
 // trigram candidates of a save that stopped at `potential_duplicate` and
 // judge-verifies 'same decision?' per pair; the probabilities are attached to
 // the save result as `decisionVerified`. Nothing reads them to merge, retire or
-// delete: the trigram auto-merge in the save path (dedup.auto_merge_threshold)
-// is unchanged and never consults the judge.
+// delete: the save path never auto-merges (see observations.js save).
 //
 // Runs once per save that returns potential_duplicate (at most 3 matches → ONE
 // request), capped at judgment.surface_timeout_ms with no retries.

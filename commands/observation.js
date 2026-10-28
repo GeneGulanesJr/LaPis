@@ -68,6 +68,27 @@ async function save(deps, args) {
   return result;
 }
 
+// Same guard Pi's memory-get applies: a project-scoped memory of another project
+// Needs allow-cross-project. Callers that pass no --current-project are unguarded.
+function crossProjectBlock(args, obs) {
+  const current = args['current-project'],
+    allow = args['allow-cross-project'] === 'true' || args['allow-cross-project'] === true;
+  if (!current || allow || !obs || obs.scope !== 'project' || !obs.project || obs.project === current) {
+    return null;
+  }
+  return {
+    error:
+      `Memory #${obs.id} belongs to project "${obs.project}", not current project "${current}". ` +
+      'Search current project memory first, or retry with allow_cross_project=true if this cross-project memory is intentional.',
+    id: obs.id,
+    title: obs.title,
+    type: obs.type,
+    scope: obs.scope,
+    project: obs.project,
+    current_project: current,
+  };
+}
+
 function get(deps, args) {
   const { jsonErrNoExit } = deps,
     id = args.id,
@@ -91,6 +112,14 @@ function get(deps, args) {
   if (rows.length === 0) {
     return { error: 'Observation not found' };
   }
+  const blocked = crossProjectBlock(args, obs);
+  if (blocked) {
+    return blocked;
+  }
+  // A fetch in a session means the memory was used — Dream keeps memories with a useful recall.
+  if (args['session-id']) {
+    obsDA.insertRecallLog(deps, [{ memoryId: obs.id, sessionId: Number(args['session-id']), query: null }]);
+  }
 
   obs.recall_count = recallResult[0].cnt;
   obs.versions = memoryRepository.getObservationVersions ? memoryRepository.getObservationVersions(id) : [];
@@ -104,6 +133,12 @@ function update(deps, args) {
     memoryRepository = id ? getMemoryRepository(deps) : undefined;
   if (!id) {
     return jsonErrNoExit('Missing --id');
+  }
+  if (args['current-project']) {
+    const blocked = crossProjectBlock(args, memoryRepository.getObservation(id)[0]);
+    if (blocked) {
+      return blocked;
+    }
   }
 
   let expiresAt,
@@ -150,6 +185,10 @@ function del(deps, args) {
   }
   if (!existing || existing.length === 0) {
     return deps.jsonErrNoExit('Observation not found');
+  }
+  const blocked = crossProjectBlock(args, existing[0]);
+  if (blocked) {
+    return blocked;
   }
   if (hard) {
     memoryRepository.hardDeleteObservation(id);

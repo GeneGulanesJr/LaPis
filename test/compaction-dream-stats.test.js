@@ -54,7 +54,8 @@ describe('dream cycle stats persistence', () => {
       settingsWrites = (() => {
         expect(report.ok).toBe(true);
 
-        return sqlRunCalls.filter((c) => c.query.includes('settings'));
+        // Only the dream stats writes (cheap compact also gates trust decay on settings).
+        return sqlRunCalls.filter((c) => c.query.includes('INTO settings') && c.query.includes('dream_'));
       })();
 
     expect(settingsWrites).toHaveLength(3);

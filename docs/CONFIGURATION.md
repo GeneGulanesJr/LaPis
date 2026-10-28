@@ -72,7 +72,7 @@ Supported settings include:
 | `busy_timeout_ms`           | `30000`                              | SQLite busy timeout in milliseconds.                                    |
 | `busy_retry_max`            | `5`                                  | Maximum retries when the database reports `SQLITE_BUSY`.                |
 | `ranking.*`                 | see above                            | Hybrid search weights (must sum to 1.0).                                |
-| `dedup.*`                   | see above                            | Similarity thresholds for auto-merge and warning.                       |
+| `dedup.*`                   | see above                            | Duplicate-warning threshold (`auto_merge_threshold` is ignored).        |
 | `compact_every_n_sessions`  | `5`                                  | Sessions between compaction passes.                                     |
 | `context_limit`             | `5`                                  | Default context-packet size for the `context` command.                  |
 | `tier_config_path`          | `~/.pi/memory/tier.jsonc`            | Path to the tool tier configuration file.                               |

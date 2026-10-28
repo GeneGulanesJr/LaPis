@@ -160,6 +160,7 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
             return r;
           };
 
+      let usefulRecall = null;
       await mutate((state) => {
         if (!state.currentProject) {
           state.currentProject = project;
@@ -189,6 +190,9 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
             const targetId = Number(input.id),
               ids = Number.isFinite(targetId) ? [targetId] : parseMemoryIds(toolResponse);
             consumeRecall(state, ids);
+            if (state.sessionId && Number.isFinite(targetId) && /memory-get$/.test(toolName)) {
+              usefulRecall = { id: String(targetId), 'session-id': String(state.sessionId) };
+            }
             return;
           }
           case 'memory-code-harvest':
@@ -198,6 +202,15 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
             return;
         }
       });
+      // Record the fetch as a useful recall (Pi gets one from its session-scoped
+      // Search); without it Dream deletes auto-detected memories after 7 days.
+      if (usefulRecall) {
+        try {
+          await dispatch('get', usefulRecall);
+        } catch {
+          // Best-effort; a recall-log failure must not surface to Claude Code.
+        }
+      }
       return null; // Silent — PostToolUse injects nothing
     }
   }
