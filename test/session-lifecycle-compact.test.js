@@ -1,11 +1,15 @@
 import { registerSessionCompact } from '../extensions/memory-layer/hooks/session-lifecycle.ts';
 
+let sendMessage;
+
 function extractHandler(deps) {
   let handler;
+  sendMessage = vi.fn();
   const pi = {
     on: vi.fn((_eventName, callback) => {
       handler = callback;
     }),
+    sendMessage,
   };
   registerSessionCompact(pi, deps);
   return handler;
@@ -56,6 +60,8 @@ describe('session_compact re-injection', () => {
 
     expect(content).toContain('Project pattern');
     expect(content).toContain('5 memories');
+    // #393: Pi ignores the return value, so the message must actually be sent.
+    expect(sendMessage).toHaveBeenCalledWith(result.messages[0], { deliverAs: 'nextTurn' });
     // Only the project context call should have been made.
     expect(mem).toHaveBeenCalledTimes(1);
     expect((mem.mock.calls[0][1] || {})['all-projects']).toBeUndefined();

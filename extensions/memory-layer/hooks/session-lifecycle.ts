@@ -61,9 +61,17 @@ export function registerSessionStart(pi: ExtensionAPI, deps: SessionDeps) {
 }
 
 export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
+  // Pi ignores session_compact's return value, so messages must be sent (#393); returned too for tests.
+  const deliver = (messages: any[]) => {
+    for (const m of messages) {
+      pi.sendMessage(m, { deliverAs: 'nextTurn' });
+    }
+    return { messages };
+  };
+
   pi.on('session_compact', async (_event, ctx) => {
     if (!deps.state.currentProject) {
-      return { messages: [] };
+      return deliver([]);
     }
 
     const contextResult = await deps.mem('context', {
@@ -84,17 +92,15 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
     }
 
     if (!contextResult && !crossProjectResult) {
-      return {
-        messages: [
-          {
-            customType: 'memory-context',
-            content:
-              '⚠️ **Memory context failed to re-load after compaction.** Memory state may be stale.\n' +
-              'Use `memory-search` and `memory-save` manually if needed.',
-            display: true,
-          },
-        ],
-      };
+      return deliver([
+        {
+          customType: 'memory-context',
+          content:
+            '⚠️ **Memory context failed to re-load after compaction.** Memory state may be stale.\n' +
+            'Use `memory-search` and `memory-save` manually if needed.',
+          display: true,
+        },
+      ]);
     }
 
     const effectiveContext = contextResult || crossProjectResult,
@@ -184,7 +190,7 @@ export function registerSessionCompact(pi: ExtensionAPI, deps: SessionDeps) {
       });
     }
 
-    return { messages };
+    return deliver(messages);
   });
 }
 
