@@ -1,5 +1,6 @@
 const MAX_MATCHES_PER_FILE = 10,
-  MAX_FILES = 30;
+  MAX_FILES = 30,
+  MAX_OTHER_LINES = 50;
 
 function compressSearchOutput({ stdout, stderr, commandArgs }) {
   const combined = `${stdout}\n${stderr}`.trim(),
@@ -58,6 +59,15 @@ function compressSearchOutput({ stdout, stderr, commandArgs }) {
 
         if (isTruncated) {
           output += `\n... ${files.length - MAX_FILES} more files with matches not shown`;
+        }
+
+        // `grep` without -n, `grep -l` and piped `rg` print no line numbers; show those lines
+        // Instead of reporting "0 matches" (#382).
+        if (headerLines.length > 0) {
+          output += `\nOther output:\n${headerLines.slice(0, MAX_OTHER_LINES).join('\n')}\n`;
+          if (headerLines.length > MAX_OTHER_LINES) {
+            output += `... ${headerLines.length - MAX_OTHER_LINES} more lines not shown\n`;
+          }
         }
 
         return Math.max(0, totalMatches - shownFiles.reduce((sum, f) => sum + fileMap[f].length, 0));
