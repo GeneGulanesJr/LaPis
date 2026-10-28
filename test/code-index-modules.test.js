@@ -222,13 +222,15 @@ describe('code-index repository clearing', () => {
 });
 
 describe('code-index source retrieval', () => {
-  it('slices source by UTF-8 byte offsets instead of JavaScript character offsets', () => {
-    const content = 'const emoji = "💎";\nfunction target() { return emoji; }\n',
-      expected = 'function target() { return emoji; }',
-      startByte = Buffer.byteLength('const emoji = "💎";\n', 'utf-8'),
-      endByte = startByte + Buffer.byteLength(expected, 'utf-8');
+  it('slices source at the offsets the parser stores, with non-ASCII text (#387)', async () => {
+    const parser = require('../parse-code');
+    await parser.init();
+    const content = '// 日本語のコメント 💎\nfunction target() { return 1; }\n',
+      sym = (await parser.parseContent('x.js', content)).find((s) => s.name === 'target');
 
-    expect(sourceSliceFromRow({ content, start_byte: startByte, end_byte: endByte })).toBe(expected);
+    expect(sourceSliceFromRow({ content, start_byte: sym.start_byte, end_byte: sym.end_byte })).toBe(
+      'function target() { return 1; }',
+    );
   });
 });
 

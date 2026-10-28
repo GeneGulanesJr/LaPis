@@ -17,11 +17,12 @@ function hashText(text) {
     .digest('hex');
 }
 
-function sliceByBytes(content, startByte, endByte) {
-  if (!Number.isFinite(startByte) || !Number.isFinite(endByte) || endByte <= startByte) {
+// start_byte/end_byte are web-tree-sitter UTF-16 string indices, not UTF-8 bytes (#387).
+function sliceByIndex(content, startIndex, endIndex) {
+  if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex) || endIndex <= startIndex) {
     return '';
   }
-  return Buffer.from(content || '', 'utf-8').toString('utf-8', startByte, endByte);
+  return (content || '').slice(startIndex, endIndex);
 }
 
 function extractDecorators(source) {
@@ -108,7 +109,7 @@ function normalizeSymbolHot(symbol, fallbackFilePath) {
 // Keep this function in sync with normalizeSymbolHot; the hot struct is its first arg.
 function normalizeSymbolCold(hot, symbol, fallbackFilePath, context = {}) {
   const signature = symbol.signature || '',
-    source = context.content ? sliceByBytes(context.content, hot.start_byte, hot.end_byte) : '',
+    source = context.content ? sliceByIndex(context.content, hot.start_byte, hot.end_byte) : '',
     decorators = symbol.decorators || extractDecorators(source),
     callReferences = symbol.call_references || collectCallReferences(hot, context.callees || []);
   return {

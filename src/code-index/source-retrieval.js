@@ -3,9 +3,10 @@ const { ensureDb, sqlJson, sqlRaw } = require('../../db');
 const { estimateTokens } = require('../../utils');
 const { createCodeIndexRepository } = require('./repos');
 
+// start_byte/end_byte come from web-tree-sitter's startIndex/endIndex, which are
+// UTF-16 string indices, not UTF-8 byte offsets (#387).
 function sourceSliceFromRow(row) {
-  const buf = Buffer.from(row.content, 'utf-8');
-  return buf.toString('utf-8', row.start_byte, row.end_byte);
+  return row.content.slice(row.start_byte, row.end_byte);
 }
 
 function getCodeSource(repoName, filePath, symbolName, repository = null) {

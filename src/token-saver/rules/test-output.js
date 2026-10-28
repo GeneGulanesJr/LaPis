@@ -32,7 +32,14 @@ function compressTestOutput({ stdout, stderr, exitCode }) {
             hiddenCount++;
           } else if (/^\s*(?:PASS|✓|✔)/.test(line) && !FAIL_PATTERNS.test(line)) {
             hiddenCount++;
-          } else if (/^\s*(?:FAIL|✗|✘|×)/.test(line) || (/FAIL/i.test(line) && !PASS_PATTERNS.test(line))) {
+          } else if (
+            /^\s*(?:FAIL|✗|✘|×)/.test(line) ||
+            (!inFailure && /FAIL/i.test(line) && !PASS_PATTERNS.test(line))
+          ) {
+            // Keep the block being built; inside a block, a mere "fail" word (e.g. Received: "auth failed") is detail (#381).
+            if (inFailure && failureBuf.length > 0) {
+              failedBlocks.push(failureBuf.join('\n'));
+            }
             inFailure = true;
             failureBuf = [line];
           } else if (SUMMARY_PATTERNS.test(line) && !FAIL_PATTERNS.test(line) && !inFailure) {
