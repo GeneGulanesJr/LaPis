@@ -250,8 +250,9 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
           optional: true,
         },
       }),
-      toCommand(p) {
+      toCommand(p, ctx) {
         const args = { id: String(p.id) };
+        setIfPresent(args, 'current-project', ctx?.project);
         if (p.allow_cross_project) {
           args[kebab('allow_cross_project')] = 'true';
         }
@@ -275,9 +276,17 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
           optional: true,
         },
         clear_expiry: { schema: opt(bool('Remove any existing expiry (make memory permanent).')), optional: true },
+        allow_cross_project: {
+          schema: opt(bool('Allow updating a memory that belongs to a different project.')),
+          optional: true,
+        },
       }),
-      toCommand(p) {
+      toCommand(p, ctx) {
         const args = { id: String(p.id) };
+        setIfPresent(args, 'current-project', ctx?.project);
+        if (p.allow_cross_project) {
+          args[kebab('allow_cross_project')] = 'true';
+        }
         setIfPresent(args, 'title', p.title);
         setIfPresent(args, 'content', p.content);
         setIfPresent(args, 'type', p.type);
@@ -301,9 +310,18 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
       description: 'Soft-delete a stale, incorrect, or duplicate memory.',
       inputSchema: obj({
         id: { schema: num('Memory ID') },
+        allow_cross_project: {
+          schema: opt(bool('Allow deleting a memory that belongs to a different project.')),
+          optional: true,
+        },
       }),
-      toCommand(p) {
-        return { cmd: 'delete', args: { id: String(p.id) } };
+      toCommand(p, ctx) {
+        const args = { id: String(p.id) };
+        setIfPresent(args, 'current-project', ctx?.project);
+        if (p.allow_cross_project) {
+          args[kebab('allow_cross_project')] = 'true';
+        }
+        return { cmd: 'delete', args };
       },
     },
 
