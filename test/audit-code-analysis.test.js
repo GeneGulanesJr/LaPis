@@ -235,10 +235,12 @@ describe('dependency cycles', () => {
   }, 60000);
 });
 
-describe('pr-risk batch blast radius counts transitive callers', () => {
-  it('scores a 3-deep caller chain, not just the direct caller (>20 changed symbols)', () => {
-    const { getPrRiskProfile } = require('../src/code-analysis/risk-impl'),
-      repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-risk-'));
+describe('pr-risk blast radius', () => {
+  const { getPrRiskProfile } = require('../src/code-analysis/risk-impl');
+
+  // A.js changes between HEAD~1 and HEAD and holds `nChanged` symbols s0..sN; b.js holds callers.
+  function riskFor(nChanged, build) {
+    const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-risk-'));
     fs.writeFileSync(path.join(repoDir, 'a.js'), '1\n');
     git(repoDir, 'init', '-q');
     git(repoDir, 'add', '.');
@@ -266,24 +268,48 @@ describe('pr-risk batch blast radius counts transitive callers', () => {
              VALUES (?, ?, ?, 'function', ?, 1, 1, 0, 1, 'javascript', ?)`,
           )
           .run(repoId, fileId, name, filePath, name).lastInsertRowid,
-      call = (caller, callee, name) =>
+      changed = Array.from({ length: nChanged }, (_, i) => sym(aId, aPath, `s${i}`));
+    build({
+      changed,
+      caller: (name) => sym(bId, bPath, name),
+      call: (caller, callee, confidence = 1) =>
         db
           .prepare(
-            'INSERT INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id) VALUES (?, ?, ?, ?)',
+            'INSERT INTO code_calls (repo_id, caller_symbol_id, callee_name, callee_symbol_id, confidence) VALUES (?, ?, ?, ?, ?)',
           )
-          .run(repoId, caller, name, callee);
-    const changed = Array.from({ length: 21 }, (_, i) => sym(aId, aPath, `s${i}`)),
-      c1 = sym(bId, bPath, 'c1'),
-      c2 = sym(bId, bPath, 'c2'),
-      c3 = sym(bId, bPath, 'c3');
-    call(c1, changed[0], 's0');
-    call(c2, c1, 'c1');
-    call(c3, c2, 'c2');
-
+          .run(repoId, caller, `fn${callee}`, callee, confidence),
+    });
     const r = getPrRiskProfile(db, repoId, { base: 'HEAD~1', branch: 'HEAD' });
-    expect(r.changed_symbols).toBe(21);
-    expect(r.signals.blast_radius).toBe(0.06); // 3 callers / BLAST_RADIUS_NORMALIZER 50
     db.close();
     fs.rmSync(repoDir, { recursive: true, force: true });
+    expect(r.changed_symbols).toBe(nChanged);
+    return r.signals.blast_radius;
+  }
+
+  const chainOf3 = ({ changed, caller, call }) => {
+    const c1 = caller('c1'),
+      c2 = caller('c2'),
+      c3 = caller('c3');
+    call(c1, changed[0]);
+    call(c2, c1);
+    call(c3, c2);
+    return c1;
+  };
+
+  it('counts a 3-deep caller chain, not just the direct caller (>20 changed symbols)', () => {
+    expect(riskFor(21, chainOf3)).toBe(0.06); // 3 callers / BLAST_RADIUS_NORMALIZER 50
+  });
+
+  it('scores small PRs the same way, by symbol id, ignoring low-confidence calls', () => {
+    const score = riskFor(1, (fx) => {
+      chainOf3(fx);
+      fx.caller('s0'); // Same name as the changed symbol in another file
+      fx.call(fx.caller('fuzzy'), fx.changed[0], 0.3);
+    });
+    expect(score).toBe(0.06);
+  });
+
+  it('scores 0 when no changed symbol has callers', () => {
+    expect(riskFor(21, () => {})).toBe(0);
   });
 });

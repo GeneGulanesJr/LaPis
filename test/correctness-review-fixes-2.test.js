@@ -95,9 +95,10 @@ describe('correctness review fixes (round 2) — source-level', () => {
   });
 
   // ── F18: risk-impl blast-radius branch consistency ──
-  it('F18: risk-impl.js per-symbol blast-radius branch passes depth=5', () => {
+  it('F18: risk-impl.js scores blast radius with one depth-5 query for every PR size', () => {
     const src = fs.readFileSync(require.resolve('../src/code-analysis/risk-impl'), 'utf8');
-    expect(src).toMatch(/depth:\s*5/);
+    expect(src).toMatch(/ct\.depth < 5/);
+    expect(src).not.toMatch(/getBlastRadius\(/);
     expect(src).not.toMatch(/\.edges\b/);
   });
 
