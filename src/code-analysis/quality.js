@@ -1,15 +1,5 @@
 const legacy = require('./legacy-core'),
-  { createCodeIndexReadRepository } = require('./read-model'),
-  { runAnalyzer } = require('./analyzer-runner');
-
-function withRepo(db, analyzer, fn) {
-  const codeIndex = createCodeIndexReadRepository(db),
-    guard = codeIndex.guard();
-  if (guard) {
-    return guard;
-  }
-  return runAnalyzer(analyzer, () => fn(codeIndex));
-}
+  { withRepo } = require('./analyzer-runner');
 
 function analyzeGetDeadCode(db, repoId, opts = {}) {
   return withRepo(db, 'dead-code', () => legacy.getDeadCode(db, repoId, opts));

@@ -1,22 +1,13 @@
 const legacy = require('./legacy-core'),
-  { createCodeIndexReadRepository } = require('./read-model'),
-  { runAnalyzer } = require('./analyzer-runner');
-
-function withRepo(db, analyzer, fn) {
-  const codeIndex = createCodeIndexReadRepository(db),
-    guard = codeIndex.guard();
-  if (guard) {
-    return guard;
-  }
-  return runAnalyzer(analyzer, () => fn(codeIndex));
-}
+  { withRepo } = require('./analyzer-runner');
 
 function analyzeGetBlastRadius(db, repoId, opts = {}) {
   return withRepo(db, 'blast-radius', () => {
     try {
       const tables = db.prepare("SELECT name FROM sqlite_master WHERE name = 'code_relations'").all();
       if (tables.length > 0) {
-        return legacy.getAffectedGraph(db, repoId, opts);
+        // Callers pass the legacy `depth`; getAffectedGraph reads `maxDepth`.
+        return legacy.getAffectedGraph(db, repoId, { ...opts, maxDepth: opts.maxDepth ?? opts.depth });
       }
     } catch {}
     return legacy.getBlastRadius(db, repoId, opts);

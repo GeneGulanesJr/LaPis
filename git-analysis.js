@@ -184,17 +184,34 @@ function computeFileChurn(db, repo, filePath, days, since) {
 // eslint-disable-next-line max-statements -- repo churn computation requires many steps
 function computeRepoChurn(db, repo, days, since) {
   try {
-    const log = execFileSync('git', ['-C', repo.path, 'log', `--since=${since}`, '--format=', '--name-only'], {
-        encoding: 'utf8',
-        timeout: 30000,
-        maxBuffer: 10 * 1024 * 1024,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim(),
-      fileCounts = new Map();
+    // Each commit prints a "\x01author|date" header line followed by its files (newest commit first).
+    const log = execFileSync(
+        'git',
+        ['-C', repo.path, 'log', `--since=${since}`, '--format=%x01%an|%aI', '--name-only'],
+        {
+          encoding: 'utf8',
+          timeout: 30000,
+          maxBuffer: 10 * 1024 * 1024,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        },
+      ).trim(),
+      fileCounts = new Map(),
+      fileStats = new Map(),
+      authors = new Set();
+    let author = '',
+      date = null;
     for (const line of log.split('\n')) {
       const f = line.trim();
-      if (f) {
+      if (f.startsWith('\x01')) {
+        const sep = f.lastIndexOf('|');
+        author = f.slice(1, sep);
+        date = f.slice(sep + 1) || null;
+        authors.add(author);
+      } else if (f) {
         fileCounts.set(f, (fileCounts.get(f) || 0) + 1);
+        const s = fileStats.get(f) || { authors: new Set(), last_modified: date };
+        s.authors.add(author);
+        fileStats.set(f, s);
       }
     }
 
@@ -207,16 +224,9 @@ function computeRepoChurn(db, repo, days, since) {
           churn_per_week: Math.round((commits / (days / 7)) * 100) / 100,
         })),
       totalCommits = [...fileCounts.values()].reduce((a, b) => a + b, 0),
-      uniqueAuthorsRaw = execFileSync('git', ['-C', repo.path, 'log', `--since=${since}`, '--format=%an'], {
-        encoding: 'utf8',
-        timeout: 10000,
-        maxBuffer: 10 * 1024 * 1024,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim(),
-      uniqueAuthors = new Set(uniqueAuthorsRaw.split('\n').filter(Boolean)).size,
       cacheMetrics = {
         commits: totalCommits,
-        unique_authors: uniqueAuthors,
+        unique_authors: authors.size,
         first_seen: null,
         last_modified: null,
         churn_per_week: Math.round((totalCommits / (days / 7)) * 100) / 100,
@@ -230,7 +240,30 @@ function computeRepoChurn(db, repo, days, since) {
         top_files: topFiles,
         ...cacheMetrics,
       };
-    upsertChurn(db, repo.id, '__all__', days, cacheMetrics);
+    // Per-file rows feed hotspots / winnow / pr-risk, keyed by the same absolute path
+    // As computeFileChurn and code_symbols.file_path. Replace the whole window snapshot.
+    // Keeps first_seen that computeFileChurn already derived (it needs a per-file `git log --follow`).
+    db.transaction(() => {
+      const firstSeen = new Map(
+        db
+          .prepare('SELECT file_path, first_seen FROM churn_metrics WHERE repo_id = ? AND window_days = ?')
+          .all(repo.id, days)
+          .map((r) => [r.file_path, r.first_seen]),
+      );
+      db.prepare('DELETE FROM churn_metrics WHERE repo_id = ? AND window_days = ?').run(repo.id, days);
+      for (const [file, commits] of fileCounts) {
+        const s = fileStats.get(file),
+          key = path.resolve(repo.path, file);
+        upsertChurn(db, repo.id, key, days, {
+          commits,
+          unique_authors: s.authors.size,
+          first_seen: firstSeen.get(key) ?? null,
+          last_modified: s.last_modified,
+          churn_per_week: Math.round((commits / (days / 7)) * 100) / 100,
+        });
+      }
+      upsertChurn(db, repo.id, '__all__', days, cacheMetrics);
+    })();
     return result;
   } catch (e) {
     return { error: `git log failed: ${e.message}` };

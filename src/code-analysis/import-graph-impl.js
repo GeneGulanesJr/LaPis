@@ -447,10 +447,15 @@ function getHotspots(db, repoId, opts = {}) {
   const topN = opts.top || RESULT_LIMITS.HOTSPOTS_DEFAULT_TOP,
     days = opts.days || 90,
     churnCount = db
-      .prepare('SELECT count(*) as c FROM churn_metrics WHERE repo_id = ? AND window_days = ?')
+      .prepare(
+        "SELECT count(*) as c FROM churn_metrics WHERE repo_id = ? AND window_days = ? AND file_path != '__all__'",
+      )
       .get(repoId, days);
   if (!churnCount || churnCount.c === 0) {
-    return { hotspots: [], note: 'No churn data. Run `churn --repo X` first to populate git history metrics.' };
+    return {
+      hotspots: [],
+      note: 'No per-file churn data. Run `churn --repo X --refresh` first to populate git history metrics.',
+    };
   }
 
   const rows = db
@@ -473,7 +478,7 @@ function getHotspots(db, repoId, opts = {}) {
       END as risk
     FROM symbol_complexity sc
     JOIN code_symbols cs ON cs.id = sc.symbol_id
-    JOIN churn_metrics cm ON cm.repo_id = cs.repo_id AND (cs.file_path = cm.file_path OR cs.file_path LIKE '%/' || cm.file_path)
+    JOIN churn_metrics cm ON cm.repo_id = cs.repo_id AND cm.file_path = cs.file_path
     WHERE cs.repo_id = ? AND cm.window_days = ?
     ORDER BY hotspot_score DESC
     LIMIT ?
@@ -646,7 +651,9 @@ function winnow(db, repoId, opts = {}) {
 
   // Churn filter
   if (minChurn != null) {
-    joins.push('LEFT JOIN churn_metrics cm ON cm.file_path = s.file_path AND cm.repo_id = s.repo_id');
+    joins.push(
+      'LEFT JOIN churn_metrics cm ON cm.file_path = s.file_path AND cm.repo_id = s.repo_id AND cm.window_days = 90',
+    );
     conditions.push('cm.commits >= ?');
     params.push(Number(minChurn));
     activeAxes.push('min_churn');
@@ -676,7 +683,9 @@ function winnow(db, repoId, opts = {}) {
     selectCols.push('sc.cyclomatic');
   } else if (sortBy === 'churn') {
     if (!joins.some((j) => j.includes('churn_metrics'))) {
-      joins.push('LEFT JOIN churn_metrics cm ON cm.file_path = s.file_path AND cm.repo_id = s.repo_id');
+      joins.push(
+        'LEFT JOIN churn_metrics cm ON cm.file_path = s.file_path AND cm.repo_id = s.repo_id AND cm.window_days = 90',
+      );
     }
     selectCols.push('cm.commits');
   } else if (sortBy === 'callers') {

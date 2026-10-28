@@ -59,6 +59,117 @@ const path = require('path');
     return row?.path ? path.resolve(row.path) : null;
   }
 
+  // Shared by buildComplexity (full) and buildComplexityForFiles (incremental) so both
+  // Paths score a symbol identically.
+  function computeComplexity(body, signature) {
+    let cyclomatic = 1,
+      maxDepth = 0,
+      currentDepth = 0,
+      inString = false,
+      stringCharCode = 0,
+      templateDepth = 0,
+      assessment = 'high';
+    // Note: optional chaining (?.) is NOT a decision point per spec
+    for (const pattern of DECISION_PATTERNS) {
+      pattern.lastIndex = 0;
+      const m = body.match(pattern);
+      if (m) {
+        cyclomatic += m.length;
+      }
+    }
+    // Ternary (?:) — count only if not followed by . (to exclude ?.)
+    TERNARY_RE.lastIndex = 0;
+    while (TERNARY_RE.exec(body) !== null) {
+      cyclomatic++;
+    }
+
+    // PERF(issue #133): CharCode fast-path — reduces branch evaluations from 6+ per byte to
+    // 1 for the common case (plain code, not in string/template). Uses integer charCodeAt
+    // Instead of string boxing. body.substring() replaced with charCodeAt to avoid allocation.
+    // Do NOT replace charCode checks with string comparisons; the integer path is the
+    // Performance-critical fast path. Template depth tracking logic is preserved as-is.
+
+    for (let i = 0; i < body.length; i++) {
+      const code = body.charCodeAt(i);
+
+      if (inString) {
+        if (code === stringCharCode && (i === 0 || body.charCodeAt(i - 1) !== 92)) {
+          inString = false;
+        }
+        // oxlint-disable-next-line no-continue
+        continue;
+      }
+
+      if (templateDepth === 0) {
+        if (code !== 34 && code !== 39 && code !== 96 && code !== 123 && code !== 125) {
+          // oxlint-disable-next-line no-continue
+          continue;
+        }
+        if (code === 34 || code === 39) {
+          inString = true;
+          stringCharCode = code;
+          // oxlint-disable-next-line no-continue
+          continue;
+        }
+        if (code === 96) {
+          templateDepth++;
+          // oxlint-disable-next-line no-continue
+          continue;
+        }
+        if (code === 123) {
+          currentDepth++;
+          if (currentDepth > maxDepth) {
+            maxDepth = currentDepth;
+          }
+          // oxlint-disable-next-line no-continue
+          continue;
+        }
+        if (currentDepth > 0) {
+          currentDepth--;
+        }
+        // oxlint-disable-next-line no-continue
+        continue;
+      }
+
+      if (code === 96) {
+        templateDepth++;
+        // oxlint-disable-next-line no-continue
+        continue;
+      }
+      if (code === 123) {
+        currentDepth++;
+        if (currentDepth > maxDepth) {
+          maxDepth = currentDepth;
+        }
+      } else if (code === 125) {
+        if (currentDepth > 0) {
+          currentDepth--;
+        }
+      }
+    }
+
+    {
+      const sigMatch = signature ? signature.match(/\(([^)]*)\)/) : null,
+        paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0,
+        lines = body.split('\n'),
+        codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
+
+      if (cyclomatic <= COMPLEXITY.LOW_THRESHOLD) {
+        assessment = 'low';
+      } else if (cyclomatic <= COMPLEXITY.MEDIUM_THRESHOLD) {
+        assessment = 'medium';
+      }
+
+      return {
+        cyclomatic,
+        nesting_depth: maxDepth,
+        param_count: paramCount,
+        lines_of_code: codeLines,
+        assessment,
+      };
+    }
+  }
+
   function buildComplexity(db, repoId) {
     const guard = _requireNativeDb(db);
     if (guard) {
@@ -108,107 +219,9 @@ const path = require('path');
         continue;
       }
 
-      let cyclomatic = 1,
-        maxDepth = 0,
-        currentDepth = 0,
-        inString = false,
-        stringCharCode = 0,
-        templateDepth = 0,
-        assessment = 'high';
-      // Note: optional chaining (?.) is NOT a decision point per spec
-      for (const pattern of DECISION_PATTERNS) {
-        pattern.lastIndex = 0;
-        const m = body.match(pattern);
-        if (m) {
-          cyclomatic += m.length;
-        }
-      }
-      // Ternary (?:) — count only if not followed by . (to exclude ?.)
-      TERNARY_RE.lastIndex = 0;
-      while (TERNARY_RE.exec(body) !== null) {
-        cyclomatic++;
-      }
-
-      // PERF(issue #133): CharCode fast-path — reduces branch evaluations from 6+ per byte to
-      // 1 for the common case (plain code, not in string/template). Uses integer charCodeAt
-      // Instead of string boxing. body.substring() replaced with charCodeAt to avoid allocation.
-      // Do NOT replace charCode checks with string comparisons; the integer path is the
-      // Performance-critical fast path. Template depth tracking logic is preserved as-is.
-
-      for (let i = 0; i < body.length; i++) {
-        const code = body.charCodeAt(i);
-
-        if (inString) {
-          if (code === stringCharCode && (i === 0 || body.charCodeAt(i - 1) !== 92)) {
-            inString = false;
-          }
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-
-        if (templateDepth === 0) {
-          if (code !== 34 && code !== 39 && code !== 96 && code !== 123 && code !== 125) {
-            // oxlint-disable-next-line no-continue
-            continue;
-          }
-          if (code === 34 || code === 39) {
-            inString = true;
-            stringCharCode = code;
-            // oxlint-disable-next-line no-continue
-            continue;
-          }
-          if (code === 96) {
-            templateDepth++;
-            // oxlint-disable-next-line no-continue
-            continue;
-          }
-          if (code === 123) {
-            currentDepth++;
-            if (currentDepth > maxDepth) {
-              maxDepth = currentDepth;
-            }
-            // oxlint-disable-next-line no-continue
-            continue;
-          }
-          if (currentDepth > 0) {
-            currentDepth--;
-          }
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-
-        if (code === 96) {
-          templateDepth++;
-          // oxlint-disable-next-line no-continue
-          continue;
-        }
-        if (code === 123) {
-          currentDepth++;
-          if (currentDepth > maxDepth) {
-            maxDepth = currentDepth;
-          }
-        } else if (code === 125) {
-          if (currentDepth > 0) {
-            currentDepth--;
-          }
-        }
-      }
-
-      {
-        const sigMatch = sym.signature ? sym.signature.match(/\(([^)]*)\)/) : null,
-          paramCount = sigMatch ? sigMatch[1].split(',').filter((p) => p.trim()).length : 0,
-          lines = body.split('\n'),
-          codeLines = lines.filter((l) => l.trim() && !l.trim().startsWith('//')).length;
-
-        if (cyclomatic <= COMPLEXITY.LOW_THRESHOLD) {
-          assessment = 'low';
-        } else if (cyclomatic <= COMPLEXITY.MEDIUM_THRESHOLD) {
-          assessment = 'medium';
-        }
-
-        insertStmt.run(sym.id, cyclomatic, maxDepth, paramCount, codeLines, assessment);
-        count++;
-      }
+      const c = computeComplexity(body, sym.signature);
+      insertStmt.run(sym.id, c.cyclomatic, c.nesting_depth, c.param_count, c.lines_of_code, c.assessment);
+      count++;
     }
 
     return { success: true, symbols: count };
@@ -332,5 +345,5 @@ const path = require('path');
     return { file: fileRow.relative_path || fileRow.path, classes, standalone };
   }
 
-  module.exports = { buildComplexity, getComplexity, getFileOutline, DECISION_PATTERNS };
+  module.exports = { buildComplexity, computeComplexity, getComplexity, getFileOutline, DECISION_PATTERNS };
 }
