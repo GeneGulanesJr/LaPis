@@ -10,7 +10,7 @@
 
 const fs = require('node:fs'),
   { readText, topBlockRange } = require('./config-editor'),
-  { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
+  { parseFlags, resolveHermesHome, hermesPaths, hookCommand, hookCommandYaml, HOOK_EVENTS } = require('./install');
 
 function checkConfigFile(paths) {
   if (!fs.existsSync(paths.config)) {
@@ -57,12 +57,12 @@ function checkMcpConfig(paths, mcpName) {
 
 function checkHooksConfig(paths) {
   const text = readText(paths.config),
-    command = hookCommand(),
+    command = hookCommandYaml(),
     missing = [];
   for (const { event, matcher } of HOOK_EVENTS) {
     const eventRe = new RegExp(`^\\s{2}${event}\\s*:`, 'm'),
       hasEvent = eventRe.test(text),
-      hasItem = text.includes(`command: ${command}`) || text.includes(`command: "${command}"`);
+      hasItem = text.includes(`command: ${command}`);
     if (!hasEvent || !hasItem) {
       missing.push(event);
     }

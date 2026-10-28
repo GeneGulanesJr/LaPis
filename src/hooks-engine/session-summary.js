@@ -58,7 +58,8 @@ function buildSessionSummary({
     if (files.length > 0) {
       summaryParts.push('', '## Files Modified');
       for (const f of files.slice(0, 20)) {
-        summaryParts.push(`- ${path.relative(cwd, f) || f}`);
+        // Forward slashes on every OS, so saved summaries read and search the same everywhere.
+        summaryParts.push(`- ${path.relative(cwd, f).split(path.sep).join('/') || f}`);
       }
     }
 

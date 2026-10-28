@@ -26,7 +26,7 @@ const fs = require('node:fs'),
     readText,
     writeTextAtomic,
   } = require('./config-editor'),
-  { parseFlags, resolveHermesHome, hermesPaths, hookCommand, HOOK_EVENTS } = require('./install');
+  { parseFlags, resolveHermesHome, hermesPaths, hookCommand, hookCommandYaml, HOOK_EVENTS } = require('./install');
 
 async function runUninstall(argv, io = {}) {
   const flags = parseFlags(argv),
@@ -50,7 +50,7 @@ async function runUninstall(argv, io = {}) {
         // Hook entries (one list item per event, keyed by the LaPis command).
         for (const { event } of HOOK_EVENTS) {
           const beforeHooks = text;
-          text = removeListItems(text, 'hooks', event, command);
+          text = removeListItems(text, 'hooks', event, hookCommandYaml());
           if (text !== beforeHooks) {
             removed.push(`hooks.${event}`);
           }

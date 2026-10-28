@@ -2,7 +2,7 @@ const fs = require('node:fs'),
   path = require('node:path'),
   os = require('node:os'),
   install = require('../../src/hermes/install'),
-  { runInstall, hookCommand } = install,
+  { runInstall, hookCommand, hookCommandYaml } = install,
   { runUninstall } = require('../../src/hermes/uninstall'),
   doctor = require('../../src/hermes/doctor');
 
@@ -48,13 +48,12 @@ describe('hermes install: default install', () => {
   });
 
   test('wires all three hook events with the LaPis hook command', () => {
-    const text = readConfig(io.home),
-      cmd = hookCommand();
+    const text = readConfig(io.home);
     expect(text).toContain('hooks:');
     expect(text).toContain('  pre_tool_call:');
     expect(text).toContain('  post_tool_call:');
     expect(text).toContain('  on_session_end:');
-    expect(text).toContain(`command: "${cmd}"`);
+    expect(text).toContain(`command: ${hookCommandYaml()}`);
     expect(text).toMatch(/hooks_auto_accept:\s*true/);
   });
 
@@ -188,10 +187,10 @@ describe('hermes uninstall', () => {
         '      command: "/user/script.sh"',
         '      timeout: 10',
         '    - matcher: "^read_file$"',
-        `      command: "${hookCommand()}"`,
+        `      command: ${hookCommandYaml()}`,
         '      timeout: 15',
         '  on_session_end:',
-        `    - command: "${hookCommand()}"`,
+        `    - command: ${hookCommandYaml()}`,
         '      timeout: 20',
         'hooks_auto_accept: true',
         '',
@@ -215,7 +214,7 @@ describe('hermes uninstall', () => {
         expect(removed).toContain('hooks.pre_tool_call');
         expect(removed).toContain('hooks.on_session_end');
         expect(text).not.toContain('lapis:');
-        expect(text).not.toContain(hookCommand());
+        expect(text).not.toContain(hookCommandYaml());
         // A user hook remains, so the shared hooks_auto_accept scalar survives —
         // It may be used by other hooks for headless consent.
         expect(text).toContain('hooks_auto_accept: true');
@@ -319,5 +318,29 @@ describe('hermes config safety (#384)', () => {
     await expect(runInstall([], io)).rejects.toThrow();
     expect(fs.statSync(path.join(io.home, 'config.yaml')).isDirectory()).toBe(true);
     expect(fs.existsSync(path.join(io.home, 'shell-hooks-allowlist.json'))).toBe(false);
+  });
+});
+
+describe('hermes install with a Windows-style node path (spaces + backslashes)', () => {
+  const realExecPath = process.execPath;
+  beforeEach(() => {
+    Object.defineProperty(process, 'execPath', { value: 'C:\\Program Files\\node js\\node.exe', configurable: true });
+  });
+  afterEach(() => {
+    Object.defineProperty(process, 'execPath', { value: realExecPath, configurable: true });
+  });
+
+  test('hook command is shell-quoted, not YAML-escaped', () => {
+    expect(hookCommand()).toMatch(/^"C:\\Program Files\\node js\\node\.exe" /);
+  });
+
+  test('re-install, doctor and uninstall all find the hook entries', async () => {
+    const io = makeIo();
+    await runInstall([], io);
+    await runInstall([], io);
+    expect(readConfig(io.home).match(/- matcher: "\^\(read_file\|search_files\)\$"/g)).toHaveLength(1);
+    expect(doctor.runDoctor([], io).checks.find((c) => c.name.includes('Hooks config')).ok).toBe(true);
+    await runUninstall([], io);
+    expect(readConfig(io.home).trim()).toBe('');
   });
 });

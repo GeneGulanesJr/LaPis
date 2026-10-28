@@ -60,7 +60,8 @@ function clampTrust(value) {
 
 function evaluateTrustSync(links, changedSet, changedPaths, repoRoot) {
   const result = { total: links.length, adjusted: [], survived: [], unchanged: [], operations: [] };
-  const changedPathSet = changedPaths ? new Set(changedPaths) : null;
+  // Normalized like the link side, so '/' vs '\' never decides a match on Windows.
+  const changedPathSet = changedPaths ? new Set(changedPaths.map((p) => path.normalize(p))) : null;
 
   for (const link of links) {
     // Path-aware links (recorded with a file path) only react when THAT

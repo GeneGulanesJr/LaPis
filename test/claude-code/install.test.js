@@ -633,8 +633,10 @@ describe('claude-code doctor', () => {
 
   test('all checks pass after an install when command/DB/state resolve', async () => {
     const io = makeIo();
-    // Fake `npx` on the doctor's PATH.
-    fs.writeFileSync(path.join(io.root, 'npx'), '#!/bin/sh\n', { mode: 0o755 });
+    // Fake `npx` on the doctor's PATH (Windows resolves it through PATHEXT, e.g. npx.cmd).
+    fs.writeFileSync(path.join(io.root, process.platform === 'win32' ? 'npx.cmd' : 'npx'), '#!/bin/sh\n', {
+      mode: 0o755,
+    });
     await runInstall([], io);
 
     const { ok, checks } = doctor.runDoctor([], makeDoctorIo(io));
@@ -869,7 +871,20 @@ describe('claude-code hook role filter', () => {
 // a symlinked config file is skipped with a warning and left exactly as is.
 
 describe('claude-code install: CLAUDE.md symlink safety', () => {
-  const { upsertClaudeMdBlock, removeClaudeMdBlock, claudeMdBlock } = install;
+  const { upsertClaudeMdBlock, removeClaudeMdBlock, claudeMdBlock } = install,
+    // Windows needs Developer Mode or admin rights to create symlinks; skip there instead of failing.
+    canSymlink = (() => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-cc-canlink-'));
+      try {
+        fs.symlinkSync(path.join(dir, 'missing'), path.join(dir, 'link'));
+        return true;
+      } catch {
+        return false;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    })(),
+    linkTest = test.skipIf(!canSymlink);
 
   function makeSymlinkRoot() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-cc-symlink-')),
@@ -888,7 +903,7 @@ describe('claude-code install: CLAUDE.md symlink safety', () => {
     return { root, claudeDir, target, md };
   }
 
-  test('upsertClaudeMdBlock does NOT write through a symlink to its target', () => {
+  linkTest('upsertClaudeMdBlock does NOT write through a symlink to its target', () => {
     const { target, md } = makeSymlinkRoot(),
       before = fs.readFileSync(target, 'utf8');
 
@@ -900,7 +915,7 @@ describe('claude-code install: CLAUDE.md symlink safety', () => {
     expect(fs.lstatSync(md).isSymbolicLink()).toBe(true);
   });
 
-  test('removeClaudeMdBlock on a bare symlink leaves the link and its target alone', () => {
+  linkTest('removeClaudeMdBlock on a bare symlink leaves the link and its target alone', () => {
     const { target, md } = makeSymlinkRoot(),
       before = fs.readFileSync(target, 'utf8'),
       removed = removeClaudeMdBlock(md);
@@ -932,7 +947,7 @@ describe('claude-code install: CLAUDE.md symlink safety', () => {
     expect(after).not.toContain('<!-- lapis:start -->');
   });
 
-  test('full install over a symlinked .claude/CLAUDE.md does not corrupt the target', async () => {
+  linkTest('full install over a symlinked .claude/CLAUDE.md does not corrupt the target', async () => {
     const io = makeIo(),
       target = path.join(io.root, 'victim.txt'),
       md = (() => {
@@ -959,7 +974,7 @@ describe('claude-code install: CLAUDE.md symlink safety', () => {
     expect(fs.readFileSync(target, 'utf8')).toBe(before);
   });
 
-  test('install + uninstall leave a symlinked .claude/settings.json (dotfiles) as a link', async () => {
+  linkTest('install + uninstall leave a symlinked .claude/settings.json (dotfiles) as a link', async () => {
     const io = makeIo(),
       target = path.join(io.root, 'dotfiles-settings.json'),
       settingsPath = path.join(io.cwd, '.claude', 'settings.json'),
