@@ -71,7 +71,7 @@ calls per surface.
 | Surface | Runs | Requests | Added latency (median / p90) | Falls back to | Writes? |
 | --- | --- | --- | --- | --- | --- |
 | `recall` | every `search` dispatch with results: CLI `search`, the `memory-search` MCP tool (Claude Code) and Pi tool | 1 (top 10 rows) | 0.46 s / 0.51 s (10 rows); 0.41 s / 0.62 s (3 rows) | the lexical order | no — reorders rows, adds `decision` |
-| `dedupe` | a `save` that stops at `potential_duplicate` (trigram 0.6–0.85; at most 3 matches) | 1 | 0.38 s / 0.49 s | no `decisionVerified` field | no — annotation only; the trigram auto-merge (≥ 0.85) never consults the judge |
+| `dedupe` | a `save` that stops at `potential_duplicate` (trigram ≥ 0.6; at most 3 matches) | 1 | 0.38 s / 0.49 s | no `decisionVerified` field | no — annotation only; saves never auto-merge |
 | `trust` | nothing calls it yet | 1 per 10 links | 0.38 s / 0.62 s (direct call) | `unavailable` | no |
 | `guard` | `lapis run <command>`, before the command, only when no `COMMAND_RULES` regex matched | 1 | 0.37 s / 0.53 s | the sync type (`generic`) | no — picks the output compressor |
 | `autosave` | Pi `message_end`, assistant messages ≥ 150 chars that the regex missed, outside the save cooldown | 1 | 0.36 s / 0.47 s | the regex result | **yes** — a confident pick (≥ 0.6, not `nothing`) saves an auto-decision memory, as Slice 2 documents |

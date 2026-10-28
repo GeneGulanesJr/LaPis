@@ -96,7 +96,9 @@ describe('services/observations', () => {
       expect(checkDuplicate).toHaveBeenCalledWith('Test', 'decision', 'proj', null);
     });
 
-    it('should auto-merge when duplicate similarity exceeds threshold', () => {
+    // Audit #2: titles 0.90 similar ("…pre-tool-use.js" vs "…post-tool-use.js") used
+    // To insert the new memory and soft-delete the old one without comparing content.
+    it('never deletes an existing memory on high title similarity', () => {
       const insertObservation = vi.fn(() => [{ id: 99, created_at: '2025-01-01' }]),
         insertObservationRelation = vi.fn(),
         softDeleteObservation = vi.fn(),
@@ -114,10 +116,11 @@ describe('services/observations', () => {
           findLatestSession,
         },
         result = obsService.save(deps, { title: 'Test', content: 'Body', project: 'proj' });
-      expect(result.auto_merged).toBe(true);
-      expect(result.superseded_id).toBe(10);
-      expect(softDeleteObservation).toHaveBeenCalledWith(10);
-      expect(insertObservationRelation).toHaveBeenCalled();
+      expect(result.status).toBe('potential_duplicate');
+      expect(result.matches[0].id).toBe(10);
+      expect(softDeleteObservation).not.toHaveBeenCalled();
+      expect(insertObservationRelation).not.toHaveBeenCalled();
+      expect(insertObservation).not.toHaveBeenCalled();
     });
 
     it('should return potential_duplicate status when similarity is below threshold', () => {

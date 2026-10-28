@@ -63,23 +63,6 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           return { content: [{ type: 'text', text: 'Failed to save memory.' }], details: {}, isError: true };
         }
 
-        if (result.auto_merged) {
-          const sim = result.similarity != null ? (result.similarity * 100).toFixed(0) : '?';
-          return {
-            content: [
-              {
-                type: 'text',
-                text:
-                  `✅ Memory saved [#${result.id}] ${result.title}\n` +
-                  `🔄 Auto-merged: superseded older [#${result.superseded_id}] "${result.superseded_title ?? ''}" (${sim}% similar)${
-                    result.expires_at ? `\n⏰ Expires: ${result.expires_at}` : ''
-                  }`,
-              },
-            ],
-            details: result ?? {},
-          };
-        }
-
         if (result.status === 'potential_duplicate') {
           const matches = (result.matches as any[]) || [];
           return {

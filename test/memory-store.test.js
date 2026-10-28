@@ -137,25 +137,19 @@ describe('memory-store: save', () => {
     );
     if (result.status === 'potential_duplicate') {
       expect(result.matches.length).toBeGreaterThanOrEqual(1);
-    } else if (result.auto_merged) {
-      expect(result.superseded_id).toBeDefined();
     } else {
       expect(result.id).toBeDefined();
     }
   });
 
-  it('should auto-merge at high similarity', () => {
+  it('should warn, not auto-merge, at high similarity', () => {
     run(
       `save --title "Auto-merge target original xyz" --content "Content for auto merge test" --project ${testProject} --type pattern --force`,
     );
     const result = run(
       `save --title "Auto-merge target original xyz" --content "Content for auto merge test" --project ${testProject} --type pattern`,
     );
-    if (result.auto_merged) {
-      expect(result.superseded_id).toBeDefined();
-      expect(result.superseded_title).toBeDefined();
-      expect(typeof result.similarity).toBe('number');
-    }
+    expect(result.status).toBe('potential_duplicate');
   });
 });
 
