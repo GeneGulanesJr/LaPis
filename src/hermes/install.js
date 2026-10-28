@@ -26,6 +26,8 @@ const fs = require('node:fs'),
   ALLOWLIST_FILENAME = 'shell-hooks-allowlist.json',
   SKILL_SOURCE = path.resolve(__dirname, '..', '..', 'hermes', 'SKILL.md'),
   SKILL_DEST_REL = ['skills', 'memory', 'lapis', 'SKILL.md'],
+  // YAML comment on the hooks_auto_accept line install adds; uninstall removes only a marked line.
+  AUTO_ACCEPT_MARK = '# added by LaPis',
   // Hermes shell-hook events LaPis wires. Matchers are regex fullmatch on the
   // Hermes tool name; the same hook command handles every event (the event and
   // Tool arrive on stdin — see hook.js).
@@ -104,9 +106,18 @@ function hookCommand() {
   return `${shellArg(process.execPath)} ${shellArg(lapisEntryPoint())} hermes hook`;
 }
 
-/** How hookCommand() appears in config.yaml; the key install/uninstall/doctor match on. */
+/** How hookCommand() appears in config.yaml; the exact string doctor checks for. */
 function hookCommandYaml() {
   return yamlScalar(hookCommand());
+}
+
+/**
+ * True for any LaPis hook command or config item, whatever node/memory-store.js
+ * path it was installed with — so reinstall/uninstall also catch entries left
+ * behind after Node or LaPis moved (nvm switch, upgrade).
+ */
+function isLapisHook(text) {
+  return typeof text === 'string' && text.includes('memory-store.js') && text.includes(' hermes hook');
 }
 
 /** The `mcp_servers.<name>` entry (body lines relative to the sub-key). */
@@ -152,8 +163,11 @@ function mergeAllowlist(filePath, command) {
   let data = { approvals: [] };
   try {
     data = JSON.parse(raw || '{}');
-  } catch {
-    data = { approvals: [] };
+  } catch (e) {
+    // Never overwrite a hand-edited allowlist we can't parse: it holds the user's other approvals.
+    throw new Error(`${filePath} is not valid JSON (${e.message}); fix or remove it, then re-run install.`, {
+      cause: e,
+    });
   }
   // JSON.parse succeeds for any valid JSON — including `null` and scalars,
   // Which would crash the approvals access below. Degrade to a fresh
@@ -190,9 +204,12 @@ async function runInstall(argv, io = {}) {
 
       if (flags.hooks) {
         for (const hook of HOOK_EVENTS) {
-          text = upsertListItem(text, 'hooks', hook.event, hookItemLines(hook), hookCommandYaml());
+          text = upsertListItem(text, 'hooks', hook.event, hookItemLines(hook), isLapisHook);
         }
-        text = upsertScalar(text, 'hooks_auto_accept', 'true');
+        // Respect a user's own hooks_auto_accept (even false); the marker tells uninstall LaPis added it.
+        if (!/^hooks_auto_accept\s*:/m.test(text)) {
+          text = upsertScalar(text, 'hooks_auto_accept', `true ${AUTO_ACCEPT_MARK}`);
+        }
         written.push(paths.config);
         mergeAllowlist(paths.allowlist, command);
         written.push(paths.allowlist);
@@ -233,6 +250,7 @@ async function runInstall(argv, io = {}) {
 module.exports = {
   DEFAULT_MCP_NAME,
   ALLOWLIST_FILENAME,
+  AUTO_ACCEPT_MARK,
   HOOK_EVENTS,
   parseFlags,
   resolveHermesHome,
@@ -240,6 +258,7 @@ module.exports = {
   lapisEntryPoint,
   hookCommand,
   hookCommandYaml,
+  isLapisHook,
   buildMcpEntry,
   mcpBodyLines,
   hookItemLines,

@@ -234,14 +234,12 @@ function createScanRules(absRoot, options = {}) {
  * dirs, .gitignore incl. nested, .memorycodeignore, size cap, binary, secret,
  * lock files) to paths that did not come from a directory walk, e.g. a git
  * delta. Returns the skip reason, or null when the file would be indexed.
- * Symlink handling is left to the caller (delta paths are already realpath'd).
+ * Symlink handling is left to the caller; like scanRepository, paths are taken
+ * relative to the lexical root (delta paths are mapped back onto it).
  */
 function createFileFilter(repoPath, options = {}) {
-  let root = path.resolve(repoPath);
-  try {
-    root = fs.realpathSync(root);
-  } catch {}
-  const rules = createScanRules(root, options);
+  const root = path.resolve(repoPath),
+    rules = createScanRules(root, options);
   const extraIgnoreDirs = options.ignoreDirs || [];
   const loadedDirs = new Set();
   const loadDir = (dir) => {

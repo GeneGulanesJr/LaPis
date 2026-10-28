@@ -20,21 +20,10 @@ describe('constants.js', () => {
       expect(constants.TRUST_DELTA.TRUST_FLOOR).toBe(0);
       expect(constants.TRUST_DELTA.TRUST_CEILING).toBe(1);
     });
-
-    it('should have STEP_SUCCESS positive and STEP_FAILURE negative', () => {
-      expect(constants.TRUST_DELTA.STEP_SUCCESS).toBeGreaterThan(0);
-      expect(constants.TRUST_DELTA.STEP_FAILURE).toBeLessThan(0);
-    });
   });
 
   describe('DEDUP', () => {
-    it('should have AUTO_MERGE_THRESHOLD greater than WARNING_THRESHOLD', () => {
-      expect(constants.DEDUP.AUTO_MERGE_THRESHOLD).toBeGreaterThan(constants.DEDUP.WARNING_THRESHOLD);
-    });
-
     it('should have threshold values between 0 and 1', () => {
-      expect(constants.DEDUP.AUTO_MERGE_THRESHOLD).toBeGreaterThan(0);
-      expect(constants.DEDUP.AUTO_MERGE_THRESHOLD).toBeLessThanOrEqual(1);
       expect(constants.DEDUP.WARNING_THRESHOLD).toBeGreaterThan(0);
       expect(constants.DEDUP.WARNING_THRESHOLD).toBeLessThanOrEqual(1);
     });

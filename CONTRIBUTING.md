@@ -72,13 +72,12 @@ crosshash/               # Rust code-intelligence workspace
 
 ### Tree-sitter grammar ownership
 
-The `grammars/` directory is populated by three different paths, and the split
+The `grammars/` directory is populated by two different paths, and the split
 matters when adding a language or debugging a missing `.wasm` (see
 [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the troubleshooting entry):
 
-- **HTML** — `postinstall.js` copies `tree-sitter-html.wasm` from the installed `tree-sitter-html` npm package into `grammars/` and verifies the destination (testable helper in `scripts/postinstall-helpers.js`).
 - **JavaScript, TypeScript, SQL** — `scripts/fetch-grammars.sh` fetches the dev grammar packages and builds/copies their WASM files.
-- **Go, Python, Rust, and other bundled grammars** — the WASM artifacts are committed under `grammars/` and shipped in the package.
+- **HTML, Go, Python, Rust, and other bundled grammars** — the WASM artifacts are committed under `grammars/` and shipped in the package.
 
 ## Dependency boundaries
 

@@ -20,7 +20,6 @@ const fs = require('fs'),
     buildCochangeEdges,
   } = require('./edge-extractor'),
   { createParsePool } = require('./worker-pool'),
-  { buildScopeBindings: _buildScopeBindings } = require('./scope-builder'),
   { resolveScopeBindings, resolveScopeBindingsForFiles } = require('./scope-resolver');
 
 /**
@@ -82,6 +81,10 @@ function makeDerivedErrorCollector() {
   return {
     errors,
     log(step, e) {
+      // A cancel is the indexer's stop signal, not a builder failure; let it abort the derived phase.
+      if (e === CANCELLED) {
+        throw e;
+      }
       logDerivedError(step, e);
       errors.push({ builder: step, error: e instanceof Error ? e.message : String(e) });
     },
@@ -92,6 +95,27 @@ function makeDerivedErrorCollector() {
 // Propagate through emitProgress instead of being swallowed (previously
 // Cancellation was dead-wired: the abort never reached the indexer) (#295).
 const CANCELLED = 'lapis-index-cancelled';
+
+// Settings-KV flag set before index rows change and cleared once the derived phase completes, so a
+// Crash, kill or cancel in between makes the next reindex rebuild the graphs instead of "No files changed".
+function setDerivedPending(db, repoId, pending) {
+  // Unit tests pass a stub db without prepare().
+  if (typeof db?.prepare !== 'function') {
+    return;
+  }
+  if (pending) {
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, '1')").run(`code_derived_pending:${repoId}`);
+  } else {
+    db.prepare('DELETE FROM settings WHERE key = ?').run(`code_derived_pending:${repoId}`);
+  }
+}
+
+function isDerivedPending(db, repoId) {
+  return (
+    typeof db?.prepare === 'function' &&
+    Boolean(db.prepare('SELECT 1 FROM settings WHERE key = ?').get(`code_derived_pending:${repoId}`))
+  );
+}
 
 function emitProgress(args, phase, detail, stats) {
   if (!args) {
@@ -429,38 +453,6 @@ function recordDiagnostic(repository, repoId, record, status, message, symbolCou
     symbolCount,
     contentHash: record.content ? hashContent(record.content) : null,
   });
-}
-
-function insertSymbols(repository, repoId, fileId, filePath, symbols) {
-  let count = 0;
-  for (const sym of symbols) {
-    repository.insertSymbol({
-      repoId,
-      fileId,
-      filePath,
-      name: sym.name,
-      kind: sym.kind,
-      signature: sym.signature,
-      qualifiedName: sym.qualified_name,
-      startLine: sym.start_line,
-      endLine: sym.end_line,
-      startByte: sym.start_byte,
-      endByte: sym.end_byte,
-      docstring: sym.docstring || '',
-      bodyPreview: sym.body_preview || '',
-      language: sym.language,
-      parentName: sym.parent_name || '',
-      stableSymbolId: sym.stable_symbol_id || '',
-      contentHash: sym.content_hash || '',
-      summary: sym.summary || '',
-      decoratorsJson: sym.decorators_json || '[]',
-      keywordsJson: sym.keywords_json || '[]',
-      callReferencesJson: sym.call_references_json || '[]',
-      ecosystemContext: sym.ecosystem_context || '',
-    });
-    count++;
-  }
-  return count;
 }
 
 function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCount, changedFileIds, deletedFileIds) {
@@ -1258,6 +1250,7 @@ async function indexRepository(deps, repoPath, repoName) {
         for (const batch of parseResult.deferredBatches || []) {
           commitParsedBatch(repository, repoId, batch, writeCtx);
         }
+        setDerivedPending(db, repoId, true);
       });
       emitProgress(args, 'reset-index', {
         step: 'clear-index',
@@ -1293,6 +1286,7 @@ async function indexRepository(deps, repoPath, repoName) {
 
     try {
       derived = await derivedPhase(db, repoId, args, files.length, parseResult.fileCount, parseResult.symbolCount);
+      setDerivedPending(db, repoId, false);
     } catch (derivedError) {
       console.error(`[indexer] indexRepository: derived phase failed after commit: ${derivedError.message}`);
       emitProgress(args, 'error', {
@@ -1363,7 +1357,9 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
     // Guard rail: legacy junk rows (e.g. a home-dir repo from the broken
     // project-attribution era) must not re-enter the stale-check → reindex
     // loop — a home-dir index can never go fresh. Skip instead of walking.
-    const reindexGuard = isIndexableRepoPath(existing.path);
+    const reindexGuard = isIndexableRepoPath(existing.path),
+      // An earlier run committed rows but never finished the derived phase: rebuild the whole repo's graphs.
+      derivedWasPending = isDerivedPending(db, existing.id);
     if (!reindexGuard.ok) {
       return {
         error: `repo guard: refusing to reindex '${repo}': ${reindexGuard.reason}`,
@@ -1404,8 +1400,7 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
               !skipReason(filePath),
           )
         : null,
-      gitDeletedFiles = gitDelta ? gitDelta.deleted : [],
-      explicitChangedPathMode = gitDelta && gitDelta.source === 'changed-paths';
+      gitDeletedFiles = gitDelta ? gitDelta.deleted : [];
     let scanResult,
       reindexed = 0,
       unchanged = 0,
@@ -1498,6 +1493,26 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
           { files_total: totalFiles, files_done: done, symbols: symbolCount },
         );
       }
+    }
+
+    const currentFilesSet = new Set(files),
+      gitDeletedSet = new Set(gitDeletedFiles),
+      // Delta paths the scanner rules now reject (grown past the size cap, newly ignored) leave the index too.
+      gitRejectedSet = new Set(gitDelta ? gitDelta.changed.filter((p) => !currentFilesSet.has(p)) : []),
+      // An ignore-file edit can drop files the delta never mentions, so re-check every indexed path then.
+      ignoreRulesChanged = Boolean(
+        gitDelta?.changed.some((p) => ['.gitignore', '.memorycodeignore'].includes(path.basename(p))),
+      ),
+      staleFiles = [...existingFiles.entries()].filter(([filePath]) =>
+        gitDelta
+          ? gitDeletedSet.has(filePath) ||
+            gitRejectedSet.has(filePath) ||
+            !fs.existsSync(filePath) ||
+            (ignoreRulesChanged && Boolean(skipReason(filePath)))
+          : !currentFilesSet.has(filePath),
+      );
+    if (changedRecords.length > 0 || staleFiles.length > 0) {
+      setDerivedPending(db, existing.id, true);
     }
 
     if (changedRecords.length > 0) {
@@ -1641,17 +1656,12 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
       }
     }
 
-    const currentFilesSet = new Set(files),
-      staleFiles =
-        gitDelta || explicitChangedPathMode
-          ? [...existingFiles.entries()].filter(([filePath]) => gitDeletedFiles.includes(filePath))
-          : [...existingFiles.entries()].filter(([filePath]) => !currentFilesSet.has(filePath));
     for (const [, fileInfo] of staleFiles) {
       deletedFileIds.push(fileInfo.id);
       repository.deleteFile(fileInfo.id);
     }
 
-    if (changedRecords.length === 0 && unchanged === totalFiles && staleFiles.length === 0) {
+    if (changedRecords.length === 0 && unchanged === totalFiles && staleFiles.length === 0 && !derivedWasPending) {
       const totalMs = Date.now() - t0,
         currentHead = gitDelta?.currentHead || getHeadCommit(existing.path),
         existingSymbolCount = (() => {
@@ -1725,10 +1735,11 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
         totalFiles,
         totalFiles,
         symbolCount,
-        changedFileIds,
-        deletedFileIds,
+        derivedWasPending ? undefined : changedFileIds,
+        derivedWasPending ? undefined : deletedFileIds,
       ),
       totalMs = (() => {
+        setDerivedPending(db, existing.id, false);
         repository.updateRepoStats({
           repoId: existing.id,
           headCommit: gitDelta?.currentHead || getHeadCommit(existing.path),
@@ -1873,7 +1884,6 @@ module.exports = {
   parseChangedPathsInput,
   getCodeRepoHealth,
   indexRepository,
-  insertSymbols,
   parsePhase,
   rebuildDerivedIndexes,
   rebuildDerivedIncremental,

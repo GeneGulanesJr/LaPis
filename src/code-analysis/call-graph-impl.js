@@ -47,12 +47,15 @@ WHERE fsb.repo_id = ? AND sr.status = 'resolved_internal'`,
 
 function buildCallGraph(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db),
-    { onProgress } = !guard ? opts : undefined;
+    { onProgress, fileIds } = !guard ? opts : undefined;
   if (guard) {
     return guard;
   }
 
-  db.prepare('DELETE FROM code_calls WHERE repo_id = ?').run(repoId);
+  // A fileIds Set rebuilds only those files' caller edges (incremental); the caller deletes their old rows.
+  if (!fileIds) {
+    db.prepare('DELETE FROM code_calls WHERE repo_id = ?').run(repoId);
+  }
 
   {
     const insertStmt = db.prepare(
@@ -148,7 +151,7 @@ function buildCallGraph(db, repoId, opts = {}) {
           // ── Scope-aware resolution index (v10) ────────────────────
           scopeIndex = buildScopeResolutionIndex(db, repoId),
           pendingEdges = [],
-          totalFiles = symbolsByFile.size;
+          totalFiles = fileIds ? fileIds.size : symbolsByFile.size;
 
         // Keep original resolveCallee as heuristic fallback
         function resolveCalleeHeuristic(calleeName, callerSym, receiver, fileContent) {
@@ -355,6 +358,10 @@ function buildCallGraph(db, repoId, opts = {}) {
         }
 
         for (const [fileId, fileSymbols] of symbolsByFile) {
+          if (fileIds && !fileIds.has(fileId)) {
+            // oxlint-disable-next-line no-continue
+            continue;
+          }
           const meta = fileById.get(fileId);
           if (!meta) {
             processedFiles++;
@@ -375,11 +382,16 @@ function buildCallGraph(db, repoId, opts = {}) {
                 filePath = meta.path,
                 fileSize = fileContent.length;
 
-              let fileCallees = [];
+              // An empty result from a ready parser means "no calls"; the regex fallback would
+              // Only match the function's own declaration and record a fake self-call. That also
+              // Holds for languages without a callee grammar (bash, css, json, yaml, sql).
+              let fileCallees = [],
+                parsed = false;
               if (fileSize <= CALL_GRAPH.MAX_FILE_CONTENT_BYTES) {
                 try {
                   const extractFn = codeParser.extractCalleesFromContent || codeParser.extractCallees;
                   fileCallees = extractFn(filePath, fileContent);
+                  parsed = codeParser.isReady();
                 } catch {
                   fileCallees = [];
                 }
@@ -423,7 +435,7 @@ function buildCallGraph(db, repoId, opts = {}) {
                     }
                   }
                 }
-              } else {
+              } else if (!parsed) {
                 for (const sym of fileSymbols) {
                   processRegexFallback(sym, fileContent);
                 }
@@ -514,7 +526,7 @@ function buildCallGraph(db, repoId, opts = {}) {
 
 function getCallHierarchy(db, repoId, opts) {
   const guard = _requireNativeDb(db),
-    { symbol, direction = 'callers', depth = 3, minConfidence = 0.0 } = !guard ? opts : undefined;
+    { symbol, symbolId: wantedId, direction = 'callers', depth = 3, minConfidence = 0.0 } = !guard ? opts : undefined;
   if (guard) {
     return guard;
   }
@@ -523,9 +535,12 @@ function getCallHierarchy(db, repoId, opts) {
   }
 
   {
-    const symRow = db
-        .prepare('SELECT id, name, file_path FROM code_symbols WHERE repo_id = ? AND name = ?')
-        .all(repoId, symbol),
+    // An explicit symbolId (e.g. coding-context --file) pins one of several same-named symbols.
+    const symRow = wantedId
+        ? db.prepare('SELECT id, name, file_path FROM code_symbols WHERE repo_id = ? AND id = ?').all(repoId, wantedId)
+        : db
+            .prepare('SELECT id, name, file_path FROM code_symbols WHERE repo_id = ? AND name = ? ORDER BY file_path')
+            .all(repoId, symbol),
       symbolId = !(symRow.length === 0) ? symRow[0].id : undefined,
       ambiguous = !(symRow.length === 0) ? symRow.length > 1 : undefined;
     if (symRow.length === 0) {
@@ -542,11 +557,11 @@ function getCallHierarchy(db, repoId, opts) {
         SELECT cc.caller_symbol_id, cs.name, cs.file_path, 1 as depth
         FROM code_calls cc JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
         WHERE cc.callee_symbol_id = ? AND cc.confidence >= ?
-        UNION ALL
+        UNION
         SELECT cc.caller_symbol_id, cs.name, cs.file_path, u.depth + 1
         FROM code_calls cc JOIN upstream u ON cc.callee_symbol_id = u.caller_symbol_id JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
         WHERE u.depth < ? AND cc.confidence >= ?
-      ) SELECT * FROM upstream
+      ) SELECT caller_symbol_id, name, file_path, MIN(depth) AS depth FROM upstream GROUP BY caller_symbol_id ORDER BY depth, name
     `)
           .all(symbolId, minConfidence, depth, minConfidence),
         result = { symbol: symRow[0].name, direction: 'callers', depth, callers: rows };
@@ -564,11 +579,12 @@ function getCallHierarchy(db, repoId, opts) {
       SELECT cc.callee_name, cc.callee_symbol_id, cs.file_path, cc.confidence, 1 as depth
       FROM code_calls cc LEFT JOIN code_symbols cs ON cs.id = cc.callee_symbol_id
       WHERE cc.caller_symbol_id = ? AND cc.confidence >= ?
-      UNION ALL
+      UNION
       SELECT cc.callee_name, cc.callee_symbol_id, cs.file_path, cc.confidence, d.depth + 1
       FROM code_calls cc JOIN downstream d ON cc.caller_symbol_id = d.callee_symbol_id LEFT JOIN code_symbols cs ON cs.id = cc.callee_symbol_id
       WHERE d.depth < ? AND cc.confidence >= ?
-    ) SELECT * FROM downstream
+    ) SELECT callee_name, callee_symbol_id, file_path, confidence, MIN(depth) AS depth FROM downstream
+      GROUP BY callee_symbol_id, callee_name ORDER BY depth, callee_name
   `)
         .all(symbolId, minConfidence, depth, minConfidence),
       result = { symbol: symRow[0].name, direction: 'callees', depth, callees: rows };

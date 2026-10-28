@@ -48,7 +48,9 @@ function runCompactCheap(deps) {
       )`);
       report.steps.oldPromptsPruned = true;
 
-      sqlRun(`DELETE FROM session_log WHERE id NOT IN (
+      // Open sessions are exempt: deleting one drops its recalls and prompts
+      // Mid-session. recoverOrphans closes stale ones after 6h.
+      sqlRun(`DELETE FROM session_log WHERE ended_at IS NOT NULL AND id NOT IN (
         SELECT id FROM (
           SELECT id, ROW_NUMBER() OVER (PARTITION BY project ORDER BY started_at DESC) AS rn
           FROM session_log
@@ -401,6 +403,7 @@ function dream(deps, args = {}) {
     FROM observations
     WHERE topic_key IS NOT NULL AND topic_key != ''
       AND deleted_at IS NULL
+      AND expires_at IS NULL
       AND type NOT IN ('skill', 'session_summary')
     GROUP BY topic_key, project
     HAVING COUNT(*) >= 3

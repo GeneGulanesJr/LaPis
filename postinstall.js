@@ -1,25 +1,8 @@
 #!/usr/bin/env node
 const fs = require('fs'),
   path = require('path'),
-  { copyHtmlGrammar } = require('./scripts/postinstall-helpers'),
   root = __dirname,
   nm = (...p) => path.join(root, 'node_modules', ...p);
-
-// Copy the bundled tree-sitter-html.wasm grammar into ./grammars.
-//
-// The copy is idempotent (an existing, non-trivial destination is preserved)
-// But never silent: a missing source, a missing grammars/ directory, a failed
-// Copy, or a missing/truncated destination after copy each emit a clear
-// Warning to stderr and are reflected in the returned result. See
-// Scripts/postinstall-helpers.js for the testable implementation.
-//
-// Grammar ownership split (see docs/MODULE_MAP.md):
-//   - HTML   -> copied here from the tree-sitter-html npm package at install.
-//   - JS/TS/SQL -> fetched/renamed by scripts/fetch-grammars.sh (dev tooling).
-//   - Go/Python/Rust (and other) WASM grammars are committed to ./grammars.
-(function copyHtmlGrammarStep() {
-  copyHtmlGrammar({ root, warn: (m) => console.error(m) });
-})();
 
 // Patch transitive vulnerabilities that `overrides` cannot reach.
 //

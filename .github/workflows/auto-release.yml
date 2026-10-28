@@ -56,9 +56,18 @@ jobs:
       - run: npm test
         if: steps.version.outputs.should_release == 'true'
 
+  # ── Gate: validate the packed tarball before any tag exists, so a packaging
+  #    mistake cannot strand a tagged-but-unpublishable version ──
+  pack-verify:
+    needs: gate
+    if: needs.gate.outputs.should_release == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/pack-verify.yml
+
   # ── Tag + GitHub Release (notes auto-generated from commits since last tag) ──
   release:
-    needs: gate
+    needs: [gate, pack-verify]
     if: needs.gate.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     permissions:

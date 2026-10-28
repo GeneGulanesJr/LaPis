@@ -25,6 +25,7 @@ function getAffectedGraph(db, repoId, opts = {}) {
   const guard = _requireNativeDb(db),
     {
       symbol,
+      symbolId,
       file,
       minReachability = DEFAULT_MIN_REACHABILITY,
       maxDepth = DEFAULT_MAX_DEPTH,
@@ -43,9 +44,12 @@ function getAffectedGraph(db, repoId, opts = {}) {
     seedSymbolName = symbol || null;
 
   if (symbol) {
+    // An explicit symbolId (e.g. coding-context --file) pins one of several same-named symbols.
     const symRows = db
-      .prepare('SELECT id, name, file_id, file_path FROM code_symbols WHERE repo_id = ? AND name = ?')
-      .all(repoId, symbol);
+      .prepare(
+        `SELECT id, name, file_id, file_path FROM code_symbols WHERE repo_id = ? AND ${symbolId ? 'id' : 'name'} = ?`,
+      )
+      .all(repoId, symbolId || symbol);
 
     if (symRows.length === 0) {
       return { error: `Symbol "${symbol}" not found` };

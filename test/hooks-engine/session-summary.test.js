@@ -79,18 +79,16 @@ describe('hooks-engine session-summary: buildSessionSummary', () => {
     expect(a).toContain('## Files Modified');
   });
 
-  test('dedupes dual full-path + basename editedFiles entries', () => {
+  test('lists same-named files in different folders once each', () => {
     const out = buildSessionSummary({
       userMessages: [],
       assistantCount: 0,
       turnCount: 0,
       memoriesSaved: 0,
-      editedFiles: ['/tmp/repo/src/a.js', 'a.js', '/tmp/repo/lib/b.ts', 'b.ts'],
+      editedFiles: ['/tmp/repo/src/a/index.js', '/tmp/repo/src/b/index.js', '/tmp/repo/src/a/index.js'],
       cwd: '/tmp/repo',
     });
-    expect(out).toContain('- src/a.js');
-    expect(out).toContain('- lib/b.ts');
-    expect(out.match(/- src\/a\.js/g)).toHaveLength(1);
-    expect(out.match(/- lib\/b\.ts/g)).toHaveLength(1);
+    expect(out.match(/- src\/a\/index\.js/g)).toHaveLength(1);
+    expect(out.match(/- src\/b\/index\.js/g)).toHaveLength(1);
   });
 });

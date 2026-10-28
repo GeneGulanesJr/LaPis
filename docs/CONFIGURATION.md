@@ -4,13 +4,12 @@ This guide covers configuration for the LaPis memory layer extension.
 
 ## Tree-sitter grammar ownership
 
-LaPis uses three grammar ownership paths:
+LaPis uses two grammar ownership paths:
 
-- **HTML**: `postinstall.js` copies `tree-sitter-html.wasm` from the installed `tree-sitter-html` package into `grammars/` and verifies the destination.
 - **JavaScript, TypeScript, and SQL**: `scripts/fetch-grammars.sh` fetches the development grammar packages and builds/copies their WASM files.
-- **Go, Python, Rust, and other bundled grammars**: the WASM artifacts are committed under `grammars/` and shipped in the package.
+- **HTML, Go, Python, Rust, and other bundled grammars**: the WASM artifacts are committed under `grammars/` and shipped in the package.
 
-If HTML parsing is unavailable after installation, rerun `npm install` and inspect the postinstall warning. For development grammar refreshes, run `bash scripts/fetch-grammars.sh`.
+For development grammar refreshes, run `bash scripts/fetch-grammars.sh`.
 
 ## Setup
 
@@ -45,7 +44,6 @@ Supported settings include:
     "recall": 0.15
   },
   "dedup": {
-    "auto_merge_threshold": 0.85,
     "warning_threshold": 0.6
   },
   "compact_every_n_sessions": 5,
@@ -72,7 +70,7 @@ Supported settings include:
 | `busy_timeout_ms`           | `30000`                              | SQLite busy timeout in milliseconds.                                    |
 | `busy_retry_max`            | `5`                                  | Maximum retries when the database reports `SQLITE_BUSY`.                |
 | `ranking.*`                 | see above                            | Hybrid search weights (must sum to 1.0).                                |
-| `dedup.*`                   | see above                            | Duplicate-warning threshold (`auto_merge_threshold` is ignored).        |
+| `dedup.*`                   | see above                            | Duplicate-warning threshold.                                            |
 | `compact_every_n_sessions`  | `5`                                  | Sessions between compaction passes.                                     |
 | `context_limit`             | `5`                                  | Default context-packet size for the `context` command.                  |
 | `tier_config_path`          | `~/.pi/memory/tier.jsonc`            | Path to the tool tier configuration file.                               |

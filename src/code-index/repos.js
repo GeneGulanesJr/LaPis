@@ -219,17 +219,6 @@ function createCodeIndexRepository(deps) {
         return fallback[0].id;
       }
     },
-    insertFileBatch(records) {
-      const ids = [],
-        self = this;
-      _withTransaction(() => {
-        for (const params of records) {
-          const id = self.insertFile(params);
-          ids.push(id);
-        }
-      });
-      return ids;
-    },
     updateFile(fileId, params) {
       sqlRun(
         'UPDATE code_files SET content = ?, content_hash = ?, mtime = ?, size_bytes = ?, line_count = ?, language = ?, mtime_ns = ? WHERE id = ?',
@@ -280,9 +269,6 @@ function createCodeIndexRepository(deps) {
         ],
       );
     },
-    deleteFileDiagnostic(repoId, filePath) {
-      sqlRun('DELETE FROM code_file_diagnostics WHERE repo_id = ? AND file_path = ?', [repoId, filePath]);
-    },
     listDiagnostics(repoId, limit = 50) {
       return sqlJson(
         `SELECT file_path, status, message, symbol_count, content_hash, updated_at
@@ -303,37 +289,8 @@ function createCodeIndexRepository(deps) {
         [repoId],
       );
     },
-    insertSymbol(params) {
-      // Reuses the same SQL as the batched/prepared-statement path
-      // (_insertSymbolsPrepared) so a schema change only needs updating in one
-      // place instead of two independently hand-written copies.
-      sqlRun(_symbolInsertSql, [
-        params.repoId,
-        params.fileId,
-        params.filePath,
-        params.name,
-        params.kind,
-        params.signature,
-        params.qualifiedName,
-        params.startLine,
-        params.endLine,
-        params.startByte,
-        params.endByte,
-        params.docstring || '',
-        params.bodyPreview || '',
-        params.language,
-        params.parentName || '',
-        params.stableSymbolId || '',
-        params.contentHash || '',
-        params.summary || '',
-        params.decoratorsJson || '[]',
-        params.keywordsJson || '[]',
-        params.callReferencesJson || '[]',
-        params.ecosystemContext || '',
-      ]);
-    },
     // PERF: Prepared-statement reuse for bulk symbol inserts (issue #139).
-    // Do NOT replace with per-symbol insertSymbol() calls — each call re-prepares
+    // Do NOT replace with per-symbol sqlRun() calls — each call re-prepares
     // The same SQL via sqlRun(). For 10K+ symbols per batch this eliminates
     // 10K redundant prepare() calls. Keep the single stmt.prepare() + loop pattern.
     insertSymbolBatch(symbols) {

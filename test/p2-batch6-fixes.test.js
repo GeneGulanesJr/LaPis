@@ -164,7 +164,7 @@ describe('#295 index cancellation and thread-aware locks', () => {
     await q2.cancel(2);
     expect(stalled.terminateCalls).toBe(1);
     expect(sqlRunCalls[0][0]).toContain('repo_index_locks');
-    expect(sqlRunCalls[0][1][0]).toBe(`${process.pid}:5%`);
+    expect(sqlRunCalls[0][1][0]).toBe(`${process.pid}:5:%`);
   });
 
   it('repo-lock holder ids embed pid and threadId, and the prefix cleanup deletes only matching rows', () => {
@@ -175,17 +175,22 @@ describe('#295 index cancellation and thread-aware locks', () => {
     const holderId = repoLock.makeHolderId();
     expect(holderId).toMatch(/^\d+:\d+:[0-9a-f]+$/);
 
-    dbModule.sqlRun("INSERT INTO repo_index_locks (repo_name, holder_id, host) VALUES ('r5', ?, 'h'), ('r6', ?, 'h')", [
-      `${process.pid}:5:aaaa`,
-      `${process.pid}:6:bbbb`,
-    ]);
+    // Thread 55 starts with the same digit and must survive releasing thread 5.
+    dbModule.sqlRun(
+      "INSERT INTO repo_index_locks (repo_name, holder_id, host) VALUES ('r5', ?, 'h'), ('r6', ?, 'h'), ('r55', ?, 'h')",
+      [`${process.pid}:5:aaaa`, `${process.pid}:6:bbbb`, `${process.pid}:55:cccc`],
+    );
     repoLock.releaseLocksForHolderPrefix(dbModule.sqlRun, `${process.pid}:5`);
     expect(
       dbModule
-        .sqlJson('SELECT repo_name FROM repo_index_locks WHERE repo_name IN (?, ?)', ['r5', 'r6'])
+        .sqlJson('SELECT repo_name FROM repo_index_locks WHERE repo_name IN (?, ?, ?) ORDER BY repo_name', [
+          'r5',
+          'r55',
+          'r6',
+        ])
         .map((r) => r.repo_name),
-    ).toEqual(['r6']);
-    dbModule.sqlRun('DELETE FROM repo_index_locks WHERE repo_name = ?', ['r6']);
+    ).toEqual(['r55', 'r6']);
+    dbModule.sqlRun("DELETE FROM repo_index_locks WHERE repo_name IN ('r55', 'r6')");
   });
 
   it('services/code-indexing exposes cancelIndexJobInternal', () => {

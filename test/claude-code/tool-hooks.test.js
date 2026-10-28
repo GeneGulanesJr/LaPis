@@ -228,7 +228,7 @@ const realStateStore = require('../../src/claude-code/state-store'),
           payload: {
             session_id: 's',
             tool_name: 'Write',
-            tool_input: { file_path: '/proj/app/src/x.js' },
+            tool_input: { file_path: '/proj/app/src/X.js' },
             cwd: '/proj/app',
           },
           dispatch,
@@ -236,7 +236,7 @@ const realStateStore = require('../../src/claude-code/state-store'),
           stateStore,
         });
       expect(out).toBeNull();
-      expect(stateStore._peek('s').editedFiles).toContain('/proj/app/src/x.js');
+      expect(stateStore._peek('s').editedFiles).toEqual(['/proj/app/src/X.js']);
     });
 
     test('git pull triggers sync-code-trust for the current repo', async () => {

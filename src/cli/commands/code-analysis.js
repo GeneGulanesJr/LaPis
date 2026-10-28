@@ -47,6 +47,12 @@ const codeAnalysis = require('../../code-analysis'),
     'coding-context',
   ]);
 
+// Graph walks fan out per level, so --depth is clamped to 1..5; junk falls back to the default.
+function _depth(value, fallback) {
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? fallback : Math.min(5, Math.max(1, n));
+}
+
 function _dispatch(cmd, repoName, fn, deps) {
   if (!repoName) {
     return deps.jsonErrNoExit(`Missing --repo. Usage: ${cmd} ${USAGE[cmd] || ''}`);
@@ -74,7 +80,7 @@ function register(commands, deps) {
         codeAnalysis.getImportGraph(getDb(), r.id, {
           file: args.file || null,
           direction: args.direction || 'both',
-          depth: parseInt(args.depth || '1'),
+          depth: _depth(args.depth, 1),
         }),
       dispatchDeps,
     );
@@ -89,7 +95,7 @@ function register(commands, deps) {
         codeAnalysis.getCallHierarchy(getDb(), r.id, {
           symbol: args.symbol,
           direction: args.direction || 'callers',
-          depth: parseInt(args.depth || '3'),
+          depth: _depth(args.depth, 3),
         }),
       dispatchDeps,
     );
@@ -101,7 +107,7 @@ function register(commands, deps) {
     return _dispatch(
       'blast-radius',
       args.repo,
-      (r) => codeAnalysis.getBlastRadius(getDb(), r.id, { symbol: args.symbol, depth: parseInt(args.depth || '3') }),
+      (r) => codeAnalysis.getBlastRadius(getDb(), r.id, { symbol: args.symbol, depth: _depth(args.depth, 3) }),
       dispatchDeps,
     );
   };

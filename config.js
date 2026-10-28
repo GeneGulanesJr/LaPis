@@ -16,7 +16,6 @@ const path = require('path'),
       recall: 0.15,
     },
     dedup: {
-      auto_merge_threshold: 0.85,
       warning_threshold: 0.6,
     },
     compact_every_n_sessions: 5,
