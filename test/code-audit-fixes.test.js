@@ -65,7 +65,7 @@ describe('code-audit: HTTP URL + route parsing hardening', () => {
 // ── #6: rankObservations must not produce NaN on invalid created_at ──
 
 describe('code-audit: rankObservations NaN guard', () => {
-  const { rankObservations } = require('../services/search');
+  const { rankObservations } = require('../src/memory-domain/search');
 
   it('produces finite scores when created_at is empty/invalid', () => {
     const rows = [

@@ -195,6 +195,84 @@ module.exports = {
   },
 };
 
+const TOOL_TIERS = {
+  core: new Set([
+    'search',
+    'save',
+    'context',
+    'search-code',
+    'get-code-source',
+    'preflight',
+    'agent-pack',
+    'importance',
+    'outline',
+    'winnow',
+    'dream',
+  ]),
+  standard: new Set([
+    'search',
+    'save',
+    'context',
+    'search-code',
+    'get-code-source',
+    'preflight',
+    'agent-pack',
+    'importance',
+    'outline',
+    'winnow',
+    'dream',
+    'complexity',
+    'dead-code',
+    'hotspots',
+    'blast-radius',
+    'call-hierarchy',
+    'cycles',
+    'coupling',
+  ]),
+  full: null,
+};
+
+function _readTierConfig() {
+  const { getConfig } = require('../../config'),
+    configPath = getConfig().tier_config_path;
+  try {
+    const raw = require('fs').readFileSync(configPath, 'utf-8'),
+      cleaned = raw.replace(/\/\/.*$/gm, '');
+    return JSON.parse(cleaned);
+  } catch {
+    return { tier: 'full' };
+  }
+}
+
+/**
+ * The deps object every command router receives. Single source for cli.js and
+ * dispatch (MCP, Pi, daemon); the two used to drift — dispatch lacked
+ * withTransaction, so cleanup-sessions ran its deletes outside a transaction (#397).
+ */
+function buildDeps() {
+  const db = require('../../db'),
+    obsDA = require('../../data-access/observations'),
+    { createRepositories } = require('../platform/storage/repositories'),
+    baseStorageDeps = {
+      sqlJson: db.sqlJson,
+      sqlRun: db.sqlRun,
+      sqlRaw: db.sqlRaw,
+      jsonErrNoExit: db.jsonErrNoExit,
+    };
+  return {
+    ...baseStorageDeps,
+    getDb: db.getDb,
+    repositories: createRepositories(baseStorageDeps),
+    softDeleteObservation: (id) => obsDA.softDeleteObservation(baseStorageDeps, id),
+    _readTierConfig,
+    TOOL_TIERS,
+    ensureDb: db.ensureDb,
+    DB_PATH: db.DB_PATH,
+    getEngine: db.getEngine,
+    withTransaction: db.withTransaction,
+  };
+}
+
 let _commands = null,
   _loadedRouters = null,
   _deps = null,
@@ -205,88 +283,10 @@ async function dispatch(cmd, args) {
   if (!_commands) {
     if (!_initPromise) {
       _initPromise = (async () => {
-        const db = require('../../db'),
-          obsDA = require('../../data-access/observations'),
-          { createRepositories } = require('../platform/storage/repositories'),
-          fs = require('fs');
-
-        db.ensureDb();
-
-        {
-          const baseStorageDeps = {
-              sqlJson: db.sqlJson,
-              sqlRun: db.sqlRun,
-              sqlRaw: db.sqlRaw,
-              jsonErrNoExit: db.jsonErrNoExit,
-            },
-            repositories = createRepositories(baseStorageDeps),
-            softDeleteObservation = (id) => obsDA.softDeleteObservation(baseStorageDeps, id);
-
-          function _readTierConfig() {
-            const { getConfig } = require('../../config'),
-              configPath = getConfig().tier_config_path;
-            try {
-              const raw = fs.readFileSync(configPath, 'utf-8'),
-                cleaned = raw.replace(/\/\/.*$/gm, '');
-              return JSON.parse(cleaned);
-            } catch {
-              return { tier: 'full' };
-            }
-          }
-
-          {
-            const TOOL_TIERS = {
-              core: new Set([
-                'search',
-                'save',
-                'context',
-                'search-code',
-                'get-code-source',
-                'preflight',
-                'agent-pack',
-                'importance',
-                'outline',
-                'winnow',
-                'dream',
-              ]),
-              standard: new Set([
-                'search',
-                'save',
-                'context',
-                'search-code',
-                'get-code-source',
-                'preflight',
-                'agent-pack',
-                'importance',
-                'outline',
-                'winnow',
-                'dream',
-                'complexity',
-                'dead-code',
-                'hotspots',
-                'blast-radius',
-                'call-hierarchy',
-                'cycles',
-                'coupling',
-              ]),
-              full: null,
-            };
-
-            _deps = {
-              ...baseStorageDeps,
-              getDb: db.getDb,
-              repositories,
-              softDeleteObservation,
-              _readTierConfig,
-              TOOL_TIERS,
-              ensureDb: db.ensureDb,
-              DB_PATH: db.DB_PATH,
-              getEngine: db.getEngine,
-            };
-            _commands = {};
-            _loadedRouters = new Set();
-          }
-        }
+        require('../../db').ensureDb();
+        _deps = buildDeps();
+        _commands = {};
+        _loadedRouters = new Set();
       })().catch((e) => {
         // A rejected init must not be cached forever: drop it so the next
         // Dispatch re-runs initialization (a transient locked-DB error at
@@ -332,3 +332,4 @@ async function dispatch(cmd, args) {
 }
 
 module.exports.dispatch = dispatch;
+module.exports.buildDeps = buildDeps;

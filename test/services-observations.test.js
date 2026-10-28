@@ -1,4 +1,4 @@
-const obsService = require('../services/observations');
+const obsService = require('../src/memory-domain/observations');
 
 describe('services/observations', () => {
   describe('suggestTopicKey', () => {

@@ -1,4 +1,4 @@
-const { context } = require('../services/context');
+const { context } = require('../src/memory-domain/context');
 
 describe('services/context', () => {
   it('should default to cross-project mode when project is missing', () => {
@@ -242,7 +242,7 @@ describe('services/context', () => {
   });
 
   it('escapes backslash before LIKE wildcards in topic query needles', () => {
-    const { buildTopicQueryMatch } = require('../services/context');
+    const { buildTopicQueryMatch } = require('../src/memory-domain/context');
     const { whereParams } = buildTopicQueryMatch(['50%_off\\']);
     // Backslash escaped first ("\" -> "\\"), then % and _ -> "\%", "\_":
     // a trailing "\" can no longer escape the wildcard markers under ESCAPE '\'.

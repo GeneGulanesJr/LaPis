@@ -9,7 +9,6 @@
 --   doc-index repository: doc_repos, doc_files, doc_sections, doc FTS, links, terms, code blocks.
 --   trust-sync repository: symbol_links and trust_adjustments because they bridge memories and code symbols.
 --   analytics repository: read-only aggregate queries across feature-owned tables.
-PRAGMA user_version = 11;
 
 -- ═══════════════════════════════════════════════════════════
 -- MEMORY REPOSITORY: WORKSPACES  (v4 — formal project isolation)

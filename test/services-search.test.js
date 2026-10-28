@@ -1,4 +1,4 @@
-const { rankObservations, search: _search, related, symbolCluster } = require('../services/search');
+const { rankObservations, search: _search, related, symbolCluster } = require('../src/memory-domain/search');
 
 describe('services/search: rankObservations', () => {
   it('should rank decisions higher than session summaries', () => {

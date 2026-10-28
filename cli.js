@@ -1,59 +1,6 @@
 #!/usr/bin/env node
-const {
-    DB_PATH,
-    sqlJson,
-    sqlRun,
-    sqlRaw,
-    ensureDb,
-    getDb,
-    getEngine,
-    jsonOut,
-    jsonErrNoExit,
-    parseArgs,
-    MemoryError,
-    withTransaction,
-  } = require('./db'),
-  { getConfig } = require('./config'),
-  obsDA = require('./data-access/observations'),
-  fs = require('fs'),
-  { buildCommandMap, getAllUsage } = require('./src/cli/gateway'),
-  { createRepositories } = require('./src/platform/storage/repositories'),
-  TOOL_TIERS = {
-    core: new Set([
-      'search',
-      'save',
-      'context',
-      'search-code',
-      'get-code-source',
-      'preflight',
-      'agent-pack',
-      'importance',
-      'outline',
-      'winnow',
-      'dream',
-    ]),
-    standard: new Set([
-      'search',
-      'save',
-      'context',
-      'search-code',
-      'get-code-source',
-      'preflight',
-      'agent-pack',
-      'importance',
-      'outline',
-      'winnow',
-      'dream',
-      'complexity',
-      'dead-code',
-      'hotspots',
-      'blast-radius',
-      'call-hierarchy',
-      'cycles',
-      'coupling',
-    ]),
-    full: null,
-  };
+const { sqlJson, sqlRun, ensureDb, getDb, jsonOut, parseArgs, MemoryError } = require('./db'),
+  { buildCommandMap, buildDeps, getAllUsage } = require('./src/cli/gateway');
 
 {
   // The command map eagerly requires all nine feature routers (~166ms of
@@ -61,23 +8,10 @@ const {
   // dispatch path need it — `serve`, `mcp`, `claude-code`, `hermes` and
   // `run` own their entry points and never consult it — so build it
   // lazily and let long-lived server modes skip the cost entirely.
-  const baseStorageDeps = { sqlJson, sqlRun, sqlRaw, jsonErrNoExit },
-    softDeleteObservation = (id) => obsDA.softDeleteObservation(baseStorageDeps, id);
   let commands = null;
   function getCommands() {
     if (!commands) {
-      commands = buildCommandMap({
-        ...baseStorageDeps,
-        getDb,
-        repositories: createRepositories(baseStorageDeps),
-        softDeleteObservation,
-        _readTierConfig,
-        TOOL_TIERS,
-        ensureDb,
-        DB_PATH,
-        getEngine,
-        withTransaction,
-      });
+      commands = buildCommandMap(buildDeps());
     }
     return commands;
   }
@@ -319,16 +253,6 @@ const {
       process.exit(1);
     }
   })();
-  function _readTierConfig() {
-    const configPath = getConfig().tier_config_path;
-    try {
-      const raw = fs.readFileSync(configPath, 'utf-8'),
-        cleaned = raw.replace(/\/\/.*$/gm, '');
-      return JSON.parse(cleaned);
-    } catch {
-      return { tier: 'full' };
-    }
-  }
   function printHelp(targetCmd) {
     const usage = getAllUsage();
     if (targetCmd && usage[targetCmd] !== undefined) {

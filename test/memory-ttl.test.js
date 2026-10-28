@@ -1,5 +1,5 @@
 const { parseExpiresIn, formatSqliteDatetime } = require('../src/memory-domain/ttl'),
-  obsService = require('../services/observations'),
+  obsService = require('../src/memory-domain/observations'),
   obsDA = require('../data-access/observations');
 
 function mockDeps(overrides = {}) {

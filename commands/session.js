@@ -1,5 +1,5 @@
 const recoveryService = require('../services/recovery'),
-  sessionsService = require('../services/sessions'),
+  sessionsService = require('../src/memory-domain/sessions'),
   dreamService = require('../services/dream');
 
 function sessionStart(deps, args) {

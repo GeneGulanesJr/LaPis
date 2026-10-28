@@ -1,4 +1,4 @@
-const { sessionStart, sessionEnd } = require('../services/sessions');
+const { sessionStart, sessionEnd } = require('../src/memory-domain/sessions');
 
 describe('services/sessions', () => {
   describe('sessionStart', () => {

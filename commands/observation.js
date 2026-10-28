@@ -1,7 +1,7 @@
-const obsService = require('../services/observations'),
+const obsService = require('../src/memory-domain/observations'),
   obsDA = require('../data-access/observations'),
-  dedupService = require('../services/dedup'),
-  sessionsService = require('../services/sessions'),
+  dedupService = require('../src/memory-domain/dedupe'),
+  sessionsService = require('../src/memory-domain/sessions'),
   { parseExpiresIn } = require('../src/memory-domain/ttl'),
   { decisionVerifyDuplicates, dedupeDecisionEnabled } = require('../src/memory-domain/dedupe-decision');
 

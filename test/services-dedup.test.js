@@ -1,4 +1,4 @@
-const { trigramOverlap, checkDuplicate, markDuplicate } = require('../services/dedup');
+const { trigramOverlap, checkDuplicate, markDuplicate } = require('../src/memory-domain/dedupe');
 
 describe('services/dedup: trigramOverlap', () => {
   it('should return 1.0 for exact same strings', () => {

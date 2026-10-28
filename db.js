@@ -1536,27 +1536,7 @@ class MemoryError extends Error {
         openDb();
       }
 
-      if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
-        const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
-        try {
-          _db.exec(schema);
-        } catch {
-          const stmts = schema
-            .split(/;\s*\n/)
-            .map((s) => s.trim())
-            .filter((s) => s.length > 0 && !s.startsWith('--') && !/^\s*PRAGMA/i.test(s));
-          for (const stmt of stmts) {
-            try {
-              _sqlExec(stmt);
-            } catch (inner) {
-              if (!/already exists|duplicate column/i.test(inner.message)) {
-                console.error(`[db] Schema statement error: ${inner.message}`);
-              }
-            }
-          }
-        }
-      }
-
+      // Fresh DBs get schema.sql via migration V5 (openDb + WAL already create the file).
       runMigrations();
 
       ensureCriticalTables();
