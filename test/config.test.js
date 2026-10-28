@@ -95,7 +95,7 @@ describe('config.js', () => {
       try {
         const { expandTilde: expand } = await import('../config'),
           result = expand('~');
-        expect(result).toBe('/tmp/lapis-tilde-test');
+        expect(result).toBe(require('path').normalize('/tmp/lapis-tilde-test'));
       } finally {
         vi.unstubAllEnvs();
         vi.resetModules();

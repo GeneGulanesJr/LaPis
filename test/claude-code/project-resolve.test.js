@@ -10,7 +10,8 @@ describe('claude-code project-resolve', () => {
       () => repos,
       () => knownProjects,
     );
-    expect(resolvedCwd).toBe('/repos/my-monorepo/packages/foo');
+    // ResolveCwd returns an absolute path, which gains a drive letter on Windows.
+    expect(resolvedCwd).toBe(require('path').resolve('/repos/my-monorepo/packages/foo'));
     expect(project).toBe('my-monorepo');
   });
 

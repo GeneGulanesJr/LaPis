@@ -25,7 +25,7 @@ describe('resolveIndexedFilePaths', () => {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-trust-real-')),
       link = path.join(os.tmpdir(), `lapis-trust-link-${Date.now()}`);
     try {
-      fs.symlinkSync(repo, link);
+      fs.symlinkSync(repo, link, 'junction'); // A junction needs no admin rights on Windows; ignored elsewhere
       const file = path.join(repo, 'lib.js'),
         // resolveIndexedFilePaths fully resolves every symlink hop in the path
         // (fs.realpathSync doesn't stop at the intentional `link -> repo` hop —

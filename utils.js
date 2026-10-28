@@ -112,7 +112,9 @@ function withDb(fn, featureName) {
 
   function walkDirForDocs(dirPath, ignoreGlob) {
     const results = [],
-      ignoreRe = ignoreGlob ? new RegExp(ignoreGlob.replace(/\*/g, '.*').replace(/\?/g, '.')) : null;
+      ignoreRe = ignoreGlob ? new RegExp(ignoreGlob.replace(/\*/g, '.*').replace(/\?/g, '.')) : null,
+      // Globs are written with '/', so test them against '/'-separated paths on every OS.
+      ignored = (p) => ignoreRe && ignoreRe.test(p.split(path.sep).join('/'));
 
     function walk(dir) {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -127,13 +129,13 @@ function withDb(fn, featureName) {
             // oxlint-disable-next-line no-continue
             continue;
           }
-          if (ignoreRe && ignoreRe.test(fullPath)) {
+          if (ignored(fullPath)) {
             // oxlint-disable-next-line no-continue
             continue;
           }
           walk(fullPath);
         } else if (entry.isFile() && DOC_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
-          if (ignoreRe && ignoreRe.test(fullPath)) {
+          if (ignored(fullPath)) {
             // oxlint-disable-next-line no-continue
             continue;
           }

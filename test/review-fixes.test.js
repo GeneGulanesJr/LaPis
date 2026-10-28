@@ -12,10 +12,13 @@ describe('review fixes', () => {
     let tmpDb;
 
     afterEach(() => {
-      if (tmpDb && fs.existsSync(tmpDb)) {
-        fs.unlinkSync(tmpDb);
-      }
+      // Close the handle first: Windows refuses to delete an open SQLite file (EBUSY).
       dbModule.resetDb();
+      if (tmpDb) {
+        for (const f of [tmpDb, `${tmpDb}-wal`, `${tmpDb}-shm`]) {
+          fs.rmSync(f, { force: true });
+        }
+      }
       dbModule.ensureDb();
     });
 

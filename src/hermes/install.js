@@ -99,9 +99,14 @@ function lapisEntryPoint() {
 
 /** The single-string shell command Hermes uses to spawn the hook handler. */
 function hookCommand() {
-  const node = process.execPath,
-    script = lapisEntryPoint();
-  return `${yamlScalar(node)} ${yamlScalar(script)} hermes hook`;
+  // Shell quoting, not YAML escaping: a YAML-escaped Windows path doubles every backslash.
+  const shellArg = (p) => (/^[A-Za-z0-9_./:+-]+$/.test(p) ? p : `"${p}"`);
+  return `${shellArg(process.execPath)} ${shellArg(lapisEntryPoint())} hermes hook`;
+}
+
+/** How hookCommand() appears in config.yaml; the key install/uninstall/doctor match on. */
+function hookCommandYaml() {
+  return yamlScalar(hookCommand());
 }
 
 /** The `mcp_servers.<name>` entry (body lines relative to the sub-key). */
@@ -131,11 +136,11 @@ function hookItemLines(event) {
   if (event.matcher) {
     lines.push(`- matcher: ${yamlScalar(event.matcher)}`);
   } else {
-    lines.push(`- command: ${yamlScalar(hookCommand())}`);
+    lines.push(`- command: ${hookCommandYaml()}`);
     lines.push(`  timeout: ${event.timeout}`);
     return lines;
   }
-  lines.push(`  command: ${yamlScalar(hookCommand())}`);
+  lines.push(`  command: ${hookCommandYaml()}`);
   lines.push(`  timeout: ${event.timeout}`);
   return lines;
 }
@@ -185,7 +190,7 @@ async function runInstall(argv, io = {}) {
 
       if (flags.hooks) {
         for (const hook of HOOK_EVENTS) {
-          text = upsertListItem(text, 'hooks', hook.event, hookItemLines(hook), command);
+          text = upsertListItem(text, 'hooks', hook.event, hookItemLines(hook), hookCommandYaml());
         }
         text = upsertScalar(text, 'hooks_auto_accept', 'true');
         written.push(paths.config);
@@ -234,6 +239,7 @@ module.exports = {
   hermesPaths,
   lapisEntryPoint,
   hookCommand,
+  hookCommandYaml,
   buildMcpEntry,
   mcpBodyLines,
   hookItemLines,
