@@ -89,6 +89,23 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
     }
   });
 
+  // turn_end fires after every assistant message; only at agent_end has the agent had its chance to memory-get (#394).
+  pi.on('agent_end', async (_event, _ctx) => {
+    if (deps.state.pendingRecallFeedback.size === 0) {
+      return;
+    }
+    const entries = [...deps.state.pendingRecallFeedback.entries()].map(([memoryId, meta]) => ({
+      memoryId,
+      sessionId: meta.sessionId,
+      query: meta.query,
+      wasUseful: false,
+    }));
+    await deps.mem('log-negative-recall', {
+      entries: JSON.stringify(entries),
+    });
+    deps.state.pendingRecallFeedback.clear();
+  });
+
   pi.on('turn_end', async (_event, _ctx) => {
     deps.state.turnCount++;
 
@@ -105,19 +122,6 @@ export function registerPassiveCapture(pi: ExtensionAPI, deps: PassiveCaptureDep
       } catch (e) {
         console.error('[memory-layer] auto-dream at turn 50 failed:', e);
       }
-    }
-
-    if (deps.state.pendingRecallFeedback.size > 0) {
-      const entries = [...deps.state.pendingRecallFeedback.entries()].map(([memoryId, meta]) => ({
-        memoryId,
-        sessionId: meta.sessionId,
-        query: meta.query,
-        wasUseful: false,
-      }));
-      await deps.mem('log-negative-recall', {
-        entries: JSON.stringify(entries),
-      });
-      deps.state.pendingRecallFeedback.clear();
     }
 
     if (!shouldCheckpoint(deps.state.turnCount, CHECKPOINT_INTERVAL)) {
