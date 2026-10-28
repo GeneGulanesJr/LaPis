@@ -4,6 +4,8 @@ const { TRUST_DELTA, DEDUP, TIME_WINDOWS, RESULT_LIMITS } = require('../../const
   fs = require('fs'),
   { getConfig } = require('../../config');
 
+const TRUST_DECAY_INTERVAL_HOURS = 24;
+
 // Cheap, lock-light cleanup: all the DELETEs + trust decay. No VACUUM, no FTS optimize.
 // Safe to run on every session-end without blocking exit.
 function runCompactCheap(deps) {
@@ -65,10 +67,16 @@ function runCompactCheap(deps) {
       sqlRun('DELETE FROM session_recalls WHERE session_id NOT IN (SELECT id FROM session_log)');
       report.steps.recallsPruned = true;
 
+      // Decay is per elapsed time, not per call: this runs on every session end,
+      // So gate it on the last decay timestamp in settings.
       deps.sqlRun(`UPDATE symbol_links SET trust_score = MAX(${TRUST_DELTA.TRUST_FLOOR}, trust_score - ${Math.abs(TRUST_DELTA.STALE_TRUST_DECAY)})
         WHERE memory_id IN (
           SELECT CAST(id AS TEXT) FROM observations WHERE updated_at < datetime('now', '-${TIME_WINDOWS.ARCHIVE_INACTIVE_DAYS} days')
-        ) AND trust_score > ${TRUST_DELTA.TRUST_FLOOR}`);
+        ) AND trust_score > ${TRUST_DELTA.TRUST_FLOOR}
+        AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'trust_decay_last' AND value > datetime('now', '-${TRUST_DECAY_INTERVAL_HOURS} hours'))`);
+      sqlRun(`INSERT INTO settings (key, value) VALUES ('trust_decay_last', datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        WHERE settings.value <= datetime('now', '-${TRUST_DECAY_INTERVAL_HOURS} hours')`);
       report.steps.staleTrustDecayed = true;
     });
 
