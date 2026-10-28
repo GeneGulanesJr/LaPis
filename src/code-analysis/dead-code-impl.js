@@ -2,23 +2,41 @@
 
 const fs = require('fs'),
   path = require('path'),
-  { _requireNativeDb, DEAD_CODE } = require('./shared-deps');
+  { _requireNativeDb, DEAD_CODE } = require('./shared-deps'),
+  ENTRY_FILE_NAMES = new Set([
+    'main.js',
+    'index.js',
+    'index.ts',
+    'mod.ts',
+    'cli.js',
+    'app.js',
+    'app.ts',
+    'server.js',
+    'server.ts',
+  ]),
+  TEST_DIRS = new Set(['test', 'tests', 'spec', '__tests__']);
+
+// Test files: a test directory segment, or a name like a.test.js, a_spec.rb, test_a.py.
+function isTestPath(segments) {
+  return segments.slice(0, -1).some((s) => TEST_DIRS.has(s)) || /[._](?:test|spec)\.|^test_/.test(segments.at(-1));
+}
 
 function getDeadCode(db, repoId, opts) {
   const guard = _requireNativeDb(db),
     minConfidence = !guard ? opts.minConfidence || DEAD_CODE.DEFAULT_MIN_CONFIDENCE : undefined,
     includeTests = !guard ? opts.includeTests || false : undefined,
     entryFiles = !guard ? new Set() : undefined,
-    entryPatterns = !guard
-      ? ['%main.js', '%index.js', '%index.ts', '%mod.ts', '%cli.js', '%app.js', '%app.ts', '%server.js', '%server.ts']
-      : undefined;
+    repoRoot = !guard ? db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId)?.path : undefined,
+    // Path rules look at repo-relative segments, so a checkout under ".../latest/" or a
+    // File named domain.js is not mistaken for a test or an entry file.
+    segmentsOf = (p) => (repoRoot ? path.relative(repoRoot, p) : p).split(/[\\/]/),
+    allFiles = !guard ? db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId) : undefined;
   if (guard) {
     return guard;
   }
-  for (const pattern of entryPatterns) {
-    const rows = db.prepare('SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ?').all(repoId, pattern);
-    for (const r of rows) {
-      entryFiles.add(r.id);
+  for (const f of allFiles) {
+    if (ENTRY_FILE_NAMES.has(segmentsOf(f.path).pop())) {
+      entryFiles.add(f.id);
     }
   }
 
@@ -47,7 +65,6 @@ function getDeadCode(db, repoId, opts) {
     // shortcut: root package.json only; nested workspace packages are not read. Upgrade if monorepos need it.
     {
       const barrelFiles = (() => {
-        const repoRoot = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId)?.path;
         try {
           const pkgData = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')),
             bins = typeof pkgData.bin === 'string' ? [pkgData.bin] : Object.values(pkgData.bin || {}),
@@ -91,14 +108,13 @@ function getDeadCode(db, repoId, opts) {
         }
 
         {
-          const allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
-            deadFiles = allFiles.filter((f) => !reachable.has(f.id)),
+          const deadFiles = allFiles.filter((f) => !reachable.has(f.id)),
             deadFileSet = new Set(deadFiles.map((f) => f.id)),
             // ── Symbols with zero callers ──
             uncalledSymbols = db
               .prepare(`
     SELECT cs.id, cs.name, cs.file_path, cs.kind, cs.file_id FROM code_symbols cs
-    WHERE cs.repo_id = ? AND cs.id NOT IN (SELECT callee_symbol_id FROM code_calls WHERE callee_symbol_id IS NOT NULL AND repo_id = ?)
+    WHERE cs.repo_id = ? AND cs.id NOT IN (SELECT callee_symbol_id FROM code_calls WHERE callee_symbol_id IS NOT NULL AND repo_id = ? AND caller_symbol_id != callee_symbol_id)
   `)
               .all(repoId, repoId),
             // ── Symbols that are re-exported (barrel exports) ──
@@ -154,7 +170,7 @@ function getDeadCode(db, repoId, opts) {
               signals.push('re_exported');
             }
 
-            if (!includeTests && /test|spec|__tests__|\.test\./.test(sym.file_path)) {
+            if (!includeTests && isTestPath(segmentsOf(sym.file_path))) {
               // oxlint-disable-next-line no-continue
               continue;
             }

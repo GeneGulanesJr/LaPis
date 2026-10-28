@@ -19,6 +19,18 @@ function _likeEscape(str) {
   return str.replace(/!/g, '!!').replace(/%/g, '!%').replace(/_/g, '!_');
 }
 
+// Stored paths are platform-native; match separator-insensitively, either the whole
+// Path or a suffix starting at a separator (lib/a.js finds /repo/lib/a.js; x.js never finds index.js).
+function findFile(db, repoId, fileQuery) {
+  const normalized = String(fileQuery).replace(/\\/g, '/').replace(/^\.\//, '');
+  return db
+    .prepare(
+      `SELECT id, path FROM code_files WHERE repo_id = ? AND (REPLACE(path, '\\', '/') = ? OR REPLACE(path, '\\', '/') LIKE ? ESCAPE '!')
+       ORDER BY length(path) LIMIT 1`,
+    )
+    .get(repoId, normalized, `%/${_likeEscape(normalized)}`);
+}
+
 // ══════════════════════════════════════════════════════════
 // IMPORT GRAPH
 // ══════════════════════════════════════════════════════════
@@ -302,9 +314,7 @@ function getImportGraph(db, repoId, opts) {
   }
 
   if (depth <= 1 && file) {
-    const fileRow = db
-      .prepare("SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ? ESCAPE '!'")
-      .get(repoId, `%${_likeEscape(file)}%`);
+    const fileRow = findFile(db, repoId, file);
     if (!fileRow) {
       return { error: `File not found: ${file}` };
     }
@@ -328,9 +338,7 @@ function getImportGraph(db, repoId, opts) {
   }
 
   if (depth > 1 && file) {
-    const fileRow = db
-        .prepare("SELECT id FROM code_files WHERE repo_id = ? AND path LIKE ? ESCAPE '!'")
-        .get(repoId, `%${_likeEscape(file)}%`),
+    const fileRow = findFile(db, repoId, file),
       result = fileRow ? {} : undefined;
     if (!fileRow) {
       return { error: `File not found: ${file}` };
@@ -341,8 +349,8 @@ function getImportGraph(db, repoId, opts) {
         .prepare(`
         WITH RECURSIVE deps AS (
           SELECT target_file_id as file_id, 1 as depth FROM code_imports WHERE source_file_id = ? AND target_file_id IS NOT NULL
-          UNION ALL SELECT ci.target_file_id, d.depth + 1 FROM code_imports ci JOIN deps d ON ci.source_file_id = d.file_id WHERE d.depth < ? AND ci.target_file_id IS NOT NULL
-        ) SELECT DISTINCT cf.path, d.depth FROM deps d JOIN code_files cf ON cf.id = d.file_id
+          UNION SELECT ci.target_file_id, d.depth + 1 FROM code_imports ci JOIN deps d ON ci.source_file_id = d.file_id WHERE d.depth < ? AND ci.target_file_id IS NOT NULL
+        ) SELECT cf.path, MIN(d.depth) AS depth FROM deps d JOIN code_files cf ON cf.id = d.file_id GROUP BY d.file_id ORDER BY depth, cf.path
       `)
         .all(fileRow.id, depth);
     }
@@ -351,8 +359,8 @@ function getImportGraph(db, repoId, opts) {
         .prepare(`
         WITH RECURSIVE imp AS (
           SELECT source_file_id as file_id, 1 as depth FROM code_imports WHERE target_file_id = ? AND source_file_id IS NOT NULL
-          UNION ALL SELECT ci.source_file_id, u.depth + 1 FROM code_imports ci JOIN imp u ON ci.target_file_id = u.file_id WHERE u.depth < ? AND ci.source_file_id IS NOT NULL
-        ) SELECT DISTINCT cf.path, u.depth FROM imp u JOIN code_files cf ON cf.id = u.file_id
+          UNION SELECT ci.source_file_id, u.depth + 1 FROM code_imports ci JOIN imp u ON ci.target_file_id = u.file_id WHERE u.depth < ? AND ci.source_file_id IS NOT NULL
+        ) SELECT cf.path, MIN(u.depth) AS depth FROM imp u JOIN code_files cf ON cf.id = u.file_id GROUP BY u.file_id ORDER BY depth, cf.path
       `)
         .all(fileRow.id, depth);
     }
@@ -379,7 +387,7 @@ function getImportGraph(db, repoId, opts) {
 
 function getBlastRadius(db, repoId, opts) {
   const guard = _requireNativeDb(db),
-    { symbol, depth = 3, minConfidence = 0.7 } = !guard ? opts : undefined;
+    { symbol, symbolId: wantedId, depth = 3, minConfidence = 0.7 } = !guard ? opts : undefined;
   if (guard) {
     return guard;
   }
@@ -389,8 +397,10 @@ function getBlastRadius(db, repoId, opts) {
 
   {
     const symRow = db
-      .prepare('SELECT id, name, file_id, file_path FROM code_symbols WHERE repo_id = ? AND name = ?')
-      .all(repoId, symbol);
+      .prepare(
+        `SELECT id, name, file_id, file_path FROM code_symbols WHERE repo_id = ? AND ${wantedId ? 'id' : 'name'} = ?`,
+      )
+      .all(repoId, wantedId || symbol);
     if (symRow.length === 0) {
       return { error: `Symbol "${symbol}" not found` };
     }
@@ -407,19 +417,20 @@ function getBlastRadius(db, repoId, opts) {
       SELECT cc.caller_symbol_id, cs.name, cs.file_path, cc.confidence, 1 as depth
       FROM code_calls cc JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
       WHERE cc.callee_symbol_id = ? AND cc.confidence >= ?
-      UNION ALL
+      UNION
       SELECT cc.caller_symbol_id, cs.name, cs.file_path, cc.confidence, u.depth + 1
       FROM code_calls cc JOIN upstream u ON cc.callee_symbol_id = u.caller_symbol_id JOIN code_symbols cs ON cs.id = cc.caller_symbol_id
       WHERE u.depth < ? AND cc.confidence >= ?
-    ) SELECT * FROM upstream
+    ) SELECT caller_symbol_id, name, file_path, confidence, MIN(depth) AS depth FROM upstream
+      GROUP BY caller_symbol_id ORDER BY depth, name
   `)
           .all(symbolId, minConfidence, depth, minConfidence),
         fileImporters = db
           .prepare(`
     WITH RECURSIVE imp AS (
       SELECT ci.source_file_id, cf.path, 1 as depth FROM code_imports ci JOIN code_files cf ON cf.id = ci.source_file_id WHERE ci.target_file_id = ? AND ci.target_file_id IS NOT NULL
-      UNION ALL SELECT ci.source_file_id, cf.path, u.depth + 1 FROM code_imports ci JOIN imp u ON ci.target_file_id = u.source_file_id JOIN code_files cf ON cf.id = ci.source_file_id WHERE u.depth < ? AND ci.target_file_id IS NOT NULL
-    ) SELECT DISTINCT path, depth FROM imp
+      UNION SELECT ci.source_file_id, cf.path, u.depth + 1 FROM code_imports ci JOIN imp u ON ci.target_file_id = u.source_file_id JOIN code_files cf ON cf.id = ci.source_file_id WHERE u.depth < ? AND ci.target_file_id IS NOT NULL
+    ) SELECT path, MIN(depth) AS depth FROM imp GROUP BY source_file_id ORDER BY depth, path
   `)
           .all(fileId, depth);
 
@@ -768,6 +779,7 @@ function winnow(db, repoId, opts = {}) {
 
 module.exports = {
   extractImportsFromSource,
+  findFile,
   extractImportBindings,
   resolveImportTarget,
   buildImportGraph,

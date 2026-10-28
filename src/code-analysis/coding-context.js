@@ -4,6 +4,7 @@ const graph = require('./graph'),
   impact = require('./impact'),
   quality = require('./quality'),
   gitMetrics = require('./git-metrics'),
+  { findFile } = require('./import-graph-impl'),
   DEFAULT_DEPTH = 2,
   DEFAULT_TOP = 10;
 
@@ -53,14 +54,16 @@ function getCodingContext(db, repoId, opts = {}) {
     provenance = null;
 
   if (target.symbol) {
+    // Pass the resolved id so a same-named symbol in another file is never picked.
+    const symbolRef = { symbol: target.symbol, symbolId: target.symbol_id };
     callers = runPartial(partialErrors, 'callers', () =>
-      graph.getCallHierarchy(db, repoId, { symbol: target.symbol, direction: 'callers', depth }),
+      graph.getCallHierarchy(db, repoId, { ...symbolRef, direction: 'callers', depth }),
     );
     callees = runPartial(partialErrors, 'callees', () =>
-      graph.getCallHierarchy(db, repoId, { symbol: target.symbol, direction: 'callees', depth }),
+      graph.getCallHierarchy(db, repoId, { ...symbolRef, direction: 'callees', depth }),
     );
     blastRadius = runPartial(partialErrors, 'blast-radius', () =>
-      impact.getBlastRadius(db, repoId, { symbol: target.symbol, depth }),
+      impact.getBlastRadius(db, repoId, { ...symbolRef, depth }),
     );
     complexity = runPartial(partialErrors, 'complexity', () =>
       target.symbol_id ? quality.getComplexity(db, repoId, target.symbol_id) : null,
@@ -223,23 +226,6 @@ function resolveFileTarget(db, repoId, fileQuery) {
       })),
     };
   }
-}
-
-function findFile(db, repoId, fileQuery) {
-  const exact = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ? AND path = ?').get(repoId, fileQuery);
-  if (exact) {
-    return exact;
-  }
-
-  // Stored paths are platform-native; match separator-insensitively so a
-  // POSIX-spelled query (src/users.js) also finds Windows-stored rows.
-  const normalized = fileQuery.replace(/\\/g, '/');
-
-  return db
-    .prepare(
-      "SELECT id, path FROM code_files WHERE repo_id = ? AND REPLACE(path, '\\', '/') LIKE ? ESCAPE '!' ORDER BY length(path) LIMIT 1",
-    )
-    .get(repoId, `%${likeEscape(normalized)}`);
 }
 
 function findLikelyTests(db, repoId, target, top) {
