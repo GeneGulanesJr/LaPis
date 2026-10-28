@@ -304,3 +304,20 @@ describe('hermes doctor', () => {
     expect(ok).toBe(true);
   });
 });
+
+describe('hermes config safety (#384)', () => {
+  test('uninstall does not create a config that did not exist', async () => {
+    const io = makeIo();
+    await runUninstall([], io);
+    expect(fs.existsSync(path.join(io.home, 'config.yaml'))).toBe(false);
+  });
+
+  test('install aborts without writing when config.yaml cannot be read', async () => {
+    const io = makeIo();
+    // A directory at the config path makes the read fail with something other than ENOENT.
+    fs.mkdirSync(path.join(io.home, 'config.yaml'));
+    await expect(runInstall([], io)).rejects.toThrow();
+    expect(fs.statSync(path.join(io.home, 'config.yaml')).isDirectory()).toBe(true);
+    expect(fs.existsSync(path.join(io.home, 'shell-hooks-allowlist.json'))).toBe(false);
+  });
+});

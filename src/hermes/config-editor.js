@@ -63,6 +63,36 @@ function topBlockRange(text, key) {
   return null;
 }
 
+/**
+ * Make `ls[i]` (a `key:` line) a bare block header so children can be added.
+ * An empty flow value (`{}` / `[]`, as PyYAML dumps empty maps/lists) is
+ * dropped; any other inline value can't be edited line-by-line, so refuse
+ * rather than write invalid YAML (#384).
+ */
+function openBlockHeader(ls, i, label) {
+  const colon = ls[i].indexOf(':'),
+    rest = ls[i].slice(colon + 1).trim();
+  if (rest === '' || rest.startsWith('#')) {
+    return;
+  }
+  if (rest === '{}' || rest === '[]') {
+    ls[i] = ls[i].slice(0, colon + 1);
+    return;
+  }
+  throw new Error(`config.yaml: "${label}" has an inline value (${rest}); rewrite it in block style and re-run`);
+}
+
+/** Indent of the first `- ` list item in ls[from, to), or `fallback`. */
+function listItemIndent(ls, from, to, fallback) {
+  for (let i = from; i < to; i++) {
+    const m = ls[i].match(/^(?<pad> *)- /);
+    if (m) {
+      return m.groups.pad.length;
+    }
+  }
+  return fallback;
+}
+
 /** Trailing-blank-aware insertion point just before the end of a top block. */
 function insertAt(ls, range) {
   let at = range.end;
@@ -90,6 +120,7 @@ function upsertSubBlock(text, topKey, subKey, bodyLines, indent = 2) {
       sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
     return squashBlankLines(joinLines([...ls, ...sep, ...block, '']));
   }
+  openBlockHeader(ls, range.start, topKey);
   const pad = ' '.repeat(indent),
     subRe = new RegExp(`^${pad}${escapeRegExp(subKey)}\\s*:`),
     block = [`${pad}${subKey}:`, ...bodyLines.map((l) => ' '.repeat(indent + 2) + l)];
@@ -234,17 +265,20 @@ function removeTopLevelBlock(text, key) {
  * Upsert a dash-list item under `topKey.subKey`. Items whose serialized text
  * contains `marker` are removed first (idempotent re-install), then the new
  * item lines are inserted after the `subKey:` header. `itemLines` are
- * relative to the item (rendered at indent 4). Other items are preserved.
+ * relative to the item (rendered at indent 4, or at the indent the block's
+ * existing items use — PyYAML writes indentless `  - ` lists). Other items are preserved.
  */
 function upsertListItem(text, topKey, subKey, itemLines, marker) {
   const ls = splitLines(removeListItems(text, topKey, subKey, marker)),
     range = topBlockRange(joinLines(ls), topKey),
-    items = itemLines.map((l) => `    ${l}`);
+    render = (indent) => itemLines.map((l) => ' '.repeat(indent) + l);
   if (!range) {
-    const block = [`${topKey}:`, `  ${subKey}:`, ...items],
+    const block = [`${topKey}:`, `  ${subKey}:`, ...render(4)],
       sep = ls.length > 0 && ls[ls.length - 1] !== '' ? [''] : [];
     return squashBlankLines(joinLines([...ls, ...sep, ...block, '']));
   }
+  openBlockHeader(ls, range.start, topKey);
+  const items = render(listItemIndent(ls, range.start + 1, range.end, 4));
   let subStart = -1;
   for (let i = range.start + 1; i < range.end; i++) {
     if (/^  [A-Za-z0-9_.-]+\s*:/.test(ls[i]) && ls[i].trim().startsWith(`${subKey}:`)) {
@@ -257,6 +291,7 @@ function upsertListItem(text, topKey, subKey, itemLines, marker) {
     ls.splice(at, 0, `  ${subKey}:`, ...items);
     return squashBlankLines(joinLines(ls));
   }
+  openBlockHeader(ls, subStart, `${topKey}.${subKey}`);
   ls.splice(subStart + 1, 0, ...items);
   return squashBlankLines(joinLines(ls));
 }
@@ -290,10 +325,11 @@ function removeListItems(text, topKey, subKey, marker) {
 
   let i = subStart + 1;
   while (i < subEnd) {
-    if (/^    - /.test(ls[i])) {
+    const item = ls[i].match(/^(?<pad> +)- /);
+    if (item) {
       const itemLines = [ls[i]];
       let j = i + 1;
-      while (j < subEnd && (ls[j].startsWith('      ') || ls[j].trim() === '')) {
+      while (j < subEnd && (ls[j].trim() === '' || ls[j].match(/^ */)[0].length > item.groups.pad.length)) {
         itemLines.push(ls[j]);
         j++;
       }
@@ -333,12 +369,15 @@ function removeScalar(text, key) {
   return squashBlankLines(joinLines(out));
 }
 
-/** Read a file as text, or '' when absent. */
+/** Read a file as text, or '' when absent. Other errors (EACCES, EISDIR…) throw so callers never overwrite a config they couldn't read (#384). */
 function readText(filePath) {
   try {
     return fs.readFileSync(filePath, 'utf8');
-  } catch {
-    return '';
+  } catch (e) {
+    if (e && e.code === 'ENOENT') {
+      return '';
+    }
+    throw e;
   }
 }
 

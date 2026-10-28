@@ -142,9 +142,11 @@ function hookItemLines(event) {
 
 /** Merge our approvals into the Hermes shell-hook allowlist (deduped). */
 function mergeAllowlist(filePath, command) {
+  // Read outside the try: an unreadable allowlist must abort, not be replaced (#384).
+  const raw = readText(filePath);
   let data = { approvals: [] };
   try {
-    data = JSON.parse(readText(filePath) || '{}');
+    data = JSON.parse(raw || '{}');
   } catch {
     data = { approvals: [] };
   }

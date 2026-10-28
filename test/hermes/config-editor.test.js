@@ -142,3 +142,59 @@ describe('config-editor: scalars and top-level removal', () => {
     expect(topBlockEmpty('model:\n  x: y\n', 'mcp_servers')).toBe(false);
   });
 });
+
+describe('config-editor: PyYAML layouts and read errors (#384)', () => {
+  const { readText } = require('../../src/hermes/config-editor'),
+    item = ['- matcher: "^read_file$"', `  command: "${COMMAND}"`, '  timeout: 15'];
+
+  test('indentless lists get the new item at the same indent', () => {
+    const text = 'hooks:\n  pre_tool_call:\n  - matcher: terminal\n    command: /user/x.sh\n',
+      out = upsertListItem(text, 'hooks', 'pre_tool_call', item, COMMAND);
+    expect(out).toContain(`  - matcher: "^read_file$"\n    command: "${COMMAND}"\n    timeout: 15`);
+    expect(out).toContain('  - matcher: terminal\n    command: /user/x.sh');
+    expect(out).not.toContain('    - matcher');
+  });
+
+  test('removeListItems handles indentless lists', () => {
+    const text = `hooks:\n  pre_tool_call:\n  - matcher: terminal\n    command: /user/x.sh\n  - matcher: "^read_file$"\n    command: "${COMMAND}"\n  on_session_end:\n  - command: "${COMMAND}"\n`,
+      out = removeListItems(text, 'hooks', 'pre_tool_call', COMMAND);
+    expect(out).toContain('/user/x.sh');
+    expect(out).not.toContain('read_file');
+    expect(out).toContain(`  on_session_end:\n  - command: "${COMMAND}"`);
+  });
+
+  test('empty flow maps become block headers', () => {
+    expect(upsertSubBlock('mcp_servers: {}\nmodel: x\n', 'mcp_servers', 'lapis', ['command: node'])).toBe(
+      'mcp_servers:\n  lapis:\n    command: node\nmodel: x\n',
+    );
+    expect(upsertListItem('hooks: {}\n', 'hooks', 'pre_tool_call', item, COMMAND)).toContain(
+      'hooks:\n  pre_tool_call:\n    - matcher:',
+    );
+    expect(upsertListItem('hooks:\n  pre_tool_call: []\n', 'hooks', 'pre_tool_call', item, COMMAND)).toContain(
+      'hooks:\n  pre_tool_call:\n    - matcher:',
+    );
+  });
+
+  test('refuses non-empty inline values instead of writing invalid YAML', () => {
+    expect(() => upsertSubBlock('mcp_servers: {time: {command: uvx}}\n', 'mcp_servers', 'lapis', ['a: b'])).toThrow(
+      /inline value/,
+    );
+    expect(() =>
+      upsertListItem('hooks:\n  pre_tool_call: [{command: x}]\n', 'hooks', 'pre_tool_call', item, COMMAND),
+    ).toThrow(/hooks\.pre_tool_call/);
+  });
+
+  test('readText returns "" only for a missing file', () => {
+    const os = require('node:os'),
+      fs = require('node:fs'),
+      path = require('node:path'),
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lapis-384-'));
+    try {
+      expect(readText(path.join(dir, 'missing.yaml'))).toBe('');
+      // A directory stands in for any non-ENOENT read error (EISDIR, EACCES…).
+      expect(() => readText(dir)).toThrow();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
