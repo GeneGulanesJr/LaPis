@@ -26,9 +26,12 @@ function auditDiff(db, repoId, opts = {}) {
     return { violations: [], risk: 'low', files_checked: 0 };
   }
 
+  const repo = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId),
+    // --files are usually repo-relative; the index stores absolute paths (#388).
+    absFiles = repo ? files.map((f) => path.resolve(repo.path, f)) : files;
   let riskScore = 0;
 
-  for (const filePath of files.slice(0, CFG.MAX_FILES)) {
+  for (const filePath of absFiles.slice(0, CFG.MAX_FILES)) {
     const symbols = db
       .prepare(
         `SELECT id, name, kind, signature, body_preview, file_path FROM code_symbols WHERE repo_id = ? AND file_path = ?`,
@@ -69,7 +72,7 @@ function auditDiff(db, repoId, opts = {}) {
   }
 
   if (task) {
-    const ignored = _checkExistingServiceIgnored(db, repoId, task, files);
+    const ignored = _checkExistingServiceIgnored(db, repoId, task, absFiles);
     if (ignored) {
       violations.push(ignored);
       riskScore += weights.ignored_service;

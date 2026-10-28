@@ -397,7 +397,8 @@ describe('code-analysis: untested (v6)', () => {
 
 describe('code-analysis: pr-risk (v6)', () => {
   it('should compute risk profile with signal breakdown', () => {
-    const r = run(`pr-risk --repo ${REPO}`);
+    // --base HEAD: CI's shallow checkout has no local `main`, and git errors are now reported (#388).
+    const r = run(`pr-risk --repo ${REPO} --base HEAD`);
     expect(r.error).toBeUndefined();
     expect(r.signals).toBeDefined();
     expect(typeof r.composite).toBe('number');
@@ -412,7 +413,7 @@ describe('code-analysis: pr-risk (v6)', () => {
   });
 
   it('should report changed files and symbols count', () => {
-    const r = run(`pr-risk --repo ${REPO}`);
+    const r = run(`pr-risk --repo ${REPO} --base HEAD`);
     expect(r.error).toBeUndefined();
     // Pr-risk returns { signals: {}, risk_level, composite, changed_files }
     // Changed_files is a top-level field

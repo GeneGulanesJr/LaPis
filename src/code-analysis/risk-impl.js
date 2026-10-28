@@ -22,7 +22,9 @@ const { execFileSync } = require('child_process');
       return '';
     }
     const range = `${base}...${branch}`,
-      args = stat ? ['-C', repoPath, 'diff', '--stat', range] : ['-C', repoPath, 'diff', '--name-only', range];
+      args = stat
+        ? ['-C', repoPath, 'diff', '--stat', range]
+        : ['-C', repoPath, 'diff', '--name-only', '--relative', range];
     return execFileSync('git', args, {
       encoding: 'utf-8',
       timeout: 10000,
@@ -194,12 +196,18 @@ const { execFileSync } = require('child_process');
         return { error: 'Repo not found' };
       }
 
-      let changedFiles = [];
+      let changedFiles;
       try {
         const diffOutput = gitDiffOutput(repo.path, base, branch, false);
-        changedFiles = diffOutput ? diffOutput.split('\n').filter(Boolean) : [];
-      } catch {
-        changedFiles = [];
+        // Git prints repo-relative paths; the index stores absolute ones (#388).
+        changedFiles = diffOutput
+          ? diffOutput
+              .split('\n')
+              .filter(Boolean)
+              .map((f) => path.resolve(repo.path, f))
+          : [];
+      } catch (e) {
+        return { error: `git diff ${base}...${branch} failed: ${String(e.stderr || e.message).trim()}` };
       }
 
       if (changedFiles.length === 0) {
