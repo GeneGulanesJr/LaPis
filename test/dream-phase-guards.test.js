@@ -142,4 +142,68 @@ describe('dream phase guards (#281)', () => {
     expect(isDeleted(second)).toBe(true);
     expect(isDeleted(third)).toBe(true);
   });
+
+  it('Phase 7: never folds permanent memories into one that expires', () => {
+    // The merge target is MIN(id); if it expired, the merged content went with
+    // It while the permanent originals were already soft-deleted.
+    const expiring = seed({ title: 'short-lived note', content: 'n1' }),
+      permanentA = seed({ title: 'permanent decision a', content: 'p1' }),
+      permanentB = seed({ title: 'permanent decision b', content: 'p2' });
+    for (const id of [expiring, permanentA, permanentB]) {
+      dbModule.sqlRun('UPDATE observations SET topic_key = ? WHERE id = ?', ['guard-topic-expiry', id]);
+    }
+    dbModule.sqlRun("UPDATE observations SET expires_at = datetime('now', '+1 day') WHERE id = ?", [expiring]);
+
+    dream(deps());
+
+    for (const id of [expiring, permanentA, permanentB]) {
+      expect(isDeleted(id)).toBe(false);
+    }
+  });
+});
+
+describe('session pruning keeps open sessions', () => {
+  it('runCompactCheap never deletes a session that has not ended', () => {
+    const { runCompactCheap } = require('../src/memory-domain/compaction'),
+      project = 'prune-open-session',
+      openId = dbModule.sqlJson(
+        "INSERT INTO session_log (project, started_at) VALUES (?, datetime('now', '-2 hours')) RETURNING id",
+        [project],
+      )[0].id;
+    // Twelve newer, finished sessions push the open one past the keep-10 window.
+    for (let i = 0; i < 12; i++) {
+      dbModule.sqlRun(
+        "INSERT INTO session_log (project, started_at, ended_at) VALUES (?, datetime('now', ?), datetime('now'))",
+        [project, `-${i} minutes`],
+      );
+    }
+
+    runCompactCheap(deps());
+
+    expect(dbModule.sqlJson('SELECT id FROM session_log WHERE id = ?', [openId])).toHaveLength(1);
+    expect(dbModule.sqlJson('SELECT COUNT(*) AS n FROM session_log WHERE project = ?', [project])[0].n).toBe(11);
+  });
+});
+
+describe('dream command reviews before it deletes', () => {
+  it('runs the advisory decision review before dream soft-deletes candidates', async () => {
+    const dreamDecision = require('../src/memory-domain/dream-decision'),
+      dreamService = require('../services/dream'),
+      order = [],
+      reviewSpy = vi.spyOn(dreamDecision, 'maybeDreamDecisionReview').mockImplementation(async () => {
+        order.push('review');
+        return null;
+      }),
+      dreamSpy = vi.spyOn(dreamService, 'dream').mockImplementation(() => {
+        order.push('dream');
+        return { ok: true };
+      });
+    try {
+      await require('../commands/session').dream(deps(), {});
+      expect(order).toEqual(['review', 'dream']);
+    } finally {
+      reviewSpy.mockRestore();
+      dreamSpy.mockRestore();
+    }
+  });
 });

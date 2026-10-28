@@ -50,20 +50,20 @@ function recoverOrphans(deps) {
 }
 
 async function dream(deps, args) {
-  const result = dreamService.dream(
-    {
-      sqlJson: deps.sqlJson,
-      sqlRun: deps.sqlRun,
-      softDeleteObservation: (id) => deps.softDeleteObservation(id),
-    },
-    args,
-  );
   // Slice 1 annotation: judge-verify dream candidates (advisory, default-off).
   // Inert unless LAPIS_JUDGE_PROVIDER=decision + LIQUID_API_KEY + surface enabled.
-  // The gateway dispatcher awaits command results, so this is safe to await.
+  // Runs before dream: dream soft-deletes the very candidates it reviews.
   const review = await require('../src/memory-domain/dream-decision').maybeDreamDecisionReview({
-    sqlJson: deps.sqlJson,
-  });
+      sqlJson: deps.sqlJson,
+    }),
+    result = dreamService.dream(
+      {
+        sqlJson: deps.sqlJson,
+        sqlRun: deps.sqlRun,
+        softDeleteObservation: (id) => deps.softDeleteObservation(id),
+      },
+      args,
+    );
   if (review) result.dreamDecisionReview = review;
   return result;
 }

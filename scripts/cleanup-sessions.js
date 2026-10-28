@@ -176,26 +176,25 @@ if (require.main === module) {
         includeDream: args['include-dream'] === true,
         bypassAgeGates: args['bypass-age-gates'] === true,
       },
-      result = (() => {
+      review = await (async () => {
         if (!args.json && !args.yes) {
           const report = triageReport(deps);
           console.log(JSON.stringify(report, null, 2));
           process.exit(0);
         }
-
-        return cleanupSessions(deps, opts);
-      })();
-
-    // Slice 1 (judgment): advisory dreamDecisionReview — annotates the report and
-    // continues; never blocks or alters the dream result. Guard lives in ONE
-    // place (maybeDreamDecisionReview): default config skips this entirely, so the
-    // default CLI path is unchanged.
-    try {
-      const review = await require('../src/memory-domain/dream-decision').maybeDreamDecisionReview({ sqlJson });
-      if (review) result.phases.dreamDecisionReview = review;
-    } catch (e) {
-      result.phases.dreamDecisionReview = { ok: false, reason: (e && e.message) || String(e) };
-    }
+        // Slice 1 (judgment): advisory dreamDecisionReview — annotates the report and
+        // Continues; never blocks or alters the dream result. Guard lives in ONE
+        // Place (maybeDreamDecisionReview): default config skips this entirely, so the
+        // Default CLI path is unchanged. Runs before cleanup, whose dream phase
+        // Soft-deletes the very candidates it reviews.
+        try {
+          return await require('../src/memory-domain/dream-decision').maybeDreamDecisionReview({ sqlJson });
+        } catch (e) {
+          return { ok: false, reason: (e && e.message) || String(e) };
+        }
+      })(),
+      result = cleanupSessions(deps, opts);
+    if (review) result.phases.dreamDecisionReview = review;
 
     console.log(JSON.stringify(result, null, 2));
 
