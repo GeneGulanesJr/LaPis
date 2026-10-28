@@ -42,9 +42,11 @@ function loadDirectDispatch() {
 }
 
 // A daemon that accepts the connection but never responds (wedged event
-// Loop, stuck write) must degrade to the direct-mode fallback instead of
-// Hanging the calling hook until the external timeout kills it.
-const DAEMON_TIMEOUT_MS = 5000;
+// Loop, stuck write) must not hang the calling hook until the external
+// Timeout kills it. Reads fall back to direct mode; writes fail (hooks fail open).
+const DAEMON_TIMEOUT_MS = 5000,
+  // Read-only commands: running them twice (daemon + direct) is harmless.
+  SAFE_TO_RERUN = new Set(['search', 'get', 'context', 'coding-context', 'preflight']);
 
 /**
  * POST to a running daemon. Injectable fetch/http for tests.
@@ -99,7 +101,9 @@ async function dispatch(cmd, args, opts = {}) {
     try {
       return await dispatchViaDaemon(daemonUrl, cmd, args || {}, opts);
     } catch (e) {
-      if (opts.requireDaemon) {
+      // A timed-out request is still queued in the daemon; only reads may also run directly (#392).
+      const timedOut = e?.name === 'TimeoutError' || e?.name === 'AbortError';
+      if (opts.requireDaemon || (timedOut && !SAFE_TO_RERUN.has(cmd))) {
         throw e;
       }
       process.stderr.write(

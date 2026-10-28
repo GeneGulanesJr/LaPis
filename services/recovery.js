@@ -1,5 +1,11 @@
 const { TIME_WINDOWS } = require('../constants');
 
+// An open session with no start or save in this window is presumed crashed; a newer one
+// May still be running in another process and must not be closed (#391).
+const STALE_SESSION_SQL = `session_log.started_at < datetime('now', '-${TIME_WINDOWS.SESSION_STALE_HOURS} hours')
+  AND NOT EXISTS (SELECT 1 FROM observations o WHERE o.session_id = CAST(session_log.id AS TEXT)
+    AND o.created_at > datetime('now', '-${TIME_WINDOWS.SESSION_STALE_HOURS} hours'))`;
+
 function autoRecoverInternal(deps, sessionId) {
   const { sqlJson, sqlRun } = deps,
     session = sqlJson('SELECT * FROM session_log WHERE id = ?', [parseInt(sessionId)]);
@@ -81,7 +87,9 @@ function autoRecover(deps, args) {
 
 function recoverOrphans(deps) {
   const { sqlJson, softDeleteObservation } = deps,
-    orphans = sqlJson('SELECT id, project FROM session_log WHERE ended_at IS NULL ORDER BY started_at DESC'),
+    orphans = sqlJson(
+      `SELECT id, project FROM session_log WHERE ended_at IS NULL AND ${STALE_SESSION_SQL} ORDER BY started_at DESC`,
+    ),
     recovered = !(orphans.length === 0) ? [] : undefined,
     allObservations = !(orphans.length === 0) ? [] : undefined;
   if (orphans.length === 0) {
@@ -137,4 +145,4 @@ function recoverOrphans(deps) {
   return { recovered, total: orphans.length };
 }
 
-module.exports = { autoRecoverInternal, autoRecover, recoverOrphans };
+module.exports = { autoRecoverInternal, autoRecover, recoverOrphans, STALE_SESSION_SQL };
