@@ -31,6 +31,7 @@
 const fs = require('node:fs'),
   path = require('node:path'),
   os = require('node:os'),
+  { EDIT_TOOLS } = require('./tool-map'),
   PACKAGE_NAME = '@genegulanesjr/lapis',
   DEFAULT_MCP_NAME = 'lapis',
   CLAUDE_MD_START = '<!-- lapis:start -->',
@@ -252,21 +253,21 @@ function buildHookGroups(invocation, mcpName) {
       { matcher: 'Bash', hooks: [h('PreToolUse', { timeout: 15 })] },
       { matcher: `mcp__${mcpName}__.*`, hooks: [h('PreToolUse', { timeout: 15 })] },
     ],
+    // Matchers mirror postToolRole: other tools (Read, Grep, Glob, …) have no
+    // PostToolUse role, so they must not spawn a hook process (#395).
     PostToolUse: [
       {
-        hooks: [
-          // Tracking + tool-state mirroring stays synchronous so the next
-          // PreToolUse sees fresh state (edit-track, exploredFiles, recall).
-          h('PostToolUse', { timeout: 15, extraArgs: ['--skip', 'git-trust'] }),
-          // Git-trust is heavy (sync-code-trust over the repo) → background.
-          // No `if` prefix rule: the handler's GIT_TRUST_OP_RE does the real
-          // Check, so compound commands like `cd repo && git pull` are covered.
-          h('PostToolUse', {
-            timeout: 60,
-            async: true,
-            extraArgs: ['--only', 'git-trust'],
-          }),
-        ],
+        matcher: `${[...EDIT_TOOLS].join('|')}|mcp__${mcpName}__.*`,
+        // Tracking + tool-state mirroring stays synchronous so the next
+        // PreToolUse sees fresh state (edit-track, exploredFiles, recall).
+        hooks: [h('PostToolUse', { timeout: 15, extraArgs: ['--skip', 'git-trust'] })],
+      },
+      {
+        matcher: 'Bash',
+        // Git-trust is heavy (sync-code-trust over the repo) → background.
+        // No `if` prefix rule: the handler's GIT_TRUST_OP_RE does the real
+        // Check, so compound commands like `cd repo && git pull` are covered.
+        hooks: [h('PostToolUse', { timeout: 60, async: true, extraArgs: ['--only', 'git-trust'] })],
       },
     ],
     Stop: [{ hooks: [h('Stop', { timeout: 60, async: true })] }],

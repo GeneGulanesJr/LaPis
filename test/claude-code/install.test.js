@@ -91,10 +91,29 @@ describe('claude-code install: default (npx, project scope)', () => {
 
   test('always-fire events carry NO matcher', async () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json'));
-    for (const event of ['UserPromptSubmit', 'PostToolUse', 'Stop', 'SessionEnd']) {
+    for (const event of ['UserPromptSubmit', 'Stop', 'SessionEnd']) {
       for (const group of settings.hooks[event]) {
         expect(group.matcher).toBeUndefined();
       }
+    }
+  });
+
+  test('PostToolUse only matches tools that have a PostToolUse role (#395)', async () => {
+    const settings = readJson(path.join(io.cwd, '.claude', 'settings.json')),
+      groups = settings.hooks.PostToolUse,
+      { postToolRole } = require('../../src/claude-code/tool-map'),
+      matches = (group, tool) => new RegExp(`^(?:${group.matcher})$`).test(tool),
+      [syncGroup, bashGroup] = groups;
+    expect(groups).toHaveLength(2);
+    expect(syncGroup.hooks[0].async).toBeUndefined();
+    expect(bashGroup.matcher).toBe('Bash');
+    expect(bashGroup.hooks[0].async).toBe(true);
+    for (const tool of ['Write', 'Edit', 'MultiEdit', 'mcp__lapis__memory-save', 'mcp__lapis__memory-code']) {
+      expect(postToolRole(tool)).not.toBeNull();
+      expect(matches(syncGroup, tool)).toBe(true);
+    }
+    for (const tool of ['Read', 'Grep', 'Glob', 'TodoWrite', 'WebFetch', 'Task', 'mcp__other__memory-save']) {
+      expect(groups.some((g) => matches(g, tool))).toBe(false);
     }
   });
 
