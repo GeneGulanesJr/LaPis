@@ -144,13 +144,23 @@ function checkpointWal(deps, opts = {}) {
 // Expensive: VACUUM rewrites the whole DB under an exclusive lock; FTS 'optimize'
 // Rebuilds the index b-trees. Only run on a gated cadence (every N sessions),
 // Never on every exit — otherwise quitting Pi blocks for seconds on large DBs.
-function runVacuum(deps) {
-  const { sqlRaw } = deps,
+// Unless forced, it skips the VACUUM when under 10% of pages are free: then the
+// Rewrite reclaims almost nothing for the same exclusive-lock cost.
+function runVacuum(deps, { force = false } = {}) {
+  const { sqlRaw, sqlJson } = deps,
+    minFreeRatio = 0.1,
     startedAt = new Date().toISOString(),
     report = { startedAt, steps: {} };
   try {
-    sqlRaw('VACUUM;');
-    report.steps.vacuumed = true;
+    const pages = !force && sqlJson ? sqlJson('PRAGMA page_count')[0]?.page_count : 0,
+      free = pages ? sqlJson('PRAGMA freelist_count')[0]?.freelist_count : 0;
+    if (pages && free / pages < minFreeRatio) {
+      report.steps.vacuumed = false;
+      report.steps.vacuumSkipped = `free pages ${free}/${pages} below ${minFreeRatio * 100}%`;
+    } else {
+      sqlRaw('VACUUM;');
+      report.steps.vacuumed = true;
+    }
 
     sqlRaw("INSERT INTO observations_fts(observations_fts) VALUES('optimize')");
     sqlRaw("INSERT INTO prompts_fts(prompts_fts) VALUES('optimize')");
@@ -172,7 +182,7 @@ function runVacuum(deps) {
 // Kept for backward compat (CLI `compact`, `dream`, tests).
 function runCompact(deps) {
   const cheap = runCompactCheap(deps),
-    vacuum = runVacuum(deps);
+    vacuum = runVacuum(deps, { force: true });
   return {
     startedAt: cheap.startedAt,
     ok: cheap.ok && vacuum.ok,

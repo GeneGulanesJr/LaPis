@@ -39,6 +39,23 @@ function upsertDocRepo(db, rootPath, repoName) {
   return db.prepare('INSERT INTO doc_repos (name, path) VALUES (?, ?) RETURNING id').get(repoName, rootPath).id;
 }
 
+function useTx(db, fn) {
+  if (typeof db.transaction === 'function') {
+    return db.transaction(fn)();
+  }
+  db.exec('BEGIN');
+  try {
+    const result = fn();
+    db.exec('COMMIT');
+    return result;
+  } catch (e) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {}
+    throw e;
+  }
+}
+
 async function readDocBatch(files) {
   return Promise.all(
     files.map(async (fp) => {
@@ -59,8 +76,10 @@ async function indexDocs(db, rootPath, repoName, ignoreGlob) {
     return { error: `Path not found: ${rootPath}` };
   }
 
-  const repoId = upsertDocRepo(db, rootPath, repoName),
-    files = walkDir(rootPath, ignoreGlob);
+  // Walk first, then clear in one transaction: a failed walk or a crash
+  // Mid-clear leaves the old index whole instead of half-deleted.
+  const files = walkDir(rootPath, ignoreGlob),
+    repoId = useTx(db, () => upsertDocRepo(db, rootPath, repoName));
   let totalSections = 0,
     totalLinks = 0,
     totalTerms = 0,
@@ -82,22 +101,6 @@ async function indexDocs(db, rootPath, repoName, ignoreGlob) {
       insertCodeBlock = db.prepare(
         'INSERT INTO doc_code_blocks (section_id, lang, content, byte_start, byte_end) VALUES (?, ?, ?, ?, ?)',
       ),
-      useTx =
-        typeof db.transaction === 'function'
-          ? (fn) => db.transaction(fn)()
-          : (fn) => {
-              db.exec('BEGIN');
-              try {
-                const result = fn();
-                db.exec('COMMIT');
-                return result;
-              } catch (e) {
-                try {
-                  db.exec('ROLLBACK');
-                } catch {}
-                throw e;
-              }
-            },
       BATCH_SIZE = RESULT_LIMITS.DOC_BATCH_SIZE;
 
     function processEntry(entry) {
@@ -162,7 +165,7 @@ async function indexDocs(db, rootPath, repoName, ignoreGlob) {
       // oxlint-disable-next-line no-await-in-loop
       const reads = await readDocBatch(files.slice(i, i + BATCH_SIZE));
 
-      useTx(() => {
+      useTx(db, () => {
         for (const entry of reads) {
           if (entry.error) {
             warnings.push({ path: path.relative(rootPath, entry.filePath), error: entry.error });

@@ -228,6 +228,12 @@ function savePrompt(deps, args) {
 
 function capturePassive(deps, args) {
   const memoryRepository = getMemoryRepository(deps);
+  if (!args.project) {
+    // Same short project key every other write path uses, so the learnings show up in project-scoped search.
+    const { resolveProjectKey } = require('../src/hooks-engine/project'),
+      { getKnownRepos, getKnownProjects } = require('../src/platform/project-db');
+    args = { ...args, project: resolveProjectKey(process.cwd(), getKnownRepos(), getKnownProjects()) };
+  }
   return obsService.capturePassive(
     {
       ...deps,

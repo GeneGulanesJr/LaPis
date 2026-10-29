@@ -1,5 +1,8 @@
 function createAurexRepository(deps) {
   const { sqlJson, sqlRun } = deps,
+    // Read-merge-write methods hold the write lock from read to write, so two
+    // Processes updating one todo cannot drop each other's change.
+    withTx = deps.withTransaction || require('../../../../db').withTransaction,
     repository = {
       // --- Missions ---
       createMission({ id, description, status, configJson }) {
@@ -545,48 +548,50 @@ function createAurexRepository(deps) {
         ).map(mapTodoRow);
       },
       updateTodo(todoId, patch) {
-        const current = this.getTodo(todoId)[0],
-          next = current
-            ? normalizeTodoInput({ ...current, ...patch, id: todoId, missionId: current.missionId })
-            : undefined;
-        if (!current) {
-          return [];
-        }
-        validateTodoStatusEvidence(next.status, next.evidence);
-        sqlRun(
-          `UPDATE todo_items SET
-          title = ?, status = ?, type = ?, priority = ?, depends_on = ?, goal = ?,
-          scope_json = ?, likely_files = ?, lapis_context_query = ?,
-          acceptance_criteria = ?, validation_criteria = ?, test_commands = ?,
-          risk_level = ?, worker_instructions = ?, validator_instructions = ?,
-          escalation_rules = ?, evidence_json = ?, confidence = ?,
-          assigned_worker_id = ?, updated_at = datetime('now')
-         WHERE id = ?`,
-          [
-            next.title,
-            next.status,
-            next.type,
-            next.priority,
-            toJson(next.dependsOn),
-            next.goal,
-            toJson(next.scope),
-            toJson(next.likelyFiles),
-            next.lapisContextQuery,
-            toJson(next.acceptanceCriteria),
-            toJson(next.validationCriteria),
-            toJson(next.testCommands),
-            next.riskLevel,
-            toJson(next.workerInstructions),
-            toJson(next.validatorInstructions),
-            toJson(next.escalationRules),
-            toJson(next.evidence),
-            next.confidence,
-            next.assignedWorkerId || null,
-            todoId,
-          ],
-        );
-        this.recordTodoEvent(todoId, { eventType: 'todo_updated', payload: patch });
-        return this.getTodo(todoId);
+        return withTx(() => {
+          const current = this.getTodo(todoId)[0],
+            next = current
+              ? normalizeTodoInput({ ...current, ...patch, id: todoId, missionId: current.missionId })
+              : undefined;
+          if (!current) {
+            return [];
+          }
+          validateTodoStatusEvidence(next.status, next.evidence);
+          sqlRun(
+            `UPDATE todo_items SET
+            title = ?, status = ?, type = ?, priority = ?, depends_on = ?, goal = ?,
+            scope_json = ?, likely_files = ?, lapis_context_query = ?,
+            acceptance_criteria = ?, validation_criteria = ?, test_commands = ?,
+            risk_level = ?, worker_instructions = ?, validator_instructions = ?,
+            escalation_rules = ?, evidence_json = ?, confidence = ?,
+            assigned_worker_id = ?, updated_at = datetime('now')
+           WHERE id = ?`,
+            [
+              next.title,
+              next.status,
+              next.type,
+              next.priority,
+              toJson(next.dependsOn),
+              next.goal,
+              toJson(next.scope),
+              toJson(next.likelyFiles),
+              next.lapisContextQuery,
+              toJson(next.acceptanceCriteria),
+              toJson(next.validationCriteria),
+              toJson(next.testCommands),
+              next.riskLevel,
+              toJson(next.workerInstructions),
+              toJson(next.validatorInstructions),
+              toJson(next.escalationRules),
+              toJson(next.evidence),
+              next.confidence,
+              next.assignedWorkerId || null,
+              todoId,
+            ],
+          );
+          this.recordTodoEvent(todoId, { eventType: 'todo_updated', payload: patch });
+          return this.getTodo(todoId);
+        });
       },
       setTodoStatus(todoId, status) {
         assertInSet(status, TODO_STATUSES, 'status');
@@ -603,17 +608,19 @@ function createAurexRepository(deps) {
         return this.getTodo(todoId);
       },
       addTodoEvidence(todoId, evidencePatch) {
-        const current = this.getTodo(todoId)[0],
-          evidence = current ? mergeEvidence(current.evidence, evidencePatch || {}) : undefined;
-        if (!current) {
-          return [];
-        }
-        sqlRun("UPDATE todo_items SET evidence_json = ?, updated_at = datetime('now') WHERE id = ?", [
-          toJson(evidence),
-          todoId,
-        ]);
-        this.recordTodoEvent(todoId, { eventType: 'todo_evidence_added', payload: evidencePatch || {} });
-        return this.getTodo(todoId);
+        return withTx(() => {
+          const current = this.getTodo(todoId)[0],
+            evidence = current ? mergeEvidence(current.evidence, evidencePatch || {}) : undefined;
+          if (!current) {
+            return [];
+          }
+          sqlRun("UPDATE todo_items SET evidence_json = ?, updated_at = datetime('now') WHERE id = ?", [
+            toJson(evidence),
+            todoId,
+          ]);
+          this.recordTodoEvent(todoId, { eventType: 'todo_evidence_added', payload: evidencePatch || {} });
+          return this.getTodo(todoId);
+        });
       },
       addTodoNote(todoId, note) {
         return this.addTodoEvidence(todoId, { notes: [note] });

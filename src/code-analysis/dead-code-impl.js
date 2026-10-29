@@ -21,6 +21,11 @@ function isTestPath(segments) {
   return segments.slice(0, -1).some((s) => TEST_DIRS.has(s)) || /[._](?:test|spec)\.|^test_/.test(segments.at(-1));
 }
 
+// Same rule for an indexed (absolute, platform-native) path, judged relative to the repo root.
+function isTestFile(filePath, repoRoot) {
+  return isTestPath((repoRoot ? path.relative(repoRoot, filePath) : filePath).split(/[\\/]/));
+}
+
 function getDeadCode(db, repoId, opts) {
   const guard = _requireNativeDb(db),
     minConfidence = !guard ? opts.minConfidence || DEAD_CODE.DEFAULT_MIN_CONFIDENCE : undefined,
@@ -170,7 +175,7 @@ function getDeadCode(db, repoId, opts) {
               signals.push('re_exported');
             }
 
-            if (!includeTests && isTestPath(segmentsOf(sym.file_path))) {
+            if (!includeTests && isTestFile(sym.file_path, repoRoot)) {
               // oxlint-disable-next-line no-continue
               continue;
             }
@@ -197,4 +202,4 @@ function getDeadCode(db, repoId, opts) {
   }
 }
 
-module.exports = { getDeadCode };
+module.exports = { getDeadCode, isTestFile };

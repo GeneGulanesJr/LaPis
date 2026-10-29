@@ -1,4 +1,5 @@
-const { execFileSync } = require('child_process');
+const { execFileSync } = require('child_process'),
+  { isTestFile } = require('./dead-code-impl');
 // PR risk profiling and untested symbol detection.
 
 {
@@ -40,15 +41,11 @@ const { execFileSync } = require('child_process');
       const { minConfidence = 0.5, includePrivate = false } = opts,
         // 1. Identify test files
         allFiles = db.prepare('SELECT id, path FROM code_files WHERE repo_id = ?').all(repoId),
+        repoRoot = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId)?.path,
         testFileIds = new Set(),
         testImportedFiles = (() => {
           for (const f of allFiles) {
-            if (
-              f.path.includes('.test.') ||
-              f.path.includes('.spec.') ||
-              f.path.includes('/test/') ||
-              f.path.includes('/__tests__/')
-            ) {
+            if (isTestFile(f.path, repoRoot)) {
               testFileIds.add(f.id);
             }
           }
