@@ -35,6 +35,10 @@ const fs = require('fs'),
 const _scopeBindingStmts = new WeakMap();
 
 function insertScopeBindings(db, repoId, fileId, bindings) {
+  // Null bindings mean "unknown" (no scope builder or parse failed): keep what is stored.
+  if (!db || !bindings) {
+    return;
+  }
   let stmts = _scopeBindingStmts.get(db);
   if (!stmts) {
     stmts = {
@@ -402,32 +406,34 @@ function fileRecordToParams(repoId, record) {
 // RSS on large repos (#294). Scope bindings are computed here, while the
 // Content (and the tree) are still available, and only compact write
 // Instructions are buffered.
+// Scope bindings for one parsed file, or null when scopes are off, the language
+// Has no scope builder, or parsing failed. Always frees the WASM tree, so callers
+// Never hold a live tree past the file it belongs to.
+function computeScopeBindings(filePath, content, tree, registry, enabled = true) {
+  let bindings = null,
+    ownTree = null;
+  try {
+    const builder = enabled ? require('./scope-builder').getScopeBuilder(filePath) : null;
+    if (builder) {
+      ownTree = tree ? null : registry.parseTree(filePath, content)?.tree || null;
+      const parsed = tree || ownTree;
+      if (parsed) {
+        bindings = builder(parsed, content, filePath) || [];
+      }
+    }
+  } catch {
+    bindings = null;
+  } finally {
+    tree?.delete();
+    ownTree?.delete();
+  }
+  return bindings;
+}
+
 function buildDeferredEntry(entry, repoId, registry, scopeDb) {
   const { record, hotSymbols, coldSymbols, tree } = entry,
-    fileParams = fileRecordToParams(repoId, record);
-  let scopeBindings = [];
-  if (scopeDb) {
-    try {
-      const scopeBuilder = require('./scope-builder').getScopeBuilder,
-        builder = scopeBuilder(record.filePath);
-      if (builder) {
-        let parsedTree = tree || null;
-        if (!parsedTree) {
-          const fallback = registry.parseTree(record.filePath, record.content);
-          parsedTree = fallback ? fallback.tree : null;
-        }
-        if (parsedTree) {
-          scopeBindings = builder(parsedTree, record.content, record.filePath) || [];
-          parsedTree.delete();
-        }
-      }
-    } catch {}
-  }
-  if (tree) {
-    // The immediate path deletes inside commitParsedBatch; the deferred path
-    // Must free the WASM tree now or it stays alive until the final commit.
-    tree.delete();
-  }
+    fileParams = fileRecordToParams(repoId, record),
+    scopeBindings = computeScopeBindings(record.filePath, record.content, tree, registry, Boolean(scopeDb));
   return {
     deferred: true,
     filePath: record.filePath,
@@ -439,20 +445,23 @@ function buildDeferredEntry(entry, repoId, registry, scopeDb) {
 }
 
 function recordDiagnostic(repository, repoId, record, status, message, symbolCount = 0, options = {}) {
-  if (options.defer) {
-    return;
-  }
-  if (typeof repository.upsertFileDiagnostic !== 'function') {
-    return;
-  }
-  repository.upsertFileDiagnostic({
+  const params = {
     repoId,
     filePath: record.filePath,
     status,
     message,
     symbolCount,
     contentHash: record.content ? hashContent(record.content) : null,
-  });
+  };
+  // A full index holds diagnostics until its clear-and-write transaction; written now, the clear would wipe them.
+  if (options.defer) {
+    options.defer.push(params);
+    return;
+  }
+  if (typeof repository.upsertFileDiagnostic !== 'function') {
+    return;
+  }
+  repository.upsertFileDiagnostic(params);
 }
 
 function rebuildDerivedIndexes(db, repoId, args, totalFiles, fileCount, symbolCount, changedFileIds, deletedFileIds) {
@@ -822,29 +831,15 @@ function commitParsedBatch(repository, repoId, parsedRecords, ctx) {
 
       // Deferred entries already computed (and freed) their scope bindings
       // At parse time (#294); the immediate path still owns the live tree.
-      if (!deferred) {
-        try {
-          const scopeBuilder = require('./scope-builder').getScopeBuilder,
-            builder = scopeBuilder(filePath);
-          if (builder && scopeDb) {
-            let tree = parsedTree || null;
-            if (!tree) {
-              const fallback = registry.parseTree(filePath, record.content);
-              tree = fallback ? fallback.tree : null;
-            }
-            if (tree) {
-              const scopeBindings = builder(tree, record.content, filePath);
-              if (scopeBindings.length > 0) {
-                insertScopeBindings(scopeDb, repoId, fileId, scopeBindings);
-              }
-              tree.delete();
-            }
-          }
-        } catch {}
-      }
-      if (deferred && entry.scopeBindings.length > 0 && scopeDb) {
-        insertScopeBindings(scopeDb, repoId, fileId, entry.scopeBindings);
-      }
+      // Deferred entries built (and freed) theirs at parse time (#294).
+      insertScopeBindings(
+        scopeDb,
+        repoId,
+        fileId,
+        deferred
+          ? entry.scopeBindings
+          : computeScopeBindings(filePath, record.content, parsedTree, registry, Boolean(scopeDb)),
+      );
 
       if (args && shouldEmitFileProgress(ctx.fileCount, ctx.totalFiles)) {
         emitProgress(
@@ -919,6 +914,7 @@ async function parsePhase(files, deps, repoId, args) {
   const skipped = [],
     deferredBatches = [],
     deferIndexWrites = Boolean(args.deferIndexWrites),
+    deferredDiagnostics = deferIndexWrites ? [] : null,
     scopeDb = args.scopeDb || null;
 
   function validateSymbols(record, symbols) {
@@ -960,7 +956,7 @@ async function parsePhase(files, deps, repoId, args) {
             } catch (e) {
               skipped.push({ file: fp, error: e.message });
               recordDiagnostic(repository, repoId, { filePath: fp, content: '' }, 'error', e.message, 0, {
-                defer: args.deferIndexWrites,
+                defer: deferredDiagnostics,
               });
               return null;
             }
@@ -1008,7 +1004,7 @@ async function parsePhase(files, deps, repoId, args) {
                       ? 'No symbols extracted from non-empty file'
                       : ''),
                   symbols.length,
-                  { defer: args.deferIndexWrites },
+                  { defer: deferredDiagnostics },
                 );
 
                 return symbols.map((s) => normalizeSymbolHot(s, record.filePath));
@@ -1044,7 +1040,7 @@ async function parsePhase(files, deps, repoId, args) {
             const message = e instanceof Error ? e.message : String(e);
             skipped.push({ file: record.filePath, error: message });
             recordDiagnostic(repository, repoId, record, 'error', `Symbol extraction failed: ${message}`, 0, {
-              defer: args.deferIndexWrites,
+              defer: deferredDiagnostics,
             });
             // oxlint-disable-next-line no-continue
             continue;
@@ -1062,7 +1058,7 @@ async function parsePhase(files, deps, repoId, args) {
                     ? 'No symbols extracted from non-empty file'
                     : '',
                   symbols.length,
-                  { defer: args.deferIndexWrites },
+                  { defer: deferredDiagnostics },
                 );
                 parsedRecords.push({ record, hotSymbols, coldSymbols, tree });
                 parsedInBatch++;
@@ -1146,7 +1142,7 @@ async function parsePhase(files, deps, repoId, args) {
     }
   }
 
-  return { fileCount, symbolCount, skipped, deferredBatches };
+  return { fileCount, symbolCount, skipped, deferredBatches, deferredDiagnostics };
 }
 
 async function derivedPhase(db, repoId, args, totalFiles, fileCount, symbolCount, changedFileIds, deletedFileIds) {
@@ -1247,6 +1243,12 @@ async function indexRepository(deps, repoPath, repoName) {
             });
           },
         });
+        // Parse-time diagnostics first, so a store-time error on the same file wins.
+        if (typeof repository.upsertFileDiagnostic === 'function') {
+          for (const diag of parseResult.deferredDiagnostics || []) {
+            repository.upsertFileDiagnostic(diag);
+          }
+        }
         for (const batch of parseResult.deferredBatches || []) {
           commitParsedBatch(repository, repoId, batch, writeCtx);
         }
@@ -1585,7 +1587,11 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
               }
               symbolCount += hotSymbols.length;
               reindexed++;
-              scopeWork.push({ filePath, tree, mutationIndex });
+              // Built now so the WASM tree is freed per file, not held for the whole change set.
+              scopeWork.push({
+                mutationIndex,
+                bindings: computeScopeBindings(filePath, record.content, tree, registry),
+              });
             } catch (e) {
               skipped.push({ file: filePath, error: e.message });
               recordDiagnostic(repository, existing.id, { filePath, content: '' }, 'error', e.message, 0);
@@ -1631,25 +1637,10 @@ async function reindexRepository(deps, repo, mode = 'incremental') {
         mutationFileIds = applyMutations();
       }
 
-      for (const { filePath, tree, mutationIndex } of scopeWork) {
+      for (const { mutationIndex, bindings } of scopeWork) {
         try {
-          const fileId = mutationFileIds[mutationIndex],
-            scopeBuilder = require('./scope-builder').getScopeBuilder,
-            builder = scopeBuilder(filePath);
-          if (builder) {
-            let treeObj = tree;
-            if (!treeObj) {
-              const parseResult = registry.parseTree(filePath, changedRecords[mutationIndex].record.content);
-              treeObj = parseResult ? parseResult.tree : null;
-            }
-            if (treeObj) {
-              const scopeBindings = builder(treeObj, changedRecords[mutationIndex].record.content, filePath);
-              if (scopeBindings.length > 0) {
-                insertScopeBindings(db, existing.id, fileId, scopeBindings);
-              }
-              treeObj.delete();
-            }
-          }
+          // Also runs for zero bindings: it clears what the old version of the file left.
+          insertScopeBindings(db, existing.id, mutationFileIds[mutationIndex], bindings);
         } catch {
           // Best-effort scope binding extraction
         }

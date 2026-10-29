@@ -142,4 +142,59 @@ describe('code-index pipeline', { timeout: 90000 }, () => {
     await reindexRepository(deps(), 'ghosts', 'incremental');
     expect(names()).toEqual(['b.js']);
   });
+
+  it('a file edited down to no scope bindings drops its old ones on delta reindex', async () => {
+    const repo = makeRepo('emptied', {
+        'a.js': "const { b } = require('./b');\nfunction a() { return b(); }\nmodule.exports = { a };\n",
+        'b.js': 'function b() { return 1; }\nmodule.exports = { b };\n',
+      }),
+      bindingsOf = (name) =>
+        dbModule.sqlJson(
+          `SELECT count(*) c FROM file_scope_bindings b JOIN code_files f ON f.id = b.file_id
+           WHERE b.repo_id = ? AND f.path LIKE ?`,
+          [repoId('emptied'), `%${name}`],
+        )[0].c;
+    await indexRepository(deps(), repo.dir, 'emptied');
+    expect(bindingsOf('a.js')).toBeGreaterThan(0);
+
+    repo.write('a.js', '// Nothing left here.\n');
+    repo.git('commit', '-qam', 'empty a');
+    expect((await reindexRepository(deps(), 'emptied', 'incremental')).files_reindexed).toBe(1);
+    expect(bindingsOf('a.js')).toBe(0);
+    expect(bindingsOf('b.js')).toBeGreaterThan(0);
+  });
+
+  it('untested-symbol detection finds test folders on any OS and ignores the folder the repo sits in', async () => {
+    const { getUntestedSymbols } = require('../src/code-analysis/risk-impl'),
+      repo = makeRepo(
+        'risky',
+        {
+          'src/a.js': 'function a() { return 1; }\nmodule.exports = { a };\n',
+          'test/check.js': "const { a } = require('../src/a');\nfunction check() { return a(); }\n",
+        },
+        path.join(tmpRoot, 'test', 'risky'),
+      );
+    await indexRepository(deps(), repo.dir, 'risky');
+    expect(getUntestedSymbols(dbModule.getDb(), repoId('risky')).test_files_found).toBe(1);
+  });
+
+  it('a full index keeps the per-file diagnostics it finds', async () => {
+    const repo = makeRepo('diags', {
+        'a.js': 'function a() { return 1; }\n',
+        'notes.js': '// Only a comment, so no symbols.\n',
+      }),
+      diags = () =>
+        dbModule.sqlJson('SELECT file_path, status FROM code_file_diagnostics WHERE repo_id = ? ORDER BY file_path', [
+          repoId('diags'),
+        ]);
+    // Twice: the second full index must not leave the clear's empty table behind.
+    for (let n = 0; n < 2; n++) {
+      // oxlint-disable-next-line no-await-in-loop
+      expect((await indexRepository(deps(), repo.dir, 'diags')).success).toBe(true);
+      expect(diags().map((d) => [path.basename(d.file_path), d.status])).toEqual([
+        ['a.js', 'ok'],
+        ['notes.js', 'zero_symbols'],
+      ]);
+    }
+  });
 });

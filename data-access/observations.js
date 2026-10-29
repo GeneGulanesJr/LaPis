@@ -161,15 +161,12 @@ function insertUserPrompt(deps, { sessionId, content, project }) {
   ]);
 }
 
-function insertCapturePassiveObservation(deps, { sessionId, summary, content }) {
+function insertCapturePassiveObservation(deps, { sessionId, summary, content, project = null }) {
   const { sqlJson } = deps;
-  return sqlJson('INSERT INTO observations (session_id, type, title, content, scope) VALUES (?, ?, ?, ?, ?)', [
-    String(sessionId),
-    'learning',
-    summary,
-    content,
-    'project',
-  ]);
+  return sqlJson(
+    'INSERT INTO observations (session_id, type, title, content, project, scope) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
+    [String(sessionId), 'learning', summary, content, project, 'project'],
+  );
 }
 
 function getObservationStats(deps) {

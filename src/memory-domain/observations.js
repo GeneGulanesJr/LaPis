@@ -143,13 +143,14 @@ function capturePassive(deps, args) {
   const items = extractLearningItems(match[1]);
 
   let inserted = 0;
-  const sessionId = findLatestSession(null);
+  const project = args.project || null,
+    sessionId = args['session-id'] || findLatestSession(project);
   for (const item of items) {
     const summary =
       item.length > CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH
         ? `${item.slice(0, CAPTURE_PASSIVE.SUMMARY_MAX_LENGTH - 3)}…`
         : item;
-    insertCapturePassiveObservation({ sessionId, summary, content: item });
+    insertCapturePassiveObservation({ sessionId, summary, content: item, project });
     inserted++;
   }
   return { extracted: inserted, items };

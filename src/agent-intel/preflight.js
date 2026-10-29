@@ -30,7 +30,7 @@ function basename(file) {
   if (!file) {
     return '';
   }
-  return String(file).split('/').pop() || String(file);
+  return String(file).split(/[\\/]/).pop() || String(file);
 }
 
 function normalizeName(text) {
@@ -170,16 +170,19 @@ function getLikelyTests(db, repoId, relatedFiles, limit) {
           .toLowerCase(),
       )
       .filter(Boolean),
+    repoRoot = db.prepare('SELECT path FROM code_repos WHERE id = ?').get(repoId)?.path,
+    // Judge "test" on the repo-relative path: a repo under ".../latest/" would
+    // Otherwise match every file, and the old LIMIT 200 cut off the real tests.
     rows = db
       .prepare(
         `SELECT path
        FROM code_files
        WHERE repo_id = ?
          AND (LOWER(path) LIKE '%test%' OR LOWER(path) LIKE '%spec%')
-       ORDER BY path
-       LIMIT 200`,
+       ORDER BY path`,
       )
-      .all(repoId),
+      .all(repoId)
+      .filter((row) => /test|spec/.test((repoRoot ? path.relative(repoRoot, row.path) : row.path).toLowerCase())),
     scored = rows
       .map((row) => {
         const lower = row.path.toLowerCase(),
@@ -507,5 +510,6 @@ module.exports = {
     normalizeName,
     duplicateWarnings,
     riskLevel,
+    getLikelyTests,
   },
 };
