@@ -141,11 +141,6 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
           description: 'Optional TTL duration (e.g., "7d", "2w", "1m", "12h"). Memory auto-expires after this period.',
         }),
       ),
-      trust_score: Type.Optional(
-        Type.Number({
-          description: 'Override trust score (0-1). Multiplied with LayaMCP confidence when classification succeeds.',
-        }),
-      ),
     }),
     renderResult: renderCompactToolResult,
     async execute(_id, params, _signal, _onUpdate, _ctx) {
@@ -168,9 +163,6 @@ export function registerMemoryTools(pi: ExtensionAPI, deps: MemoryDeps) {
         }
         if (params.expires_in) {
           args['expires-in'] = params.expires_in;
-        }
-        if (params.trust_score != null) {
-          args['trust-score'] = String(params.trust_score);
         }
 
         const result = await deps.mem('save-classified', args);

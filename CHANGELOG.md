@@ -95,6 +95,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `JEV_MAX_RETRIES` env vars are still read as their `decision` names.
   `JEV_API_KEY`, `JEV_ENDPOINT`, `JEV_MODEL` and `TYPESAFE_API_KEY` are not.
 
+### Removed
+
+- **`trust_score` / `--trust-score` on `memory-save-classified`.** It was
+  multiplied with the classifier confidence and then dropped: memories have no
+  trust column (trust lives on symbol links), so it never had any effect.
+  Classifier confidence is still returned as `confidence`.
+
 ### Fixed
 
 - **Claude Code and Hermes ignored `tool_guardrails.enabled`.** Their

@@ -30,7 +30,7 @@ describe('memory-save-classified MCP catalog', () => {
     expect(properties.classification.enum).toEqual(['guard', 'moderate', 'triage', 'email', 'auto']);
     expect(properties.on_injection.enum).toEqual(['refuse', 'save_as_security_block']);
     expect(properties.scope.enum).toEqual(['project', 'personal']);
-    expect(properties.trust_score.type).toBe('number');
+    expect(properties.trust_score).toBeUndefined();
   });
 
   it('toCommand produces cmd=save-classified with defaults injected from ctx', () => {
@@ -46,10 +46,9 @@ describe('memory-save-classified MCP catalog', () => {
     expect(out.args['on-injection']).toBeUndefined();
     expect(out.args['topic-key']).toBeUndefined();
     expect(out.args['expires-in']).toBeUndefined();
-    expect(out.args['trust-score']).toBeUndefined();
   });
 
-  it('toCommand kebab-cases topic_key, on_injection, expires_in, trust_score', () => {
+  it('toCommand kebab-cases topic_key, on_injection, expires_in', () => {
     const out = toolByName['memory-save-classified'].toCommand(
       {
         title: 'T',
@@ -59,7 +58,6 @@ describe('memory-save-classified MCP catalog', () => {
         topic_key: 'auth',
         force: true,
         expires_in: '7d',
-        trust_score: 0.5,
       },
       { project: 'p' },
     );
@@ -68,7 +66,6 @@ describe('memory-save-classified MCP catalog', () => {
     expect(out.args['topic-key']).toBe('auth');
     expect(out.args.force).toBe('true');
     expect(out.args['expires-in']).toBe('7d');
-    expect(out.args['trust-score']).toBe('0.5');
   });
 
   it('toCommand falls back to "unknown" when ctx.project is missing', () => {
