@@ -12,8 +12,10 @@ const path = require('path'),
 const MAX_OUTPUT = 256 * 1024;
 
 // Printed path (absolute, or relative to the command's cwd) → repo-relative, or null outside the repo.
-function toRepoPath(root, cwd, p) {
-  const abs = path.isAbsolute(p) ? p : path.resolve(cwd, p),
+// Backslashes count as separators everywhere: Windows tools print them (ESLint, pytest progress lines).
+function toRepoPath(root, cwd, printed) {
+  const p = printed.replace(/\\/g, '/'),
+    abs = path.isAbsolute(p) ? p : path.resolve(cwd, p),
     rel = path.relative(root, abs).replace(/\\/g, '/');
   return rel && !rel.startsWith('../') && rel !== '..' && !path.isAbsolute(rel) ? rel : null;
 }

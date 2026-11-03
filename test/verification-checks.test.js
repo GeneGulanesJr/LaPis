@@ -167,6 +167,13 @@ describe('capture, staleness, rendering and the gate', () => {
     ]);
   });
 
+  it('maps printed paths into the repo on any OS (Windows backslashes included)', () => {
+    const { toRepoPath } = require('../src/verification/capture');
+    expect(toRepoPath(dir, dir, `${dir}\\src\\lint.js`.replace(/\//g, '\\'))).toBe('src/lint.js');
+    expect(toRepoPath(dir, path.join(dir, 'src'), 'lint.js')).toBe('src/lint.js');
+    expect(toRepoPath(dir, dir, '../outside.js')).toBeNull();
+  });
+
   it('ignores non-check commands and output without a result', () => {
     expect(captureCheckOutput(dbModule, { cwd: dir, command: 'ls', output: 'x' }).captured).toEqual([]);
     expect(
