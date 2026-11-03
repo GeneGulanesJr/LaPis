@@ -19,6 +19,7 @@ const ROUTER_PATHS = {
     'agent-intel': './commands/agent-intel',
     'token-saver': './commands/token-saver',
     dashboard: './commands/dashboard',
+    verification: './commands/verification',
   },
   COMMAND_ROUTERS = {
     // Memory router commands
@@ -127,6 +128,8 @@ const ROUTER_PATHS = {
     'token-saver-clear': 'token-saver',
     // Dashboard router commands
     dashboard: 'dashboard',
+    // Verification router commands
+    'verify-scan': 'verification',
   };
 
 function requireAllRouters() {
@@ -140,6 +143,7 @@ function requireAllRouters() {
     'agent-intel': require('./commands/agent-intel'),
     'token-saver': require('./commands/token-saver'),
     dashboard: require('./commands/dashboard'),
+    verification: require('./commands/verification'),
   };
 }
 
@@ -156,6 +160,7 @@ function buildCommandMap(deps) {
     'agent-intel',
     'token-saver',
     'dashboard',
+    'verification',
   ]) {
     routers[name].register(commands, deps);
   }
@@ -174,6 +179,7 @@ function getAllUsage() {
     ...routers.maintenance.USAGE,
     ...routers['agent-intel'].USAGE,
     ...routers['token-saver'].USAGE,
+    ...routers.verification.USAGE,
   };
 }
 

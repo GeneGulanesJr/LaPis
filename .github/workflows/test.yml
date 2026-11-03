@@ -16,6 +16,9 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Full history so verify-scan can find the merge-base with the PR base.
+          fetch-depth: 0
 
       - name: Setup Node.js 25
         uses: actions/setup-node@v6
@@ -48,6 +51,12 @@ jobs:
 
       - name: Smoke CLI tests
         run: node test/smoke-cli.js
+
+      - name: Prover-bypass scan (verify-scan)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node memory-store.js verify-scan --base "origin/$BASE_REF"
 
       - name: Index repo (post-smoke verification)
         run: node memory-store.js index-repo --path . --name PiMemoryExtension

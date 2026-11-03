@@ -73,6 +73,29 @@ See [`docs/code-indexing.md`](code-indexing.md) for the async indexing pipeline 
 | `blast --repo --symbol`   | Orchestrated blast-radius that combines code analysis and memory links. |
 | `stale-flags --repo`      | Detect stale code patterns (e.g. `process.env.NODE_ENV` checks in non-dev code) and persist findings. |
 
+## Verification
+
+| Command | Purpose |
+| ------- | ------- |
+| `verify-scan [--base <ref>] [--path <dir>]` | Scan everything changed since the merge-base of `<ref>` (default `HEAD`) and HEAD, including uncommitted and untracked files, for prover bypasses. SPARK: added `pragma Assume`, `SPARK_Mode => Off` (also in `.adc` files), GNATprove annotations (warning), `Post => True`, `Pre => False`, fewer Pre/Post/Contract_Cases than before, changed contract lines in `.ads` (warning), any `.gpr` change (warning). Lean: `sorry`/`admit`, new `axiom`, `native_decide`. Exits 1 on high-severity findings. Exceptions go in a committed `.lapis-verify-allow.json`: `[{ "rule", "file", "reason" }]`, reason required; changing that file is itself reported. Run it in CI (`lapis verify-scan --base origin/main`): a local run is advisory, since anything with a shell can skip it. It reads only git and never opens the memory DB. |
+
+To gate a SPARK or Lean project's pull requests, add a job like this (checkout needs full history to find the merge-base):
+
+```yaml
+- uses: actions/checkout@v6
+  with:
+    fetch-depth: 0
+- uses: actions/setup-node@v6
+  with:
+    node-version: '25'
+- name: Prover-bypass scan
+  env:
+    BASE_REF: ${{ github.base_ref }}
+  run: npx -y @genegulanesjr/lapis verify-scan --base "origin/$BASE_REF"
+```
+
+Protect `.lapis-verify-allow.json` and `.github/workflows/` with required review (for example CODEOWNERS), so a change can't approve its own exceptions or skip the scan.
+
 ## Code Analysis
 
 | Command                          | Purpose                                            |

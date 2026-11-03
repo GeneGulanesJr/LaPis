@@ -217,7 +217,10 @@ const { sqlJson, sqlRun, ensureDb, getDb, jsonOut, parseArgs, MemoryError } = re
       return;
     }
 
-    ensureDb();
+    // Verify-scan reads only git, so CI runs never create or migrate a memory DB.
+    if (cmd !== 'verify-scan') {
+      ensureDb();
+    }
     const format = args.format || 'json';
 
     if (cmd && getCommands()[cmd]) {
@@ -253,6 +256,10 @@ const { sqlJson, sqlRun, ensureDb, getDb, jsonOut, parseArgs, MemoryError } = re
       }
 
       jsonOut(result);
+      // Gate commands (verify-scan) report pass/fail for CI through exit_code.
+      if (Number.isInteger(result?.exit_code)) {
+        process.exitCode = result.exit_code;
+      }
     } else {
       console.error(
         `Usage: lapis <subcommand> [--option value ...]\n       lapis run [--raw] [--text] [--remember] <command...>\nSubcommands: ${[...Object.keys(getCommands()), 'run'].sort().join(', ')}`,
