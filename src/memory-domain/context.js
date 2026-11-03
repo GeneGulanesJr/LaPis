@@ -83,6 +83,19 @@ const TOPIC_QUERY_STOP_WORDS = new Set([
 // shortcut: keeps the first 64 by position, so a prompt with more meaningful words loses its tail; weight by rarity if that bites.
 const TOPIC_QUERY_MAX_TERMS = 64;
 
+// Strips leading/trailing . / - with index scans: a trailing-anchor regex is polynomial on long '-' runs (CodeQL).
+function trimTermPunctuation(term) {
+  let start = 0,
+    end = term.length;
+  while (start < end && './-'.includes(term[start])) {
+    start++;
+  }
+  while (end > start && './-'.includes(term[end - 1])) {
+    end--;
+  }
+  return term.slice(start, end);
+}
+
 function topicQueryNeedles(query) {
   const normalized = String(query || '')
     .toLowerCase()
@@ -94,7 +107,7 @@ function topicQueryNeedles(query) {
   const phrase = normalized.length <= 120 ? [normalized] : [];
   const terms = (normalized.match(/[a-z0-9_.\/-]+/g) || [])
     // Sentence punctuation is not part of the word: "list." must match "list".
-    .map((term) => term.replace(/^[./-]+|[./-]+$/g, ''))
+    .map(trimTermPunctuation)
     .filter((term) => term.length >= 3 && !TOPIC_QUERY_STOP_WORDS.has(term));
 
   const needles = [...new Set([...phrase, ...[...new Set(terms)].slice(0, TOPIC_QUERY_MAX_TERMS)])];

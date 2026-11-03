@@ -937,6 +937,13 @@ describe('context.js topicQueryNeedles', () => {
     expect(result).not.toContain('you');
   });
 
+  it('stays fast on a long run of dashes', () => {
+    const start = Date.now(),
+      result = topicQueryNeedles(`${'-'.repeat(50000)}x`);
+    expect(Date.now() - start).toBeLessThan(500);
+    expect(result).toEqual([`${'-'.repeat(50000)}x`.slice(0, 120)]);
+  });
+
   it('duplicate words do not use up slots', () => {
     const result = topicQueryNeedles(
       `${'repeat '.repeat(80)}${Array.from({ length: 63 }, (_, i) => `w${i}x`).join(' ')}`,
