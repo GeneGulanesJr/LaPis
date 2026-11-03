@@ -1,0 +1,9 @@
+
+ RUN  v4.1.12 <ROOT>
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  12:28:43
+   Duration  562ms (transform 26ms, setup 0ms, import 63ms, tests 6ms, environment 0ms)
+

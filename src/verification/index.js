@@ -10,7 +10,8 @@ const fs = require('fs'),
   path = require('path'),
   bypass = require('./bypass'),
   { git, changedFiles } = require('./git'),
-  { ingestReport, proofState } = require('./results');
+  { ingestReport, proofState } = require('./results'),
+  { captureCheckOutput } = require('./capture');
 
 const ALLOWLIST_FILE = '.lapis-verify-allow.json';
 
@@ -121,4 +122,20 @@ function scanRepo({ cwd = process.cwd(), base = 'HEAD' } = {}) {
   };
 }
 
-module.exports = { scanRepo, ingestReport, proofState, ALLOWLIST_FILE };
+/** Config helpers: verification on/off and the stop gate (gate implies enabled). */
+function verificationEnabled(config) {
+  return !config || !config.verification || config.verification.enabled !== false;
+}
+function gateEnabled(config) {
+  return verificationEnabled(config) && !(config && config.verification && config.verification.gate === false);
+}
+
+module.exports = {
+  scanRepo,
+  ingestReport,
+  proofState,
+  captureCheckOutput,
+  verificationEnabled,
+  gateEnabled,
+  ALLOWLIST_FILE,
+};

@@ -34,6 +34,7 @@ const CODE_MODE_TO_COMMAND = {
     dupes: 'dupes',
     'audit-diff': 'audit-diff',
     'enrich-symbols': 'enrich-symbols',
+    'proof-state': 'proof-state',
   },
   // Reused verbatim from extensions/memory-layer/tools/doc-tools.ts:64-78.
   DOC_MODE_TO_COMMAND = {
@@ -355,7 +356,8 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
       name: 'memory-code',
       description:
         'Query indexed code and before-coding agent context. Use mode search, coding-context, ' +
-        'preflight, agent-pack, outline, callers, callees, deps, health, index-repo, or reindex-repo. ' +
+        'preflight, agent-pack, outline, callers, callees, deps, health, index-repo, reindex-repo, or proof-state ' +
+        '(latest tsc/ESLint/test/prover results, with stale flags). ' +
         'Include repo when known; if omitted, LaPis infers the current indexed repo when possible.',
       inputSchema: obj({
         mode: { schema: opt(strEnum('Analysis mode', CODE_MODES)), optional: true },

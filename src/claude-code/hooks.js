@@ -42,6 +42,9 @@ const { stripTuiArtifacts } = require('../mcp/translate-result'),
     get PostToolUse() {
       return require('./handlers/post-tool-use').handlePostToolUse;
     },
+    get PostToolUseFailure() {
+      return require('./handlers/post-tool-use-failure').handlePostToolUseFailure;
+    },
   };
 
 function readStdin() {

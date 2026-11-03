@@ -219,6 +219,7 @@ class MemoryError extends Error {
         { to: 29, run: runMigrationV29 },
         { to: 30, run: runMigrationV30 },
         { to: 31, run: runMigrationV31 },
+        { to: 32, run: runMigrationV32 },
       ],
       LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
 
@@ -1264,6 +1265,26 @@ class MemoryError extends Error {
         });
       } catch (e) {
         errors.push(`V31: ${e.message}`);
+      }
+      return errors;
+    }
+
+    function runMigrationV32() {
+      const errors = [];
+      try {
+        withTransaction(() => {
+          // Content hashes of uncommitted files at ingest, so staleness is "changed since the run".
+          try {
+            sqlRaw('ALTER TABLE verifier_runs ADD COLUMN worktree_json TEXT');
+          } catch (e) {
+            if (!/duplicate column/i.test(e.message)) {
+              throw e;
+            }
+          }
+          sqlRaw('PRAGMA user_version = 32');
+        });
+      } catch (e) {
+        errors.push(`V32: ${e.message}`);
       }
       return errors;
     }

@@ -96,6 +96,25 @@ To gate a SPARK or Lean project's pull requests, add a job like this (checkout n
 
 Protect `.lapis-verify-allow.json` and `.github/workflows/` with required review (for example CODEOWNERS), so a change can't approve its own exceptions or skip the scan.
 
+### Check results (everyday projects)
+
+When the agent runs a check in its shell tool, LaPis records the result automatically (Claude Code, Pi): `tsc`/`vue-tsc`, `eslint`, `vitest`, `jest`, `pytest`/`python -m pytest`, and package scripts such as `npm test`, `pnpm lint` or `yarn typecheck`. Output is recognised by each tool's own summary or error format, so `--version`, `--help`, truncated or unrelated output records nothing. Each run is tied to HEAD plus a fingerprint of uncommitted files, so a file is "changed since" only if it changed after the check ran.
+
+The latest result per checker is shown to the agent before recalled memories, for example:
+
+```
+### Checks (last runs — hints, not proof; re-run after editing)
+- **tsc** (4m ago): ✗ 3 failing: src/math.ts:4 TS2322 Type 'string' is not assignable to type 'number'.; …
+- **vitest** (1h ago): ✓ clean (2 files changed since — re-run to confirm)
+```
+
+The **stop gate** (on by default; `verification.gate`, `LAPIS_VERIFY_GATE=0`) refuses the agent's "done" when, in this session, it edited files after a checker's last run, or a checker that had a run at session start now reports failures it didn't then. Failures that existed before the session never block, nothing blocks when the agent edited no files, and the gate gives up after `verification.gate_max_blocks` (3) reminders. In Claude Code it is a synchronous `Stop` hook; in Pi a follow-up message at `agent_end`. Re-run `lapis claude-code install` to add the new hooks to an existing install. Hermes shows the results in context but has no capture or gate yet.
+
+| Command | Purpose |
+| ------- | ------- |
+| `capture-checks --command <cmd> --output <text> [--path <cwd>]` | What the hooks call: parse a check command's output and store the result. |
+| `proof-state [--verifier NAME] [--path <dir>]` | The same latest-runs view the agent sees, as JSON (also `memory-code` mode `proof-state`). Includes `changed_since` per run. |
+
 ### Prover results
 
 | Command | Purpose |

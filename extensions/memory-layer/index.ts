@@ -25,6 +25,7 @@ import { registerToolGuardrails } from './hooks/tool-guardrails';
 import { registerOutputCompression } from './hooks/output-compression';
 import { getConfig } from '../../config';
 import { registerTrustSync } from './hooks/trust-sync';
+import { registerCheckCapture, registerCheckGate } from './hooks/checks';
 import { ensureNativeModules } from './host/native-health';
 import { registerCodeTools } from './tools/code-tools';
 import { registerDocTools } from './tools/doc-tools';
@@ -96,6 +97,9 @@ export default function memoryLayer(pi: ExtensionAPI) {
   safeRegister('before-agent-start hook', registerBeforeAgentStart);
   safeRegister('context-reminder hook', registerContextReminder);
   safeRegister('tool-guardrails hook', registerToolGuardrails);
+  // Before output compression: check capture must parse the raw output.
+  safeRegister('check-capture hook', registerCheckCapture);
+  safeRegister('check-gate hooks', registerCheckGate);
   safeRegister('output-compression hook', (api, ctx) => {
     registerOutputCompression(api, { state: ctx.state, getConfig });
   });

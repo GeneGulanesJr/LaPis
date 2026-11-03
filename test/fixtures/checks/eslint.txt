@@ -1,0 +1,7 @@
+
+<ROOT>\src\lint.js
+  2:10  error    'undefinedThing' is not defined              no-undef
+  4:5   warning  'unused' is assigned a value but never used  no-unused-vars
+
+✖ 2 problems (1 error, 1 warning)
+

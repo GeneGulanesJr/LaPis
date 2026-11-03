@@ -120,8 +120,13 @@ describe('claude-code install: default (npx, project scope)', () => {
     const settings = readJson(path.join(io.cwd, '.claude', 'settings.json')),
       stop = allHandlers(settings, 'Stop'),
       post = (() => {
-        expect(stop).toHaveLength(1);
-        expect(stop[0].async).toBe(true);
+        // Capture/checkpoint Stop is async; only the check gate is synchronous (it must be able to block).
+        expect(stop).toHaveLength(2);
+        expect(stop.find((h) => h.async).args.slice(5)).toEqual(['--skip', 'verify-gate']);
+        expect(stop.find((h) => !h.async).args.slice(5)).toEqual(['--only', 'verify-gate']);
+        const failure = allHandlers(settings, 'PostToolUseFailure');
+        expect(failure).toHaveLength(1);
+        expect(failure[0].async).toBe(true);
 
         return allHandlers(settings, 'PostToolUse');
       })();

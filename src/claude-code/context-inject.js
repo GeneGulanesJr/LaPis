@@ -17,7 +17,9 @@ const path = require('node:path'),
   { CONTEXT } = require('../../constants'),
   { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder'),
   { findMatchingRepo, resolveCwd } = require('../hooks-engine/project'),
-  { isAutoCaptured } = require('../hooks-engine/passive-capture');
+  { isAutoCaptured } = require('../hooks-engine/passive-capture'),
+  { getConfig } = require('../../config'),
+  { verificationEnabled } = require('../verification');
 
 /**
  * Fetch project context, falling back to cross-project if empty.
@@ -46,6 +48,19 @@ async function fetchContext({ dispatch, project, limit, query, sessionId, extraA
   return { contextResult: null, crossProjectResult };
 }
 
+/** Latest check/prover runs for the repo at `cwd` (null when off, not a repo, or on error). */
+async function fetchCheckState(dispatch, cwd) {
+  if (!verificationEnabled(getConfig())) {
+    return null;
+  }
+  try {
+    const state = await dispatch('proof-state', { path: cwd });
+    return state && !state.error ? state : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetch + resolve the data bag buildContextBlock renders, without rendering.
  * Returns null when both context fetches failed. `contextArgs` are extra
@@ -54,14 +69,17 @@ async function fetchContext({ dispatch, project, limit, query, sessionId, extraA
  */
 async function collectContext({ dispatch, getKnownRepos, project, cwd, query = null, sessionId = null, contextArgs }) {
   const limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT,
-    { contextResult, crossProjectResult } = await fetchContext({
-      dispatch,
-      project,
-      limit,
-      query,
-      sessionId,
-      extraArgs: contextArgs,
-    });
+    [{ contextResult, crossProjectResult }, checkState] = await Promise.all([
+      fetchContext({
+        dispatch,
+        project,
+        limit,
+        query,
+        sessionId,
+        extraArgs: contextArgs,
+      }),
+      fetchCheckState(dispatch, path.resolve(resolveCwd(cwd))),
+    ]);
 
   if (!contextResult && !crossProjectResult) {
     return null;
@@ -98,6 +116,7 @@ async function collectContext({ dispatch, getKnownRepos, project, cwd, query = n
     effectiveStats: isNewProject ? crossProjectResult.stats || {} : stats,
     topic,
     crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
+    checkState,
   };
 }
 
@@ -147,5 +166,6 @@ module.exports = {
   buildInjectedContext,
   fetchContext,
   collectContext,
+  fetchCheckState,
   renderContextLines,
 };

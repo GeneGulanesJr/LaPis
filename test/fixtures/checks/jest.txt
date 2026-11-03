@@ -1,0 +1,22 @@
+FAIL test/jmath.test.js
+  ● math › fails on purpose
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 3
+    Received: 2
+
+    [0m [90m 1 |[39m describe([32m'math'[39m[33m,[39m () [33m=>[39m {
+     [90m 2 |[39m   it([32m'adds'[39m[33m,[39m () [33m=>[39m { expect([35m1[39m [33m+[39m [35m1[39m)[33m.[39mtoBe([35m2[39m)[33m;[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 3 |[39m   it([32m'fails on purpose'[39m[33m,[39m () [33m=>[39m { expect([35m1[39m [33m+[39m [35m1[39m)[33m.[39mtoBe([35m3[39m)[33m;[39m })[33m;[39m
+     [90m   |[39m                                                [31m[1m^[22m[39m
+     [90m 4 |[39m })[33m;[39m
+     [90m 5 |[39m[0m
+
+      at Object.toBe (test/jmath.test.js:3:48)
+
+Test Suites: 1 failed, 1 passed, 2 total
+Tests:       1 failed, 2 passed, 3 total
+Snapshots:   0 total
+Time:        3.556 s
+Ran all test suites.

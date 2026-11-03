@@ -30,6 +30,9 @@ const path = require('node:path'),
     shouldDream,
     isAutoDecisionCoolingDown,
   } = require('../../hooks-engine/passive-capture'),
+  { getConfig } = require('../../../config'),
+  { gateEnabled } = require('../../verification'),
+  { evaluateGate } = require('../../verification/gate'),
   // Thresholds mirror extensions/memory-layer/state.ts (CHECKPOINT_INTERVAL /
   // AUTO_DECISION_COOLDOWN) and the hooks-engine passive-capture defaults.
   CHECKPOINT_EVERY = 10,
@@ -121,7 +124,50 @@ async function checkpoint({ dispatch, state, project }) {
   });
 }
 
-async function handleStop({ payload, dispatch, stateStore, getKnownRepos, getKnownProjects }) {
+/**
+ * Check gate (synchronous `--only verify-gate` Stop hook): block finishing
+ * while this session left new failures or unchecked edits. Repeats are capped
+ * by gateBlocks rather than stop_hook_active, so the agent gets more than one
+ * nudge but can never be trapped.
+ */
+async function handleVerifyGate({ payload, dispatch, stateStore }) {
+  const config = getConfig();
+  if (!gateEnabled(config)) {
+    return null;
+  }
+  const claudeSessionId = payload.session_id,
+    state = stateStore.loadState(claudeSessionId),
+    max = config.verification?.gate_max_blocks ?? 3;
+  if ((state.gateBlocks || 0) >= max) {
+    return null;
+  }
+  let checks = null;
+  try {
+    checks = await dispatch('proof-state', { path: path.resolve(resolveCwd(payload.cwd)) });
+  } catch {
+    return null; // fail open
+  }
+  const verdict = evaluateGate(checks && !checks.error ? checks : null, state.checkBaseline, state.editedFiles);
+  if (!verdict.block) {
+    return null;
+  }
+  const blocks = await makeMutate(
+    stateStore,
+    claudeSessionId,
+  )((s) => {
+    s.gateBlocks = (s.gateBlocks || 0) + 1;
+    return s.gateBlocks;
+  });
+  return {
+    decision: 'block',
+    reason: `${verdict.reason}${blocks >= max ? '\n(Last check-gate reminder this session.)' : ''}`,
+  };
+}
+
+async function handleStop({ payload, dispatch, stateStore, getKnownRepos, getKnownProjects, roleFilter }) {
+  if (roleFilter?.only === 'verify-gate') {
+    return handleVerifyGate({ payload, dispatch, stateStore });
+  }
   // Avoid re-entrancy: Claude Code sets stop_hook_active when already inside a
   // Stop continuation. Bail out so we never create a feedback loop.
   if (payload?.stop_hook_active) {
@@ -253,4 +299,4 @@ async function runStopCapture({
   }
 }
 
-module.exports = { handleStop, runStopCapture };
+module.exports = { handleStop, handleVerifyGate, runStopCapture };

@@ -280,10 +280,17 @@ function buildHookGroups(invocation, mcpName) {
         // Git-trust is heavy (sync-code-trust over the repo) → background.
         // No `if` prefix rule: the handler's GIT_TRUST_OP_RE does the real
         // Check, so compound commands like `cd repo && git pull` are covered.
+        // Also records check results (tsc, ESLint, Vitest, Jest, pytest).
         hooks: [h('PostToolUse', { timeout: 60, async: true, extraArgs: ['--only', 'git-trust'] })],
       },
     ],
-    Stop: [{ hooks: [h('Stop', { timeout: 60, async: true })] }],
+    // A Bash command that exits non-zero skips PostToolUse; failing checks arrive here.
+    PostToolUseFailure: [{ matcher: 'Bash', hooks: [h('PostToolUseFailure', { timeout: 60, async: true })] }],
+    Stop: [
+      // Synchronous so it can block: the check gate (new failures / unchecked edits).
+      { hooks: [h('Stop', { timeout: 30, extraArgs: ['--only', 'verify-gate'] })] },
+      { hooks: [h('Stop', { timeout: 60, async: true, extraArgs: ['--skip', 'verify-gate'] })] },
+    ],
     SessionEnd: [{ hooks: [h('SessionEnd', { timeout: 30 })] }],
   };
 }

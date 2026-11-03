@@ -15,7 +15,8 @@ const path = require('node:path'),
   { resolveIndexedRepo } = require('./project'),
   fs = require('node:fs'),
   { CONTEXT } = require('../../constants'),
-  { isNavigationPrompt } = require('./prompt-classifiers');
+  { isNavigationPrompt } = require('./prompt-classifiers'),
+  { renderCheckState } = require('../verification/render');
 
 function truncateText(text, limit) {
   if (text.length <= limit) {
@@ -145,6 +146,7 @@ function buildSourceLookupGuidance(repos, cwd, currentProject) {
  * @param {object}   bag.effectiveStats
  * @param {string|null} bag.topic
  * @param {Array}    bag.crossProjectSuggestions
+ * @param {object|null} bag.checkState      proof-state result (latest check/prover runs) or null
  */
 function buildContextBlock(bag) {
   const {
@@ -159,6 +161,7 @@ function buildContextBlock(bag) {
       effectiveStats,
       topic,
       crossProjectSuggestions = [],
+      checkState = null,
     } = bag,
     topicNote = topic ? ` | topic: ${topic}` : '',
     lines = ['## Memory Context (auto-loaded)', ''],
@@ -189,6 +192,8 @@ function buildContextBlock(bag) {
     lines.push(`- Code index: not indexed for this project`);
   }
   lines.push('');
+  // Check results go before memories: the cap cuts from the end, and a check is the judge, memory only a hint.
+  lines.push(...renderCheckState(checkState));
 
   if (effectiveObservations.length > 0) {
     const navigationPrompt = isNavigationPrompt(promptQuery),
