@@ -16,7 +16,8 @@
 const path = require('node:path'),
   { CONTEXT } = require('../../constants'),
   { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder'),
-  { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
+  { findMatchingRepo, resolveCwd } = require('../hooks-engine/project'),
+  { isAutoCaptured } = require('../hooks-engine/passive-capture');
 
 /**
  * Fetch project context, falling back to cross-project if empty.
@@ -78,7 +79,9 @@ async function collectContext({ dispatch, getKnownRepos, project, cwd, query = n
 
   let effectiveObservations = [];
   if (query) {
-    effectiveObservations = isNewProject ? crossProjectResult.observations || [] : observations;
+    const matched = isNewProject ? crossProjectResult.observations || [] : observations;
+    // Regex auto-captures are unreviewed claims: searchable, never injected as facts.
+    effectiveObservations = matched.filter((o) => o && !isAutoCaptured(o));
   }
   return {
     promptQuery: query,
@@ -139,4 +142,10 @@ async function buildInjectedContext(opts) {
   return capInjectedContext(assembled.lines.join('\n'));
 }
 
-module.exports = { assembleContextLines, buildInjectedContext, fetchContext, collectContext, renderContextLines };
+module.exports = {
+  assembleContextLines,
+  buildInjectedContext,
+  fetchContext,
+  collectContext,
+  renderContextLines,
+};

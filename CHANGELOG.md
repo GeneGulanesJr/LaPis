@@ -41,6 +41,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Regex auto-saves are hints, not facts (Claude Code, Pi, Hermes).** Passive
+  auto-saves expire after 7 days and are never injected into prompts or
+  cross-project suggestions (still searchable).
+
 - **Judgment surfaces: one capped request, no retries, a log line.** Every
   surface (`recall`, `dedupe`, `trust`, `guard`, `autosave`, `dream`, `context`)
   now caps each request at `judgment.surface_timeout_ms` (default 2000;
@@ -86,6 +90,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `JEV_API_KEY`, `JEV_ENDPOINT`, `JEV_MODEL` and `TYPESAFE_API_KEY` are not.
 
 ### Fixed
+
+- **Claude Code and Hermes ignored `tool_guardrails.enabled`.** Their
+  guardrails now honor it (and the new `LAPIS_GUARDRAILS=0`, which Pi honors
+  too). All three integrations stand down in a repo whose index has zero parsed
+  files (an unsupported language), where redirecting to `memory-code` only
+  blocked grep/`find`.
+- **Injected "Code index: undefined files / undefined symbols".** The known-repo
+  list now carries `file_count` / `symbol_count`.
 
 - **Judgment `context` selection never ran.** `buildJudge` in
   `src/memory-domain/context-decision.js` returned the `createJudge()` object

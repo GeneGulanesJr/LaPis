@@ -39,7 +39,8 @@ const fs = require('node:fs'),
     projectFromCwd,
   } = require('../hooks-engine/project'),
   { getKnownRepos, getKnownProjects } = require('../platform/project-db'),
-  { CONFIG_FILENAMES, isTargetedGrepLookup } = require('../hooks-engine/guardrail-utils'),
+  { CONFIG_FILENAMES, isTargetedGrepLookup, guardrailsEnabled } = require('../hooks-engine/guardrail-utils'),
+  { isAutoCaptured } = require('../hooks-engine/passive-capture'),
   { loadState, saveState, sessionStateDir } = require('./state-store'),
   { CONTEXT } = require('../../constants'),
   { capInjectedContext, buildContextBlock } = require('../hooks-engine/context-builder');
@@ -130,7 +131,7 @@ function readGuardReason(payload, deps) {
   const repos = (deps && deps.repos) || indexedRepos(),
     matched = resolveIndexedRepo(cwd, repos, null),
     rp = matched ? normalizeRepoPath(matched.path || matched.name) : undefined;
-  if (!matched) {
+  if (!matched || guardsOff(deps, matched)) {
     return null;
   }
   if (absNorm !== rp && !absNorm.startsWith(`${rp}/`)) {
@@ -145,6 +146,14 @@ function readGuardReason(payload, deps) {
       'for this file first; targeted reads with offset/limit are allowed for editing.'
     );
   }
+}
+
+/**
+ * Guardrails off (tool_guardrails.enabled / LAPIS_GUARDRAILS) or the matched
+ * index has zero parsed files → let the call through.
+ */
+function guardsOff(deps, matched) {
+  return !guardrailsEnabled((deps && deps.config) || require('../../config').getConfig(), matched);
 }
 
 /** Tool-aware guard dispatcher: read_file → read guard, search_files → search guard. */
@@ -173,7 +182,7 @@ function searchGuardReason(payload, deps) {
     absPath = matched ? path.resolve(cwd, searchPath || cwd) : undefined,
     rp = matched ? normalizeRepoPath(matched.path || matched.name) : undefined,
     absNorm = matched ? normalizeRepoPath(absPath) : undefined;
-  if (!matched) {
+  if (!matched || guardsOff(deps, matched)) {
     return null;
   }
   if (absNorm !== rp && !absNorm.startsWith(`${rp}/`)) {
@@ -298,7 +307,8 @@ function injectContext(payload) {
             isStale: false,
             isNewProject: false,
             observations: (parsed.observations || []).filter(Boolean),
-            effectiveObservations: (parsed.observations || []).filter(Boolean),
+            // Regex auto-captures are unreviewed claims: never injected as facts.
+            effectiveObservations: (parsed.observations || []).filter((o) => o && !isAutoCaptured(o)),
             personal: (parsed.personal || []).filter(Boolean),
             stats: parsed.stats || {},
             effectiveStats: parsed.stats || {},

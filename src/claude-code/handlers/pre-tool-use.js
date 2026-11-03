@@ -21,7 +21,8 @@
  * `index-repo` (see ../auto-index.js — it never indexes inline, so the hook
  * timeout is untouched) and tells the agent so. Once the index exists the
  * guardrails apply on their own. Opt out: config `auto_index.enabled=false` or
- * LAPIS_AUTO_INDEX=0.
+ * LAPIS_AUTO_INDEX=0. Guardrails themselves: `tool_guardrails.enabled=false` or
+ * LAPIS_GUARDRAILS=0; they also stand down for an index with zero parsed files.
  */
 
 const path = require('node:path'),
@@ -29,6 +30,7 @@ const path = require('node:path'),
   { resolveProjectForCwd } = require('../project-resolve'),
   { maybeStartAutoIndex, describeAutoIndex } = require('../auto-index'),
   {
+    guardrailsEnabled,
     isPipedOutputFilter,
     isTargetedSymbolLookup,
     isTargetedGrepLookup,
@@ -230,6 +232,7 @@ async function handlePreToolUse({
   getKnownProjects,
   stateStore,
   autoIndex = maybeStartAutoIndex,
+  config,
 }) {
   const toolName = payload.tool_name,
     role = preToolRole(toolName),
@@ -280,9 +283,13 @@ async function handlePreToolUse({
   if (!guardrail) {
     return null;
   }
+  const on = guardrailsEnabled(
+    config || require('../../../config').getConfig(),
+    resolveRepo(cwd, repos, state.currentProject),
+  );
   // A deny only happens inside an indexed repo, so auto-index runs only when the
   // Call was allowed through.
-  return guardrail(args) || autoIndexOnMiss({ args, autoIndex });
+  return (on && guardrail(args)) || autoIndexOnMiss({ args, autoIndex });
 }
 
 module.exports = {

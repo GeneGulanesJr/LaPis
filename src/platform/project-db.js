@@ -150,7 +150,9 @@ function clearProjectDbCache() {
 
 function loadKnownRepos() {
   const { sqlJson } = require('../../db');
-  return sqlJson('SELECT name, path, indexed_at FROM code_repos') || [];
+  // Counts feed the injected "Code index: N files / M symbols" line and let the
+  // Guardrails skip an index with zero parsed files (e.g. an unsupported language).
+  return sqlJson('SELECT name, path, indexed_at, file_count, symbol_count FROM code_repos') || [];
 }
 
 function loadKnownProjects() {

@@ -2,6 +2,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { isCodeFile, state } from '../state';
 import {
+  guardrailsEnabled,
   isPipedOutputFilter,
   isTargetedSymbolLookup,
   isTargetedTextFileLookup,
@@ -101,6 +102,10 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
             return resolvedCwd === repoPath || resolvedCwd.startsWith(repoPath + path.sep);
           });
         if (matchedRepo) {
+          // An index with zero parsed files gives memory-code nothing to offer.
+          if (!guardrailsEnabled(deps.getConfig?.(), matchedRepo)) {
+            return;
+          }
           // Allow grep/rg/etc. When they are only filtering another command's stdout,
           // Such as `npx oxlint 2>&1 | grep -i unused`.
           if (isPipedOutputFilter(cmd)) {
@@ -207,6 +212,10 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
             `Cannot read "${path.basename(filePath)}" — project auto-indexing failed: ${indexResult?.summary || 'unknown error'}.\n` +
             `Try indexing manually: \`memory-code index-repo --path ${projectDir} --name ${projectName}\``,
         };
+      }
+
+      if (!guardrailsEnabled(deps.getConfig?.(), matchedRepo)) {
+        return;
       }
 
       {

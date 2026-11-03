@@ -171,11 +171,16 @@ function applyEnvOverrides(config) {
       }
     }
   }
-  const autoIndex = process.env.LAPIS_AUTO_INDEX;
-  if (autoIndex !== undefined && autoIndex.trim() !== '') {
-    (config.auto_index || (config.auto_index = {})).enabled = !['0', 'false', 'off', 'no'].includes(
-      autoIndex.trim().toLowerCase(),
-    );
+  for (const [envName, section, key] of [
+    ['LAPIS_AUTO_INDEX', 'auto_index', 'enabled'],
+    ['LAPIS_GUARDRAILS', 'tool_guardrails', 'enabled'],
+  ]) {
+    const flag = process.env[envName];
+    if (flag !== undefined && flag.trim() !== '') {
+      (config[section] || (config[section] = {}))[key] = !['0', 'false', 'off', 'no'].includes(
+        flag.trim().toLowerCase(),
+      );
+    }
   }
   const j = config.judgment || (config.judgment = {});
   if (process.env.LAPIS_JUDGE_PROVIDER) j.provider = process.env.LAPIS_JUDGE_PROVIDER;
@@ -215,7 +220,9 @@ function loadConfig() {
     // nested judgment fields (provider/disables) — re-clone the section first
     // or every load would pollute the shared DEFAULTS object.
     merged.judgment = deepMerge(DEFAULTS.judgment, merged.judgment || {});
-    merged.auto_index = deepMerge(DEFAULTS.auto_index, merged.auto_index || {});
+    for (const section of ['auto_index', 'tool_guardrails']) {
+      merged[section] = deepMerge(DEFAULTS[section], merged[section] || {});
+    }
     merged.db_path = expandTilde(merged.db_path);
     merged.tier_config_path = expandTilde(merged.tier_config_path);
     applyEnvOverrides(merged);

@@ -36,10 +36,8 @@ describe('prompt recall ranks passive captures last', () => {
     const out = context(deps, { project: 'p', query: 'login token', limit: '1' });
 
     expect(out.observations.map((o) => o.title)).toEqual(['Token TTL decision']);
-    expect(out.cross_project_suggestions.map((o) => o.title)).toEqual([
-      'Other project: token rule',
-      'Other project: login token note',
-    ]);
+    // Another project's auto-capture is an unreviewed claim: never suggested.
+    expect(out.cross_project_suggestions.map((o) => o.title)).toEqual(['Other project: token rule']);
   });
 });
 

@@ -77,8 +77,7 @@ Supported settings include:
 | `async_index_file_threshold` | `500`                                | File count at which `index-repo` auto-switches to async.                |
 | `auto_index.enabled`        | `true`                               | Claude Code bridge: start a detached background `index-repo` when a hook sees an unindexed git repo. Override with `LAPIS_AUTO_INDEX=0\|1` (env wins). See [Auto-indexing](CLAUDE_CODE.md#auto-indexing). |
 | `output_compression.*`      | `{ enabled: true, min_chars: 2000, min_savings_percent: 30 }` | Output compression defaults for the `run` subcommand and extension tool guardrails. |
-| `tool_guardrails.enabled`   | `true`                               | Master toggle for the read/search guardrails (raw `grep`/`find` redirect, unread-file read block). Set `false` to disable. |
-
+| `tool_guardrails.enabled`   | `true`                               | Master toggle for the read/search guardrails (raw `grep`/`find` redirect, unread-file read block). Set `false` to disable. Override with `LAPIS_GUARDRAILS=0\|1`. The guardrails (Pi, Claude Code, Hermes) also stand down for an index with zero parsed files (unsupported language). |
 ## Tool Tier Configuration
 
 LaPis supports tool access tiers to control which commands are available to the Pi agent. The tier is configured in the file specified by `tier_config_path` (defaults to `~/.pi/memory/tier.jsonc`):

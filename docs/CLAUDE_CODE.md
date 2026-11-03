@@ -142,6 +142,11 @@ Safety rails:
 
 Opt out with `"auto_index": { "enabled": false }` in `~/.pi/memory/config.jsonc` or `LAPIS_AUTO_INDEX=0` in the environment (env wins over the config file). See [`CONFIGURATION.md`](CONFIGURATION.md).
 
+## Guardrails and auto-saves
+
+- **Guardrails** (Read/Grep/Glob/Bash redirects to `memory-code`) turn off with `"tool_guardrails": { "enabled": false }` or `LAPIS_GUARDRAILS=0` (env wins). They also stand down on their own in a repo whose index has zero parsed files (an unsupported language), where `memory-code` has nothing to offer.
+- **Auto-saves** from the Stop hook (regex-matched "decisions" and "fixes" in the assistant's reply) are hints, not facts: they expire after 7 days and are never injected into prompts or cross-project suggestions. They stay searchable with `memory-search`.
+
 ## State storage
 
 Claude Code spawns a **fresh process per hook event**. The in-process `state` object Pi's extension mutates is invisible across hook invocations.

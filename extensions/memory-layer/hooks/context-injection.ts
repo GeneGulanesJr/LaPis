@@ -12,6 +12,7 @@ import {
   buildSourceLookupGuidance,
   capInjectedContext,
 } from '../../../src/hooks-engine/context-builder.js';
+import { isAutoCaptured } from '../../../src/hooks-engine/passive-capture.js';
 import {
   appendCodingContextBlock,
   appendPreflightBlock,
@@ -140,7 +141,9 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
     {
       let effectiveObservations: any[] = [];
       if (promptQuery) {
-        effectiveObservations = isNewProject ? (crossProjectResult!.observations as any[]) || [] : observations;
+        const matched = isNewProject ? (crossProjectResult!.observations as any[]) || [] : observations;
+        // Regex auto-captures are unreviewed claims: searchable, never injected as facts.
+        effectiveObservations = matched.filter((o) => o && !isAutoCaptured(o));
       }
       const effectiveStats = isNewProject ? (crossProjectResult!.stats as any) : stats;
 
