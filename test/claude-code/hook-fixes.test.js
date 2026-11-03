@@ -2,7 +2,8 @@
 // Auto-captures kept out of injected context (and expiring).
 const realStateStore = require('../../src/claude-code/state-store'),
   { loadConfig, resetConfigCache } = require('../../config'),
-  { handlePreToolUse, guardrailsEnabled } = require('../../src/claude-code/handlers/pre-tool-use'),
+  { handlePreToolUse } = require('../../src/claude-code/handlers/pre-tool-use'),
+  { guardrailsEnabled } = require('../../src/hooks-engine/guardrail-utils'),
   { runStopCapture } = require('../../src/claude-code/handlers/stop'),
   { collectContext } = require('../../src/claude-code/context-inject'),
   { AUTO_CAPTURE_PREFIX } = require('../../src/hooks-engine/passive-capture');

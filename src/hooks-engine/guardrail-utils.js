@@ -212,7 +212,18 @@ const MIN_SYMBOL_LENGTH = 4,
     return false;
   }
 
+  /**
+   * Whether the guardrails apply: off when config `tool_guardrails.enabled=false`
+   * (LAPIS_GUARDRAILS=0), or when the matched repo's index has zero parsed files
+   * (e.g. an unsupported language), where redirecting to memory-code only blocks
+   * the agent. A repo row without file_count keeps guarding.
+   */
+  function guardrailsEnabled(config, repo) {
+    return config?.tool_guardrails?.enabled !== false && !(repo && repo.file_count === 0);
+  }
+
   module.exports = {
+    guardrailsEnabled,
     splitPipeline,
     isPipedOutputFilter,
     isTargetedSymbolLookup,

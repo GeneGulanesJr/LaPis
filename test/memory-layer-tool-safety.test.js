@@ -480,6 +480,26 @@ describe('memory tool renderer safety', () => {
     expect(result.reason).toContain('memory-code search');
   });
 
+  it('stands down for an index with zero parsed files (bash and read)', async () => {
+    const memStreaming = vi.fn(),
+      toolCall = captureHook(
+        registerToolGuardrails,
+        {
+          state: { currentProject: 'app', lastMemoryToolCall: 0, callsSinceLastMemory: 0, exploredFiles: new Set() },
+          getKnownRepos: vi.fn().mockResolvedValue([{ name: 'app', path: process.cwd(), file_count: 0 }]),
+          isCodeFile: vi.fn(() => true),
+          memStreaming,
+          invalidateRepoCache: vi.fn(),
+        },
+        'tool_call',
+      ),
+      ui = { ui: { notify: vi.fn() } };
+
+    expect(await toolCall({ toolName: 'bash', input: { command: "grep -rn 'Pre =>' src/" } }, ui)).toBeUndefined();
+    expect(await toolCall({ toolName: 'read', input: { path: 'parse-code.js' } }, ui)).toBeUndefined();
+    expect(memStreaming).not.toHaveBeenCalled();
+  });
+
   it('matches indexed repos stored with backslash paths on read (#383)', async () => {
     const memStreaming = vi.fn(),
       toolCall = captureHook(

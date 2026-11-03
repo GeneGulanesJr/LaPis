@@ -30,6 +30,7 @@ const path = require('node:path'),
   { resolveProjectForCwd } = require('../project-resolve'),
   { maybeStartAutoIndex, describeAutoIndex } = require('../auto-index'),
   {
+    guardrailsEnabled,
     isPipedOutputFilter,
     isTargetedSymbolLookup,
     isTargetedGrepLookup,
@@ -225,15 +226,6 @@ function autoIndexOnMiss({ args, autoIndex }) {
   }
 }
 
-/**
- * Guardrails are off when config `tool_guardrails.enabled=false` / LAPIS_GUARDRAILS=0,
- * or when the cwd's index has zero parsed files: redirecting to memory-code
- * there (e.g. an Ada-only repo) only blocks the agent.
- */
-function guardrailsEnabled(config, repo) {
-  return config?.tool_guardrails?.enabled !== false && !(repo && repo.file_count === 0);
-}
-
 async function handlePreToolUse({
   payload,
   getKnownRepos,
@@ -308,5 +300,4 @@ module.exports = {
   bashGuardrail,
   addExploredFile,
   resolveRepo,
-  guardrailsEnabled,
 };

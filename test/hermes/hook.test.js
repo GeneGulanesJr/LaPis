@@ -155,6 +155,18 @@ describe('hermes hook: search guardrail', () => {
     expect(reason).toBeNull();
   });
 
+  test('stands down when tool_guardrails.enabled=false', () => {
+    const off = { repos: REPOS, config: { tool_guardrails: { enabled: false } } };
+    expect(guardReason(searchPayload({ pattern: '.*', target: 'content', path: '/work/proj/src' }), off)).toBeNull();
+    expect(guardReason(payload(), off)).toBeNull();
+  });
+
+  test('stands down for an index with zero parsed files', () => {
+    const empty = { repos: [{ ...REPOS[0], file_count: 0 }] };
+    expect(guardReason(searchPayload({ pattern: '.*', target: 'content', path: '/work/proj/src' }), empty)).toBeNull();
+    expect(guardReason(payload(), empty)).toBeNull();
+  });
+
   test('allows search outside indexed repos', () => {
     const reason = guardReason(searchPayload({ pattern: '.*', target: 'content', path: '/elsewhere' }), {
       repos: REPOS,

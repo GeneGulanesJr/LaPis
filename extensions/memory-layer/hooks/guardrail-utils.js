@@ -6,6 +6,7 @@
 const engine = require('../../../src/hooks-engine/guardrail-utils.js');
 
 module.exports = {
+  guardrailsEnabled: engine.guardrailsEnabled,
   isPipedOutputFilter: engine.isPipedOutputFilter,
   isTargetedSymbolLookup: engine.isTargetedSymbolLookup,
   isTargetedTextFileLookup: engine.isTargetedTextFileLookup,

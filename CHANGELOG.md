@@ -41,9 +41,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Claude Code: regex auto-saves are hints, not facts.** Stop-hook auto-saves
-  expire after 7 days and are never injected into prompts or cross-project
-  suggestions (still searchable).
+- **Regex auto-saves are hints, not facts (Claude Code, Pi, Hermes).** Passive
+  auto-saves expire after 7 days and are never injected into prompts or
+  cross-project suggestions (still searchable).
 
 - **Judgment surfaces: one capped request, no retries, a log line.** Every
   surface (`recall`, `dedupe`, `trust`, `guard`, `autosave`, `dream`, `context`)
@@ -91,10 +91,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- **Claude Code ignored `tool_guardrails.enabled`.** The PreToolUse guardrails
-  now honor it (and `LAPIS_GUARDRAILS=0`), and stand down in a repo whose index
-  has zero parsed files, where redirecting to `memory-code` only blocked
-  Grep/`find`.
+- **Claude Code and Hermes ignored `tool_guardrails.enabled`.** Their
+  guardrails now honor it (and the new `LAPIS_GUARDRAILS=0`, which Pi honors
+  too). All three integrations stand down in a repo whose index has zero parsed
+  files (an unsupported language), where redirecting to `memory-code` only
+  blocked grep/`find`.
 - **Injected "Code index: undefined files / undefined symbols".** The known-repo
   list now carries `file_count` / `symbol_count`.
 
