@@ -22,7 +22,11 @@ const fs = require('fs'),
 const MAX_OPEN_CHECKS = 50,
   MAX_TEXT = 500,
   COUNT_FIELDS = ['proved', 'unproved', 'justified', 'flow_errors'],
+  // How much a run covered (test files, or tests for pytest): tells a partial run from a full one.
+  SCOPE_FIELDS = ['files', 'tests'],
   ADA_PAIR = { '.ads': '.adb', '.adb': '.ads' },
+  MAX_SNAPSHOT_FILES = 2000,
+  KEEP_RUNS = 20, // per repo and verifier
   // A change to one of these can change every unit's result.
   PROJECT_FILE_RE = /(?:\.gpr|\.adc|(?:^|\/)(?:lakefile\.lean|lakefile\.toml|lean-toolchain|lake-manifest\.json))$/i;
 
@@ -96,20 +100,42 @@ function validateNeutral(raw) {
       })),
     });
   }
+  let totals = null;
+  if (raw.totals != null) {
+    totals = {};
+    for (const f of COUNT_FIELDS) {
+      const n = raw.totals[f] ?? 0;
+      if (!Number.isInteger(n) || n < 0) {
+        return { error: `totals: "${f}" must be a non-negative integer` };
+      }
+      totals[f] = n;
+    }
+    for (const f of SCOPE_FIELDS) {
+      const n = raw.totals[f];
+      if (n != null && !(Number.isInteger(n) && n >= 0)) {
+        return { error: `totals: "${f}" must be a non-negative integer` };
+      }
+      if (n != null) {
+        totals[f] = n;
+      }
+    }
+  }
   return {
     report: {
       verifier: raw.verifier,
       verifier_version: typeof raw.verifier_version === 'string' ? clip(raw.verifier_version, 200) : null,
       ran_at: typeof raw.ran_at === 'string' ? clip(raw.ran_at, 64) : null,
       units,
+      totals,
     },
   };
 }
 
 // GNATprove reports bare file names (unique within a GNAT project): map each
 // to its repo path. A unit whose file cannot be found is an error, because a
-// wrong path would hide the edits that make its result stale.
-function resolvePaths(report, files) {
+// wrong path would hide the edits that make its result stale. `lenient`
+// (auto-captured output) drops such units instead.
+function resolvePaths(report, files, { lenient = false } = {}) {
   const set = new Set(files),
     byBase = new Map();
   for (const f of files) {
@@ -126,25 +152,139 @@ function resolvePaths(report, files) {
     }
     return { error: hits.length ? `"${p}" matches several files: ${hits.join(', ')}` : `"${p}" not found in the repo` };
   };
+  const kept = [];
   for (const u of report.units) {
     const r = resolve(u.file);
     if (r.error) {
+      if (lenient) {
+        continue;
+      }
       return { error: `unit ${u.unit}: ${r.error}` };
+    }
+    if (u.unit === u.file) {
+      u.unit = r.path; // everyday checkers name units by file
     }
     u.file = r.path;
     for (const c of u.open_checks) {
       c.file = c.file ? resolve(c.file).path || c.file : u.file;
     }
+    kept.push(u);
   }
+  report.units = kept;
   return { report };
 }
 
-function totalsOf(units) {
+function totalsOf(units, given) {
   const t = { units: units.length };
   for (const f of COUNT_FIELDS) {
-    t[f] = units.reduce((s, u) => s + u[f], 0);
+    t[f] = given ? given[f] : units.reduce((s, u) => s + u[f], 0);
+  }
+  for (const f of SCOPE_FIELDS) {
+    if (given && given[f] != null) {
+      t[f] = given[f];
+    }
   }
   return t;
+}
+
+function scopeOf(totals) {
+  for (const f of SCOPE_FIELDS) {
+    if (Number.isInteger(totals[f])) {
+      return { unit: f === 'files' ? 'test files' : 'tests', n: totals[f] };
+    }
+  }
+  return null;
+}
+
+function openFailures(resultRows) {
+  return resultRows
+    .filter((u) => u.unproved || u.flow_errors)
+    .map((u) => ({
+      file: u.file_path,
+      unit: u.unit,
+      open_checks: JSON.parse(u.open_checks_json).filter((c) => c.status === 'unproved' || c.status === 'flow-error'),
+    }));
+}
+
+/**
+ * A run that covered fewer test files (or tests) than the largest kept run of
+ * the same checker is partial: it says nothing about what it skipped, so the
+ * newest full run's failures are kept alongside it.
+ */
+function partialInfo(sqlJson, run) {
+  const scope = scopeOf(JSON.parse(run.totals_json));
+  if (!scope) {
+    return null;
+  }
+  const field = scope.unit === 'test files' ? 'files' : 'tests',
+    others = sqlJson(
+      'SELECT id, totals_json, ingested_at FROM verifier_runs WHERE repo_root = ? AND verifier = ? ORDER BY id DESC',
+      [run.repo_root, run.verifier],
+    ).map((r) => ({ ...r, n: JSON.parse(r.totals_json)[field] })),
+    max = Math.max(...others.map((r) => (Number.isInteger(r.n) ? r.n : 0)));
+  if (scope.n >= max) {
+    return null;
+  }
+  const full = others.find((r) => r.n === max);
+  return {
+    checked: scope.n,
+    of: max,
+    unit: scope.unit,
+    full_run: {
+      run_id: full.id,
+      ingested_at: full.ingested_at,
+      totals: JSON.parse(full.totals_json),
+      failures: openFailures(
+        sqlJson('SELECT * FROM verifier_results WHERE run_id = ? ORDER BY file_path, line', [full.id]),
+      ),
+    },
+  };
+}
+
+function hashFile(root, file) {
+  try {
+    const p = path.join(root, file),
+      st = fs.statSync(p);
+    // shortcut: files over 5 MB are fingerprinted by size+mtime instead of content, hash them if that misses edits.
+    return st.size > 5 * 1024 * 1024 ? `big:${st.size}:${st.mtimeMs}` : sha256(fs.readFileSync(p));
+  } catch {
+    return null; // deleted
+  }
+}
+
+// Content of every file that differs from HEAD when the run is stored, so an
+// uncommitted file the checker already saw is not reported as changed since.
+function worktreeSnapshot(root, changed) {
+  if (changed.length > MAX_SNAPSHOT_FILES) {
+    return null; // too many to fingerprint: treat every changed file as changed since
+  }
+  const snap = {};
+  for (const c of changed) {
+    snap[c.file] = hashFile(root, c.file);
+  }
+  return snap;
+}
+
+/**
+ * Files that changed after the run: differ from the run's commit now and
+ * either were not dirty when it ran or have different content since. Null
+ * when the run's commit is gone (rebased or not fetched).
+ */
+function changedSinceRun(root, run) {
+  let now;
+  try {
+    now = changedFiles(root, run.commit_sha);
+  } catch {
+    return null;
+  }
+  const snap = run.worktree_json ? JSON.parse(run.worktree_json) : run.dirty ? null : {},
+    out = new Set();
+  for (const f of new Set([...now.flatMap((c) => [c.file, c.oldPath].filter(Boolean)), ...Object.keys(snap || {})])) {
+    if (!snap || !(f in snap) || hashFile(root, f) !== snap[f]) {
+      out.add(f);
+    }
+  }
+  return out;
 }
 
 function readReport(reportPath, format) {
@@ -169,7 +309,7 @@ function readReport(reportPath, format) {
  * The run is marked dirty when verifier sources differ from HEAD. Origin is
  * always "imported": a self-reported file is never treated as signed.
  */
-function ingestReport({ sqlJson, sqlRun, withTransaction }, { cwd = process.cwd(), report, format } = {}) {
+function ingestReport(deps, { cwd = process.cwd(), report, format } = {}) {
   if (typeof report !== 'string' || !report) {
     return { error: 'Missing --report <gnatprove output folder | results .json>' };
   }
@@ -191,17 +331,24 @@ function ingestReport({ sqlJson, sqlRun, withTransaction }, { cwd = process.cwd(
   } catch (e) {
     return { error: `Cannot read report ${report}: ${e.message}` };
   }
-  const valid = validateNeutral(read.parsed);
+  return storeReport(deps, { root, commit, parsed: read.parsed, sha: read.sha });
+}
+
+/** Validate, resolve and store a parsed neutral report for `root` at `commit`. */
+function storeReport({ sqlJson, sqlRun, withTransaction }, { root, commit, parsed, sha, lenient = false }) {
+  const valid = validateNeutral(parsed);
   if (valid.error) {
     return { error: `Invalid report: ${valid.error}` };
   }
-  const resolved = resolvePaths(valid.report, repoFiles(root));
+  const resolved = resolvePaths(valid.report, repoFiles(root), { lenient });
   if (resolved.error) {
     return { error: `Invalid report: ${resolved.error}` };
   }
   const r = resolved.report,
-    dirty = changedFiles(root, 'HEAD').some((c) => languageOf(c.file) || PROJECT_FILE_RE.test(c.file)) ? 1 : 0,
-    totals = totalsOf(r.units),
+    changed = changedFiles(root, 'HEAD'),
+    dirty = changed.some((c) => languageOf(c.file) || PROJECT_FILE_RE.test(c.file)) ? 1 : 0,
+    snapshot = worktreeSnapshot(root, changed),
+    totals = totalsOf(r.units, r.totals),
     summary = {
       verifier: r.verifier,
       verifier_version: r.verifier_version,
@@ -210,9 +357,11 @@ function ingestReport({ sqlJson, sqlRun, withTransaction }, { cwd = process.cwd(
       origin: 'imported',
       totals,
     },
+    snapshotJson = snapshot ? JSON.stringify(snapshot) : null,
     existing = sqlJson(
-      `SELECT id FROM verifier_runs WHERE repo_root = ? AND verifier = ? AND commit_sha = ? AND source_sha256 = ? AND dirty = ?`,
-      [root, r.verifier, commit, read.sha, dirty],
+      `SELECT id FROM verifier_runs WHERE repo_root = ? AND verifier = ? AND commit_sha = ? AND source_sha256 = ?
+         AND dirty = ? AND worktree_json IS ?`,
+      [root, r.verifier, commit, sha, dirty, snapshotJson],
     );
   if (existing.length) {
     return { run_id: existing[0].id, duplicate: true, ...summary };
@@ -221,11 +370,15 @@ function ingestReport({ sqlJson, sqlRun, withTransaction }, { cwd = process.cwd(
   const runId = withTransaction(() => {
     const id = Number(
       sqlRun(
-        `INSERT INTO verifier_runs (repo_root, verifier, verifier_version, commit_sha, dirty, origin, source_sha256, totals_json, ran_at)
-         VALUES (?, ?, ?, ?, ?, 'imported', ?, ?, ?)`,
-        [root, r.verifier, r.verifier_version, commit, dirty, read.sha, JSON.stringify(totals), r.ran_at],
+        `INSERT INTO verifier_runs (repo_root, verifier, verifier_version, commit_sha, dirty, origin, source_sha256, totals_json, ran_at, worktree_json)
+         VALUES (?, ?, ?, ?, ?, 'imported', ?, ?, ?, ?)`,
+        [root, r.verifier, r.verifier_version, commit, dirty, sha, JSON.stringify(totals), r.ran_at, snapshotJson],
       ).lastInsertRowid,
     );
+    // Keep the newest runs only (results first: foreign keys may be off).
+    const old = `SELECT id FROM verifier_runs WHERE repo_root = ? AND verifier = ? ORDER BY id DESC LIMIT -1 OFFSET ${KEEP_RUNS}`;
+    sqlRun(`DELETE FROM verifier_results WHERE run_id IN (${old})`, [root, r.verifier]);
+    sqlRun(`DELETE FROM verifier_runs WHERE id IN (${old})`, [root, r.verifier]);
     for (const u of r.units) {
       sqlRun(
         `INSERT INTO verifier_results (run_id, file_path, unit, unit_key, line, analyzed, proved, unproved, justified, flow_errors, open_checks_json)
@@ -287,13 +440,8 @@ function proofState({ sqlJson }, { cwd = process.cwd(), verifier } = {}) {
      ORDER BY verifier`,
     verifier ? [root, verifier] : [root],
   ).map((run) => {
-    let changed = null;
-    try {
-      changed = new Set(changedFiles(root, run.commit_sha).flatMap((c) => [c.file, c.oldPath].filter(Boolean)));
-    } catch {
-      // The run's commit is gone (rebased or not fetched): nothing can be trusted.
-    }
-    const staleReason =
+    const changed = changedSinceRun(root, run),
+      staleReason =
         changed === null
           ? `commit ${run.commit_sha.slice(0, 12)} not found`
           : [...changed].some((f) => PROJECT_FILE_RE.test(f))
@@ -327,6 +475,10 @@ function proofState({ sqlJson }, { cwd = process.cwd(), verifier } = {}) {
       ran_at: run.ran_at,
       ingested_at: run.ingested_at,
       stale_reason: staleReason,
+      totals: JSON.parse(run.totals_json),
+      // Repo files edited after the run (any kind), so a clean run can still say "re-run".
+      changed_since: changed ? [...changed].sort() : null,
+      partial: partialInfo(sqlJson, run),
       summary,
       units,
     };
@@ -334,4 +486,4 @@ function proofState({ sqlJson }, { cwd = process.cwd(), verifier } = {}) {
   return { repo_root: root, runs };
 }
 
-module.exports = { validateNeutral, resolvePaths, ingestReport, proofState };
+module.exports = { validateNeutral, resolvePaths, ingestReport, storeReport, proofState };

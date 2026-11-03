@@ -55,6 +55,8 @@ function defaultState() {
     hasInjectedContext: false,
     pendingRecallFeedback: [],
     nativeChecked: false,
+    checkBaseline: null, // failing checks at session start (src/verification/gate.js)
+    gateBlocks: 0,
   };
 }
 

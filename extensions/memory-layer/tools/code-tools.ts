@@ -20,7 +20,7 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
     name: 'memory-code',
     label: 'Code Analysis',
     description:
-      'Query indexed code and before-coding agent context. Use mode search, coding-context, preflight, agent-pack, outline, callers, callees, deps, health, index-repo, or reindex-repo. Include repo when known; if omitted, LaPis infers the current indexed repo when possible.',
+      'Query indexed code and before-coding agent context. Use mode search, coding-context, preflight, agent-pack, outline, callers, callees, deps, health, index-repo, reindex-repo, or proof-state (latest tsc/ESLint/test/prover results, with stale flags). Include repo when known; if omitted, LaPis infers the current indexed repo when possible.',
     parameters: Type.Object({
       mode: Type.Optional(
         Type.String({
@@ -52,6 +52,7 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
             'dupes',
             'audit-diff',
             'enrich-symbols',
+            'proof-state',
           ],
         }),
       ),
@@ -113,6 +114,7 @@ export function registerCodeTools(pi: ExtensionAPI, deps: CodeDeps) {
             dupes: 'dupes',
             'audit-diff': 'audit-diff',
             'enrich-symbols': 'enrich-symbols',
+            'proof-state': 'proof-state',
           },
           mode = typeof params.mode === 'string' ? params.mode : '',
           cmd = mode ? cmdMap[mode] : undefined;
@@ -466,7 +468,7 @@ function validateCodeParams(mode: string, params: Record<string, any>): string |
     return 'reindex-repo requires --path or --repo.\n\nExamples:\nmemory-code reindex-repo --path . --name <repo>\nmemory-code reindex-repo --repo <repo>';
   }
 
-  if (mode !== 'index-repo' && mode !== 'reindex-repo' && !params.repo) {
+  if (mode !== 'index-repo' && mode !== 'reindex-repo' && mode !== 'proof-state' && !params.repo) {
     return `${mode} requires --repo.\n\nExample:\nmemory-code ${mode} --repo <repo>`;
   }
 

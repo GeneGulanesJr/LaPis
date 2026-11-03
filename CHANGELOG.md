@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Check results for everyday projects, with a stop gate (on by default).**
+  When the agent runs `tsc`, ESLint, Vitest, Jest or pytest (directly or via
+  `npm test`/`lint`/`typecheck`), Claude Code and Pi record the result
+  (`capture-checks`; tested against real output of each tool). The latest
+  result per checker is shown in injected context before memories (Claude
+  Code, Pi, Hermes; `memory-code` mode `proof-state` for MCP). The gate refuses
+  the agent's "done" when it edited files after a checker's last run or caused
+  new failures; pre-existing failures never block, and it stops after 3
+  reminders per session (`verification.gate`, `LAPIS_VERIFY_GATE=0`;
+  `LAPIS_VERIFICATION=0` turns it all off). Claude Code gains a synchronous
+  `Stop` hook and a `PostToolUseFailure` hook: re-run `lapis claude-code install`.
+  Migration V32 stores a fingerprint of uncommitted files per run, so a file
+  counts as changed only after the check ran. A run covering fewer test files
+  than the largest recent run is labeled partial and keeps the last full run's
+  failures in view (and in the gate) until a full run passes.
 - **`verify-scan`: prover-bypass detection over a git diff** (new `src/verification/`
   module). Flags added SPARK escape hatches (`pragma Assume`, `SPARK_Mode => Off`,
   GNATprove annotations), vacuous contracts (`Post => True`, `Pre => False`),

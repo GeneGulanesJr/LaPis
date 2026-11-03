@@ -38,6 +38,15 @@ const path = require('path'),
     auto_index: {
       enabled: true,
     },
+    // Check results (src/verification): capture tsc/ESLint/Vitest/Jest/pytest
+    // output the agent runs, show the latest results in context, and (gate)
+    // refuse "done" while the session left new failures or unchecked edits.
+    // Override with LAPIS_VERIFICATION=0 (everything) or LAPIS_VERIFY_GATE=0.
+    verification: {
+      enabled: true,
+      gate: true,
+      gate_max_blocks: 3, // per session, so an agent is never trapped
+    },
     // Provider-agnostic semantic judgments (docs/JUDGMENT.md, spec 2026-09-26).
     // DEFAULT OFF — LaPis is zero-cloud/zero-keys by identity (spec §4);
     // opting in requires LAPIS_JUDGE_PROVIDER=decision AND a machine-scoped
@@ -174,6 +183,8 @@ function applyEnvOverrides(config) {
   for (const [envName, section, key] of [
     ['LAPIS_AUTO_INDEX', 'auto_index', 'enabled'],
     ['LAPIS_GUARDRAILS', 'tool_guardrails', 'enabled'],
+    ['LAPIS_VERIFICATION', 'verification', 'enabled'],
+    ['LAPIS_VERIFY_GATE', 'verification', 'gate'],
   ]) {
     const flag = process.env[envName];
     if (flag !== undefined && flag.trim() !== '') {
@@ -220,7 +231,7 @@ function loadConfig() {
     // nested judgment fields (provider/disables) — re-clone the section first
     // or every load would pollute the shared DEFAULTS object.
     merged.judgment = deepMerge(DEFAULTS.judgment, merged.judgment || {});
-    for (const section of ['auto_index', 'tool_guardrails']) {
+    for (const section of ['auto_index', 'tool_guardrails', 'verification']) {
       merged[section] = deepMerge(DEFAULTS[section], merged[section] || {});
     }
     merged.db_path = expandTilde(merged.db_path);

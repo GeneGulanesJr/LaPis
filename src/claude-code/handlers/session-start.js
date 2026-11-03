@@ -15,7 +15,8 @@
 
 const { resolveCwd } = require('../../hooks-engine/project'),
   { resolveProjectForCwd } = require('../project-resolve'),
-  { buildInjectedContext } = require('../context-inject'),
+  { buildInjectedContext, fetchCheckState } = require('../context-inject'),
+  { gateBaseline } = require('../../verification/gate'),
   { maybeStartAutoIndex, describeAutoIndex } = require('../auto-index');
 
 /**
@@ -92,6 +93,18 @@ async function handleSessionStart({
       // Orphan recovery is automatic server-side; surface only if returned.
       return current;
     });
+    // What was already failing when the session began: the stop gate only blocks on new failures.
+    try {
+      const checks = await fetchCheckState(dispatch, cwd);
+      if (checks) {
+        state = await stateStore.mutateState(claudeSessionId, (current) => {
+          current.checkBaseline = gateBaseline(checks);
+          return current;
+        });
+      }
+    } catch {
+      // Best-effort: without a baseline the gate only checks unchecked edits.
+    }
   } else {
     // Compact re-inject: refresh project when cwd moved (e.g. monorepo subdir).
     state = await stateStore.mutateState(claudeSessionId, (current) => {

@@ -118,7 +118,7 @@ function parseGnatprove(files) {
     try {
       s = JSON.parse(text);
     } catch (e) {
-      throw new Error(`${name}: invalid JSON (${e.message})`);
+      throw new Error(`${name}: invalid JSON (${e.message})`, { cause: e });
     }
     units.push(...unitsFromSpark(name, s));
   }

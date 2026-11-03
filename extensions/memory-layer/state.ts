@@ -139,4 +139,7 @@ export const state = {
    * baseline yet (initial snapshot failed or not yet taken).
    */
   preCompactTitles: null as string[] | null,
+  /** Failing checks at session start (src/verification/gate.js); the stop gate blocks only on new ones. */
+  checkBaseline: null as { keys: string[]; verifiers: string[] } | null,
+  gateBlocks: 0 as number,
 };

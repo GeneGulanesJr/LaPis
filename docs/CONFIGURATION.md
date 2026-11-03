@@ -78,6 +78,10 @@ Supported settings include:
 | `auto_index.enabled`        | `true`                               | Claude Code bridge: start a detached background `index-repo` when a hook sees an unindexed git repo. Override with `LAPIS_AUTO_INDEX=0\|1` (env wins). See [Auto-indexing](CLAUDE_CODE.md#auto-indexing). |
 | `output_compression.*`      | `{ enabled: true, min_chars: 2000, min_savings_percent: 30 }` | Output compression defaults for the `run` subcommand and extension tool guardrails. |
 | `tool_guardrails.enabled`   | `true`                               | Master toggle for the read/search guardrails (raw `grep`/`find` redirect, unread-file read block). Set `false` to disable. Override with `LAPIS_GUARDRAILS=0\|1`. The guardrails (Pi, Claude Code, Hermes) also stand down for an index with zero parsed files (unsupported language). |
+| `verification.enabled`      | `true`                               | Record tsc/ESLint/Vitest/Jest/pytest results when the agent runs them, and show the latest results in injected context (before memories). Override with `LAPIS_VERIFICATION=0\|1`. See [Check results](COMMANDS.md#check-results-everyday-projects). |
+| `verification.gate`         | `true`                               | Stop gate (Claude Code, Pi): refuse "done" while the session left new failing checks or edited files that weren't re-checked. Off when `verification.enabled` is off. Override with `LAPIS_VERIFY_GATE=0\|1`. |
+| `verification.gate_max_blocks` | `3`                               | Most gate blocks per session; after that the agent may finish (it is told the last reminder is the last). |
+
 ## Tool Tier Configuration
 
 LaPis supports tool access tiers to control which commands are available to the Pi agent. The tier is configured in the file specified by `tier_config_path` (defaults to `~/.pi/memory/tier.jsonc`):

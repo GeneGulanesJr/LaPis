@@ -26,6 +26,7 @@ import {
   isSourceAuthoritativePrompt,
 } from '../../../src/hooks-engine/prompt-classifiers.js';
 import { resolveIndexedRepo } from '../../../src/hooks-engine/project.js';
+import { fetchCheckState } from './checks';
 
 // Re-exported for existing tests that import from this file.
 export { extractFilePaths } from '../../../src/hooks-engine/context-builder.js';
@@ -45,6 +46,7 @@ interface ContextDeps {
   getKnownRepos: typeof getKnownRepos;
   isRepoStale: typeof isRepoStale;
   getSettings?: () => { contextLimit?: number };
+  getConfig?: () => any;
 }
 
 export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
@@ -152,6 +154,9 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
       {
         const topic = effectiveContext.topic as string | null,
           projectDir = cwdRepo?.path || ctx.cwd,
+          checkState = deps.getConfig
+            ? await fetchCheckState({ mem: deps.mem, getConfig: deps.getConfig }, resolvedCwd)
+            : null,
           lines = buildContextBlock({
             promptQuery,
             currentProject: deps.state.currentProject,
@@ -166,6 +171,7 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
             effectiveStats,
             topic,
             crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
+            checkState,
           });
 
         if (!cwdRepo) {

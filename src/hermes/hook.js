@@ -42,6 +42,7 @@ const fs = require('node:fs'),
   { CONFIG_FILENAMES, isTargetedGrepLookup, guardrailsEnabled } = require('../hooks-engine/guardrail-utils'),
   { isAutoCaptured } = require('../hooks-engine/passive-capture'),
   { loadState, saveState, sessionStateDir } = require('./state-store'),
+  { verificationEnabled } = require('../verification'),
   { CONTEXT } = require('../../constants'),
   { capInjectedContext, buildContextBlock } = require('../hooks-engine/context-builder');
 
@@ -267,6 +268,23 @@ function startSession(payload) {
   }
 }
 
+/** Latest check/prover runs for `cwd` (null when off, not a repo, or on error). */
+function checkStateFor(cwd) {
+  try {
+    if (!verificationEnabled(require('../../config').getConfig())) {
+      return null;
+    }
+    const res = spawnSync(process.execPath, [lapisEntry(), 'proof-state', '--path', cwd], {
+        timeout: 10000,
+        encoding: 'utf8',
+      }),
+      state = res.status === 0 && res.stdout ? JSON.parse(res.stdout) : null;
+    return state && !state.error ? state : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Query LaPis context for the current user message and return a capped
  * {"context": "…"} block. Returns null (silent) on any failure/absence so the
@@ -314,6 +332,7 @@ function injectContext(payload) {
             effectiveStats: parsed.stats || {},
             topic: parsed.topic || null,
             crossProjectSuggestions: parsed.cross_project_suggestions || [],
+            checkState: checkStateFor(payload.cwd),
           })
         : undefined;
     if (res.status !== 0 || !res.stdout) {

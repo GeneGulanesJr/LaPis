@@ -1,0 +1,21 @@
+[96msrc/math.ts[0m:[93m4[0m:[93m14[0m - [91merror[0m[90m TS2322: [0mType 'string' is not assignable to type 'number'.
+
+[7m4[0m export const bad: number = "not a number";
+[7m [0m [91m             ~~~[0m
+
+[96msrc/math.ts[0m:[93m6[0m:[93m3[0m - [91merror[0m[90m TS2322: [0mType 'number' is not assignable to type 'string'.
+
+[7m6[0m   return add(1, 2);
+[7m [0m [91m  ~~~~~~[0m
+
+[96msrc/other.ts[0m:[93m1[0m:[93m25[0m - [91merror[0m[90m TS2307: [0mCannot find module './nowhere' or its corresponding type declarations.
+
+[7m1[0m import { missing } from './nowhere';
+[7m [0m [91m                        ~~~~~~~~~~~[0m
+
+
+Found 3 errors in 2 files.
+
+Errors  Files
+     2  src/math.ts[90m:4[0m
+     1  src/other.ts[90m:1[0m

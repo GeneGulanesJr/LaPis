@@ -104,9 +104,11 @@ Re-install is idempotent: LaPis hook handlers are identified by a sentinel (`cla
 | `PreToolUse` `mcp__lapis__memory-code` | Seed `exploredFiles` |
 | `PostToolUse` `Write` \| `Edit` \| `MultiEdit` | Edit-track (sync) |
 | `PostToolUse` `Bash` (git ops) | `sync-code-trust` (async) |
+| `PostToolUse` / `PostToolUseFailure` `Bash` (check commands) | Record tsc/ESLint/Vitest/Jest/pytest results (async) — see [Check results](COMMANDS.md#check-results-everyday-projects) |
 | `PostToolUse` `mcp__lapis__memory-code` | Harvest file paths into `exploredFiles` |
 | `PostToolUse` `mcp__lapis__memory-save` \| `search` \| `get` \| `delete` | **Tool-state mirroring** (counters + recall feedback) — process-boundary fix |
-| `Stop` | Passive-capture + checkpoint + dream (silent, async) |
+| `Stop` `--only verify-gate` | Check gate (sync): block "done" on new failures or unchecked edits, at most 3 times per session |
+| `Stop` `--skip verify-gate` | Passive-capture + checkpoint + dream (silent, async) |
 | `SessionEnd` | `session-summary` + `session-end` (awaited, DB-derived count) |
 
 Hooks are wired as exec-form command handlers, e.g.:
@@ -120,7 +122,7 @@ Hooks are wired as exec-form command handlers, e.g.:
 }
 ```
 
-Heavy handlers (`Stop`, git-trust `PostToolUse`) run with `async: true`. `PostToolUse` is split with `--skip git-trust` / `--only git-trust` so tracking stays synchronous while trust sync runs in the background.
+Heavy handlers (`Stop` capture, git-trust `PostToolUse`, `PostToolUseFailure`) run with `async: true`; the `Stop` check gate is synchronous because only a synchronous hook can block. `PostToolUse` is split with `--skip git-trust` / `--only git-trust` so tracking stays synchronous while trust sync runs in the background.
 
 ## Auto-indexing
 

@@ -132,6 +132,7 @@ const ROUTER_PATHS = {
     'verify-scan': 'verification',
     'verify-ingest': 'verification',
     'proof-state': 'verification',
+    'capture-checks': 'verification',
   };
 
 function requireAllRouters() {

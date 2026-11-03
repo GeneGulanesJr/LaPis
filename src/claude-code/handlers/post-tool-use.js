@@ -34,6 +34,10 @@ const path = require('node:path'),
   { addNormalized, uniqueEditedPaths } = require('../file-keys'),
   { postToolRole } = require('../tool-map'),
   { matchesGitTrustOperation, GIT_TRUST_OP_RE } = require('../../hooks-engine/git-trust'),
+  { isCheckCommand } = require('../../verification/checkers'),
+  { MAX_OUTPUT } = require('../../verification/capture'),
+  { verificationEnabled } = require('../../verification'),
+  { getConfig } = require('../../../config'),
   // Harvest relative code paths from a memory-code response (parity with the Pi
   // Tool_result handler in tool-guardrails.ts). The extension alternation is the
   // Same list SPECIFIC_CODE_FILE_RE uses so the harvest never lags the
@@ -118,6 +122,32 @@ async function gitTrustSync({ input, dispatch, repos, state, cwd }) {
   }
 }
 
+/**
+ * Record a check command's results (tsc, ESLint, Vitest, Jest, pytest) from
+ * the Bash tool's output. Shared by PostToolUse (success) and
+ * PostToolUseFailure (non-zero exit). Best-effort, never throws.
+ */
+async function captureChecks({ command, output, dispatch, cwd }) {
+  if (!isCheckCommand(command) || typeof output !== 'string' || !output || !verificationEnabled(getConfig())) {
+    return;
+  }
+  try {
+    await dispatch('capture-checks', { command, output: output.slice(-MAX_OUTPUT), path: cwd });
+  } catch {
+    // Capture is best-effort.
+  }
+}
+
+function bashOutputText(toolResponse) {
+  if (typeof toolResponse === 'string') {
+    return toolResponse;
+  }
+  if (toolResponse && typeof toolResponse === 'object') {
+    return [toolResponse.stdout, toolResponse.stderr].filter((s) => typeof s === 'string' && s).join('\n');
+  }
+  return '';
+}
+
 async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, roleFilter }) {
   const toolName = payload.tool_name,
     role = postToolRole(toolName);
@@ -144,6 +174,7 @@ async function handlePostToolUse({ payload, dispatch, getKnownRepos, getKnownPro
     if (role === 'git-trust') {
       const state = stateStore.loadState(claudeSessionId);
       await gitTrustSync({ input, dispatch, repos, state, cwd: resolvedCwd });
+      await captureChecks({ command: input.command, output: bashOutputText(toolResponse), dispatch, cwd: resolvedCwd });
       return null;
     }
 
@@ -224,5 +255,6 @@ module.exports = {
   recordSearchRecall,
   consumeRecall,
   gitTrustSync,
+  captureChecks,
   GIT_TRUST_OP_RE,
 };

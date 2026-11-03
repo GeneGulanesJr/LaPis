@@ -1,0 +1,35 @@
+
+ RUN  v4.1.12 <ROOT>
+
+ ✓ test/vok.test.mjs > passes 3ms
+ ✓ test/vmath.test.mjs > math > adds 3ms
+ × test/vmath.test.mjs > math > fails on purpose 9ms
+   → expected 2 to be 3 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/vmath.test.mjs > math > fails on purpose
+AssertionError: expected 2 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 2
+
+ ❯ test/vmath.test.mjs:4:48
+      2| describe('math', () => {
+      3|   it('adds', () => { expect(1 + 1).toBe(2); });
+      4|   it('fails on purpose', () => { expect(1 + 1).toBe(3); });
+       |                                                ^
+      5| });
+      6|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 2 passed (3)
+   Start at  12:28:40
+   Duration  734ms (transform 59ms, setup 0ms, import 129ms, tests 20ms, environment 0ms)
+

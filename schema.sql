@@ -945,6 +945,7 @@ CREATE TABLE IF NOT EXISTS verifier_runs (
   source_sha256 TEXT NOT NULL,
   totals_json TEXT NOT NULL,
   ran_at TEXT,
+  worktree_json TEXT,  -- V32
   ingested_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_vr_repo ON verifier_runs(repo_root, verifier);
