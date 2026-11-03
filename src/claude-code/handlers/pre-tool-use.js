@@ -21,7 +21,8 @@
  * `index-repo` (see ../auto-index.js — it never indexes inline, so the hook
  * timeout is untouched) and tells the agent so. Once the index exists the
  * guardrails apply on their own. Opt out: config `auto_index.enabled=false` or
- * LAPIS_AUTO_INDEX=0.
+ * LAPIS_AUTO_INDEX=0. Guardrails themselves: `tool_guardrails.enabled=false` or
+ * LAPIS_GUARDRAILS=0; they also stand down for an index with zero parsed files.
  */
 
 const path = require('node:path'),
@@ -224,12 +225,22 @@ function autoIndexOnMiss({ args, autoIndex }) {
   }
 }
 
+/**
+ * Guardrails are off when config `tool_guardrails.enabled=false` / LAPIS_GUARDRAILS=0,
+ * or when the cwd's index has zero parsed files: redirecting to memory-code
+ * there (e.g. an Ada-only repo) only blocks the agent.
+ */
+function guardrailsEnabled(config, repo) {
+  return config?.tool_guardrails?.enabled !== false && !(repo && repo.file_count === 0);
+}
+
 async function handlePreToolUse({
   payload,
   getKnownRepos,
   getKnownProjects,
   stateStore,
   autoIndex = maybeStartAutoIndex,
+  config,
 }) {
   const toolName = payload.tool_name,
     role = preToolRole(toolName),
@@ -280,9 +291,13 @@ async function handlePreToolUse({
   if (!guardrail) {
     return null;
   }
+  const on = guardrailsEnabled(
+    config || require('../../../config').getConfig(),
+    resolveRepo(cwd, repos, state.currentProject),
+  );
   // A deny only happens inside an indexed repo, so auto-index runs only when the
   // Call was allowed through.
-  return guardrail(args) || autoIndexOnMiss({ args, autoIndex });
+  return (on && guardrail(args)) || autoIndexOnMiss({ args, autoIndex });
 }
 
 module.exports = {
@@ -293,4 +308,5 @@ module.exports = {
   bashGuardrail,
   addExploredFile,
   resolveRepo,
+  guardrailsEnabled,
 };

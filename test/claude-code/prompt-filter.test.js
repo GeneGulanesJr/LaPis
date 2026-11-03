@@ -153,6 +153,8 @@ async function runPrompt({ prompt, observations = [], cross = [], preflight = nu
       dispatch,
       getKnownRepos: () => [repo],
       stateStore: makeStateStore(),
+      // Cross-project suggestions are off by default; these tests judge them.
+      config: { context_injection: { enabled: true, cross_project: true } },
     });
   return { text: out ? out.hookSpecificOutput.additionalContext : '', calls };
 }

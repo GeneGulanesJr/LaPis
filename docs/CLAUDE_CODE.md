@@ -142,6 +142,18 @@ Safety rails:
 
 Opt out with `"auto_index": { "enabled": false }` in `~/.pi/memory/config.jsonc` or `LAPIS_AUTO_INDEX=0` in the environment (env wins over the config file). See [`CONFIGURATION.md`](CONFIGURATION.md).
 
+## Switches
+
+Each hook behavior has a config key and an env override (env wins). Hooks inherit Claude Code's environment, so you can set them in your shell for a single repo.
+
+| Behavior | Config | Env | Default |
+| --- | --- | --- | --- |
+| Read/Grep/Glob/Bash guardrails | `tool_guardrails.enabled` | `LAPIS_GUARDRAILS` | on (off for an index with zero parsed files) |
+| Memory context injection | `context_injection.enabled` | `LAPIS_CONTEXT` | on |
+| Other projects' memories in context | `context_injection.cross_project` | `LAPIS_CROSS_PROJECT` | **off** |
+| Regex auto-save on Stop | `auto_capture.enabled` | `LAPIS_AUTO_CAPTURE` | on (saves expire in 7 days and are never injected) |
+| Background auto-index | `auto_index.enabled` | `LAPIS_AUTO_INDEX` | on |
+
 ## State storage
 
 Claude Code spawns a **fresh process per hook event**. The in-process `state` object Pi's extension mutates is invisible across hook invocations.

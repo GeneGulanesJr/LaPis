@@ -16,7 +16,13 @@
 const path = require('node:path'),
   { CONTEXT } = require('../../constants'),
   { buildContextBlock, capInjectedContext, appendExtensionHint } = require('../hooks-engine/context-builder'),
-  { findMatchingRepo, resolveCwd } = require('../hooks-engine/project');
+  { findMatchingRepo, resolveCwd } = require('../hooks-engine/project'),
+  { isAutoCaptured } = require('../hooks-engine/passive-capture');
+
+/** `context_injection` config with defaults (config.js DEFAULTS + env overrides). */
+function injectionConfig(config) {
+  return { enabled: true, cross_project: false, ...(config || require('../../config').getConfig()).context_injection };
+}
 
 /**
  * Fetch project context, falling back to cross-project if empty.
@@ -51,8 +57,18 @@ async function fetchContext({ dispatch, project, limit, query, sessionId, extraA
  * dispatch args for the project-scoped fetch (e.g. 'decision-select').
  * @returns {Promise<object|null>}
  */
-async function collectContext({ dispatch, getKnownRepos, project, cwd, query = null, sessionId = null, contextArgs }) {
-  const limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT,
+async function collectContext({
+  dispatch,
+  getKnownRepos,
+  project,
+  cwd,
+  query = null,
+  sessionId = null,
+  contextArgs,
+  config,
+}) {
+  const crossProject = injectionConfig(config).cross_project,
+    limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT,
     { contextResult, crossProjectResult } = await fetchContext({
       dispatch,
       project,
@@ -78,7 +94,10 @@ async function collectContext({ dispatch, getKnownRepos, project, cwd, query = n
 
   let effectiveObservations = [];
   if (query) {
-    effectiveObservations = isNewProject ? crossProjectResult.observations || [] : observations;
+    // A new project has no memories yet; other projects' memories are not "prompt-matched".
+    const matched = isNewProject ? (crossProject && crossProjectResult.observations) || [] : observations;
+    // Regex auto-captures are unreviewed claims: searchable, never injected as facts.
+    effectiveObservations = matched.filter((o) => o && !isAutoCaptured(o));
   }
   return {
     promptQuery: query,
@@ -94,7 +113,7 @@ async function collectContext({ dispatch, getKnownRepos, project, cwd, query = n
     stats,
     effectiveStats: isNewProject ? crossProjectResult.stats || {} : stats,
     topic,
-    crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
+    crossProjectSuggestions: crossProject ? effectiveContext.cross_project_suggestions || [] : [],
   };
 }
 
@@ -139,4 +158,11 @@ async function buildInjectedContext(opts) {
   return capInjectedContext(assembled.lines.join('\n'));
 }
 
-module.exports = { assembleContextLines, buildInjectedContext, fetchContext, collectContext, renderContextLines };
+module.exports = {
+  assembleContextLines,
+  buildInjectedContext,
+  fetchContext,
+  collectContext,
+  renderContextLines,
+  injectionConfig,
+};

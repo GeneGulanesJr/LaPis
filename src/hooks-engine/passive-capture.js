@@ -10,7 +10,16 @@
  */
 
 // A lead-in ("Here's what changed:"), a stock opener or a JSON blob says nothing as a title (#371).
-const WEAK_TITLE_RE = /:[\s*_]*$|^\s*\{|^[\s*_]*(?:all good|looking good|here['\u2019]s|here is|here are)\b/i;
+const WEAK_TITLE_RE = /:[\s*_]*$|^\s*\{|^[\s*_]*(?:all good|looking good|here['\u2019]s|here is|here are)\b/i,
+  // Same marker memory-domain/context.js AUTO_CAPTURE_LAST matches in SQL.
+  AUTO_CAPTURE_PREFIX = '**What**: Auto-detected',
+  // Unreviewed regex captures expire unless someone re-saves them on purpose.
+  AUTO_CAPTURE_TTL = '7d';
+
+/** Whether a memory row was written by regex passive capture. */
+function isAutoCaptured(observation) {
+  return typeof observation?.content === 'string' && observation.content.startsWith(AUTO_CAPTURE_PREFIX);
+}
 
 /**
  * Build the auto-decision save payload from a matched capture.
@@ -21,7 +30,7 @@ const WEAK_TITLE_RE = /:[\s*_]*$|^\s*\{|^[\s*_]*(?:all good|looking good|here['\
  * @param {{match:boolean,confidence:string,pattern?:object}} input.capture
  * @param {string} input.project
  * @param {number|string|null} input.sessionId
- * @returns {{title:string,type:string,project:string,scope:string,content:string}|null}
+ * @returns {{title:string,type:string,project:string,scope:string,'expires-in':string,content:string}|null}
  */
 function buildAutoDecisionPayload({ text, capture, project, sessionId }) {
   if (!capture || !capture.match || capture.confidence === 'low' || !capture.pattern) {
@@ -43,8 +52,9 @@ function buildAutoDecisionPayload({ text, capture, project, sessionId }) {
     type: capture.pattern.type,
     project: project || 'unknown',
     scope: 'project',
+    'expires-in': AUTO_CAPTURE_TTL,
     content: [
-      `**What**: Auto-detected ${capture.pattern.label.toLowerCase()} (confidence: ${capture.confidence})`,
+      `${AUTO_CAPTURE_PREFIX} ${capture.pattern.label.toLowerCase()} (confidence: ${capture.confidence})`,
       `**Where**: Session ${sessionId || 'unknown'}`,
       `**Learned**: ${text.slice(0, 300)}`,
     ].join('\n'),
@@ -76,6 +86,9 @@ function isAutoDecisionCoolingDown(lastSave, now = Date.now(), cooldown = 60000)
 }
 
 module.exports = {
+  AUTO_CAPTURE_PREFIX,
+  AUTO_CAPTURE_TTL,
+  isAutoCaptured,
   buildAutoDecisionPayload,
   shouldCheckpoint,
   shouldDream,
