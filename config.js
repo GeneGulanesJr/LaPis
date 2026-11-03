@@ -38,17 +38,6 @@ const path = require('path'),
     auto_index: {
       enabled: true,
     },
-    // Claude Code bridge: memory context injected on SessionStart/UserPromptSubmit.
-    // Env: LAPIS_CONTEXT=0 turns injection off; LAPIS_CROSS_PROJECT=1 adds other
-    // Projects' memories (off by default: they are unrelated to the current repo).
-    context_injection: {
-      enabled: true,
-      cross_project: false,
-    },
-    // Claude Code Stop hook: regex auto-save of assistant "decisions". Env: LAPIS_AUTO_CAPTURE=0.
-    auto_capture: {
-      enabled: true,
-    },
     // Provider-agnostic semantic judgments (docs/JUDGMENT.md, spec 2026-09-26).
     // DEFAULT OFF — LaPis is zero-cloud/zero-keys by identity (spec §4);
     // opting in requires LAPIS_JUDGE_PROVIDER=decision AND a machine-scoped
@@ -185,9 +174,6 @@ function applyEnvOverrides(config) {
   for (const [envName, section, key] of [
     ['LAPIS_AUTO_INDEX', 'auto_index', 'enabled'],
     ['LAPIS_GUARDRAILS', 'tool_guardrails', 'enabled'],
-    ['LAPIS_CONTEXT', 'context_injection', 'enabled'],
-    ['LAPIS_CROSS_PROJECT', 'context_injection', 'cross_project'],
-    ['LAPIS_AUTO_CAPTURE', 'auto_capture', 'enabled'],
   ]) {
     const flag = process.env[envName];
     if (flag !== undefined && flag.trim() !== '') {
@@ -234,7 +220,7 @@ function loadConfig() {
     // nested judgment fields (provider/disables) — re-clone the section first
     // or every load would pollute the shared DEFAULTS object.
     merged.judgment = deepMerge(DEFAULTS.judgment, merged.judgment || {});
-    for (const section of ['auto_index', 'tool_guardrails', 'context_injection', 'auto_capture']) {
+    for (const section of ['auto_index', 'tool_guardrails']) {
       merged[section] = deepMerge(DEFAULTS[section], merged[section] || {});
     }
     merged.db_path = expandTilde(merged.db_path);

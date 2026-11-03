@@ -121,7 +121,7 @@ async function checkpoint({ dispatch, state, project }) {
   });
 }
 
-async function handleStop({ payload, dispatch, stateStore, getKnownRepos, getKnownProjects, config }) {
+async function handleStop({ payload, dispatch, stateStore, getKnownRepos, getKnownProjects }) {
   // Avoid re-entrancy: Claude Code sets stop_hook_active when already inside a
   // Stop continuation. Bail out so we never create a feedback loop.
   if (payload?.stop_hook_active) {
@@ -149,7 +149,6 @@ async function handleStop({ payload, dispatch, stateStore, getKnownRepos, getKno
     now,
     lastText,
     transcriptPath: payload?.transcript_path,
-    config,
   }).catch(() => {});
 
   return null; // Silent — no stdout, no turn continuation
@@ -168,15 +167,11 @@ async function runStopCapture({
   now,
   lastText,
   transcriptPath,
-  config,
 }) {
   const mutate = makeMutate(stateStore, claudeSessionId);
 
   try {
-    // LAPIS_AUTO_CAPTURE=0 / auto_capture.enabled=false skips only the regex
-    // Save; checkpoints, dream and recall feedback below still run.
-    const captureOn = (config || require('../../../config').getConfig()).auto_capture?.enabled !== false,
-      text = captureOn ? await resolveAssistantText(lastText, transcriptPath) : null,
+    const text = await resolveAssistantText(lastText, transcriptPath),
       // Passive capture: locked read → dispatch (unlocked) → locked cooldown stamp.
       autoPayload = await mutate((state) => {
         if (!text || text.length < 100) {

@@ -253,6 +253,7 @@ ${TRUST_RECALL_COLUMNS}
         LEFT JOIN symbol_links sl ON sl.memory_id = CAST(o.id AS TEXT)
         WHERE o.deleted_at IS NULL AND o.type != 'skill'
           AND o.scope = 'project' AND o.project != ?
+          AND NOT ${AUTO_CAPTURE_LAST}
           AND (o.expires_at IS NULL OR o.expires_at > datetime('now'))
           AND (${match.whereSql})
           ${prefilterSql}

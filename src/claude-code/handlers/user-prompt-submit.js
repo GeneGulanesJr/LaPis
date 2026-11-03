@@ -29,7 +29,7 @@ const { CONTEXT } = require('../../../constants'),
     unwrapAnalysisData,
   } = require('../../hooks-engine/preflight-assembly'),
   { capInjectedContext } = require('../../hooks-engine/context-builder'),
-  { collectContext, renderContextLines, injectionConfig } = require('../context-inject'),
+  { collectContext, renderContextLines } = require('../context-inject'),
   { contextDecisionEnabled } = require('../../memory-domain/context-decision'),
   { makeMutate } = require('../state-mutate'),
   BUDGET_MS = 30000,
@@ -96,10 +96,10 @@ async function appendPreflight({ lines, dispatch, cwdRepo, prompt, preflight, ma
   }
 }
 
-async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, isCancelled, config }) {
+async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateStore, isCancelled }) {
   const rawPrompt = payload.prompt || '',
     prompt = rawPrompt.replace(TASK_NOTIFICATION_RE, '').trim();
-  if ((rawPrompt && !prompt) || !injectionConfig(config).enabled) {
+  if (rawPrompt && !prompt) {
     return null;
   }
 
@@ -116,7 +116,6 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
       cwd: payload.cwd,
       query: prompt,
       sessionId,
-      config,
       // The prompt filter judges every section in one request; skip the
       // Gateway's own per-memory selection so a prompt makes one call.
       contextArgs: filterOn ? { 'decision-select': 'off' } : undefined,

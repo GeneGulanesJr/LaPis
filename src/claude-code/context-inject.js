@@ -19,11 +19,6 @@ const path = require('node:path'),
   { findMatchingRepo, resolveCwd } = require('../hooks-engine/project'),
   { isAutoCaptured } = require('../hooks-engine/passive-capture');
 
-/** `context_injection` config with defaults (config.js DEFAULTS + env overrides). */
-function injectionConfig(config) {
-  return { enabled: true, cross_project: false, ...(config || require('../../config').getConfig()).context_injection };
-}
-
 /**
  * Fetch project context, falling back to cross-project if empty.
  * Returns { contextResult, crossProjectResult } (each may be null on failure).
@@ -57,18 +52,8 @@ async function fetchContext({ dispatch, project, limit, query, sessionId, extraA
  * dispatch args for the project-scoped fetch (e.g. 'decision-select').
  * @returns {Promise<object|null>}
  */
-async function collectContext({
-  dispatch,
-  getKnownRepos,
-  project,
-  cwd,
-  query = null,
-  sessionId = null,
-  contextArgs,
-  config,
-}) {
-  const crossProject = injectionConfig(config).cross_project,
-    limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT,
+async function collectContext({ dispatch, getKnownRepos, project, cwd, query = null, sessionId = null, contextArgs }) {
+  const limit = query ? CONTEXT.PROMPT_RELEVANT_LIMIT : CONTEXT.PROJECT_SUMMARY_LIMIT,
     { contextResult, crossProjectResult } = await fetchContext({
       dispatch,
       project,
@@ -94,8 +79,7 @@ async function collectContext({
 
   let effectiveObservations = [];
   if (query) {
-    // A new project has no memories yet; other projects' memories are not "prompt-matched".
-    const matched = isNewProject ? (crossProject && crossProjectResult.observations) || [] : observations;
+    const matched = isNewProject ? crossProjectResult.observations || [] : observations;
     // Regex auto-captures are unreviewed claims: searchable, never injected as facts.
     effectiveObservations = matched.filter((o) => o && !isAutoCaptured(o));
   }
@@ -113,7 +97,7 @@ async function collectContext({
     stats,
     effectiveStats: isNewProject ? crossProjectResult.stats || {} : stats,
     topic,
-    crossProjectSuggestions: crossProject ? effectiveContext.cross_project_suggestions || [] : [],
+    crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
   };
 }
 
@@ -164,5 +148,4 @@ module.exports = {
   fetchContext,
   collectContext,
   renderContextLines,
-  injectionConfig,
 };

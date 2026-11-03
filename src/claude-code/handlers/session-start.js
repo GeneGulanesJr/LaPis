@@ -15,7 +15,7 @@
 
 const { resolveCwd } = require('../../hooks-engine/project'),
   { resolveProjectForCwd } = require('../project-resolve'),
-  { buildInjectedContext, injectionConfig } = require('../context-inject'),
+  { buildInjectedContext } = require('../context-inject'),
   { maybeStartAutoIndex, describeAutoIndex } = require('../auto-index');
 
 /**
@@ -37,7 +37,6 @@ async function handleSessionStart({
   getKnownProjects,
   stateStore,
   autoIndex = maybeStartAutoIndex,
-  config,
 }) {
   const source = payload.source || 'startup',
     { project, repos, resolvedCwd } = resolveProjectForCwd(payload.cwd, getKnownRepos, getKnownProjects),
@@ -115,19 +114,14 @@ async function handleSessionStart({
   // Inject (or re-inject after compact) context. sessionId may be null on a
   // Failed session-start; context still loads without a session binding.
   {
-    // LAPIS_CONTEXT=0 / context_injection.enabled=false: keep the session row and
-    // The auto-index note, inject no memory.
-    const baseContext = injectionConfig(config).enabled
-        ? await buildInjectedContext({
-            dispatch,
-            getKnownRepos,
-            project,
-            cwd,
-            query: null,
-            sessionId: state.sessionId,
-            config,
-          }).catch(() => null)
-        : null,
+    const baseContext = await buildInjectedContext({
+        dispatch,
+        getKnownRepos,
+        project,
+        cwd,
+        query: null,
+        sessionId: state.sessionId,
+      }).catch(() => null),
       additionalContext = [baseContext, indexNote].filter(Boolean).join('\n\n');
 
     if (!additionalContext) {

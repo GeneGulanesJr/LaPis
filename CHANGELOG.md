@@ -41,15 +41,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Claude Code: other projects' memories are no longer injected by default.**
-  "Cross-Project Suggestions" and the new-project fallback (which showed other
-  projects' memories as "Prompt-Matched Memory") are off unless
-  `context_injection.cross_project` / `LAPIS_CROSS_PROJECT=1` is set.
 - **Claude Code: regex auto-saves are hints, not facts.** Stop-hook auto-saves
-  expire after 7 days and are never injected into prompts (still searchable).
-- **Claude Code switches.** Memory injection (`context_injection.enabled` /
-  `LAPIS_CONTEXT`) and regex auto-save (`auto_capture.enabled` /
-  `LAPIS_AUTO_CAPTURE`) can now be turned off; see `docs/CLAUDE_CODE.md#switches`.
+  expire after 7 days and are never injected into prompts or cross-project
+  suggestions (still searchable).
 
 - **Judgment surfaces: one capped request, no retries, a log line.** Every
   surface (`recall`, `dedupe`, `trust`, `guard`, `autosave`, `dream`, `context`)
