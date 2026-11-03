@@ -10,7 +10,7 @@ const searchCmd = require('../../../commands/search'),
   USAGE = {
     save: '--title <title> --content <content> [--type TYPE] [--project NAME] [--scope SCOPE] [--topic-key KEY] [--force] [--expires-in DUR] [--session-id ID]',
     'save-classified':
-      '--title <title> --content <content> [--classification guard|moderate|triage|email|auto] [--on-injection refuse|save_as_security_block] [--type TYPE] [--project NAME] [--scope SCOPE] [--topic-key KEY] [--force] [--expires-in DUR] [--trust-score N]',
+      '--title <title> --content <content> [--classification guard|moderate|triage|email|auto] [--on-injection refuse|save_as_security_block] [--type TYPE] [--project NAME] [--scope SCOPE] [--topic-key KEY] [--force] [--expires-in DUR]',
     get: '--id ID',
     update:
       '--id ID [--title T] [--content C] [--type T] [--project P] [--scope S] [--topic-key K] [--expires-in DUR] [--expires-at TS] [--clear-expiry]',
@@ -63,9 +63,6 @@ function buildSaveClassified(deps, commands) {
     }
     if (override && override.type) {
       adjusted.type = override.type;
-    }
-    if (override && override['trust-score']) {
-      adjusted['trust-score'] = override['trust-score'];
     }
 
     const baseResult = await commands.save(adjusted);
@@ -150,8 +147,7 @@ function buildSaveClassified(deps, commands) {
       title = arg(args, 'title'),
       content = arg(args, 'content'),
       classificationRequested = arg(args, 'classification', 'classification') || 'auto',
-      onInjection = arg(args, 'on-injection', 'on_injection') || 'refuse',
-      baseTrustRaw = arg(args, 'trust-score', 'trust_score');
+      onInjection = arg(args, 'on-injection', 'on_injection') || 'refuse';
 
     if (!title || !content) {
       return jsonErrNoExit('save-classified requires --title and --content');
@@ -217,19 +213,14 @@ function buildSaveClassified(deps, commands) {
       );
     }
 
-    // Step 4: success — compute adjusted args + trust score, then save.
-    const baseTrust = baseTrustRaw !== undefined ? Number(baseTrustRaw) : 1.0,
-      adjustedTrust = Number.isFinite(baseTrust)
-        ? Math.max(0, Math.min(1, baseTrust * classified.confidence))
-        : classified.confidence,
-      override = { 'trust-score': String(adjustedTrust) };
+    // Step 4: success — save. Memories have no trust column (trust lives on
+    // Symbol links), so the classifier confidence is reported, not stored.
     return runSave({
       args,
       title,
       content,
       classification: { ...classified, auto_reason: autoReason },
       confidence: classified.confidence,
-      override,
     });
   };
 }

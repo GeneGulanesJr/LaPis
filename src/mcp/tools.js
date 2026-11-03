@@ -183,12 +183,6 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
           ),
           optional: true,
         },
-        trust_score: {
-          schema: opt(
-            num('Override trust score (0-1). Combined with the classifier confidence when classification succeeds.'),
-          ),
-          optional: true,
-        },
       }),
       toCommand(p, ctx) {
         const args = {
@@ -212,9 +206,6 @@ module.exports.DOC_MODE_TO_COMMAND = DOC_MODE_TO_COMMAND;
         }
         if (p.expires_in) {
           args[kebab('expires_in')] = p.expires_in;
-        }
-        if (p.trust_score !== undefined && p.trust_score !== null) {
-          args[kebab('trust_score')] = String(p.trust_score);
         }
         return { cmd: 'save-classified', args };
       },
