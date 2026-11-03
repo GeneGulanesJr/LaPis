@@ -132,6 +132,33 @@ describe('hooks-engine context-builder: buildContextBlock', () => {
     expect(nav.join('\n')).toContain('MatchedDecAlpha');
     expect(nav.join('\n')).toContain('MatchedFixBeta');
   });
+
+  test('flags a memory only when its linked code changed', () => {
+    const render = (o) =>
+      buildContextBlock({
+        ...baseBag,
+        promptQuery: 'what did we decide',
+        effectiveObservations: [{ type: 'decision', title: 'D', ...o }],
+      }).join('\n');
+    // Unlinked: default trust 0.7 is not a signal.
+    expect(render({ trust_score: 0.7, linked_trust: null })).not.toMatch(/⚠️|🔎/);
+    expect(render({ trust_score: 1, linked_trust: 1 })).not.toMatch(/⚠️|🔎/);
+    expect(render({ trust_score: 0.7, linked_trust: 0.7 })).toContain(
+      '- [decision] D (⚠️ linked code changed since saved)',
+    );
+  });
+
+  test('lists the other indexed repos, not the current one', () => {
+    const cwdRepo = { name: 'sc-web', path: process.cwd(), file_count: 1, symbol_count: 1 },
+      content = buildContextBlock({
+        ...baseBag,
+        cwdRepo,
+        repos: [cwdRepo, { name: 'sv-db', path: process.cwd() }, { name: 'gone', path: '/no/such/lapis-dir' }],
+      }).join('\n');
+    expect(content).toContain('- Other code indexes (`memory-code --repo <name>`): `sv-db`\n');
+    expect(content).not.toContain('`sc-web`,');
+    expect(buildContextBlock({ ...baseBag, cwdRepo, repos: [cwdRepo] }).join('\n')).not.toContain('Other code indexes');
+  });
 });
 
 describe('hooks-engine context-builder: buildSourceLookupGuidance', () => {

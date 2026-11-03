@@ -43,7 +43,8 @@ Memory is handled automatically by the `memory-layer` extension. It:
 ### When to use the tools
 
 - **`memory-save`** — Decisions, bugfixes, architecture constraints, patterns, discoveries. Always search first.
-- **`memory-update`** — Correct or refine an existing memory in-place by ID. Use instead of saving a correction entry.
+- **`memory-update`** — Correct or refine an existing memory in-place by ID. Use instead of saving a correction entry, and only when the user says the memory is wrong or the code shows it no longer holds.
+- **Saved decisions stand** until the user changes them. Being asked about a decision, or its age, does not make it stale: follow it and cite it. If the code now contradicts it, say so and ask before going against it.
 - **`memory-delete`** — Remove stale, incorrect, or duplicate memories by ID (soft-delete, recoverable).
 - **`memory-search`** — Before making decisions, to avoid repeating past mistakes or re-deciding settled questions.
 - **`memory-get`** — To read the full content of a specific memory.

@@ -147,6 +147,7 @@ function buildSourceLookupGuidance(repos, cwd, currentProject) {
  * @param {string|null} bag.topic
  * @param {Array}    bag.crossProjectSuggestions
  * @param {object|null} bag.checkState      proof-state result (latest check/prover runs) or null
+ * @param {Array}    bag.repos              every indexed repo ({name}); the ones besides cwdRepo are listed
  */
 function buildContextBlock(bag) {
   const {
@@ -162,6 +163,7 @@ function buildContextBlock(bag) {
       topic,
       crossProjectSuggestions = [],
       checkState = null,
+      repos = [],
     } = bag,
     topicNote = topic ? ` | topic: ${topic}` : '',
     lines = ['## Memory Context (auto-loaded)', ''],
@@ -191,6 +193,14 @@ function buildContextBlock(bag) {
   } else {
     lines.push(`- Code index: not indexed for this project`);
   }
+  // Name the other indexes too: an agent never queries a repo it was not told exists.
+  // Skip indexes whose folder is gone (deleted temp and test repos).
+  const otherRepos = repos.filter((r) => r?.name && r.name !== cwdRepo?.name && r.path && fs.existsSync(r.path)),
+    shownRepos = otherRepos.slice(0, 8).map((r) => `\`${r.name}\``);
+  if (shownRepos.length > 0) {
+    const more = otherRepos.length > shownRepos.length ? ` (+${otherRepos.length - shownRepos.length} more)` : '';
+    lines.push(`- Other code indexes (\`memory-code --repo <name>\`): ${shownRepos.join(', ')}${more}`);
+  }
   lines.push('');
   // Check results go before memories: the cap cuts from the end, and a check is the judge, memory only a hint.
   lines.push(...renderCheckState(checkState));
@@ -200,12 +210,8 @@ function buildContextBlock(bag) {
       injectLimit = navigationPrompt ? CONTEXT.NAVIGATION_PROMPT_INJECT_LIMIT || 2 : CONTEXT.PROMPT_INJECT_LIMIT || 1;
     lines.push('### Prompt-Matched Memory');
     for (const o of effectiveObservations.slice(0, injectLimit)) {
-      let trust = '';
-      if (o.trust_score < 0.5) {
-        trust = ' ⚠️';
-      } else if (o.trust_score < 0.8) {
-        trust = ' 🔎';
-      }
+      // Only a code link gives trust a meaning; unlinked memories carry the default score, not a signal.
+      const trust = o.linked_trust != null && o.linked_trust < 0.8 ? ' (⚠️ linked code changed since saved)' : '';
       lines.push(`- [${o.type}] ${o.title}${trust}`);
       const snippet = summarizeMemoryContent(o.content);
       if (snippet) {

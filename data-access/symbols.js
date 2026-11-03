@@ -36,6 +36,97 @@ function findUnlinked(deps, project) {
   );
 }
 
+// Repo-relative file paths (need a slash and an extension) and code-looking names
+// (camelCase, snake_case or `backticked`) mentioned in a memory.
+const LINK_PATH_RE = /[\w.-]*[/\\][\w./\\-]*\.\w{1,6}\b/g,
+  LINK_NAME_RE = /`([A-Za-z_$][\w$]{3,})`|\b([A-Za-z_$][\w$]*(?:[a-z0-9][A-Z]|_)[\w$]*)\b/g,
+  LINK_MAX_PER_MEMORY = 10;
+
+function linkCandidates(text) {
+  const paths = new Set(),
+    names = new Set();
+  for (const m of text.matchAll(LINK_PATH_RE)) {
+    paths.add(m[0].replace(/\\/g, '/').replace(/^(?:\.\/)+/, ''));
+  }
+  for (const m of text.matchAll(LINK_NAME_RE)) {
+    const name = m[1] || m[2];
+    if (name.length >= 4) {
+      names.add(name);
+    }
+  }
+  return { paths: [...paths], names: [...names] };
+}
+
+/**
+ * Link this repo's unlinked project memories to the indexed files and symbols
+ * they mention, at full trust, so trust sync can lower them when that code changes.
+ * Memories that name nothing in the index stay unlinked and are retried next time.
+ * @returns {{ total:number, linked:number, links:number }}
+ */
+function autoLinkMemories(deps, repo) {
+  const { sqlJson } = deps,
+    repoRow = sqlJson('SELECT id, name, path FROM code_repos WHERE name = ? COLLATE NOCASE', [repo])[0];
+  if (!repoRow) {
+    return { total: 0, linked: 0, links: 0 };
+  }
+  const memories = sqlJson(
+    `SELECT CAST(id AS TEXT) as memory_id, title, content FROM observations
+     WHERE project = ? COLLATE NOCASE AND deleted_at IS NULL
+       AND CAST(id AS TEXT) NOT IN (SELECT memory_id FROM symbol_links)`,
+    [repo],
+  );
+  if (memories.length === 0) {
+    return { total: 0, linked: 0, links: 0 };
+  }
+
+  const candidates = memories.map((m) => linkCandidates(`${m.title || ''}\n${m.content || ''}`)),
+    // basename -> [{ rel, abs }], so a path mention is matched without scanning every file.
+    filesByBase = new Map();
+  for (const { path: abs } of sqlJson('SELECT path FROM code_files WHERE repo_id = ?', [repoRow.id])) {
+    const rel = abs.slice(repoRow.path.length).replace(/\\/g, '/').replace(/^\/+/, ''),
+      base = rel.slice(rel.lastIndexOf('/') + 1);
+    filesByBase.set(base, [...(filesByBase.get(base) || []), { rel, abs }]);
+  }
+  const allNames = [...new Set(candidates.flatMap((c) => c.names))],
+    filesByName = new Map();
+  for (let i = 0; i < allNames.length; i += 500) {
+    const chunk = allNames.slice(i, i + 500);
+    for (const row of sqlJson(
+      `SELECT DISTINCT name, file_path FROM code_symbols WHERE repo_id = ? AND name IN (${chunk.map(() => '?').join(',')})`,
+      [repoRow.id, ...chunk],
+    )) {
+      filesByName.set(row.name, [...(filesByName.get(row.name) || []), row.file_path]);
+    }
+  }
+
+  let linked = 0,
+    links = 0;
+  memories.forEach((memory, i) => {
+    const targets = new Map(); // symbolId -> symbolPath
+    for (const p of candidates[i].paths) {
+      for (const f of filesByBase.get(p.slice(p.lastIndexOf('/') + 1)) || []) {
+        if (f.rel === p || f.rel.endsWith(`/${p}`)) {
+          targets.set(f.rel, f.abs);
+        }
+      }
+    }
+    for (const name of candidates[i].names) {
+      const files = filesByName.get(name) || [];
+      // A name defined in several files is ambiguous; it cannot anchor a memory.
+      if (files.length === 1) {
+        targets.set(name, files[0]);
+      }
+    }
+    const chosen = [...targets].slice(0, LINK_MAX_PER_MEMORY);
+    for (const [symbolId, symbolPath] of chosen) {
+      linkSymbol(deps, { memoryId: memory.memory_id, symbolId, repo: repoRow.name, trust: 1, symbolPath });
+    }
+    linked += chosen.length > 0 ? 1 : 0;
+    links += chosen.length;
+  });
+  return { total: memories.length, linked, links };
+}
+
 function insertSymbolLink(deps, { memoryId, symbolId, repo, trustScore }) {
   const { sqlRun } = deps;
   sqlRun('INSERT OR IGNORE INTO symbol_links (memory_id, symbol_id, repo, trust_score) VALUES (?, ?, ?, ?)', [
@@ -167,6 +258,8 @@ function getRelatedMemories(deps, { memoryId, symbolIds, _limit }) {
 }
 
 module.exports = {
+  autoLinkMemories,
+  linkCandidates,
   deletePlaceholderLinks,
   linkSymbol,
   findUnlinked,

@@ -51,7 +51,8 @@ function buildSessionSummary({
   {
     const goalText =
         userMessages.length > 0
-          ? extractMessageText(userMessages[0]?.message)?.slice(0, 200) || 'Session work'
+          ? // Long enough to get past a shared preamble to the actual ask.
+            extractMessageText(userMessages[0]?.message)?.slice(0, 1000) || 'Session work'
           : 'Session work',
       summaryParts = ['## Goal', goalText, '', '## Topics Discussed', ...topics.slice(0, 10).map((t) => `- ${t}`)],
       files = uniqueEditedPaths(editedFiles);

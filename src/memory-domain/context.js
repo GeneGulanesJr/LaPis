@@ -9,6 +9,7 @@ const { TRUST_RECALL_SUBQ, TYPE_PRIORITY_CASE, _extractFtsTerms } = require('./s
 // NULL/0 semantics as the previous LEFT JOIN form.
 const TRUST_RECALL_COLUMNS = `
              COALESCE(${TRUST_RECALL_SUBQ.trustScore}, ${RANKING.DEFAULT_TRUST_SCORE}) as trust_score,
+             ${TRUST_RECALL_SUBQ.trustScore} as linked_trust,
              ${TRUST_RECALL_SUBQ.recallCount} as recall_count,`;
 
 // Passive captures rank below every hand-saved memory that matches the prompt (#371).
@@ -34,7 +35,66 @@ const TOPIC_QUERY_STOP_WORDS = new Set([
   'keep',
   'answer',
   'concise',
+  'you',
+  'your',
+  'are',
+  'was',
+  'were',
+  'can',
+  'could',
+  'should',
+  'would',
+  'will',
+  'have',
+  'has',
+  'had',
+  'not',
+  'but',
+  'all',
+  'any',
+  'our',
+  'its',
+  'they',
+  'them',
+  'then',
+  'than',
+  'there',
+  'here',
+  'which',
+  'who',
+  'about',
+  'also',
+  'just',
+  'please',
+  'need',
+  'want',
+  'some',
+  'more',
+  'very',
+  'been',
+  'these',
+  'those',
+  'only',
+  'each',
+  'other',
 ]);
+
+// Enough distinct words for a preamble plus the actual ask; the first 16 alone often missed the ask.
+// shortcut: keeps the first 64 by position, so a prompt with more meaningful words loses its tail; weight by rarity if that bites.
+const TOPIC_QUERY_MAX_TERMS = 64;
+
+// Strips leading/trailing . / - with index scans: a trailing-anchor regex is polynomial on long '-' runs (CodeQL).
+function trimTermPunctuation(term) {
+  let start = 0,
+    end = term.length;
+  while (start < end && './-'.includes(term[start])) {
+    start++;
+  }
+  while (end > start && './-'.includes(term[end - 1])) {
+    end--;
+  }
+  return term.slice(start, end);
+}
 
 function topicQueryNeedles(query) {
   const normalized = String(query || '')
@@ -45,12 +105,12 @@ function topicQueryNeedles(query) {
   }
 
   const phrase = normalized.length <= 120 ? [normalized] : [];
-  const terms = normalized
-    .match(/[a-z0-9_.\/-]+/g)
-    ?.filter((term) => term.length >= 3 && !TOPIC_QUERY_STOP_WORDS.has(term))
-    .slice(0, 16);
+  const terms = (normalized.match(/[a-z0-9_.\/-]+/g) || [])
+    // Sentence punctuation is not part of the word: "list." must match "list".
+    .map(trimTermPunctuation)
+    .filter((term) => term.length >= 3 && !TOPIC_QUERY_STOP_WORDS.has(term));
 
-  const needles = [...new Set([...phrase, ...(terms || [])])];
+  const needles = [...new Set([...phrase, ...[...new Set(terms)].slice(0, TOPIC_QUERY_MAX_TERMS)])];
   return needles.length > 0 ? needles : [normalized.slice(0, 120)];
 }
 

@@ -2,6 +2,7 @@ const { TRUST_DELTA } = require('../../constants'),
   { detectChangedSymbols } = require('./change-detector'),
   { evaluateTrustSync, stripOperations } = require('./trust-policy'),
   TRUST_SYNC_METHODS = [
+    'autoLinkMemories',
     'linkSymbol',
     'findUnlinked',
     'insertSymbolLink',
@@ -90,25 +91,32 @@ function autoLink(deps, args) {
   if (!project) {
     return deps.jsonErrNoExit('--project required');
   }
-  const repository = getTrustSyncRepository(deps, ['findUnlinked', 'insertSymbolLink', 'deletePlaceholderLinks']),
-    unlinked = repository.findUnlinked(project);
-
-  // There is no symbol-resolution logic here (yet): writing a placeholder
-  // '__unlinked__' row used to report fake success AND permanently exclude
-  // Those memories from future linking, because findUnlinked skips memories
-  // That have any link row (#301). Purge legacy placeholders so poisoned
-  // Memories become eligible again, and leave unlinked memories unlinked.
+  const repository = getTrustSyncRepository(deps, ['autoLinkMemories', 'deletePlaceholderLinks']);
+  // Legacy '__unlinked__' placeholder rows hid memories from linking (#301); purge them first.
   repository.deletePlaceholderLinks(project);
+  // The project's code index has the project's name, so the project doubles as the repo name.
+  const { total, linked, links } = repository.autoLinkMemories(project),
+    left = total - linked;
 
   return {
     ok: true,
-    linked: 0,
-    total: unlinked.length,
+    linked,
+    links,
+    total,
     message:
-      unlinked.length > 0
-        ? `${unlinked.length} memories have no symbol links yet; they remain eligible for automatic linking.`
-        : 'All memories already have symbol links.',
+      total === 0
+        ? 'No unlinked memories (or no code index named after this project).'
+        : `Linked ${linked} of ${total} memories to code (${links} links); ${left} name no indexed file or symbol and stay unlinked.`,
   };
+}
+
+// Best effort: a failed link must not fail the trust sync it rides on.
+function linkNewMemories(deps, repo) {
+  try {
+    return getTrustSyncRepository(deps, ['autoLinkMemories']).autoLinkMemories(repo);
+  } catch {
+    return null;
+  }
 }
 
 function adjustTrust(deps, args) {
@@ -146,7 +154,16 @@ function staleLinks(deps, args) {
   return { links, total: links.length };
 }
 
+// Links new memories after trust moved to the current head, so changes made before a link existed never lower it.
 function syncCodeTrust(deps, args) {
+  const result = syncTrustToHead(deps, args);
+  if (result && !result.error && args.repo) {
+    result.auto_linked = linkNewMemories(deps, args.repo);
+  }
+  return result;
+}
+
+function syncTrustToHead(deps, args) {
   const repo = args.repo,
     detected = repo ? detectChangedSymbols(deps, repo) : undefined;
   if (!repo) {

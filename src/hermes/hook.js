@@ -333,6 +333,7 @@ function injectContext(payload) {
             topic: parsed.topic || null,
             crossProjectSuggestions: parsed.cross_project_suggestions || [],
             checkState: checkStateFor(payload.cwd),
+            repos,
           })
         : undefined;
     if (res.status !== 0 || !res.stdout) {
