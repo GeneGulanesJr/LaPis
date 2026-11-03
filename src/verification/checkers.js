@@ -5,7 +5,8 @@
 // truncated, unrelated or `--version`/`--help` output is never recorded.
 //
 // Units are the files with problems; passing runners only print totals, so
-// each report carries `totals` for the whole run. Paths are returned as
+// each report carries `totals` for the whole run, plus its scope (test
+// `files`, or pytest `tests`) so a partial run can be told from a full one. Paths are returned as
 // printed (absolute or relative to `cwd`); results.js maps them into the repo.
 
 const CHECK_COMMAND_RE =
@@ -85,8 +86,9 @@ function parseEslint(output, command) {
 // --- Vitest: `Test Files  1 failed | 1 passed (2)` / `Tests  1 failed | 2 passed (3)`.
 function parseVitest(output) {
   const ls = lines(output),
-    testsLine = ls.find((l) => /^\s*Tests\s{2,}/.test(l));
-  if (!ls.some((l) => /^\s*Test Files\s{2,}/.test(l)) || !testsLine) {
+    testsLine = ls.find((l) => /^\s*Tests\s{2,}/.test(l)),
+    filesLine = ls.find((l) => /^\s*Test Files\s{2,}/.test(l));
+  if (!filesLine || !testsLine) {
     return null;
   }
   const units = new Map();
@@ -104,14 +106,16 @@ function parseVitest(output) {
     unproved: count(testsLine, 'failed'),
     justified: 0,
     flow_errors: 0,
+    files: Number((filesLine.match(/\((\d+)\)\s*$/) || [])[1]) || null,
   });
 }
 
 // --- Jest: `FAIL test/x.test.js`, then `● Suite › test`; summary `Tests:  1 failed, 2 passed, 3 total`.
 function parseJest(output) {
   const ls = lines(output),
-    testsLine = ls.find((l) => /^Tests:\s+/.test(l));
-  if (!testsLine || !ls.some((l) => /^Test Suites:\s+/.test(l))) {
+    testsLine = ls.find((l) => /^Tests:\s+/.test(l)),
+    suitesLine = ls.find((l) => /^Test Suites:\s+/.test(l));
+  if (!testsLine || !suitesLine) {
     return null;
   }
   const units = new Map(),
@@ -134,6 +138,7 @@ function parseJest(output) {
     unproved: count(testsLine, 'failed'),
     justified: 0,
     flow_errors: 0,
+    files: count(suitesLine, 'total') || null,
   });
 }
 
@@ -157,11 +162,15 @@ function parsePytest(output) {
       });
     }
   }
+  // `collected 10 items / 7 deselected / 3 selected`: the run covered the selected ones.
+  const collected = ls.find((l) => /collected \d+ items?/.test(l)) || '',
+    selected = count(collected, 'selected') || count(collected, 'items?') - count(collected, 'deselected');
   return report('pytest', units, {
     proved: count(summary, 'passed'),
     unproved: count(summary, 'failed') + count(summary, 'errors?'),
     justified: 0,
     flow_errors: 0,
+    tests: selected > 0 ? selected : null,
   });
 }
 

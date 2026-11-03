@@ -44,6 +44,9 @@ function renderRun(run, now) {
     status = `✓ clean${t.justified ? ` (${t.justified} justified, not proved)` : ''}`;
   }
   const notes = [];
+  if (run.partial) {
+    notes.push(`partial run: ${run.partial.checked} of ${run.partial.of} ${run.partial.unit}`);
+  }
   if (stale) {
     notes.push(`${stale} stale`);
   }
@@ -52,7 +55,21 @@ function renderRun(run, now) {
   } else if (changed) {
     notes.push(`${changed} file${changed === 1 ? '' : 's'} changed since — re-run to confirm`);
   }
-  const line = `${head}: ${status}${notes.length ? ` (${notes.join('; ')})` : ''}`;
+  const line = clip(`${head}: ${status}${notes.length ? ` (${notes.join('; ')})` : ''}`),
+    full = run.partial && run.partial.full_run;
+  if (!full) {
+    return [line];
+  }
+  // A partial run says nothing about what it skipped: keep the last full run's verdict in view.
+  const fullFails = failures({ units: full.failures }),
+    fullWhen = age(full.ingested_at, now),
+    fullStatus = fullFails.length
+      ? `✗ ${full.totals.unproved || fullFails.length} failing: ${fullFails.slice(0, MAX_CHECKS_SHOWN).join('; ')}${fullFails.length > MAX_CHECKS_SHOWN ? '; …' : ''}`
+      : '✓ clean';
+  return [line, clip(`  - last full run${fullWhen ? ` (${fullWhen})` : ''}: ${fullStatus}`)];
+}
+
+function clip(line) {
   return line.length > MAX_LINE ? `${line.slice(0, MAX_LINE - 1)}…` : line;
 }
 
@@ -63,7 +80,7 @@ function renderCheckState(state, now = Date.now()) {
   }
   return [
     '### Checks (last runs — hints, not proof; re-run after editing)',
-    ...state.runs.map((r) => renderRun(r, now)),
+    ...state.runs.flatMap((r) => renderRun(r, now)),
     '',
   ];
 }

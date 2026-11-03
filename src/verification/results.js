@@ -22,6 +22,8 @@ const fs = require('fs'),
 const MAX_OPEN_CHECKS = 50,
   MAX_TEXT = 500,
   COUNT_FIELDS = ['proved', 'unproved', 'justified', 'flow_errors'],
+  // How much a run covered (test files, or tests for pytest): tells a partial run from a full one.
+  SCOPE_FIELDS = ['files', 'tests'],
   ADA_PAIR = { '.ads': '.adb', '.adb': '.ads' },
   MAX_SNAPSHOT_FILES = 2000,
   KEEP_RUNS = 20, // per repo and verifier
@@ -108,6 +110,15 @@ function validateNeutral(raw) {
       }
       totals[f] = n;
     }
+    for (const f of SCOPE_FIELDS) {
+      const n = raw.totals[f];
+      if (n != null && !(Number.isInteger(n) && n >= 0)) {
+        return { error: `totals: "${f}" must be a non-negative integer` };
+      }
+      if (n != null) {
+        totals[f] = n;
+      }
+    }
   }
   return {
     report: {
@@ -168,7 +179,66 @@ function totalsOf(units, given) {
   for (const f of COUNT_FIELDS) {
     t[f] = given ? given[f] : units.reduce((s, u) => s + u[f], 0);
   }
+  for (const f of SCOPE_FIELDS) {
+    if (given && given[f] != null) {
+      t[f] = given[f];
+    }
+  }
   return t;
+}
+
+function scopeOf(totals) {
+  for (const f of SCOPE_FIELDS) {
+    if (Number.isInteger(totals[f])) {
+      return { unit: f === 'files' ? 'test files' : 'tests', n: totals[f] };
+    }
+  }
+  return null;
+}
+
+function openFailures(resultRows) {
+  return resultRows
+    .filter((u) => u.unproved || u.flow_errors)
+    .map((u) => ({
+      file: u.file_path,
+      unit: u.unit,
+      open_checks: JSON.parse(u.open_checks_json).filter((c) => c.status === 'unproved' || c.status === 'flow-error'),
+    }));
+}
+
+/**
+ * A run that covered fewer test files (or tests) than the largest kept run of
+ * the same checker is partial: it says nothing about what it skipped, so the
+ * newest full run's failures are kept alongside it.
+ */
+function partialInfo(sqlJson, run) {
+  const scope = scopeOf(JSON.parse(run.totals_json));
+  if (!scope) {
+    return null;
+  }
+  const field = scope.unit === 'test files' ? 'files' : 'tests',
+    others = sqlJson(
+      'SELECT id, totals_json, ingested_at FROM verifier_runs WHERE repo_root = ? AND verifier = ? ORDER BY id DESC',
+      [run.repo_root, run.verifier],
+    ).map((r) => ({ ...r, n: JSON.parse(r.totals_json)[field] })),
+    max = Math.max(...others.map((r) => (Number.isInteger(r.n) ? r.n : 0)));
+  if (scope.n >= max) {
+    return null;
+  }
+  const full = others.find((r) => r.n === max);
+  return {
+    checked: scope.n,
+    of: max,
+    unit: scope.unit,
+    full_run: {
+      run_id: full.id,
+      ingested_at: full.ingested_at,
+      totals: JSON.parse(full.totals_json),
+      failures: openFailures(
+        sqlJson('SELECT * FROM verifier_results WHERE run_id = ? ORDER BY file_path, line', [full.id]),
+      ),
+    },
+  };
 }
 
 function hashFile(root, file) {
@@ -408,6 +478,7 @@ function proofState({ sqlJson }, { cwd = process.cwd(), verifier } = {}) {
       totals: JSON.parse(run.totals_json),
       // Repo files edited after the run (any kind), so a clean run can still say "re-run".
       changed_since: changed ? [...changed].sort() : null,
+      partial: partialInfo(sqlJson, run),
       summary,
       units,
     };

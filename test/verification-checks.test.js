@@ -84,6 +84,19 @@ describe('check output parsers (real output)', () => {
     expect(only('pytest', 'pytest-clean').totals).toMatchObject({ proved: 1, unproved: 0 });
   });
 
+  it('records how much each run covered', () => {
+    expect(only('npx vitest run', 'vitest').totals.files).toBe(2);
+    expect(only('npm test', 'vitest-clean').totals.files).toBe(1);
+    expect(only('npx jest', 'jest').totals.files).toBe(2);
+    expect(only('pytest', 'pytest').totals.tests).toBe(3);
+    expect(only('pytest -v', 'pytest-v').totals.tests).toBe(3);
+    const r = parseCheckOutput(
+      'pytest -k add',
+      'collected 10 items / 7 deselected / 3 selected\n===== 3 passed, 7 deselected in 0.1s =====',
+    );
+    expect(r[0].totals.tests).toBe(3);
+  });
+
   it('recognises check commands, including compound and package-script forms', () => {
     for (const c of [
       'npx tsc --noEmit',
@@ -230,6 +243,40 @@ describe('capture, staleness, rendering and the gate', () => {
       expect(v.reason).toMatch(
         /New failures since the session started:\n {2}- vitest test\/vmath\.test\.mjs test math > fails on purpose/,
       );
+    });
+
+    it('a partial run keeps the last full run in view and cannot clear its failures', () => {
+      const vitest = (files, failing) =>
+          [
+            ...(failing ? [' FAIL  test/vmath.test.mjs > math > fails on purpose'] : []),
+            ` Test Files  ${failing ? '1 failed | ' : ''}${files - (failing ? 1 : 0)} passed (${files})`,
+            `      Tests  ${failing ? '1 failed | ' : ''}5 passed (6)`,
+          ].join('\n'),
+        cap = (files, failing) =>
+          captureCheckOutput(dbModule, { cwd: dir, command: 'npx vitest run', output: vitest(files, failing) });
+
+      cap(3, false);
+      const baseline = gateBaseline(state());
+      write('src/ok.ts', '// edited\n');
+      cap(3, true); // the full suite now fails
+      cap(1, false); // then only one passing file is run
+
+      const r = run('vitest');
+      expect(r.partial).toMatchObject({ checked: 1, of: 3, unit: 'test files' });
+      const lines = renderCheckState(state());
+      expect(lines.find((l) => l.includes('**vitest**'))).toMatch(/✓ clean \(partial run: 1 of 3 test files/);
+      expect(lines.find((l) => l.includes('last full run'))).toMatch(
+        /✗ 1 failing: test\/vmath\.test\.mjs test math > fails on purpose/,
+      );
+
+      const v = evaluateGate(state(), baseline, ['src/ok.ts']);
+      expect(v.block).toBe(true);
+      expect(v.fresh).toEqual(['vitest|test/vmath.test.mjs|test|math > fails on purpose']);
+      expect(v.reason).toMatch(/partial run cannot clear them; run the full suite/);
+
+      cap(3, false); // the full suite passes again
+      expect(run('vitest').partial).toBeNull();
+      expect(evaluateGate(state(), baseline, ['src/ok.ts']).block).toBe(false);
     });
 
     it('failure keys ignore line numbers', () => {

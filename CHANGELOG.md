@@ -20,7 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `LAPIS_VERIFICATION=0` turns it all off). Claude Code gains a synchronous
   `Stop` hook and a `PostToolUseFailure` hook: re-run `lapis claude-code install`.
   Migration V32 stores a fingerprint of uncommitted files per run, so a file
-  counts as changed only after the check ran.
+  counts as changed only after the check ran. A run covering fewer test files
+  than the largest recent run is labeled partial and keeps the last full run's
+  failures in view (and in the gate) until a full run passes.
 - **`verify-scan`: prover-bypass detection over a git diff** (new `src/verification/`
   module). Flags added SPARK escape hatches (`pragma Assume`, `SPARK_Mode => Off`,
   GNATprove annotations), vacuous contracts (`Post => True`, `Pre => False`),

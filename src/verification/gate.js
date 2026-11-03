@@ -19,9 +19,22 @@ const COVERS = {
 };
 const MAX_LISTED = 5;
 
+// Each latest run, plus the last full run behind a partial one: running one
+// passing test file must not hide what the full suite last reported.
+function runsWithFull(state) {
+  return ((state && state.runs) || []).flatMap((run) => {
+    const full = run.partial && run.partial.full_run;
+    return full ? [run, { verifier: run.verifier, units: full.failures, totals: full.totals, fromFull: true }] : [run];
+  });
+}
+
+function fullRunKeys(state) {
+  return new Set(failureKeys({ runs: runsWithFull(state).filter((r) => r.fromFull) }));
+}
+
 function failureKeys(state) {
   const keys = [];
-  for (const run of (state && state.runs) || []) {
+  for (const run of runsWithFull(state)) {
     let unitKeys = 0;
     for (const u of run.units) {
       for (const c of u.open_checks) {
@@ -101,6 +114,10 @@ function evaluateGate(state, baseline, editedFiles) {
     }
     if (fresh.length > MAX_LISTED) {
       lines.push(`  - … and ${fresh.length - MAX_LISTED} more`);
+    }
+    const fromFull = fullRunKeys(state);
+    if (fresh.some((k) => fromFull.has(k))) {
+      lines.push('  (Some come from the last full run: a partial run cannot clear them; run the full suite.)');
     }
   }
   lines.push(

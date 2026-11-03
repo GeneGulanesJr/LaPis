@@ -108,6 +108,8 @@ The latest result per checker is shown to the agent before recalled memories, fo
 - **vitest** (1h ago): ✓ clean (2 files changed since — re-run to confirm)
 ```
 
+A run that covered fewer test files (pytest: tests) than the largest recent run of the same checker is shown as a **partial run** (`partial run: 3 of 202 test files`), with the last full run's result on the next line. A partial run never clears the full run's failures: only a full run does.
+
 The **stop gate** (on by default; `verification.gate`, `LAPIS_VERIFY_GATE=0`) refuses the agent's "done" when, in this session, it edited files after a checker's last run, or a checker that had a run at session start now reports failures it didn't then. Failures that existed before the session never block, nothing blocks when the agent edited no files, and the gate gives up after `verification.gate_max_blocks` (3) reminders. In Claude Code it is a synchronous `Stop` hook; in Pi a follow-up message at `agent_end`. Re-run `lapis claude-code install` to add the new hooks to an existing install. Hermes shows the results in context but has no capture or gate yet.
 
 | Command | Purpose |
