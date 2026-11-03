@@ -153,6 +153,41 @@ class MemoryError extends Error {
 
     /* ── migrations ───────────────────────────────────────────── */
 
+    // V31. Keep in sync with schema.sql.
+    const VERIFIER_TABLES_SQL = `
+      CREATE TABLE IF NOT EXISTS verifier_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repo_root TEXT NOT NULL,
+        verifier TEXT NOT NULL,
+        verifier_version TEXT,
+        commit_sha TEXT NOT NULL,
+        dirty INTEGER NOT NULL DEFAULT 0,
+        origin TEXT NOT NULL CHECK (origin IN ('imported', 'lapis-run', 'ci-signed')),
+        signature_key_id TEXT,
+        signed_at TEXT,
+        source_sha256 TEXT NOT NULL,
+        totals_json TEXT NOT NULL,
+        ran_at TEXT,
+        ingested_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_vr_repo ON verifier_runs(repo_root, verifier);
+      CREATE TABLE IF NOT EXISTS verifier_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id INTEGER NOT NULL REFERENCES verifier_runs(id) ON DELETE CASCADE,
+        file_path TEXT NOT NULL,
+        unit TEXT NOT NULL,
+        unit_key TEXT NOT NULL,
+        line INTEGER,
+        analyzed INTEGER NOT NULL DEFAULT 1,
+        proved INTEGER NOT NULL DEFAULT 0,
+        unproved INTEGER NOT NULL DEFAULT 0,
+        justified INTEGER NOT NULL DEFAULT 0,
+        flow_errors INTEGER NOT NULL DEFAULT 0,
+        open_checks_json TEXT NOT NULL DEFAULT '[]'
+      );
+      CREATE INDEX IF NOT EXISTS idx_vres_run ON verifier_results(run_id);
+      CREATE INDEX IF NOT EXISTS idx_vres_unit ON verifier_results(unit_key);`;
+
     const MIGRATIONS = [
         { to: 2, run: runMigrationV2 },
         { to: 3, run: runMigrationV3 },
@@ -183,6 +218,7 @@ class MemoryError extends Error {
         { to: 28, run: runMigrationV28 },
         { to: 29, run: runMigrationV29 },
         { to: 30, run: runMigrationV30 },
+        { to: 31, run: runMigrationV31 },
       ],
       LATEST_MIGRATION_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.to), 0);
 
@@ -1214,6 +1250,20 @@ class MemoryError extends Error {
         });
       } catch (e) {
         errors.push(`V30: ${e.message}`);
+      }
+      return errors;
+    }
+
+    function runMigrationV31() {
+      const errors = [];
+      try {
+        withTransaction(() => {
+          // Verifier results (src/verification). Same DDL as schema.sql.
+          sqlRaw(VERIFIER_TABLES_SQL);
+          sqlRaw('PRAGMA user_version = 31');
+        });
+      } catch (e) {
+        errors.push(`V31: ${e.message}`);
       }
       return errors;
     }

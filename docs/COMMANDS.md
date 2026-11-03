@@ -96,6 +96,42 @@ To gate a SPARK or Lean project's pull requests, add a job like this (checkout n
 
 Protect `.lapis-verify-allow.json` and `.github/workflows/` with required review (for example CODEOWNERS), so a change can't approve its own exceptions or skip the scan.
 
+### Prover results
+
+| Command | Purpose |
+| ------- | ------- |
+| `verify-ingest --report <path> [--format gnatprove\|neutral] [--path <dir>]` | Store a prover run for the repo at `--path` (default cwd), tied to its current HEAD. `<path>` is the GNATprove output folder (`obj/<profile>/gnatprove`, read from its `*.spark` files and `gnatprove.sarif`) or a verifier-neutral `.json`. Bare GNATprove file names are resolved to repo paths; a unit whose file isn't in the repo is rejected. The run is marked `dirty` when Ada, Lean or project files differ from HEAD. Origin is always `imported`: a report file can't claim to be signed. Re-ingesting the same report for the same commit returns the existing run (`duplicate: true`). |
+| `proof-state [--verifier NAME] [--path <dir>]` | Latest run per verifier, with each unit's status: `proved`, `justified` (`pragma Annotate` or `pragma Assume`, never counted as proved), `unproved` (failed proof or flow checks, with the open checks), `not-analyzed` (body has `SPARK_Mode => Off`), or `stale`. A unit is stale when its file, or its Ada spec/body, changed since the run's commit, including uncommitted edits. A `.gpr`, `.adc` or Lake file change, or a run commit that no longer exists, makes every unit stale. |
+
+Run GNATprove so it writes its files, then ingest the folder:
+
+```bash
+alr exec -- gnatprove -P demo.gpr --level=2 --report=all
+lapis verify-ingest --report obj/development/gnatprove
+lapis proof-state
+```
+
+The verifier-neutral format, for other provers or your own converter:
+
+```json
+{
+  "verifier": "lean",
+  "verifier_version": "4.20.0",
+  "units": [
+    {
+      "file": "src/Demo.lean",
+      "unit": "Demo.add_comm",
+      "line": 12,
+      "proved": 1,
+      "unproved": 0,
+      "justified": 0,
+      "flow_errors": 0,
+      "open_checks": []
+    }
+  ]
+}
+```
+
 ## Code Analysis
 
 | Command                          | Purpose                                            |

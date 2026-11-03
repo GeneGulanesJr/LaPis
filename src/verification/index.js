@@ -1,47 +1,18 @@
 // Module boundary:
-// Owns verifier-facing checks that run outside any prover: `verify-scan`
-// (bypass detection over a git diff). Reads git and the working tree only;
-// owns no tables and never writes memories. May import config, Node built-ins
-// and its own files; must not import memory-domain, trust-sync or doc-index.
+// Owns verifier-facing checks: `verify-scan` (bypass detection over a git
+// diff) and verifier results (`verify-ingest`, `proof-state`, tables
+// verifier_runs / verifier_results). Never writes memories: a proof result is
+// a hint about one commit, not proof the current code is correct. May import
+// config, Node built-ins and its own files; must not import memory-domain,
+// trust-sync or doc-index.
 
 const fs = require('fs'),
   path = require('path'),
-  { execFileSync } = require('child_process'),
-  bypass = require('./bypass');
+  bypass = require('./bypass'),
+  { git, changedFiles } = require('./git'),
+  { ingestReport, proofState } = require('./results');
 
-const ALLOWLIST_FILE = '.lapis-verify-allow.json',
-  GIT_MAX_BUFFER = 64 * 1024 * 1024;
-
-function git(cwd, args) {
-  return execFileSync('git', args, {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: GIT_MAX_BUFFER,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-}
-
-// Changed paths between `mergeBase` and the working tree, plus untracked files.
-// Returns [{ file, oldPath }] with repo-relative forward-slash paths.
-function changedFiles(root, mergeBase) {
-  const tokens = git(root, ['diff', '--name-status', '-z', '-M', mergeBase, '--']).split('\0').filter(Boolean),
-    out = [];
-  for (let i = 0; i < tokens.length; ) {
-    const status = tokens[i++];
-    if (status[0] === 'R' || status[0] === 'C') {
-      const oldPath = tokens[i++],
-        file = tokens[i++];
-      out.push({ file, oldPath: status[0] === 'R' ? oldPath : null, status: status[0] });
-    } else {
-      const file = tokens[i++];
-      out.push({ file, oldPath: status[0] === 'A' ? null : file, status: status[0] });
-    }
-  }
-  for (const file of git(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean)) {
-    out.push({ file, oldPath: null, status: '?' });
-  }
-  return out;
-}
+const ALLOWLIST_FILE = '.lapis-verify-allow.json';
 
 function readOld(root, mergeBase, oldPath) {
   if (!oldPath) {
@@ -150,4 +121,4 @@ function scanRepo({ cwd = process.cwd(), base = 'HEAD' } = {}) {
   };
 }
 
-module.exports = { scanRepo, ALLOWLIST_FILE };
+module.exports = { scanRepo, ingestReport, proofState, ALLOWLIST_FILE };

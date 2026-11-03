@@ -9,5 +9,5 @@
   "bracketSpacing": true,
   "arrowParens": "always",
   "endOfLine": "lf",
-  "ignorePatterns": ["node_modules", "grammars", "docs", ".pi", "*.wasm"]
+  "ignorePatterns": ["node_modules", "grammars", "docs", ".pi", "*.wasm", "test/fixtures"]
 }

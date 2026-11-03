@@ -14,6 +14,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   removed Pre/Post/Contract_Cases, and Lean `sorry`/`axiom`/`native_decide`.
   Exits 1 on high-severity findings for CI; exceptions need a reason in
   `.lapis-verify-allow.json`. First step of the verification layer.
+- **`verify-ingest` and `proof-state`: stored prover results** (migration V31,
+  tables `verifier_runs` / `verifier_results`). `verify-ingest` reads a GNATprove
+  output folder (tested against real GNATprove FSF 16.1.0 reports) or a
+  verifier-neutral JSON and ties the run to HEAD, flagging dirty worktrees.
+  `proof-state` gives each unit's status (proved / justified / unproved /
+  not-analyzed / stale); a unit goes stale as soon as its spec or body changes.
+  Justified checks and `pragma Assume` are counted separately, never as proved.
+  Imported runs are always unsigned.
 - **Claude Code prompt context relevance filter** (judgment surface `context`).
   The `UserPromptSubmit` hook's Prompt-Matched Memory, Cross-Project
   Suggestions and Preflight entries are now judged for relevance to the prompt
