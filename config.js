@@ -189,10 +189,10 @@ function applyEnvOverrides(config) {
     ['LAPIS_CROSS_PROJECT', 'context_injection', 'cross_project'],
     ['LAPIS_AUTO_CAPTURE', 'auto_capture', 'enabled'],
   ]) {
-    const raw = process.env[envName];
-    if (raw !== undefined && raw.trim() !== '') {
+    const flag = process.env[envName];
+    if (flag !== undefined && flag.trim() !== '') {
       (config[section] || (config[section] = {}))[key] = !['0', 'false', 'off', 'no'].includes(
-        raw.trim().toLowerCase(),
+        flag.trim().toLowerCase(),
       );
     }
   }
