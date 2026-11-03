@@ -117,6 +117,7 @@ async function collectContext({ dispatch, getKnownRepos, project, cwd, query = n
     topic,
     crossProjectSuggestions: effectiveContext.cross_project_suggestions || [],
     checkState,
+    repos,
   };
 }
 

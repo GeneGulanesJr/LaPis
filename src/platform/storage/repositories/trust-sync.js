@@ -5,6 +5,9 @@ function createTrustSyncRepository(deps) {
     linkSymbol(params) {
       return symbols.linkSymbol(deps, params);
     },
+    autoLinkMemories(repo) {
+      return symbols.autoLinkMemories(deps, repo);
+    },
     findUnlinked(project) {
       return symbols.findUnlinked(deps, project);
     },

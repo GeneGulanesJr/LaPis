@@ -915,11 +915,33 @@ describe('context.js topicQueryNeedles', () => {
     expect(testCount).toBe(1);
   });
 
-  it('limits terms to 16', () => {
-    const many = Array.from({ length: 30 }, (_, i) => `word${i}`).join(' '),
+  it('limits terms to 64', () => {
+    const many = Array.from({ length: 100 }, (_, i) => `word${i}`).join(' '),
       result = topicQueryNeedles(many);
-    // Phrase + up to 16 terms
-    expect(result.length).toBeLessThanOrEqual(17);
+    // No phrase (too long) + up to 64 terms
+    expect(result.length).toBe(64);
+  });
+
+  it('keeps the ask that follows a long preamble', () => {
+    const preamble = Array.from({ length: 20 }, (_, i) => `preamble${i}`).join(' '),
+      result = topicQueryNeedles(`${preamble} fix the TeamView style`);
+    expect(result).toContain('teamview');
+    expect(result).toContain('style');
+  });
+
+  it('strips sentence punctuation and skips filler words', () => {
+    const result = topicQueryNeedles('Can you update the list. Then ./src/app.js-');
+    expect(result).toContain('list');
+    expect(result).toContain('src/app.js');
+    expect(result).not.toContain('list.');
+    expect(result).not.toContain('you');
+  });
+
+  it('duplicate words do not use up slots', () => {
+    const result = topicQueryNeedles(
+      `${'repeat '.repeat(80)}${Array.from({ length: 63 }, (_, i) => `w${i}x`).join(' ')}`,
+    );
+    expect(result).toContain('w62x');
   });
 
   it('falls back to first 120 chars when no terms match', () => {
