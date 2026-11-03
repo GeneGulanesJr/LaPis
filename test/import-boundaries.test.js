@@ -21,6 +21,7 @@ const path = require('path'),
     'doc-index': ['trust-sync', 'memory-domain'],
     'code-analysis': ['doc-index', 'memory-domain'],
     'code-index': ['doc-index', 'trust-sync'],
+    verification: ['memory-domain', 'trust-sync', 'doc-index'],
   };
 
 function collectJsFiles(dir) {

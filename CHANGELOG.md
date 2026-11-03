@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`verify-scan`: prover-bypass detection over a git diff** (new `src/verification/`
+  module). Flags added SPARK escape hatches (`pragma Assume`, `SPARK_Mode => Off`,
+  GNATprove annotations), vacuous contracts (`Post => True`, `Pre => False`),
+  removed Pre/Post/Contract_Cases, and Lean `sorry`/`axiom`/`native_decide`.
+  Exits 1 on high-severity findings for CI; exceptions need a reason in
+  `.lapis-verify-allow.json`. First step of the verification layer.
 - **Claude Code prompt context relevance filter** (judgment surface `context`).
   The `UserPromptSubmit` hook's Prompt-Matched Memory, Cross-Project
   Suggestions and Preflight entries are now judged for relevance to the prompt
