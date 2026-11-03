@@ -1,6 +1,9 @@
 // Everyday checkers: parsers against real tsc 6.0 / ESLint 10 / Vitest 4 /
 // Jest 30 / pytest 9 output (test/fixtures/checks, sample root → <ROOT>),
 // capture into a temp git repo, staleness, context rendering and the stop gate.
+// Many git subprocesses per test: give a loaded machine (full parallel suite) more room.
+vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
+
 const fs = require('fs'),
   os = require('os'),
   path = require('path'),

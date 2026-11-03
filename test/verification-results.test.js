@@ -1,6 +1,9 @@
 // Verifier results: GNATprove adapter (against real GNATprove FSF 16.1.0
 // reports in test/fixtures/gnatprove), neutral-format validation, ingest and
 // proof-state staleness. The DB is the per-file temp one from setup-lapis-home.
+// Many git subprocesses per test: give a loaded machine (full parallel suite) more room.
+vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
+
 const fs = require('fs'),
   os = require('os'),
   path = require('path'),

@@ -1,3 +1,6 @@
+// Many git subprocesses per test: give a loaded machine (full parallel suite) more room.
+vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
+
 const fs = require('fs'),
   os = require('os'),
   path = require('path'),

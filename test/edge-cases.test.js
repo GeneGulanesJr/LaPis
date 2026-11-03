@@ -303,11 +303,18 @@ describe('edge cases: trust system', () => {
 // ═══════════════════════════════════════════
 describe('edge cases: code analysis', () => {
   beforeAll(() => {
-    const result = run('reindex-repo --repo PiMemoryExtension --mode full');
+    // Indexing the whole repo (~550 files) outlasts run()'s 15 s default when the
+    // full suite loads the machine; a killed child left the repo unindexed and
+    // every test below failed with a bare "_meta undefined".
+    const INDEX_TIMEOUT = 150000;
+    let result = run('reindex-repo --repo PiMemoryExtension --mode full', INDEX_TIMEOUT);
     if (result.error) {
-      run('index-repo --path . --name PiMemoryExtension');
+      result = run('index-repo --path . --name PiMemoryExtension', INDEX_TIMEOUT);
     }
-  }, 60000);
+    if (result.error) {
+      throw new Error(`could not index the repo for code-analysis edge cases: ${result.error}`);
+    }
+  }, 320000);
 
   it('should error on outline for nonexistent repo', () => {
     const result = runFail('outline --repo nonexistent-xyz --file cli.js');
