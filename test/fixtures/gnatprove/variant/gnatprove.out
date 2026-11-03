@@ -1,0 +1,55 @@
+date               : 2026-11-03T04:01:06Z
+gnatprove version  : FSF 16.1.0
+host               : Windows 64 bits
+command line       : gnatprove.exe -P demo.gpr --level=2 --report=all --output-header
+ Proof_Switches attribute:
+
+
+=========================
+Summary of SPARK analysis
+=========================
+
+---------------------------------------------------------------------------------
+SPARK Analysis results        Total       Flow     Provers   Justified   Unproved
+---------------------------------------------------------------------------------
+Data Dependencies                 .          .           .           .          .
+Flow Dependencies                 .          .           .           .          .
+Initialization                    2          1           .           .          1
+Non-Aliasing                      .          .           .           .          .
+Run-time Checks                   3          .    1 (CVC5)           1          1
+Assertions                        .          .           .           .          .
+Functional Contracts              1          .    1 (CVC5)           .          .
+LSP Verification                  .          .           .           .          .
+Termination                       4          4           .           .          .
+Concurrency                       .          .           .           .          .
+---------------------------------------------------------------------------------
+Total                            10    5 (50%)     2 (20%)     1 (10%)    2 (20%)
+
+
+max steps used for successful proof: 1
+
+============================
+Most difficult proved checks
+============================
+
+No check found with max time greater than 1 second
+
+========================
+Detailed analysis report
+========================
+
+Analyzed 2 units
+in unit demo, 6 subprograms and packages out of 7 analyzed
+  Demo at demo.ads:1 flow analyzed (0 errors, 0 checks, 0 warnings and 0 pragma Assume statements) and proved (0 checks)
+  Demo.Add_Justified at demo.ads:13 flow analyzed (0 errors, 0 checks, 0 warnings and 0 pragma Assume statements) and proved (0 checks)
+   Justified check messages:
+    demo.adb:16:14: overflow check justified (marked as: false positive, reason: "Demo: callers only pass sensor readings well inside Integer range")
+  Demo.Add_Small at demo.ads:6 flow analyzed (0 errors, 0 checks, 0 warnings and 0 pragma Assume statements) and proved (1 checks)
+  Demo.Add_Unchecked at demo.ads:10 flow analyzed (0 errors, 0 checks, 0 warnings and 0 pragma Assume statements) and not proved, 0 checks out of 1 proved
+  Demo.Assumed at demo.ads:15 flow analyzed (0 errors, 0 checks, 0 warnings and 1 pragma Assume statements) and proved (1 checks)
+   pragma Assume statements:
+    demo.adb:25:7
+  Demo.Bad_Flow at demo.ads:17 flow analyzed (0 errors, 1 checks, 1 warnings and 0 pragma Assume statements) and proved (0 checks)
+  Demo.Skipped at demo.ads:16 skipped; body is SPARK_Mode => Off
+in unit main, 0 subprograms and packages out of 1 analyzed
+  Main at main.adb:2 skipped; SPARK_Mode => Off

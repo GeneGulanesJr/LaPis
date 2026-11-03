@@ -130,6 +130,8 @@ const ROUTER_PATHS = {
     dashboard: 'dashboard',
     // Verification router commands
     'verify-scan': 'verification',
+    'verify-ingest': 'verification',
+    'proof-state': 'verification',
   };
 
 function requireAllRouters() {

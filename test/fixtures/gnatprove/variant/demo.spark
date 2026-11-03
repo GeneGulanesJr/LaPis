@@ -1,0 +1,723 @@
+{
+  "assumptions": [
+    {
+      "assumptions": [
+      ],
+      "claim": {
+        "arg": 5,
+        "predicate": "CLAIM_AORTE"
+      }
+    },
+    {
+      "assumptions": [
+      ],
+      "claim": {
+        "arg": 3,
+        "predicate": "CLAIM_AORTE"
+      }
+    },
+    {
+      "assumptions": [
+      ],
+      "claim": {
+        "arg": 6,
+        "predicate": "CLAIM_AORTE"
+      }
+    },
+    {
+      "assumptions": [
+      ],
+      "claim": {
+        "arg": 4,
+        "predicate": "CLAIM_POST"
+      }
+    },
+    {
+      "assumptions": [
+      ],
+      "claim": {
+        "arg": 4,
+        "predicate": "CLAIM_AORTE"
+      }
+    }
+  ],
+  "entities": {
+    " 1": {
+      "name": "Demo.Add_Unchecked",
+      "sloc": [
+        {
+          "column": 13,
+          "file": "demo.ads",
+          "line": 10
+        }
+      ]
+    },
+    " 2": {
+      "name": "Demo.Add_Justified",
+      "sloc": [
+        {
+          "column": 13,
+          "file": "demo.ads",
+          "line": 13
+        }
+      ]
+    },
+    " 3": {
+      "name": "Demo.Assumed",
+      "sloc": [
+        {
+          "column": 13,
+          "file": "demo.ads",
+          "line": 15
+        }
+      ]
+    },
+    " 4": {
+      "name": "Demo.Add_Small",
+      "sloc": [
+        {
+          "column": 13,
+          "file": "demo.ads",
+          "line": 6
+        }
+      ]
+    },
+    " 5": {
+      "name": "Demo.Bad_Flow",
+      "sloc": [
+        {
+          "column": 14,
+          "file": "demo.ads",
+          "line": 17
+        }
+      ]
+    },
+    " 6": {
+      "name": "Demo",
+      "sloc": [
+        {
+          "column": 9,
+          "file": "demo.ads",
+          "line": 1
+        }
+      ]
+    },
+    " 7": {
+      "name": "Demo.Skipped",
+      "sloc": [
+        {
+          "column": 13,
+          "file": "demo.ads",
+          "line": 16
+        }
+      ]
+    }
+  },
+  "flow": [
+    {
+      "check_tree": {
+      },
+      "col": 13,
+      "entity": 1,
+      "file": "demo.ads",
+      "how_proved": "flow",
+      "line": 10,
+      "message": {
+        "text": "implicit aspect Always_Terminates on \"Add_Unchecked\" has been proved, subprogram will terminate"
+      },
+      "msg_id": 0,
+      "rule": "SUBPROGRAM_TERMINATION",
+      "severity": "info",
+      "unproved_status": {
+        "status": "unknown"
+      }
+    },
+    {
+      "check_tree": {
+      },
+      "col": 7,
+      "entity": 2,
+      "file": "demo.adb",
+      "how_proved": "flow",
+      "line": 14,
+      "message": {
+        "text": "initialization of \"R\" proved"
+      },
+      "msg_id": 1,
+      "rule": "UNINITIALIZED",
+      "severity": "info",
+      "unproved_status": {
+        "status": "unknown"
+      }
+    },
+    {
+      "check_tree": {
+      },
+      "col": 13,
+      "entity": 2,
+      "file": "demo.ads",
+      "how_proved": "flow",
+      "line": 13,
+      "message": {
+        "text": "implicit aspect Always_Terminates on \"Add_Justified\" has been proved, subprogram will terminate"
+      },
+      "msg_id": 2,
+      "rule": "SUBPROGRAM_TERMINATION",
+      "severity": "info",
+      "unproved_status": {
+        "status": "unknown"
+      }
+    },
+    {
+      "check_tree": {
+      },
+      "col": 13,
+      "entity": 3,
+      "file": "demo.ads",
+      "how_proved": "flow",
+      "line": 15,
+      "message": {
+        "text": "implicit aspect Always_Terminates on \"Assumed\" has been proved, subprogram will terminate"
+      },
+      "msg_id": 3,
+      "rule": "SUBPROGRAM_TERMINATION",
+      "severity": "info",
+      "unproved_status": {
+        "status": "unknown"
+      }
+    },
+    {
+      "check_tree": {
+      },
+      "col": 13,
+      "entity": 4,
+      "file": "demo.ads",
+      "how_proved": "flow",
+      "line": 6,
+      "message": {
+        "text": "implicit aspect Always_Terminates on \"Add_Small\" has been proved, subprogram will terminate"
+      },
+      "msg_id": 4,
+      "rule": "SUBPROGRAM_TERMINATION",
+      "severity": "info",
+      "unproved_status": {
+        "status": "unknown"
+      }
+    },
+    {
+      "check_tree": {
+      },
+      "col": 24,
+      "entity": 5,
+      "file": "demo.ads",
+      "how_proved": "flow",
+      "line": 17,
+      "message": {
+        "text": "unused variable \"X\""
+      },
+      "msg_id": 5,
+      "rule": "UNUSED_VARIABLE",
+      "severity": "warning",
+      "unproved_status": {
+        "status": "unknown"
+      }
+    },
+    {
+      "check_tree": {
+      },
+      "col": 24,
+      "entity": 5,
+      "file": "demo.ads",
+      "how_proved": "flow",
+      "line": 17,
+      "message": {
+        "text": "\"X\" is not initialized in \"Bad_Flow\""
+      },
+      "msg_id": 6,
+      "rule": "UNINITIALIZED",
+      "severity": "high",
+      "tracefile": "demo__flow__0.trace",
+      "unproved_status": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "pragma_assume": [
+    {
+      "col": 7,
+      "entity": 3,
+      "file": "demo.adb",
+      "line": 25
+    }
+  ],
+  "progress": "PROGRESS_PROOF",
+  "proof": [
+    {
+      "check_col": 19,
+      "check_file": "demo.ads",
+      "check_line": 7,
+      "check_tree": [
+        {
+          "proof_attempts": {
+            "CVC5": {
+              "result": "Valid",
+              "steps": 1,
+              "time": 4.68750000000000E-02
+            }
+          },
+          "transformations": {
+          }
+        }
+      ],
+      "col": 19,
+      "entity": 4,
+      "file": "demo.ads",
+      "how_proved": "prover",
+      "line": 7,
+      "message": {
+        "text": "postcondition proved"
+      },
+      "msg_id": 7,
+      "rule": "VC_POSTCONDITION",
+      "severity": "info",
+      "stats": {
+        "CVC5": {
+          "count": 1,
+          "max_steps": 1,
+          "max_time": 4.68750000000000E-02
+        }
+      },
+      "unproved_status": {
+        "status": "unknown"
+      }
+    },
+    {
+      "check_col": 16,
+      "check_file": "demo.adb",
+      "check_line": 10,
+      "check_tree": [
+        {
+          "proof_attempts": {
+          },
+          "transformations": {
+          }
+        },
+        {
+          "proof_attempts": {
+            "CVC5": {
+              "result": "Unknown\n(sat)",
+              "steps": 1,
+              "time": 6.25000000000000E-02
+            },
+            "Z3": {
+              "result": "Unknown\n(sat)",
+              "steps": 1,
+              "time": 7.81250000000000E-02
+            },
+            "altergo": {
+              "result": "Unknown\n(unknown)",
+              "steps": 15,
+              "time": 7.81250000000000E-02
+            }
+          },
+          "transformations": {
+            "introduce_premises": [
+              {
+                "proof_attempts": {
+                  "CVC5_CE": {
+                    "result": "Unknown\n(sat)",
+                    "steps": 1,
+                    "time": 4.68750000000000E-02
+                  }
+                },
+                "transformations": {
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "cntexmp": {
+        "demo.adb": {
+          "current": {
+            "10": [
+              {
+                "kind": "variable",
+                "name": "A",
+                "value": "Integer'First"
+              },
+              {
+                "kind": "variable",
+                "name": "B",
+                "value": "-1"
+              }
+            ]
+          },
+          "previous": {
+          }
+        },
+        "demo.ads": {
+          "current": {
+            "10": [
+              {
+                "kind": "variable",
+                "name": "A",
+                "value": "Integer'First"
+              },
+              {
+                "kind": "variable",
+                "name": "B",
+                "value": "-1"
+              }
+            ]
+          },
+          "previous": {
+          }
+        }
+      },
+      "cntexmp_value": {
+        "inputs": [
+          {
+            "kind": "variable",
+            "name": "A",
+            "value": "-2147483648"
+          },
+          {
+            "kind": "variable",
+            "name": "B",
+            "value": "-1"
+          }
+        ],
+        "subp_file": "demo.ads",
+        "subp_line": 10
+      },
+      "col": 16,
+      "entity": 1,
+      "file": "demo.adb",
+      "how_proved": "prover",
+      "line": 10,
+      "message": {
+        "text": "overflow check might fail, cannot prove lower bound for A + B"
+      },
+      "msg_id": 8,
+      "rule": "VC_OVERFLOW_CHECK",
+      "severity": "high",
+      "unproved_status": {
+        "status": "gave_up"
+      }
+    },
+    {
+      "annot_kind": "false positive",
+      "check_col": 14,
+      "check_file": "demo.adb",
+      "check_line": 16,
+      "check_tree": [
+        {
+          "proof_attempts": {
+          },
+          "transformations": {
+          }
+        },
+        {
+          "proof_attempts": {
+            "CVC5": {
+              "result": "Unknown\n(sat)",
+              "steps": 1,
+              "time": 4.68750000000000E-02
+            },
+            "Z3": {
+              "result": "Unknown\n(sat)",
+              "steps": 1,
+              "time": 6.25000000000000E-02
+            },
+            "altergo": {
+              "result": "Unknown\n(unknown)",
+              "steps": 23,
+              "time": 4.68750000000000E-02
+            }
+          },
+          "transformations": {
+            "introduce_premises": [
+              {
+                "proof_attempts": {
+                  "CVC5_CE": {
+                    "result": "Unknown\n(sat)",
+                    "steps": 1,
+                    "time": 1.56250000000000E-02
+                  }
+                },
+                "transformations": {
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "cntexmp": {
+        "demo.adb": {
+          "current": {
+            "16": [
+              {
+                "kind": "variable",
+                "name": "A",
+                "value": "Integer'First"
+              },
+              {
+                "kind": "variable",
+                "name": "B",
+                "value": "-1"
+              }
+            ]
+          },
+          "previous": {
+          }
+        },
+        "demo.ads": {
+          "current": {
+            "13": [
+              {
+                "kind": "variable",
+                "name": "A",
+                "value": "Integer'First"
+              },
+              {
+                "kind": "variable",
+                "name": "B",
+                "value": "-1"
+              }
+            ]
+          },
+          "previous": {
+          }
+        }
+      },
+      "cntexmp_value": {
+        "inputs": [
+          {
+            "kind": "variable",
+            "name": "A",
+            "value": "-2147483648"
+          },
+          {
+            "kind": "variable",
+            "name": "B",
+            "value": "-1"
+          }
+        ],
+        "subp_file": "demo.ads",
+        "subp_line": 13
+      },
+      "col": 14,
+      "entity": 2,
+      "file": "demo.adb",
+      "how_proved": "prover",
+      "justif_msg": "overflow check justified",
+      "line": 16,
+      "message": {
+        "text": "overflow check justified"
+      },
+      "msg_id": 9,
+      "rule": "VC_OVERFLOW_CHECK",
+      "severity": "info",
+      "suppressed": "Demo: callers only pass sensor readings well inside Integer range",
+      "unproved_status": {
+        "status": "gave_up"
+      }
+    },
+    {
+      "check_col": 16,
+      "check_file": "demo.adb",
+      "check_line": 26,
+      "check_tree": [
+        {
+          "proof_attempts": {
+            "CVC5": {
+              "result": "Valid",
+              "steps": 1,
+              "time": 6.25000000000000E-02
+            }
+          },
+          "transformations": {
+          }
+        },
+        {
+          "proof_attempts": {
+            "CVC5": {
+              "result": "Valid",
+              "steps": 1,
+              "time": 3.12500000000000E-02
+            }
+          },
+          "transformations": {
+          }
+        }
+      ],
+      "col": 16,
+      "entity": 3,
+      "file": "demo.adb",
+      "how_proved": "prover",
+      "line": 26,
+      "message": {
+        "text": "overflow check proved"
+      },
+      "msg_id": 10,
+      "rule": "VC_OVERFLOW_CHECK",
+      "severity": "info",
+      "stats": {
+        "CVC5": {
+          "count": 2,
+          "max_steps": 1,
+          "max_time": 6.25000000000000E-02
+        }
+      },
+      "unproved_status": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "skip_flow_proof": [
+  ],
+  "skip_proof": [
+  ],
+  "spark": {
+    " 1": "all",
+    " 2": "all",
+    " 3": "all",
+    " 4": "all",
+    " 5": "all",
+    " 6": "all",
+    " 7": "spec"
+  },
+  "stop_reason": "STOP_REASON_NONE",
+  "timings": {
+    " 1": {
+      "gnat2why.vc_generation": 2.18579005450010E-02,
+      "gnatwhy3.init": 8.60279977321625E-01,
+      "gnatwhy3.register_vcs": 0.00000000000000E+00,
+      "gnatwhy3.run_vcs": 0.00000000000000E+00,
+      "gnatwhy3.save_session": 6.97899889200926E-03,
+      "gnatwhy3.schedule_vcs": 7.65299890190363E-03,
+      "gnatwhy3.transformations.counterexamples_dependent_intros": 0.00000000000000E+00,
+      "gnatwhy3.transformations.detect_polymorphism": 0.00000000000000E+00,
+      "gnatwhy3.transformations.discriminate_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_algebraic": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_algebraic_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_builtin": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_definition_conditionally": 8.27500037848949E-03,
+      "gnatwhy3.transformations.eliminate_epsilon": 4.73299901932478E-03,
+      "gnatwhy3.transformations.eliminate_gnatprove_guard_epsilon": 7.55900004878640E-03,
+      "gnatwhy3.transformations.eliminate_inductive": 1.59799901302904E-03,
+      "gnatwhy3.transformations.eliminate_literal": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_projections_sums": 3.03400005213916E-03,
+      "gnatwhy3.transformations.eliminate_recursion": 0.00000000000000E+00,
+      "gnatwhy3.transformations.encoding_smt_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.extensionality_goal": 0.00000000000000E+00,
+      "gnatwhy3.transformations.inline_trivial": 2.94560007750988E-02,
+      "gnatwhy3.transformations.introduce_premises": 0.00000000000000E+00,
+      "gnatwhy3.transformations.monomorphise_goal": 0.00000000000000E+00,
+      "gnatwhy3.transformations.remove_unused": 6.21900008991361E-03,
+      "gnatwhy3.transformations.remove_unused_keep_constants": 0.00000000000000E+00,
+      "gnatwhy3.transformations.simplify_formula": 3.78599902614951E-03,
+      "gnatwhy3.transformations.split_goal_wp_conj": 0.00000000000000E+00,
+      "gnatwhy3.transformations.split_premise_right": 0.00000000000000E+00,
+      "rac_prover": 2.96875000000000E-01
+    },
+    " 2": {
+      "gnat2why.vc_generation": 2.81614009290934E-02,
+      "gnatwhy3.init": 7.54661023616791E-01,
+      "gnatwhy3.register_vcs": 0.00000000000000E+00,
+      "gnatwhy3.run_vcs": 0.00000000000000E+00,
+      "gnatwhy3.save_session": 8.38300026953220E-03,
+      "gnatwhy3.schedule_vcs": 7.58199905976653E-03,
+      "gnatwhy3.transformations.counterexamples_dependent_intros": 4.12000017240644E-03,
+      "gnatwhy3.transformations.detect_polymorphism": 4.01100004091859E-03,
+      "gnatwhy3.transformations.discriminate_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_algebraic": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_algebraic_if_poly": 9.15199890732765E-03,
+      "gnatwhy3.transformations.eliminate_builtin": 3.94999887794256E-03,
+      "gnatwhy3.transformations.eliminate_definition_conditionally": 1.56200001947582E-03,
+      "gnatwhy3.transformations.eliminate_epsilon": 2.00999900698662E-03,
+      "gnatwhy3.transformations.eliminate_gnatprove_guard_epsilon": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_inductive": 2.00799899175763E-03,
+      "gnatwhy3.transformations.eliminate_literal": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_projections_sums": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_recursion": 0.00000000000000E+00,
+      "gnatwhy3.transformations.encoding_smt_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.extensionality_goal": 1.30700005684048E-03,
+      "gnatwhy3.transformations.inline_trivial": 1.78529992699623E-02,
+      "gnatwhy3.transformations.introduce_premises": 0.00000000000000E+00,
+      "gnatwhy3.transformations.monomorphise_goal": 0.00000000000000E+00,
+      "gnatwhy3.transformations.remove_unused": 1.50599901098758E-03,
+      "gnatwhy3.transformations.remove_unused_keep_constants": 0.00000000000000E+00,
+      "gnatwhy3.transformations.simplify_formula": 4.04299888759851E-03,
+      "gnatwhy3.transformations.split_goal_wp_conj": 0.00000000000000E+00,
+      "gnatwhy3.transformations.split_premise_right": 0.00000000000000E+00,
+      "rac_prover": 3.12500000000000E-01
+    },
+    " 3": {
+      "gnat2why.vc_generation": 2.90456004440784E-02,
+      "gnatwhy3.init": 8.62285017967224E-01,
+      "gnatwhy3.register_vcs": 0.00000000000000E+00,
+      "gnatwhy3.run_vcs": 0.00000000000000E+00,
+      "gnatwhy3.save_session": 4.19700006023049E-03,
+      "gnatwhy3.schedule_vcs": 1.01180002093315E-02,
+      "gnatwhy3.transformations.counterexamples_dependent_intros": 0.00000000000000E+00,
+      "gnatwhy3.transformations.detect_polymorphism": 0.00000000000000E+00,
+      "gnatwhy3.transformations.discriminate_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_algebraic_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_builtin": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_definition_conditionally": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_epsilon": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_gnatprove_guard_epsilon": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_inductive": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_literal": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_projections_sums": 0.00000000000000E+00,
+      "gnatwhy3.transformations.encoding_smt_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.inline_trivial": 0.00000000000000E+00,
+      "gnatwhy3.transformations.remove_unused": 0.00000000000000E+00,
+      "gnatwhy3.transformations.simplify_formula": 0.00000000000000E+00,
+      "gnatwhy3.transformations.split_goal_wp_conj": 0.00000000000000E+00
+    },
+    " 4": {
+      "gnat2why.vc_generation": 2.27810000069439E-03,
+      "gnatwhy3.init": 9.60825979709625E-01,
+      "gnatwhy3.register_vcs": 2.07699905149639E-03,
+      "gnatwhy3.run_vcs": 0.00000000000000E+00,
+      "gnatwhy3.save_session": 1.48400003090501E-02,
+      "gnatwhy3.schedule_vcs": 4.01599891483784E-03,
+      "gnatwhy3.transformations.counterexamples_dependent_intros": 0.00000000000000E+00,
+      "gnatwhy3.transformations.detect_polymorphism": 0.00000000000000E+00,
+      "gnatwhy3.transformations.discriminate_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_algebraic_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_builtin": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_definition_conditionally": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_epsilon": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_gnatprove_guard_epsilon": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_inductive": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_literal": 0.00000000000000E+00,
+      "gnatwhy3.transformations.eliminate_projections_sums": 0.00000000000000E+00,
+      "gnatwhy3.transformations.encoding_smt_if_poly": 0.00000000000000E+00,
+      "gnatwhy3.transformations.inline_trivial": 2.00799899175763E-03,
+      "gnatwhy3.transformations.remove_unused": 0.00000000000000E+00,
+      "gnatwhy3.transformations.simplify_formula": 0.00000000000000E+00,
+      "gnatwhy3.transformations.split_goal_wp_conj": 0.00000000000000E+00
+    },
+    " 5": {
+      "gnat2why.vc_generation": 1.70300001627766E-04
+    },
+    " 7": {
+      "gnat2why.vc_generation": 3.20166982710361E-02
+    },
+    "global": {
+      "flow analysis": 8.32359958440065E-03,
+      "globals (advanced)": 2.30140006169677E-03,
+      "globals (basic)": 2.32580001465976E-03,
+      "init_why_sections": 1.63329998031259E-03,
+      "marking": 3.92739987000823E-03,
+      "properties (advanced)": 1.29499996546656E-04,
+      "translation of standard": 4.55289985984564E-03
+    }
+  },
+  "warn_error": [
+  ]
+}

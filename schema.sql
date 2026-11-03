@@ -925,3 +925,42 @@ CREATE TABLE IF NOT EXISTS handoffs (
 CREATE INDEX IF NOT EXISTS idx_handoffs_unit      ON handoffs(unit_id);
 CREATE INDEX IF NOT EXISTS idx_handoffs_milestone ON handoffs(milestone_id);
 CREATE INDEX IF NOT EXISTS idx_handoffs_mission   ON handoffs(mission_id);
+
+-- ═══════════════════════════════════════════════════════════
+-- VERIFIER RESULTS  (V31, src/verification — keep in sync with db.js)
+-- ═══════════════════════════════════════════════════════════
+-- One row per ingested prover run (GNATprove, later Lean/Dafny) and one
+-- per analyzed unit. A run is a hint about one commit, never proof of
+-- the current code: proof-state marks units stale when their files change.
+CREATE TABLE IF NOT EXISTS verifier_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_root TEXT NOT NULL,
+  verifier TEXT NOT NULL,
+  verifier_version TEXT,
+  commit_sha TEXT NOT NULL,
+  dirty INTEGER NOT NULL DEFAULT 0,
+  origin TEXT NOT NULL CHECK (origin IN ('imported', 'lapis-run', 'ci-signed')),
+  signature_key_id TEXT,
+  signed_at TEXT,
+  source_sha256 TEXT NOT NULL,
+  totals_json TEXT NOT NULL,
+  ran_at TEXT,
+  ingested_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_vr_repo ON verifier_runs(repo_root, verifier);
+CREATE TABLE IF NOT EXISTS verifier_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id INTEGER NOT NULL REFERENCES verifier_runs(id) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
+  unit TEXT NOT NULL,
+  unit_key TEXT NOT NULL,
+  line INTEGER,
+  analyzed INTEGER NOT NULL DEFAULT 1,
+  proved INTEGER NOT NULL DEFAULT 0,
+  unproved INTEGER NOT NULL DEFAULT 0,
+  justified INTEGER NOT NULL DEFAULT 0,
+  flow_errors INTEGER NOT NULL DEFAULT 0,
+  open_checks_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_vres_run ON verifier_results(run_id);
+CREATE INDEX IF NOT EXISTS idx_vres_unit ON verifier_results(unit_key);
