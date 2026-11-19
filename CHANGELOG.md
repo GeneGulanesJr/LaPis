@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Tool guardrails are now opt-in (`tool_guardrails.enabled` defaults to
+  `false`).** Blocking native Read/Grep/Glob and `grep`/`find` cost agents a
+  turn per block, since models are trained on those tools, and the redirect to
+  `memory-code` misfired on doc/config searches and stale indexes. Turn them back
+  on with `"tool_guardrails": { "enabled": true }` or `LAPIS_GUARDRAILS=1`
+  (Pi, Claude Code, Hermes).
+- **Agent guidance no longer says "memory-code first".** `AGENTS.md`, the
+  protocol prompt, the generated CLAUDE.md block and the Hermes skill now say to
+  use native tools freely and reach for `memory-code` when grep can't answer
+  (callers, blast-radius, deps, cycles, semantic search). They also drop
+  "always `memory-search` before `memory-save`", because `memory-save` checks
+  for duplicates itself. Re-run `lapis claude-code install` to refresh an
+  existing CLAUDE.md block.
+
+### Removed
+
+- **The every-5th-call "💡 Memory reminder"** (Pi `context` hook and Claude
+  Code `UserPromptSubmit`), along with its `callsSinceLastMemory` /
+  `lastMemoryToolCall` session counters and the `memory-reminder-reset`
+  PreToolUse role. Its only effect was to prompt memory-tool calls nobody needed.
+
 ### Added
 
 - **Check results for everyday projects, with a stop gate (on by default).**

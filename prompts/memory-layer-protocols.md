@@ -1,10 +1,8 @@
 # Protocols
 
-## 1. Code & Doc Retrieval — Use memory-code / memory-doc
+## 1. Code & Doc Retrieval — memory-code / memory-doc
 
-LaPis is the canonical Pi memory stack. For any code/doc lookup, prefer LaPis tools first.
-
-The `memory-layer` extension **enforces** structured retrieval over raw file reads:
+LaPis is the canonical Pi memory stack. Its code/doc indexes answer structural questions that plain search cannot:
 
 - **Code** → `memory-code` tool
   - Modes: search, callers, callees, blast-radius, dead-code, complexity, deps, outline, churn, hotspots, cycles, importance, coupling, extractable, hierarchy, signal-chains, layer-violations, coding-context, preflight, agent-pack, health, index-repo, reindex-repo, dupes, audit-diff, enrich-symbols
@@ -13,16 +11,12 @@ The `memory-layer` extension **enforces** structured retrieval over raw file rea
 
 If a repo isn't indexed yet, the tool will tell you exactly how to index it.
 
-**Enforcement rules:**
+**When to reach for which tool:**
 
-- `read` on a code file in an indexed repo **without** offset/limit → BLOCKED. Use `memory-code outline` first.
-- `read` on a code file **with** offset/limit → ALLOWED (editing targeted lines).
-- `bash` grep/rg/find on source code in an indexed repo → BLOCKED for browsing/scanning. Use `memory-code` instead.
-- Targeted exact-symbol grep/rg is allowed when it is clearly cheaper than semantic search, e.g. `grep -rn "rankObservations" src/`.
-- After calling `memory-code outline` on a file, subsequent reads are allowed.
-- Avoid duplicate locator steps: once exact-symbol grep or `memory-code` identifies the file, go straight to a targeted `read` with `offset`/`limit` instead of running another search.
-- Always include `--repo` with `memory-code`/`memory-doc` when known. In a project session this is usually the current project name.
-- If a lookup seems to need raw source browsing, stop and use `memory-code` / `memory-doc` instead.
+- Use native read / grep / find freely — they are the default for reading and exact-name searches.
+- Reach for `memory-code` when it answers what grep cannot: `callers`, `callees`, `blast-radius`, `deps`, `cycles`, `hotspots`, or a semantic `search` ("how does context injection work"). Use `memory-doc` the same way for docs.
+- Include `--repo` with `memory-code`/`memory-doc` when known.
+- Optional enforcement: `tool_guardrails.enabled: true` (or `LAPIS_GUARDRAILS=1`) blocks whole-file reads of indexed code and broad grep/find scans. Off by default.
 
 ## 2. Persistent Memory — Automatic
 
@@ -32,17 +26,15 @@ Memory is handled automatically by the `memory-layer` extension. It:
 - **Re-injects context after compaction** — `/compact` no longer destroys memory awareness
 - **Auto-detects decisions** — pattern-matches assistant messages for decisions, bugfixes, discoveries, and auto-saves them
 - **Periodic progress checkpoints** — every 10 turns, saves an auto-checkpoint with files edited
-- **Persistent memory reminder** — every 5th LLM call, injects a lightweight reminder if no memory tool was used recently
 - **Git-triggered trust sync** — after git pull/checkout/merge/rebase, auto-syncs code trust scores
 - **Auto-saves session summaries** on shutdown with topics, files, and turn count
 - **Auto-recovers** incomplete sessions
 - **Detects stale indexes** and warns when code indexes are out of date
-- **Hard-blocks reads of code files** in indexed repos — must use `memory-code outline` first; partial reads (offset/limit) allowed for editing
 - **Auto-dreams at turn 50** — runs the Dream Cycle once per session, at turn 50 of each active session, to clean stale memories (not just old). Targets superseded, zero-recall auto-saved, stale corrections, and replaced configs. Consolidates accumulated `session_summary` observations into one per project. Age alone is NOT a signal. A `cleanup-sessions` CLI command is available for one-shot retroactive cleanup of databases created before this trigger moved.
 
 ### When to use the tools
 
-- **`memory-save`** — Decisions, bugfixes, architecture constraints, patterns, discoveries. Always search first.
+- **`memory-save`** — Decisions, bugfixes, architecture constraints, patterns, discoveries. It checks for duplicates itself.
 - **`memory-update`** — Correct or refine an existing memory in-place by ID. Use instead of saving a correction entry.
 - **`memory-delete`** — Remove stale, incorrect, or duplicate memories by ID (soft-delete, recoverable).
 - **`memory-search`** — Before making decisions, to avoid repeating past mistakes or re-deciding settled questions.

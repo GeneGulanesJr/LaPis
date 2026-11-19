@@ -9,6 +9,13 @@ const {
   } = require('../../src/hermes/hook'),
   REPOS = [{ name: 'Proj', path: '/work/proj' }];
 
+// Guardrails are opt-in (off by default); these tests exercise them.
+beforeEach(() => {
+  vi.stubEnv('LAPIS_GUARDRAILS', '1');
+  require('../../config').resetConfigCache();
+});
+afterEach(() => vi.unstubAllEnvs());
+
 function payload(overrides = {}) {
   return {
     hook_event_name: 'pre_tool_call',

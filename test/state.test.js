@@ -10,7 +10,6 @@ describe('state', () => {
     expect(state).toHaveProperty('memoriesSavedThisSession');
     expect(state).toHaveProperty('exploredFiles');
     expect(state).toHaveProperty('turnCount');
-    expect(state).toHaveProperty('lastMemoryToolCall');
     expect(state).toHaveProperty('lastAutoDecisionSave');
     expect(state).toHaveProperty('hasInjectedContext');
     expect(state).toHaveProperty('editedFiles');

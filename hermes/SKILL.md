@@ -32,10 +32,9 @@ LaPis is a local coding-memory stack (SQLite at `$LAPIS_HOME/.pi/memory/memory.d
 
 ## Retrieval protocol (indexed repos)
 
-- **Code lookups → `mcp_lapis_memory_code`, not raw file reads.** Prefer `outline` on a file before reading it whole.
-- Whole-file `read_file` on indexed code files is discouraged: run `memory-code` `outline` first; targeted reads with `offset`/`limit` are allowed for editing. (A `pre_tool_call` hook enforces this when the LaPis hooks are installed.)
-- Semantic code queries → `memory-code` mode `search`. Exact single-symbol lookups → targeted grep is fine.
-- **Docs → `mcp_lapis_memory_doc`**, not raw browsing.
+- Use `read_file` / `search_files` freely for reading and exact-name searches.
+- **Reach for `mcp_lapis_memory_code`** when it answers what grep cannot: `callers`, `callees`, `blast-radius`, `deps`, `cycles`, or a semantic `search`. `mcp_lapis_memory_doc` does the same for docs.
+- Optional enforcement: with `tool_guardrails.enabled: true` (or `LAPIS_GUARDRAILS=1`) a `pre_tool_call` hook blocks whole-file reads of indexed code and broad searches. Off by default.
 - After git operations, run `memory_sync_code_trust`.
 
 ## Memory content format

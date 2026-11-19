@@ -456,8 +456,6 @@ describe('memory tool renderer safety', () => {
         {
           state: {
             currentProject: 'app',
-            lastMemoryToolCall: 0,
-            callsSinceLastMemory: 0,
             exploredFiles: new Set(),
           },
           getKnownRepos: vi.fn().mockResolvedValue([{ name: 'app', path: process.cwd() }]),
@@ -485,7 +483,7 @@ describe('memory tool renderer safety', () => {
       toolCall = captureHook(
         registerToolGuardrails,
         {
-          state: { currentProject: 'app', lastMemoryToolCall: 0, callsSinceLastMemory: 0, exploredFiles: new Set() },
+          state: { currentProject: 'app', exploredFiles: new Set() },
           getKnownRepos: vi.fn().mockResolvedValue([{ name: 'app', path: process.cwd(), file_count: 0 }]),
           isCodeFile: vi.fn(() => true),
           memStreaming,
@@ -507,8 +505,6 @@ describe('memory tool renderer safety', () => {
         {
           state: {
             currentProject: 'app',
-            lastMemoryToolCall: 0,
-            callsSinceLastMemory: 0,
             exploredFiles: new Set(['parse-code.js']),
           },
           // Windows stores repo paths with backslashes
@@ -532,8 +528,6 @@ describe('memory tool renderer safety', () => {
         {
           state: {
             currentProject: 'app',
-            lastMemoryToolCall: 0,
-            callsSinceLastMemory: 0,
             exploredFiles: new Set(),
           },
           getKnownRepos: vi.fn().mockResolvedValue([{ name: 'app', path: process.cwd() }]),

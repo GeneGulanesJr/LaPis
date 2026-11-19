@@ -14,15 +14,15 @@
  *   glob-guardrail        secondary discovery guardrail (Glob)
  *   bash-guardrail        secondary search guardrail (Bash grep/rg/find)
  *   memory-code-seed      seed exploredFiles from a memory-code call
- *   memory-reminder-reset reset the memory-reminder cadence on any memory-* tool
  *
  * Guardrails only fire inside an already-indexed repo. A call that lands in an
  * UNINDEXED git repo is allowed through, but starts a detached background
  * `index-repo` (see ../auto-index.js — it never indexes inline, so the hook
  * timeout is untouched) and tells the agent so. Once the index exists the
  * guardrails apply on their own. Opt out: config `auto_index.enabled=false` or
- * LAPIS_AUTO_INDEX=0. Guardrails themselves: `tool_guardrails.enabled=false` or
- * LAPIS_GUARDRAILS=0; they also stand down for an index with zero parsed files.
+ * LAPIS_AUTO_INDEX=0. Guardrails themselves are OFF by default — opt in with
+ * `tool_guardrails.enabled=true` or LAPIS_GUARDRAILS=1; they also stand down for
+ * an index with zero parsed files.
  */
 
 const path = require('node:path'),
@@ -242,10 +242,10 @@ async function handlePreToolUse({
     return null;
   }
 
-  // Memory-tool cadence bookkeeping (state mutations Pi's tool_call hook does).
+  // Seed exploredFiles from memory-code (state mutation Pi's tool_call hook does).
   // Routed through mutateState so a parallel memory-* tool can't lose the
   // Update (#228). Falls back to load/save when the injected store lacks it.
-  if (role === 'memory-code-seed' || role === 'memory-reminder-reset') {
+  if (role === 'memory-code-seed') {
     const mutate = stateStore.mutateState
       ? (mutator) => stateStore.mutateState(claudeSessionId, mutator)
       : (mutator) => {
@@ -255,11 +255,7 @@ async function handlePreToolUse({
           return r;
         };
     await mutate((state) => {
-      state.lastMemoryToolCall = Date.now();
-      state.callsSinceLastMemory = 0;
-      if (role === 'memory-code-seed') {
-        addExploredFile(state, input.file);
-      }
+      addExploredFile(state, input.file);
     });
     return null;
   }
