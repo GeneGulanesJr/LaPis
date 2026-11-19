@@ -245,21 +245,19 @@ On `save`, trigram overlap checked against existing observations:
 The extension proactively ensures memory is always invoked at the right moment.
 All hooks are non-blocking — they enhance, not replace, explicit tool usage.
 
-| Hook               | Situation                                                     | Response                                                                                                                             |
-| ------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `session_compact`  | User runs `/compact` or auto-compaction fires                 | Re-inject full memory context (observations + preferences + status) so LLM retains awareness                                         |
-| `context`          | 5+ consecutive non-memory LLM calls                           | Sliding-window reminder to use memory-search/memory-save (resets on any memory tool use)                                             |
-| `message_end`      | Assistant message with decision/bugfix/discovery pattern      | Auto-save as observation with detected type (dedup pipeline active)                                                                  |
-| `turn_end`         | Every 10th turn                                               | Progress checkpoint with files touched + memory count                                                                                |
-| `tool_call`        | LLM reads code files directly (indexed repo, no offset/limit) | **Hard block** — forces `memory-code outline` first; **excludes config files** (package.json, tsconfig, etc.); partial reads allowed |
-| `tool_call`        | LLM uses grep/rg/find on source code in indexed repo          | **Hard block** for browsing/scanning — forces `memory-code` instead; targeted exact-symbol grep/rg is allowed when cheaper           |
-| `tool_call`        | LLM calls memory-code with file param                         | Marks file as explored → future reads allowed                                                                                        |
-| `tool_call`        | LLM calls memory-code with any mode                           | Track result files as explored via `tool_result`; reset callsSinceLastMemory counter                                                 |
-| `tool_call`        | LLM uses memory-\* tools                                      | Track last-usage timestamp + reset sliding window counter                                                                            |
-| `tool_result`      | memory-code returns results with file paths                   | Extract file paths from results → add to `exploredFiles`                                                                             |
-| `tool_result`      | bash with git pull/checkout/merge                             | Auto-sync code trust scores                                                                                                          |
-| `tool_result`      | edit/write on code files                                      | Track file for session summary + periodic auto-save                                                                                  |
-| `session_shutdown` | Session ends                                                  | Rich summary with topics discussed + files modified + turn count                                                                     |
+| Hook               | Situation                                                     | Response                                                                                                                                                            |
+| ------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session_compact`  | User runs `/compact` or auto-compaction fires                 | Re-inject full memory context (observations + preferences + status) so LLM retains awareness                                                                        |
+| `message_end`      | Assistant message with decision/bugfix/discovery pattern      | Auto-save as observation with detected type (dedup pipeline active)                                                                                                 |
+| `turn_end`         | Every 10th turn                                               | Progress checkpoint with files touched + memory count                                                                                                               |
+| `tool_call`        | LLM reads code files directly (indexed repo, no offset/limit) | **Hard block** (opt-in, `LAPIS_GUARDRAILS=1`) — forces `memory-code outline` first; **excludes config files** (package.json, tsconfig, etc.); partial reads allowed |
+| `tool_call`        | LLM uses grep/rg/find on source code in indexed repo          | **Hard block** (opt-in) for browsing/scanning — forces `memory-code` instead; targeted exact-symbol grep/rg is allowed when cheaper                                 |
+| `tool_call`        | LLM calls memory-code with file param                         | Marks file as explored → future reads allowed                                                                                                                       |
+| `tool_call`        | LLM calls memory-code with any mode                           | Track result files as explored via `tool_result`                                                                                                                    |
+| `tool_result`      | memory-code returns results with file paths                   | Extract file paths from results → add to `exploredFiles`                                                                                                            |
+| `tool_result`      | bash with git pull/checkout/merge                             | Auto-sync code trust scores                                                                                                                                         |
+| `tool_result`      | edit/write on code files                                      | Track file for session summary + periodic auto-save                                                                                                                 |
+| `session_shutdown` | Session ends                                                  | Rich summary with topics discussed + files modified + turn count                                                                                                    |
 
 ### Decision Detection Patterns
 

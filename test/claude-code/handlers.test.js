@@ -9,6 +9,13 @@ const fs = require('node:fs'),
   { runHook } = require('../../src/claude-code/hooks'),
   EMPTY_CONTEXT = { observations: [], personal: [], stats: { total_memories: 0, total_personal: 0 } };
 
+// Guardrails are opt-in (off by default); these tests exercise them.
+beforeEach(() => {
+  vi.stubEnv('LAPIS_GUARDRAILS', '1');
+  require('../../config').resetConfigCache();
+});
+afterEach(() => vi.unstubAllEnvs());
+
 // ---- fakes ----
 
 function makeFakeDispatch(overrides = {}) {

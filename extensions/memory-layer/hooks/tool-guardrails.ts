@@ -62,10 +62,9 @@ function ensureIndexed(deps: GuardrailsDeps, resolvedCwd: string, projectName: s
 
 export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
   pi.on('tool_call', async (event, _ctx) => {
-    // Honor the `tool_guardrails.enabled: false` config toggle
-    // (see ~/.pi/memory/config.jsonc). When disabled, the raw grep/find
-    // And unread-file guardrails are skipped entirely so raw repository
-    // Search and direct file reads work without the memory-code redirect.
+    // Off by default (`tool_guardrails.enabled`, ~/.pi/memory/config.jsonc;
+    // LAPIS_GUARDRAILS=1 opts in). When off, raw grep/find and whole-file
+    // Reads work without the memory-code redirect.
     // Tests and other callers that don't inject getConfig default to enabled.
     if (deps.getConfig?.().tool_guardrails?.enabled === false) {
       return;
@@ -75,18 +74,11 @@ export function registerToolGuardrails(pi: ExtensionAPI, deps: GuardrailsDeps) {
       input = event.input as Record<string, unknown>;
 
     if (toolName === 'memory-code') {
-      deps.state.lastMemoryToolCall = Date.now();
-      deps.state.callsSinceLastMemory = 0;
       const file = String(input?.file || '');
       if (file) {
         deps.state.exploredFiles.add(file.toLowerCase());
         deps.state.exploredFiles.add(path.basename(file).toLowerCase());
       }
-      return;
-    }
-    if (toolName.startsWith('memory-')) {
-      deps.state.lastMemoryToolCall = Date.now();
-      deps.state.callsSinceLastMemory = 0;
       return;
     }
 

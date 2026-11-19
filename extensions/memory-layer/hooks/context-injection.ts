@@ -1,4 +1,4 @@
-import { MEMORY_REMINDER_INTERVAL, MemResult, state } from '../state';
+import { MemResult, state } from '../state';
 import { getKnownRepos, isRepoStale } from '../host/project-detector';
 import { CONTEXT } from '../../../constants';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
@@ -232,38 +232,5 @@ export function registerBeforeAgentStart(pi: ExtensionAPI, deps: ContextDeps) {
         };
       }
     }
-  });
-}
-
-export function registerContextReminder(pi: ExtensionAPI, deps: ContextDeps) {
-  pi.on('context', async (event, _ctx) => {
-    if (deps.state.hasInjectedContext) {
-      deps.state.hasInjectedContext = false;
-      return;
-    }
-
-    deps.state.callsSinceLastMemory++;
-
-    if (deps.state.callsSinceLastMemory < MEMORY_REMINDER_INTERVAL) {
-      return;
-    }
-
-    if (Date.now() - deps.state.lastMemoryToolCall < 180000) {
-      return;
-    }
-
-    // Reset counter after firing
-    deps.state.callsSinceLastMemory = 0;
-
-    return {
-      messages: [
-        ...event.messages,
-        {
-          role: 'user' as const,
-          content:
-            '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.',
-        },
-      ],
-    };
   });
 }

@@ -33,10 +33,6 @@ const { CONTEXT } = require('../../../constants'),
   { contextDecisionEnabled } = require('../../memory-domain/context-decision'),
   { makeMutate } = require('../state-mutate'),
   BUDGET_MS = 30000,
-  REMINDER_INTERVAL = 5, // MEMORY_REMINDER_INTERVAL (state.ts:107)
-  REMINDER_RECENT_MS = 180000, // 3min (context-injection.ts:235)
-  REMINDER_TEXT =
-    '💡 Memory reminder: Use `memory-search` before decisions to avoid repeating past mistakes. Use `memory-save` for decisions, bugfixes, and discoveries.',
   // Claude Code delivers background-task results through UserPromptSubmit; they are not user prompts (#370).
   TASK_NOTIFICATION_RE = /<task-notification>[\s\S]*?<\/task-notification>/g;
 
@@ -166,48 +162,31 @@ async function run({ payload, dispatch, getKnownRepos, getKnownProjects, stateSt
       return null;
     }
 
-    // Cadence-gated reminder (parity of Pi's context-event reminder).
     // Routed through mutateState so parallel memory-tool hooks cannot be
     // Clobbered by an unlocked load/save (#228).
-    let shouldRemind = false;
-    {
-      const mutate = makeMutate(stateStore, claudeSessionId);
-      await mutate((s) => {
-        if (isCancelled?.()) {
-          return;
-        }
-        s.callsSinceLastMemory += 1;
-        const recentMemory = Date.now() - s.lastMemoryToolCall < REMINDER_RECENT_MS;
-        if (s.callsSinceLastMemory >= REMINDER_INTERVAL && !recentMemory) {
-          s.callsSinceLastMemory = 0;
-          shouldRemind = true;
-        }
-        s.hasInjectedContext = true;
-      });
-
+    const mutate = makeMutate(stateStore, claudeSessionId);
+    await mutate((s) => {
       if (isCancelled?.()) {
-        return null;
+        return;
       }
+      s.hasInjectedContext = true;
+    });
 
-      if (shouldRemind) {
-        lines.push('');
-        lines.push(REMINDER_TEXT);
-      }
-
-      {
-        const additionalContext = capInjectedContext(lines.join('\n'));
-        if (!additionalContext) {
-          return null;
-        }
-
-        return {
-          hookSpecificOutput: {
-            hookEventName: 'UserPromptSubmit',
-            additionalContext,
-          },
-        };
-      }
+    if (isCancelled?.()) {
+      return null;
     }
+
+    const additionalContext = capInjectedContext(lines.join('\n'));
+    if (!additionalContext) {
+      return null;
+    }
+
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'UserPromptSubmit',
+        additionalContext,
+      },
+    };
   }
 }
 
@@ -234,4 +213,4 @@ async function handleUserPromptSubmit(ctx) {
   }
 }
 
-module.exports = { handleUserPromptSubmit, REMINDER_INTERVAL, REMINDER_RECENT_MS, BUDGET_MS };
+module.exports = { handleUserPromptSubmit, BUDGET_MS };

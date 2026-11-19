@@ -24,7 +24,6 @@
  *     Glob                       → glob-guardrail      (secondary)
  *     Bash(grep|rg|find|…)       → bash-guardrail      (secondary)
  *     mcp__lapis__memory-code    → memory-code-seed
- *     mcp__lapis__memory-*       → memory-reminder-reset
  *   PostToolUse:
  *     Write|MultiEdit|Edit       → edit-track
  *     Bash(git …)                → git-trust
@@ -94,9 +93,6 @@ function preToolRole(toolName) {
   const bare = mcpToolName(toolName);
   if (bare === 'memory-code') {
     return 'memory-code-seed';
-  }
-  if (bare && bare.startsWith('memory-')) {
-    return 'memory-reminder-reset';
   }
   switch (toolName) {
     case 'Read':

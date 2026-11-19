@@ -1,10 +1,8 @@
 # Protocols
 
-## 1. Code & Doc Retrieval — Use memory-code / memory-doc
+## 1. Code & Doc Retrieval — memory-code / memory-doc
 
-LaPis is the canonical Pi memory stack. For any code/doc lookup, prefer LaPis tools first.
-
-The `memory-layer` extension **enforces** structured retrieval over raw file reads:
+LaPis is the canonical Pi memory stack. Its code/doc indexes answer structural questions that plain search cannot:
 
 - **Code** → `memory-code` tool
   - Modes: search, callers, callees, blast-radius, dead-code, complexity, deps, outline, churn, hotspots, cycles, importance, coupling, extractable, hierarchy, signal-chains, layer-violations, coding-context, preflight, agent-pack, health, dupes, audit-diff, enrich-symbols, index-repo, reindex-repo
@@ -13,16 +11,12 @@ The `memory-layer` extension **enforces** structured retrieval over raw file rea
 
 If a repo isn't indexed yet, the tool will tell you exactly how to index it.
 
-**Enforcement rules:**
+**When to reach for which tool:**
 
-- `read` on a code file in an indexed repo **without** offset/limit → BLOCKED. Use `memory-code outline` first.
-- `read` on a code file **with** offset/limit → ALLOWED (editing targeted lines).
-- `bash grep/rg` for **browsing or scanning** source code in an indexed repo → BLOCKED. Use `memory-code` instead.
-- `bash grep/rg` for **targeted single-symbol lookup** (e.g., `grep -rn "rankObservations" src/`) → ALLOWED when faster than memory-code for exact-name searches.
-- `bash find` for file discovery in an indexed repo → BLOCKED. Use `memory-code search` instead.
-- After calling `memory-code outline` on a file, subsequent reads are allowed.
-- Prefer `memory-code search` for **semantic** queries (e.g., "how does context injection work"). Prefer `bash grep` for **exact symbol** queries (e.g., "where is rankObservations defined").
-- If a lookup seems to need raw source browsing, stop and use `memory-code` / `memory-doc` instead.
+- Use native read / grep / find freely — they are the default for reading and exact-name searches.
+- Reach for `memory-code` when it answers what grep cannot: `callers`, `callees`, `blast-radius`, `deps`, `cycles`, `hotspots`, or a semantic `search` ("how does context injection work"). Use `memory-doc` the same way for docs.
+- Include `--repo` with `memory-code`/`memory-doc` when known.
+- Optional enforcement: `tool_guardrails.enabled: true` (or `LAPIS_GUARDRAILS=1`) blocks whole-file reads of indexed code and broad grep/find scans. Off by default.
 
 ## 2. Persistent Memory — Automatic
 
@@ -32,17 +26,15 @@ Memory is handled automatically by the `memory-layer` extension. It:
 - **Re-injects context after compaction** — `/compact` no longer destroys memory awareness
 - **Auto-detects decisions** — pattern-matches assistant messages for decisions, bugfixes, discoveries, and auto-saves them
 - **Periodic progress checkpoints** — every 10 turns, saves an auto-checkpoint with files edited
-- **Persistent memory reminder** — every 5th LLM call, injects a lightweight reminder if no memory tool was used recently
 - **Git-triggered trust sync** — after git pull/checkout/merge/rebase, auto-syncs code trust scores
 - **Auto-saves session summaries** on shutdown with topics, files, and turn count
 - **Auto-recovers** incomplete sessions
 - **Detects stale indexes** and warns when code indexes are out of date
-- **Hard-blocks reads of code files** in indexed repos — must use `memory-code outline` first; partial reads (offset/limit) allowed for editing
 - **Auto-dreams at turn 50 of each active session** — runs the Dream Cycle to clean stale memories (not just old). Targets superseded, zero-recall auto-saved, stale corrections, and replaced configs. Age alone is NOT a signal.
 
 ### When to use the tools
 
-- **`memory-save`** — Decisions, bugfixes, architecture constraints, patterns, discoveries. Always search first.
+- **`memory-save`** — Decisions, bugfixes, architecture constraints, patterns, discoveries. It checks for duplicates itself.
 - **`memory-update`** — Correct or refine an existing memory in-place by ID. Use instead of saving a correction entry, and only when the user says the memory is wrong or the code shows it no longer holds.
 - **Saved decisions stand** until the user changes them. Being asked about a decision, or its age, does not make it stale: follow it and cite it. If the code now contradicts it, say so and ask before going against it.
 - **`memory-delete`** — Remove stale, incorrect, or duplicate memories by ID (soft-delete, recoverable).
@@ -95,13 +87,13 @@ Pi's footer shows `cache` usage — but this is **NOT** the persistent memory la
 
 ## 4. Claude Code CLI — Same rules, different transport
 
-When working in [Claude Code](https://code.claude.com/docs/en/overview) with LaPis installed (`lapis claude-code install`), the same retrieval and memory protocols apply. Tools arrive as `mcp__lapis__*` (or `mcp__<custom-name>__*` if renamed at install). Hooks enforce the guardrails Pi applies in-process:
+When working in [Claude Code](https://code.claude.com/docs/en/overview) with LaPis installed (`lapis claude-code install`), the same retrieval and memory protocols apply. Tools arrive as `mcp__lapis__*` (or `mcp__<custom-name>__*` if renamed at install):
 
 - **Code** → `mcp__lapis__memory-code` (same modes as Pi's `memory-code`)
 - **Docs** → `mcp__lapis__memory-doc`
 - **Memory** → `mcp__lapis__memory-save`, `memory-search`, `memory-get`, etc.
 
-Guardrails run via Claude Code `PreToolUse` hooks (not MCP): whole-file `Read` blocks, `Grep`/`Glob` search redirects, and secondary `Bash` search detection. Prefer native `Grep`/`Glob` over bash `grep`/`find` in indexed repos.
+The optional guardrails (off by default, `LAPIS_GUARDRAILS=1`) run via Claude Code `PreToolUse` hooks (not MCP): whole-file `Read` blocks, `Grep`/`Glob` search redirects, and secondary `Bash` search detection.
 
 In an **unindexed git repo** the hooks don't skip silently: `SessionStart` / `PreToolUse` start a detached background `index-repo` and tell the agent (on by default; opt out with `auto_index.enabled: false` or `LAPIS_AUTO_INDEX=0`). See [Auto-indexing](docs/CLAUDE_CODE.md#auto-indexing).
 

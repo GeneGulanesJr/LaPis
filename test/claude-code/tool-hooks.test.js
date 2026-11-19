@@ -2,6 +2,13 @@ const realStateStore = require('../../src/claude-code/state-store'),
   { handlePreToolUse } = require('../../src/claude-code/handlers/pre-tool-use'),
   { handlePostToolUse } = require('../../src/claude-code/handlers/post-tool-use');
 
+// Guardrails are opt-in (off by default); these tests exercise them.
+beforeEach(() => {
+  vi.stubEnv('LAPIS_GUARDRAILS', '1');
+  require('../../config').resetConfigCache();
+});
+afterEach(() => vi.unstubAllEnvs());
+
 {
   const APP_REPO = { name: 'app', path: '/proj/app', indexed_at: new Date().toISOString() },
     reposFn = () => [APP_REPO];
@@ -174,13 +181,13 @@ const realStateStore = require('../../src/claude-code/state-store'),
   });
 
   // =====================================================================
-  // PreToolUse — memory-code seed + reminder reset
+  // PreToolUse — memory-code seed
   // =====================================================================
 
   describe('claude-code PreToolUse: memory-tool bookkeeping', () => {
-    test('memory-code seeds exploredFiles and resets the reminder cadence', async () => {
+    test('memory-code seeds exploredFiles', async () => {
       const stateStore = makeStateStore({
-          s: { ...realStateStore.defaultState(), callsSinceLastMemory: 4 },
+          s: realStateStore.defaultState(),
         }),
         out = await handlePreToolUse({
           payload: {
@@ -199,20 +206,6 @@ const realStateStore = require('../../src/claude-code/state-store'),
         })();
       expect(st.exploredFiles).toContain('src/foo.ts');
       expect(st.exploredFiles).toContain('foo.ts');
-      expect(st.callsSinceLastMemory).toBe(0);
-      expect(st.lastMemoryToolCall).toBeGreaterThan(0);
-    });
-
-    test('any memory-* tool resets the reminder cadence', async () => {
-      const stateStore = makeStateStore({
-        s: { ...realStateStore.defaultState(), callsSinceLastMemory: 9 },
-      });
-      await handlePreToolUse({
-        payload: { session_id: 's', tool_name: 'mcp__lapis__memory-save', tool_input: {}, cwd: '/proj/app' },
-        getKnownRepos: reposFn,
-        stateStore,
-      });
-      expect(stateStore._peek('s').callsSinceLastMemory).toBe(0);
     });
   });
 

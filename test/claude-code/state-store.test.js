@@ -39,8 +39,6 @@ describe('claude-code state-store', () => {
         exploredFiles: ['c.js'],
         turnCount: 5,
         dreamTriggeredThisSession: false,
-        lastMemoryToolCall: 1000,
-        callsSinceLastMemory: 2,
         lastAutoDecisionSave: 2000,
         hasInjectedContext: true,
         pendingRecallFeedback: [[11, { sessionId: 42, query: 'q' }]],

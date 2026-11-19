@@ -29,8 +29,10 @@ describe('LAPIS_GUARDRAILS env override', () => {
     resetConfigCache();
   });
 
-  test('defaults on; LAPIS_GUARDRAILS=0 turns the guardrails off', () => {
+  test('defaults off; LAPIS_GUARDRAILS=1 turns the guardrails on', () => {
     vi.stubEnv('LAPIS_GUARDRAILS', '');
+    expect(loadConfig().tool_guardrails.enabled).toBe(false);
+    vi.stubEnv('LAPIS_GUARDRAILS', '1');
     expect(loadConfig().tool_guardrails.enabled).toBe(true);
     vi.stubEnv('LAPIS_GUARDRAILS', '0');
     expect(loadConfig().tool_guardrails.enabled).toBe(false);

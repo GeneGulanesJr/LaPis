@@ -104,7 +104,6 @@ export function isCodeFile(filePath: string): boolean {
 
 export const REPO_CACHE_TTL = 5 * 60 * 1000;
 export const AUTO_DECISION_COOLDOWN = 60000;
-export const MEMORY_REMINDER_INTERVAL = 5;
 export const CHECKPOINT_INTERVAL = 10;
 
 export const state = {
@@ -120,8 +119,6 @@ export const state = {
   exploredFiles: new Set<string>(),
   turnCount: 0 as number,
   dreamTriggeredThisSession: false as boolean,
-  lastMemoryToolCall: 0 as number,
-  callsSinceLastMemory: 0 as number,
   lastAutoDecisionSave: 0 as number,
   hasInjectedContext: false as boolean,
   editedFiles: new Set<string>(),

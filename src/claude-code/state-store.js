@@ -49,8 +49,6 @@ function defaultState() {
     exploredFiles: [],
     turnCount: 0,
     dreamTriggeredThisSession: false,
-    lastMemoryToolCall: 0,
-    callsSinceLastMemory: 0,
     lastAutoDecisionSave: 0,
     hasInjectedContext: false,
     pendingRecallFeedback: [],

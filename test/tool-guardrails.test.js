@@ -103,10 +103,10 @@ describe('tool-guardrails: isTargetedSymbolLookup', () => {
 });
 
 describe('tool-guardrails: config toggle', () => {
-  test('tool_guardrails.enabled default is true', () => {
+  test('tool_guardrails.enabled default is false (opt-in)', () => {
     const { DEFAULTS } = require('../config');
     expect(DEFAULTS.tool_guardrails).toBeDefined();
-    expect(DEFAULTS.tool_guardrails.enabled).toBe(true);
+    expect(DEFAULTS.tool_guardrails.enabled).toBe(false);
   });
 });
 

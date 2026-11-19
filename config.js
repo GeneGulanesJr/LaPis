@@ -30,8 +30,10 @@ const path = require('path'),
       min_chars: 2000, // Don't compress output shorter than this
       min_savings_percent: 30, // Don't replace if savings < this %
     },
+    // Opt-in: blocking native Read/Grep/Glob/grep costs agents a turn per block
+    // (models are trained on those tools). Enable with LAPIS_GUARDRAILS=1.
     tool_guardrails: {
-      enabled: true, // Master toggle — set false to disable raw grep/find + unread-file guardrails
+      enabled: false, // Master toggle — set true to block raw grep/find + unread-file reads in indexed repos
     },
     // Claude Code bridge: start a detached background `index-repo` when a hook
     // sees a git repo that is not indexed yet. Override with LAPIS_AUTO_INDEX=0.

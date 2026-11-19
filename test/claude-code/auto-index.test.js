@@ -15,6 +15,13 @@ const fs = require('node:fs'),
   { applyEnvOverrides, DEFAULTS } = require('../../config'),
   ENABLED = { auto_index: { enabled: true } };
 
+// Guardrails are opt-in (off by default); these tests exercise them.
+beforeEach(() => {
+  vi.stubEnv('LAPIS_GUARDRAILS', '1');
+  require('../../config').resetConfigCache();
+});
+afterEach(() => vi.unstubAllEnvs());
+
 let tmp, repo, markerDir;
 
 beforeEach(() => {

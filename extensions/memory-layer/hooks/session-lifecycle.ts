@@ -24,7 +24,6 @@ export function registerSessionStart(pi: ExtensionAPI, deps: SessionDeps) {
     await deps.ensureNativeModules();
     deps.state.currentProject = await deps.detectProject(ctx.cwd);
     deps.state.turnCount = 0;
-    deps.state.lastMemoryToolCall = 0;
     deps.state.lastAutoDecisionSave = 0;
     deps.state.dreamTriggeredThisSession = false;
     deps.state.hasInjectedContext = false;

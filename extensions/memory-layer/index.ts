@@ -9,7 +9,7 @@
 // oxlint-disable sort-imports
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { isCodeFile, state, trustIcon } from './state';
-import { registerBeforeAgentStart, registerContextReminder } from './hooks/context-injection';
+import { registerBeforeAgentStart } from './hooks/context-injection';
 import { registerSessionCompact, registerSessionShutdown, registerSessionStart } from './hooks/session-lifecycle';
 import { mem, memCmd, memStreaming } from './host/memory-client';
 import {
@@ -95,7 +95,6 @@ export default function memoryLayer(pi: ExtensionAPI) {
 
   safeRegister('session-compact hook', registerSessionCompact);
   safeRegister('before-agent-start hook', registerBeforeAgentStart);
-  safeRegister('context-reminder hook', registerContextReminder);
   safeRegister('tool-guardrails hook', registerToolGuardrails);
   // Before output compression: check capture must parse the raw output.
   safeRegister('check-capture hook', registerCheckCapture);
